@@ -1,10 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useRef } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 import { ACTIVITY_LABELS } from '../../../shared/activity';
 import type { AgentKind, SessionInfo, SessionStatus } from '../../../shared/types';
 import type { Backend } from '../backend';
-import { characterFrame } from '../game/characters';
-import { appearanceFor } from '../game/palette';
 import { useStore } from '../store';
+export { Avatar } from './VoxelAvatar';
 
 // ------------------------------------------------------------------ backend
 
@@ -33,22 +32,6 @@ export function useAction() {
     },
     [toast],
   );
-}
-
-// ------------------------------------------------------------------ avatar
-
-/** Portrait du personnage, issu des mêmes sprites que le monde. */
-export function Avatar({ session, scale = 2 }: { session: Pick<SessionInfo, 'seed' | 'role' | 'agent'>; scale?: number }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    const g = c.getContext('2d');
-    if (!g) return;
-    g.clearRect(0, 0, 16, 20);
-    g.drawImage(characterFrame(appearanceFor(session.seed, session.role, session.agent), { dir: 'down', pose: 'stand', frame: 0 }), 0, 0);
-  }, [session.seed, session.role, session.agent]);
-  return <canvas ref={ref} width={16} height={20} className="avatar" style={{ width: 16 * scale, height: 20 * scale }} aria-hidden />;
 }
 
 // ------------------------------------------------------------- statut, badges

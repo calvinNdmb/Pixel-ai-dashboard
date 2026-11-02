@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Backend } from '../backend';
-import { useStore, type Tab } from '../store';
+import { useStore } from '../store';
 import { AgentsPanel } from './AgentsPanel';
 import { ChefPanel } from './ChefPanel';
 import { BackendProvider } from './common';
 import { HelpDialog } from './HelpDialog';
-import { Icon, type IconName } from './icons';
+import { Icon } from './icons';
 import { JournalPanel } from './JournalPanel';
 import { LoginScreen } from './LoginScreen';
 import { NewAgentDialog } from './NewAgentDialog';
 import { PermissionQueue } from './PermissionQueue';
 import { RemoteDialog } from './RemoteDialog';
-import { TopBar } from './TopBar';
+import { ChefOverview } from './ChefOverview';
+import { MissionsPanel } from './MissionsPanel';
+import { VillageDock, VillageHUD } from './VillageHUD';
 import { WorldView } from './WorldView';
 
 function useTheme() {
@@ -28,37 +30,6 @@ function useTheme() {
       applied.current = true;
     }
   }, [theme]);
-}
-
-function Tabs() {
-  const tab = useStore((s) => s.tab);
-  const setTab = useStore((s) => s.setTab);
-  const unread = useStore((s) => s.unreadReports);
-  const agents = useStore((s) => Object.values(s.sessions).filter((x) => x.role !== 'manager' && x.status !== 'ended').length);
-  const tabs: Array<[Tab, string, IconName, number]> = [
-    ['chef', 'Chef', 'hat', unread],
-    ['agents', 'Agents', 'agent', agents],
-    ['journal', 'Journal', 'scroll', 0],
-  ];
-  return (
-    <div className="tabs" role="tablist" aria-label="Sections">
-      {tabs.map(([id, label, icon, count]) => (
-        <button
-          key={id}
-          type="button"
-          role="tab"
-          id={`tab-${id}`}
-          aria-selected={tab === id}
-          aria-controls="side-panel"
-          className={tab === id ? 'on' : ''}
-          onClick={() => setTab(id)}
-        >
-          <Icon name={icon} /> {label}
-          {count ? <span className={`count ${id === 'chef' ? 'count-hot' : ''}`}>{count}</span> : null}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 function Toasts() {
@@ -152,7 +123,36 @@ function useAuthGate(backend: Backend) {
 
 export function App({ backend }: { backend: Backend }) {
   const tab = useStore((s) => s.tab);
+  const panelOpen = useStore((s) => s.panelOpen);
+  const chefChat = useStore((s) => s.chefChat);
+  const setPanelOpen = useStore((s) => s.setPanelOpen);
+  const setChefChat = useStore((s) => s.setChefChat);
+  const panelRef = useRef<HTMLElement>(null);
+  const previousPanel = useRef({ open: panelOpen, tab });
   useTheme();
+  useEffect(() => {
+    const before = previousPanel.current;
+    if (panelOpen && (!before.open || before.tab !== tab)) panelRef.current?.focus({ preventScroll: true });
+    previousPanel.current = { open: panelOpen, tab };
+  }, [panelOpen, tab]);
+  useEffect(() => {
+    const close = (e: globalThis.KeyboardEvent) => {
+      const s = useStore.getState();
+      if (
+        e.key !== 'Escape' ||
+        e.defaultPrevented ||
+        s.newAgentOpen ||
+        s.helpOpen ||
+        s.remoteOpen ||
+        document.querySelector(':popover-open')
+      )
+        return;
+      setPanelOpen(false);
+      document.querySelector<HTMLButtonElement>(`.dock-tile[data-tab="${s.tab}"]`)?.focus();
+    };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [setPanelOpen]);
   const { gate, check } = useAuthGate(backend);
   const ready = gate.state === 'ready';
 
@@ -183,19 +183,67 @@ export function App({ backend }: { backend: Backend }) {
 
   return (
     <BackendProvider value={backend}>
-      <div className="app">
-        <TopBar />
+      <div className={`app village-app ${panelOpen ? 'panel-is-open' : ''}`}>
+        <VillageHUD />
         <ConnectionBanner backend={backend} />
         <main className="stage">
           <WorldView />
-          <aside className="side">
-            <PermissionQueue />
-            <Tabs />
-            <div className="side-panel" id="side-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
-              {tab === 'chef' ? <ChefPanel /> : tab === 'agents' ? <AgentsPanel /> : <JournalPanel />}
-            </div>
+          <aside
+            className={`side village-side ${tab === 'chef' && !chefChat ? 'is-overview' : ''}`}
+            id="side-panel"
+            hidden={!panelOpen}
+            ref={panelRef}
+            tabIndex={-1}
+            aria-label={
+              tab === 'chef'
+                ? 'Le chef du village'
+                : tab === 'missions'
+                  ? 'Les missions'
+                  : tab === 'agents'
+                    ? 'Les agents'
+                    : 'Le journal'
+            }
+          >
+            <button
+              type="button"
+              className="panel-close"
+              title="Fermer le panneau"
+              aria-label="Fermer le panneau"
+              onClick={() => {
+                setPanelOpen(false);
+                document.querySelector<HTMLButtonElement>(`.dock-tile[data-tab="${tab}"]`)?.focus();
+              }}
+            >
+              <Icon name="close" size={12} />
+            </button>
+            {tab === 'chef' && chefChat ? (
+              <button type="button" className="back-to-summary" onClick={() => setChefChat(false)}>
+                <Icon name="back" size={12} /> Le point du chef
+              </button>
+            ) : null}
+            {panelOpen ? (
+              <>
+                {tab === 'missions' || tab === 'journal' || (tab === 'chef' && chefChat) ? <PermissionQueue /> : null}
+                <div className="side-panel">
+                  {tab === 'chef' ? (
+                    chefChat ? (
+                      <ChefPanel />
+                    ) : (
+                      <ChefOverview />
+                    )
+                  ) : tab === 'agents' ? (
+                    <AgentsPanel />
+                  ) : tab === 'missions' ? (
+                    <MissionsPanel />
+                  ) : (
+                    <JournalPanel />
+                  )}
+                </div>
+              </>
+            ) : null}
           </aside>
         </main>
+        <VillageDock />
         <NewAgentDialog />
         <HelpDialog />
         <RemoteDialog />
