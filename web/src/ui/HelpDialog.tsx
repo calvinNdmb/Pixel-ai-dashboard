@@ -3,19 +3,17 @@ import { useStore } from '../store';
 import { Icon } from './icons';
 
 const ZONES: Array<[string, string, string]> = [
-  ['Bureau du Chef', 'en haut à gauche', "Le Chef coordonne : il découpe tes objectifs, recrute et briefe les agents, puis te fait des rapports. Quand il se déplace jusqu'au bureau d'un agent, c'est qu'il lui parle."],
-  ['Postes de travail', 'open space', "Chaque agent a son bureau. Il y réfléchit (bulle « … ») et y code (bulle crayon, écran qui défile)."],
-  ['Bibliothèque', 'en haut', 'Lecture et recherche dans le code : Read, Grep, Glob.'],
-  ['Salle serveurs', 'en haut à droite', 'Commandes shell : Bash (tests, build, git…). Les LED s’affolent quand quelqu’un y travaille.'],
-  ['Coin Web', 'à droite', 'Recherches et pages web (WebSearch, WebFetch) et outils MCP externes.'],
-  ['Tableau de planning', 'au centre', 'Listes de tâches (TodoWrite). Les post-it représentent les missions en cours.'],
-  ['Salle de réunion', 'en bas', 'Délégation à des sous-agents : les stagiaires (casquette) y travaillent, puis repartent.'],
-  ['Salon & arcade', 'en bas', "Les agents disponibles y prennent un café, jouent au babyfoot… ou font la sieste."],
+  ['Maison du chef', 'à gauche', 'Le coordinateur répartit les missions et suit les agents. Le menu Chef réunit ses rapports, les demandes et la discussion.'],
+  ['Atelier du code', 'au fond', 'Les agents y réfléchissent et modifient les fichiers. Leur bulle décrit la véritable activité de la session.'],
+  ['Bibliothèque', 'au fond à gauche', 'Lecture du code, recherche de fichiers et consultation de documentation.'],
+  ['Laboratoire de tests', 'au fond à droite', 'Commandes shell : tests, builds et autres commandes. La position seule ne prouve pas que les tests ont réussi : consulte le journal.'],
+  ['Tableau des missions', 'sur la place', 'Planification et coordination. Le menu Missions affiche les objectifs et les statuts réels, sans pourcentage inventé.'],
+  ['Bancs du village', 'près du chemin', 'Les agents disponibles attendent leur prochaine mission. Un cercle ambre signale une session en attente, un cercle rouge une erreur.'],
 ];
 
 const BUBBLES: Array<[string, string]> = [
-  ['!', 'Lève la main : attend ton feu vert (autorisation). Réponds dans la colonne de droite.'],
-  ['✓', 'Mission ou tour terminé : petite fête, puis direction le salon.'],
+  ['!', 'Demande une autorisation. Ouvre sa fiche pour examiner l’action, puis autorise ou refuse.'],
+  ['✓', 'Le tour est terminé : vérifie le résultat et le rapport dans la fiche.'],
   ['×', 'Une erreur est survenue.'],
   ['…', 'Réfléchit.'],
 ];
@@ -73,20 +71,20 @@ export function HelpDialog() {
           <h3>Qui est qui ?</h3>
           <ul className="plain">
             <li>
-              <strong>Le Chef</strong> (toque blanche) : l’agent coordinateur à qui tu parles dans l’onglet Chef.
+              <strong>Le Chef</strong> (tenue verte) : l’agent coordinateur à qui tu parles dans l’onglet Chef.
             </li>
             <li>
               <strong>Les agents</strong> : sessions lancées par le Chef ou par toi (bouton Recruter), avec Claude Code ou Codex.
             </li>
             <li>
-              <strong>Les agents Codex</strong> : sweat anthracite, étiquette turquoise et badge <span className="badge badge-codex">Codex</span>.
+              <strong>Les agents Codex</strong> : tenue bleu ardoise et badge <span className="badge badge-codex">Codex</span>.
             </li>
             <li>
-              <strong>Les stagiaires</strong> (casquette) : sous-agents lancés par un agent. Ils bossent en salle de réunion puis
+              <strong>Les sous-agents</strong> : lancés par un agent pour une sous-tâche. Ils travaillent près du chef puis
               repartent quand ils ont rendu leur travail.
             </li>
             <li>
-              <strong>Les visiteurs en sweat gris</strong> (nom précédé de «&nbsp;&gt;&nbsp;») : tes sessions ouvertes dans un terminal
+              <strong>Les sessions externes</strong> : tes sessions ouvertes dans un terminal
               ou un IDE. Sans rien installer, le QG les repère en lisant leurs transcripts (badge{' '}
               <span className="badge badge-watch">Observée</span>, lecture seule). Avec les hooks (<code>npm run hooks:install</code>,
               et <code>-- --codex</code> pour Codex), elles deviennent <span className="badge badge-hook">Terminal</span> et se pilotent
@@ -96,7 +94,7 @@ export function HelpDialog() {
           <h3>À distance</h3>
           <ul className="plain">
             <li>
-              <strong>Télécommande</strong> (en haut) : quand elle est active, les demandes d’autorisation et les fins de tour des
+              <strong>Télécommande</strong> (dans les réglages) : quand elle est active, les demandes d’autorisation et les fins de tour des
               sessions terminal attendent ta réponse ici. Tu réponds depuis la fiche de l’agent ; « Rendre la main au terminal »
               libère la session.
             </li>
@@ -108,7 +106,7 @@ export function HelpDialog() {
               <strong>Notifications</strong> : ntfy, Discord ou Slack te préviennent quand un agent t’attend, même dashboard fermé.
             </li>
           </ul>
-          <p className="muted small">Astuce : le chat du QG adore les caresses. Clique dessus.</p>
+          <p className="muted small">Caméra : glisse pour te déplacer, molette ou deux doigts pour zoomer, clic droit ou deux doigts pour tourner. « Vue du monde » révèle la tortue flottante. La pause suspend uniquement les animations ; les sessions continuent. Sans WebGL, le QG 2D prend le relais. Échap ferme le panneau courant.</p>
         </div>
       </div>
     </div>

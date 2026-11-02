@@ -59,7 +59,7 @@ export function TopBar() {
       setNotifOn(p === 'granted');
       toast({
         kind: p === 'granted' ? 'success' : 'warning',
-        text: p === 'granted' ? 'Notifications activées : tu seras prévenu même onglet fermé.' : 'Notifications refusées par le navigateur.',
+        text: p === 'granted' ? 'Notifications activées lorsque le dashboard est ouvert en arrière-plan.' : 'Notifications refusées par le navigateur.',
       });
     } catch {
       toast({ kind: 'warning', text: 'Les notifications ne sont pas disponibles ici.' });
@@ -119,7 +119,7 @@ export function TopBar() {
           type="button"
           className={`icon-btn ${sound ? 'on' : ''}`}
           aria-pressed={sound}
-          title="Sons 8-bit (autorisations, rapports, fins de tour)"
+          title="Sons de notification (autorisations, rapports, fins de tour)"
           onClick={() => setSound(!sound)}
         >
           <Icon name={sound ? 'sound' : 'mute'} />

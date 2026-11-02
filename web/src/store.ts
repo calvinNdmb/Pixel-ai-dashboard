@@ -4,7 +4,7 @@ import { uid } from '../../shared/util';
 import type { ConnStatus } from './backend';
 import { sounds } from './sound';
 
-export type Tab = 'chef' | 'agents' | 'journal';
+export type Tab = 'chef' | 'agents' | 'missions' | 'journal';
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
 export interface Toast {
@@ -36,6 +36,10 @@ interface State {
   newAgentOpen: boolean;
   helpOpen: boolean;
   remoteOpen: boolean;
+  panelOpen: boolean;
+  chefChat: boolean;
+  animationPaused: boolean;
+  overview: boolean;
 
   apply(m: StreamMessage): void;
   setConn(c: ConnStatus): void;
@@ -49,6 +53,10 @@ interface State {
   setNewAgentOpen(v: boolean): void;
   setHelpOpen(v: boolean): void;
   setRemoteOpen(v: boolean): void;
+  setPanelOpen(v: boolean): void;
+  setChefChat(v: boolean): void;
+  setAnimationPaused(v: boolean): void;
+  setOverview(v: boolean): void;
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -88,6 +96,10 @@ export const useStore = create<State>((set, get) => ({
   newAgentOpen: false,
   helpOpen: false,
   remoteOpen: false,
+  panelOpen: true,
+  chefChat: false,
+  animationPaused: false,
+  overview: false,
 
   apply(m) {
     switch (m.type) {
@@ -149,7 +161,7 @@ export const useStore = create<State>((set, get) => ({
         set({
           reports: [...s.reports, m.report],
           lastReportAt: m.report.ts,
-          unreadReports: s.tab === 'chef' ? s.unreadReports : s.unreadReports + 1,
+          unreadReports: s.tab === 'chef' && s.panelOpen ? s.unreadReports : s.unreadReports + 1,
         });
         get().toast({
           kind: m.report.level === 'warning' ? 'warning' : m.report.level === 'success' ? 'success' : 'info',
@@ -177,11 +189,16 @@ export const useStore = create<State>((set, get) => ({
     const session = id ? s.sessions[id] : undefined;
     let tab = s.tab;
     if (opts?.openTab && session) tab = session.role === 'manager' ? 'chef' : 'agents';
-    set({ selectedId: id, tab, unreadReports: tab === 'chef' ? 0 : s.unreadReports });
+    set({
+      selectedId: id,
+      tab,
+      panelOpen: opts?.openTab ? true : s.panelOpen,
+      unreadReports: tab === 'chef' ? 0 : s.unreadReports,
+    });
   },
 
   setTab(tab) {
-    set({ tab, unreadReports: tab === 'chef' ? 0 : get().unreadReports });
+    set({ tab, panelOpen: true, unreadReports: tab === 'chef' ? 0 : get().unreadReports });
   },
 
   toast(t) {
@@ -220,6 +237,18 @@ export const useStore = create<State>((set, get) => ({
 
   setRemoteOpen(v) {
     set({ remoteOpen: v });
+  },
+  setPanelOpen(v) {
+    set({ panelOpen: v });
+  },
+  setChefChat(v) {
+    set({ chefChat: v, panelOpen: true, tab: 'chef', unreadReports: 0 });
+  },
+  setAnimationPaused(v) {
+    set({ animationPaused: v });
+  },
+  setOverview(v) {
+    set({ overview: v });
   },
 }));
 

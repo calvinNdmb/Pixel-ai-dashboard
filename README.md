@@ -1,27 +1,29 @@
 # Pixel AI Dashboard
 
-Le QG pixel art de tes sessions **Claude Code** et **Codex**, en local ou depuis ton
-téléphone. Un agent coordinateur, **le Chef**, découpe tes objectifs en missions,
-recrute des agents, suit leur travail et te fait des rapports. Chaque session est un
-petit personnage qui se déplace dans un bureau en pixel art selon ce qu'il fait.
+Un village 3D pour piloter tes sessions **Claude Code** et **Codex**, sur PC ou
+sur téléphone. Un agent coordinateur, **le Chef**, découpe tes objectifs en missions,
+recrute des agents, suit leur travail et te fait des rapports. Chaque session devient
+un petit personnage qui rejoint un atelier selon son activité réelle.
 
-![Aperçu du QG en mode démo](docs/apercu.png)
+![Le village 3D sur PC, données simulées](docs/village-desktop.png)
 
-- **Tu parles au Chef** (onglet *Chef*) : « Ajoute un mode sombre puis écris les tests du panier ».
-  Il lit le projet, recrute un agent par mission (Claude Code ou Codex), le briefe, le
-  relance si besoin et te remonte des **rapports** (terminé, attention, question…).
-- **Tu vois l'équipe travailler** : la bibliothèque quand un agent lit du code, la salle
-  serveurs quand il lance des commandes, le coin Web pour les recherches, son bureau
-  quand il code, le salon quand il attend une mission. Il lève la main quand il a besoin
-  de ton feu vert. Les sous-agents arrivent en stagiaires (casquette) dans la salle de réunion.
-- **Tu gardes la main** : autoriser / refuser une action, écrire directement à un agent,
-  l'interrompre, l'arrêter, le reprendre plus tard.
-- **Tes sessions terminal apparaissent aussi**, Claude Code comme Codex (sweat gris, nom
-  précédé de `>`) : sans rien installer en lisant leurs transcripts, ou plus précisément
-  avec les hooks.
-- **À distance** : ouvre le QG sur ton téléphone (QR code d'appairage), active la
-  **télécommande** et réponds d'ici aux demandes d'autorisation et aux fins de tour de tes
-  sessions terminal. Notifications ntfy / Discord / Slack en option.
+- **Le Chef** : son panneau rassemble les missions actives, le dernier rapport et
+  les sessions qui demandent ton attention. *Discuter* ouvre la conversation existante.
+- **Le village vivant** : maisons à colombages, forêt cubique, étang, potager,
+  déplacements animés et bulles d'activité. Clique sur un personnage ou son portrait
+  pour retrouver sa fiche, ses fichiers, ses coûts et son journal.
+- **Agents, Missions, Journal, Chef** : quatre accès flottants. Sur PC, une seule
+  fiche s'ouvre à droite ; sur mobile, elle devient un panneau au bas de l'écran.
+- **Tu gardes la main** : examine l'action exacte avant d'autoriser ou de refuser,
+  écris directement à un agent, interromps-le ou reprends sa session.
+- **Tes sessions terminal apparaissent aussi**, Claude Code comme Codex :
+  observation des transcripts, hooks et télécommande existants conservés.
+- **À distance** : appairage par QR code, télécommande et notifications. Tout se
+  retrouve dans les réglages, en haut à droite.
+
+Le rendu est construit en Three.js avec des géométries, portraits et textures
+procéduraux originaux. Sans WebGL2, le QG 2D prend automatiquement le relais.
+[Captures PC/mobile, commandes et limites](docs/VILLAGE_3D.md).
 
 ## Démarrage rapide
 
@@ -83,7 +85,7 @@ pas de questions :
 | Lecture seule | `read-only` |
 | Accès complet (`ALLOW_BYPASS=1`) | `danger-full-access` |
 
-Les agents Codex portent un sweat anthracite et une étiquette turquoise.
+Les agents Codex portent une tenue bleu ardoise et un badge Codex.
 
 ## Tes sessions terminal / IDE
 
@@ -191,7 +193,7 @@ NOTIFY_WEBHOOK=https://discord.com/api/webhooks/…           # ou Slack, ou tou
 Avec `PUBLIC_URL`, toucher la notification ouvre directement la fiche de l'agent.
 Le bouton *Tester* (téléphone → Notifications) vérifie la configuration. Le dashboard
 ouvert dans un onglet peut aussi afficher des notifications du navigateur (cloche) et
-jouer des sons 8-bit.
+jouer des sons de notification.
 
 > Limite : les sessions Claude Code lancées dans le cloud (claude.ai/code) ne tournent pas
 > sur ta machine et n'ont ni transcript local ni hooks joignables : elles n'apparaissent pas.
@@ -276,8 +278,8 @@ Les agents que tu recrutes toi-même peuvent aussi être suivis par le Chef (cas
 ```mermaid
 flowchart LR
   subgraph Navigateur["Navigateur (ordinateur ou téléphone)"]
-    UI[Interface React<br/>Chef · Agents · Journal]
-    W[Monde pixel art<br/>canvas 512×320]
+    UI[Interface React<br/>Chef · Agents · Missions · Journal]
+    W[Village Three.js<br/>repli canvas 2D]
   end
   subgraph Serveur Node
     API[API REST + flux SSE<br/>jeton · appairage]
@@ -308,17 +310,19 @@ shared/            types, état (Hub), correspondance outil → activité, simul
 server/            serveur Express : API, SSE, sécurité, authentification, hooks, télécommande,
                    transcripts, notifications, persistance
 server/agents/     sessions Agent SDK et Codex, Chef + outils MCP, autorisations, traduction des messages
-web/src/game/      moteur pixel art : sprites en code, plan du QG, A*, personnages, décor animé
-web/src/ui/        interface React (panneaux, dialogues, connexion, icônes pixel)
+web/src/village/   scène Three.js, décor instancié, personnages, caméra et navigation
+web/src/game/      ancien QG canvas : repli automatique sans WebGL2
+web/src/ui/        interface React : panneaux parchemin, portraits cubiques, dialogues et connexion
 web/public/        manifeste et icônes de l'appli installable
 hooks/             script relais des hooks Claude Code et Codex
 scripts/           installation / désinstallation des hooks
 docs/              aperçu et prompts de style pour générateur d'images
-tests/             tests (node:test)
+tests/             tests node:test et parcours navigateur Playwright
 ```
 
-Tout le pixel art (personnages, mobilier, icônes, police 3×5) est dessiné en code. La page
-`http://localhost:5173/world.html` affiche le monde seul, utile pour retoucher le décor.
+Le décor 3D et les portraits sont générés en code, sans pack graphique externe.
+La page `http://localhost:5173/world.html` conserve l’ancien monde 2D isolé.
+`http://localhost:5173/?demo&view=2d` permet de vérifier explicitement le repli.
 
 ## Développement
 
@@ -326,6 +330,8 @@ Tout le pixel art (personnages, mobilier, icônes, police 3×5) est dessiné en 
 npm run typecheck   # TypeScript strict
 npm test            # messages SDK et Codex, hooks, télécommande (HTTP compris), appairage,
                     # transcripts, installeur, autorisations, plan du QG, simulateur
+npx playwright install chromium # une fois pour les tests navigateur
+npm run test:ui     # PC + téléphone : SSE simulé, chat, recrutement, permissions, repli 2D
 npm run build:demo  # dist/demo/index.html : la démo en un seul fichier autonome
 ```
 
@@ -339,12 +345,16 @@ spatiale, cyberpunk néon, village, isométrique…) sont dans
 
 L'idée de suivre les sessions par leurs transcripts, sans configuration, et d'animer les
 sous-agents comme des personnages vient de [pixel-agents](https://github.com/pablodelucca/pixel-agents)
-(extension VS Code, licence MIT). Aucun code ni graphisme n'en est repris : tout le pixel
-art d'ici est dessiné en code.
+(extension VS Code, licence MIT). Aucun code ni graphisme n'en est repris.
+
+La direction du village reprend l’esprit de **Pixel-civ** : maisons à colombages,
+végétation en volumes cubiques et interface crème/olive. Les maillages, les textures
+et les portraits de cette branche sont originaux ; aucun asset du dépôt privé
+Pixel-civ n’est redistribué. Three.js est sous licence MIT.
 
 ## Idées pour la suite
 
 - Prendre en charge les questions à choix (`AskUserQuestion`) des agents, à distance comprises.
 - Notifications Web Push natives (sans service tiers).
-- Charger de vraies planches de sprites / tilesets à la place du dessin en code.
-- Zoom sur mobile, plusieurs étages, un étage par machine.
+- Enrichir les bâtiments et les animations de métier.
+- Regrouper les sessions par machine ou par dépôt.
