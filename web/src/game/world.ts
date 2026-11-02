@@ -254,7 +254,8 @@ export class World implements Director {
   }
 
   private assignDesk(actor: Actor): void {
-    if (actor.role === 'manager') return;
+    // Le Chef a son bureau ; les sous-agents (stagiaires) travaillent en salle de réunion.
+    if (actor.role === 'manager' || actor.role === 'subagent') return;
     for (let i = 0; i < DESKS.length; i++) {
       if (!this.deskOwners.has(i)) {
         this.deskOwners.set(i, actor.id);

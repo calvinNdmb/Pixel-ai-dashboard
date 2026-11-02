@@ -1,4 +1,5 @@
 import { existsSync, statSync } from 'node:fs';
+import { homedir, hostname } from 'node:os';
 import path from 'node:path';
 import type { PermissionModeChoice } from '../shared/types';
 
@@ -33,6 +34,30 @@ export interface Config {
   dataDir: string;
   persist: boolean;
   debug: boolean;
+  /** Nom de cette machine (affiché sur les sessions des autres machines). */
+  hostName: string;
+  // --- Codex
+  codexModel?: string;
+  codexPath?: string;
+  codexNetwork: boolean;
+  codexSkipGitCheck: boolean;
+  // --- accès à distance
+  /** `npm run remote` : écoute sur le réseau avec un jeton généré si besoin. */
+  remote: boolean;
+  /** URL publique du dashboard (tunnel, Tailscale…), pour les liens des notifications et le QR code. */
+  publicUrl?: string;
+  remotePermissionWaitMs: number;
+  remoteStopWaitMs: number;
+  /** Mode télécommande actif au démarrage. */
+  remoteModeAtStart: boolean;
+  // --- notifications
+  ntfyUrl?: string;
+  ntfyToken?: string;
+  webhookUrl?: string;
+  // --- lecture des transcripts
+  watchTranscripts: boolean;
+  claudeDir: string;
+  codexDir: string;
 }
 
 export function loadConfig(env = process.env): Config {
@@ -47,8 +72,13 @@ export function loadConfig(env = process.env): Config {
     throw new Error('DEFAULT_PERMISSION_MODE=bypassPermissions exige aussi ALLOW_BYPASS=1');
   }
   const budget = env.MAX_BUDGET_USD ? Number(env.MAX_BUDGET_USD) : undefined;
+  const remote = bool(env.REMOTE);
+  const seconds = (v: string | undefined, fallback: number) => {
+    const n = Number(v);
+    return (Number.isFinite(n) && n > 0 ? n : fallback) * 1000;
+  };
   return {
-    host: env.HOST ?? '127.0.0.1',
+    host: env.HOST ?? (remote ? '0.0.0.0' : '127.0.0.1'),
     port: Number(env.PORT ?? 7495),
     demo: bool(env.DEMO),
     sdkEnabled: !bool(env.DISABLE_SDK),
@@ -67,6 +97,22 @@ export function loadConfig(env = process.env): Config {
     dataDir: resolveDir(env.DATA_DIR, path.resolve('data')),
     persist: !bool(env.NO_PERSIST),
     debug: bool(env.DEBUG),
+    hostName: env.PIXEL_HOSTNAME || hostname(),
+    codexModel: env.CODEX_MODEL || undefined,
+    codexPath: env.CODEX_PATH || undefined,
+    codexNetwork: bool(env.CODEX_NETWORK),
+    codexSkipGitCheck: bool(env.CODEX_SKIP_GIT_CHECK),
+    remote,
+    publicUrl: env.PUBLIC_URL?.replace(/\/+$/, '') || undefined,
+    remotePermissionWaitMs: seconds(env.REMOTE_PERMISSION_WAIT, 600),
+    remoteStopWaitMs: seconds(env.REMOTE_STOP_WAIT, 1800),
+    remoteModeAtStart: bool(env.REMOTE_MODE),
+    ntfyUrl: env.NOTIFY_NTFY || undefined,
+    ntfyToken: env.NOTIFY_NTFY_TOKEN || undefined,
+    webhookUrl: env.NOTIFY_WEBHOOK || undefined,
+    watchTranscripts: env.WATCH_TRANSCRIPTS !== '0' && env.WATCH_TRANSCRIPTS?.toLowerCase() !== 'false',
+    claudeDir: resolveDir(env.CLAUDE_CONFIG_DIR, path.join(homedir(), '.claude')),
+    codexDir: resolveDir(env.CODEX_HOME, path.join(homedir(), '.codex')),
   };
 }
 

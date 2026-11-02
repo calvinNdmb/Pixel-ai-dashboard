@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+import type { Auth } from './auth';
 import type { Config } from './config';
 
 /** Retire le port d'un en-tête Host (gère les adresses IPv6 entre crochets). */
@@ -13,53 +13,58 @@ export function hostnameOf(hostHeader: string): string {
   return colon > 0 ? h.slice(0, colon) : h;
 }
 
-function sameToken(a: string, b: string): boolean {
-  const ba = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ba.length === bb.length && timingSafeEqual(ba, bb);
-}
+/** Routes accessibles sans être connecté (écran de connexion, état). */
+const OPEN_ROUTES = new Set(['/api/health', '/api/auth/status', '/api/auth/login', '/api/auth/pair']);
 
 /**
  * Le dashboard peut lancer des agents capables d'exécuter des commandes : on
- * protège donc l'API contre les requêtes venues d'autres sites.
- * - en-tête Host limité à localhost (+ ALLOWED_HOSTS) → bloque le DNS rebinding ;
- * - en-tête Origin, s'il est présent, limité aux mêmes hôtes → bloque le CSRF ;
- * - jeton optionnel (PIXEL_TOKEN), obligatoire si le serveur écoute hors loopback.
+ * protège l'API contre les requêtes venues d'autres sites.
+ * - Sans jeton (usage local) : en-tête Host limité à localhost (+ ALLOWED_HOSTS),
+ *   ce qui bloque le DNS rebinding.
+ * - Avec jeton (accès à distance) : n'importe quel nom d'hôte (réseau local,
+ *   tunnel…), mais toute l'API exige le jeton ou un appareil appairé.
+ * - Dans les deux cas, l'en-tête Origin doit correspondre au dashboard lui-même.
  */
-export function securityMiddleware(cfg: Config) {
-  const allowed = new Set(['localhost', '127.0.0.1', '[::1]', ...cfg.allowedHosts]);
+export function securityMiddleware(cfg: Config, auth: Auth) {
+  const local = new Set(['localhost', '127.0.0.1', '[::1]', ...cfg.allowedHosts]);
+  let publicHost: string | undefined;
+  try {
+    publicHost = cfg.publicUrl ? new URL(cfg.publicUrl).host.toLowerCase() : undefined;
+  } catch {
+    publicHost = undefined;
+  }
+
+  const originAllowed = (origin: string, req: Request): boolean => {
+    let url: URL;
+    try {
+      url = new URL(origin);
+    } catch {
+      return false;
+    }
+    const originHost = url.host.toLowerCase();
+    const candidates = [req.headers.host, req.headers['x-forwarded-host'], publicHost]
+      .flatMap((h) => (Array.isArray(h) ? h : [h]))
+      .filter((h): h is string => typeof h === 'string')
+      .map((h) => h.split(',')[0]!.trim().toLowerCase());
+    return candidates.includes(originHost) || local.has(url.hostname.toLowerCase());
+  };
+
   return (req: Request, res: Response, next: NextFunction) => {
     const host = hostnameOf(req.headers.host ?? '');
-    if (!allowed.has(host)) {
-      res.status(403).json({ error: `Hôte non autorisé : ${host || '(vide)'} — ajoute-le à ALLOWED_HOSTS` });
+    if (!auth.required && !local.has(host)) {
+      res.status(403).json({
+        error: `Hôte non autorisé : ${host || '(vide)'}. Pour un accès à distance, lance « npm run remote » (ou définis PIXEL_TOKEN).`,
+      });
       return;
     }
     const origin = req.headers.origin;
-    if (origin && origin !== 'null') {
-      let ok = false;
-      try {
-        ok = allowed.has(new URL(origin).hostname.toLowerCase());
-      } catch {
-        ok = false;
-      }
-      if (!ok) {
-        res.status(403).json({ error: 'Origine non autorisée' });
-        return;
-      }
-    } else if (origin === 'null') {
+    if (origin !== undefined && (origin === 'null' || !originAllowed(origin, req))) {
       res.status(403).json({ error: 'Origine non autorisée' });
       return;
     }
-    if (cfg.token && req.path.startsWith('/api/') && req.path !== '/api/health') {
-      const auth = req.headers.authorization;
-      const supplied =
-        (auth?.startsWith('Bearer ') ? auth.slice(7) : undefined) ??
-        (typeof req.query.token === 'string' ? req.query.token : undefined) ??
-        (typeof req.headers['x-pixel-token'] === 'string' ? req.headers['x-pixel-token'] : undefined);
-      if (!supplied || !sameToken(supplied, cfg.token)) {
-        res.status(401).json({ error: 'Jeton manquant ou invalide' });
-        return;
-      }
+    if (req.path.startsWith('/api/') && !OPEN_ROUTES.has(req.path) && !auth.check(req)) {
+      res.status(401).json({ error: 'Connexion requise', auth: true });
+      return;
     }
     next();
   };

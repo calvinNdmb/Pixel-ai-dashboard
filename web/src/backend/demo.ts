@@ -1,4 +1,4 @@
-import { Hub } from '../../../shared/hub';
+import { Hub, makeInfo } from '../../../shared/hub';
 import { Simulator } from '../../../shared/simulator';
 import type { PermissionDecision, SpawnWorkerRequest, StreamMessage } from '../../../shared/types';
 import type { Backend, ConnStatus } from './types';
@@ -6,15 +6,9 @@ import type { Backend, ConnStatus } from './types';
 /** Tout le QG simulé dans le navigateur : aucune clé, aucun serveur. */
 export class DemoBackend implements Backend {
   readonly kind = 'demo' as const;
-  private hub = new Hub({
-    mode: 'demo',
-    version: 'démo',
-    sdkAvailable: false,
-    defaultCwd: '~/projets/boutique',
-    maxWorkers: 6,
-    defaultPermissionMode: 'default',
-    authRequired: false,
-  });
+  private hub = new Hub(
+    makeInfo({ mode: 'demo', version: 'démo', codexAvailable: true, defaultCwd: '~/projets/boutique', hostName: 'macbook-demo', watching: true }),
+  );
   private sim = new Simulator(this.hub);
   private started = false;
 
@@ -52,5 +46,8 @@ export class DemoBackend implements Backend {
   }
   answerPermission(requestId: string, decision: PermissionDecision) {
     return this.sim.answerPermission(requestId, decision);
+  }
+  setRemoteMode(on: boolean) {
+    return this.sim.setRemoteMode(on);
   }
 }

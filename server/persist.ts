@@ -29,7 +29,7 @@ export class Persistence {
           ...(s.status !== 'ended' || s.pending
             ? { status: 'ended' as const, activity: 'leaving' as const, activityLabel: 'Hors ligne (redémarrage)', pending: undefined }
             : {}),
-          resumable: s.source === 'sdk' && s.role === 'worker' && Boolean(s.claudeSessionId),
+          resumable: s.source === 'sdk' && s.role === 'worker' && Boolean(s.agentSessionId),
           focusId: undefined,
           currentTool: undefined,
         }),

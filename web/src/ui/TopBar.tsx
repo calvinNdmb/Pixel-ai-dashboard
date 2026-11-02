@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { formatCost, formatTokens } from '../../../shared/util';
 import { useStore } from '../store';
-import { useBackend } from './common';
+import { useAction, useBackend } from './common';
 import { Icon } from './icons';
 
 function Stat({ label, value, tone }: { label: string; value: string | number; tone?: 'info' | 'warn' | 'good' }) {
@@ -22,8 +22,13 @@ export function TopBar() {
   const theme = useStore((s) => s.theme);
   const setTheme = useStore((s) => s.setTheme);
   const setHelpOpen = useStore((s) => s.setHelpOpen);
+  const setRemoteOpen = useStore((s) => s.setRemoteOpen);
+  const sound = useStore((s) => s.sound);
+  const setSound = useStore((s) => s.setSound);
   const toast = useStore((s) => s.toast);
   const backend = useBackend();
+  const run = useAction();
+  const remoteMode = Boolean(info?.remoteMode);
   const [notifOn, setNotifOn] = useState(() => {
     try {
       return typeof Notification !== 'undefined' && Notification.permission === 'granted';
@@ -69,7 +74,7 @@ export function TopBar() {
         </span>
         <div className="brand-text">
           <h1>Pixel AI Dashboard</h1>
-          <p>Le QG de tes sessions Claude Code</p>
+          <p>Le QG de tes sessions Claude Code et Codex</p>
         </div>
       </div>
 
@@ -86,6 +91,40 @@ export function TopBar() {
           <span className="dot" aria-hidden />
           {demo ? 'Démo' : conn === 'open' ? 'En direct' : conn === 'connecting' ? 'Connexion…' : 'Hors ligne'}
         </span>
+        <button
+          type="button"
+          className={`remote-toggle ${remoteMode ? 'on' : ''}`}
+          aria-pressed={remoteMode}
+          title={
+            remoteMode
+              ? 'Télécommande active : les sessions terminal attendent tes réponses ici. Clique pour couper.'
+              : 'Activer la télécommande : les autorisations et fins de tour des sessions terminal attendront ta réponse ici (idéal depuis ton téléphone).'
+          }
+          onClick={() =>
+            run(
+              () => backend.setRemoteMode(!remoteMode),
+              remoteMode ? 'Télécommande coupée : la main revient aux terminaux.' : 'Télécommande activée : tes sessions terminal t’attendent ici.',
+            )
+          }
+        >
+          <Icon name="remote" />
+          <span className="remote-label">Télécommande</span>
+          <span className="remote-state">{remoteMode ? 'ON' : 'OFF'}</span>
+        </button>
+        <button type="button" className="icon-btn" title="Connecter mon téléphone, notifications" onClick={() => setRemoteOpen(true)}>
+          <Icon name="phone" />
+          <span className="sr-only">Téléphone et notifications</span>
+        </button>
+        <button
+          type="button"
+          className={`icon-btn ${sound ? 'on' : ''}`}
+          aria-pressed={sound}
+          title="Sons 8-bit (autorisations, rapports, fins de tour)"
+          onClick={() => setSound(!sound)}
+        >
+          <Icon name={sound ? 'sound' : 'mute'} />
+          <span className="sr-only">Sons</span>
+        </button>
         <button
           type="button"
           className={`icon-btn ${showNames ? 'on' : ''}`}

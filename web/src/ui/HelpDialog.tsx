@@ -9,7 +9,7 @@ const ZONES: Array<[string, string, string]> = [
   ['Salle serveurs', 'en haut à droite', 'Commandes shell : Bash (tests, build, git…). Les LED s’affolent quand quelqu’un y travaille.'],
   ['Coin Web', 'à droite', 'Recherches et pages web (WebSearch, WebFetch) et outils MCP externes.'],
   ['Tableau de planning', 'au centre', 'Listes de tâches (TodoWrite). Les post-it représentent les missions en cours.'],
-  ['Salle de réunion', 'en bas', 'Délégation à des sous-agents.'],
+  ['Salle de réunion', 'en bas', 'Délégation à des sous-agents : les stagiaires (casquette) y travaillent, puis repartent.'],
   ['Salon & arcade', 'en bas', "Les agents disponibles y prennent un café, jouent au babyfoot… ou font la sieste."],
 ];
 
@@ -46,8 +46,8 @@ export function HelpDialog() {
         </header>
         <div className="help">
           <p>
-            Chaque personnage est une session Claude Code. Sa position dans le QG indique ce qu’il fait, sa bulle précise
-            l’action. Clique sur un personnage pour voir son journal, lui écrire ou l’arrêter.
+            Chaque personnage est une session Claude Code ou Codex. Sa position dans le QG indique ce qu’il fait, sa bulle
+            précise l’action. Clique sur un personnage pour voir son journal, lui écrire ou l’arrêter.
           </p>
           <dl className="legend">
             {ZONES.map(([zone, where, what]) => (
@@ -76,11 +76,36 @@ export function HelpDialog() {
               <strong>Le Chef</strong> (toque blanche) : l’agent coordinateur à qui tu parles dans l’onglet Chef.
             </li>
             <li>
-              <strong>Les agents</strong> : sessions lancées par le Chef ou par toi (bouton Recruter).
+              <strong>Les agents</strong> : sessions lancées par le Chef ou par toi (bouton Recruter), avec Claude Code ou Codex.
             </li>
             <li>
-              <strong>Les visiteurs en sweat gris</strong> (nom précédé de «&nbsp;&gt;&nbsp;») : tes sessions Claude Code ouvertes
-              dans un terminal, observées grâce aux hooks (<code>npm run hooks:install</code>).
+              <strong>Les agents Codex</strong> : sweat anthracite, étiquette turquoise et badge <span className="badge badge-codex">Codex</span>.
+            </li>
+            <li>
+              <strong>Les stagiaires</strong> (casquette) : sous-agents lancés par un agent. Ils bossent en salle de réunion puis
+              repartent quand ils ont rendu leur travail.
+            </li>
+            <li>
+              <strong>Les visiteurs en sweat gris</strong> (nom précédé de «&nbsp;&gt;&nbsp;») : tes sessions ouvertes dans un terminal
+              ou un IDE. Sans rien installer, le QG les repère en lisant leurs transcripts (badge{' '}
+              <span className="badge badge-watch">Observée</span>, lecture seule). Avec les hooks (<code>npm run hooks:install</code>,
+              et <code>-- --codex</code> pour Codex), elles deviennent <span className="badge badge-hook">Terminal</span> et se pilotent
+              à distance.
+            </li>
+          </ul>
+          <h3>À distance</h3>
+          <ul className="plain">
+            <li>
+              <strong>Télécommande</strong> (en haut) : quand elle est active, les demandes d’autorisation et les fins de tour des
+              sessions terminal attendent ta réponse ici. Tu réponds depuis la fiche de l’agent ; « Rendre la main au terminal »
+              libère la session.
+            </li>
+            <li>
+              <strong>Téléphone</strong> : lance le serveur avec <code>npm run remote</code>, ouvre le bouton téléphone et scanne le QR
+              code. Le dashboard s’installe comme une appli (« Ajouter à l’écran d’accueil »).
+            </li>
+            <li>
+              <strong>Notifications</strong> : ntfy, Discord ou Slack te préviennent quand un agent t’attend, même dashboard fermé.
             </li>
           </ul>
           <p className="muted small">Astuce : le chat du QG adore les caresses. Clique dessus.</p>

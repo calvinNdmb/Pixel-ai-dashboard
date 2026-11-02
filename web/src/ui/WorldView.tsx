@@ -43,7 +43,7 @@ export function WorldView() {
           ref={canvasRef}
           className="world-canvas"
           role="img"
-          aria-label="Vue pixel art du QG : chaque personnage est une session Claude Code. Clique sur un personnage pour voir ce qu'il fait."
+          aria-label="Vue pixel art du QG : chaque personnage est une session Claude Code ou Codex. Clique sur un personnage pour voir ce qu'il fait."
         />
       </div>
       <LiveFeed />

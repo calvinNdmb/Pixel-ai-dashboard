@@ -27,14 +27,18 @@ const TOOL_NAMES = [
 const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
 const fail = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true });
 
-function chefPrompt(cfg: Config): string {
+function chefPrompt(cfg: Config, codex: boolean): string {
   return `
 # Ton rôle : « le Chef » du Pixel AI Dashboard
 
 Tu es le Chef, l'agent coordinateur d'un QG en pixel art où chaque session Claude Code est un petit personnage. L'utilisateur te parle depuis le dashboard.
 
 ## Ce que tu fais
-- Tu transformes les demandes de l'utilisateur en missions claires et indépendantes, puis tu recrutes des agents travailleurs avec \`spawn_agent\`. Chaque agent est une session Claude Code complète (lecture, écriture de code, commandes).
+- Tu transformes les demandes de l'utilisateur en missions claires et indépendantes, puis tu recrutes des agents travailleurs avec \`spawn_agent\`. Chaque agent est une session complète d'agent de code (lecture, écriture de code, commandes).${
+    codex
+      ? "\n- Tu peux recruter deux sortes d'agents : Claude Code (par défaut, \`agent: \"claude\"\`) ou Codex (\`agent: \"codex\"\`). Choisis Codex quand l'utilisateur le demande, ou pour obtenir un second avis indépendant. Un agent Codex travaille dans un bac à sable sans te demander d'autorisations."
+      : ''
+  }
 - Tu ne modifies jamais de fichiers et n'exécutes aucune commande toi-même : tu peux seulement lire (Read, Glob, Grep) pour comprendre le projet et écrire de bons briefs.
 - Tu supervises : tu reçois automatiquement des messages « [QG — notification automatique] » quand un agent termine un tour, échoue ou s'arrête. Tu peux aussi consulter l'équipe (\`list_agents\`), relire le journal d'un agent (\`get_agent_log\`), lui donner des consignes (\`message_agent\`), l'interrompre (\`interrupt_agent\`) ou le libérer quand il a fini (\`stop_agent\`).
 - Tu remontes l'information : utilise \`report_to_user\` pour chaque jalon important (mission terminée, problème bloquant, décision à prendre, question). Un rapport = un titre court + un résumé concret : ce qui a été fait, le résultat, les prochaines étapes. Niveaux : info, success, warning, question.
@@ -57,7 +61,7 @@ Tu es le Chef, l'agent coordinateur d'un QG en pixel art où chaque session Clau
  */
 export class Manager {
   private session: ManagedSession | null = null;
-  private claudeSessionId: string | undefined;
+  private agentSessionId: string | undefined;
   private notes: string[] = [];
   private noteTimer: ReturnType<typeof setTimeout> | null = null;
   private followUps = new Map<string, number>();
@@ -93,15 +97,16 @@ export class Manager {
       ...base,
     });
     if (this.hub.snapshot().chat.length === 0) {
+      const who = this.pool.codexAvailable ? 'des agents Claude Code ou Codex' : 'des agents Claude Code';
       this.hub.addChat(
         'manager',
-        "Salut ! Je suis le Chef. Donne-moi un objectif : je le découpe en missions, je recrute des agents Claude Code et je te fais des rapports au fil de l'eau.",
+        `Salut ! Je suis le Chef. Donne-moi un objectif : je le découpe en missions, je recrute ${who} et je te fais des rapports au fil de l'eau.`,
       );
     }
   }
 
-  isClaudeSession(claudeSessionId: string): boolean {
-    return this.claudeSessionId === claudeSessionId;
+  isAgentSession(agentSessionId: string): boolean {
+    return this.agentSessionId === agentSessionId;
   }
 
   get alive(): boolean {
@@ -138,7 +143,14 @@ export class Manager {
               .map((s) => ({
                 id: s.id,
                 nom: s.name,
-                type: s.source === 'hook' ? 'session terminal (lecture seule)' : 'agent',
+                type:
+                  s.role === 'subagent'
+                    ? 'sous-agent'
+                    : s.source === 'hook' || s.source === 'watch'
+                      ? 'session terminal (lecture seule)'
+                      : 'agent',
+                outil: s.agent,
+                machine: s.host,
                 statut: s.status,
                 action: s.activityLabel,
                 mission: truncate(s.task, 240),
@@ -162,11 +174,16 @@ export class Manager {
             permission_mode: z
               .enum(['default', 'acceptEdits', 'plan'])
               .optional()
-              .describe("Mode d'autorisation : default (demande pour les actions sensibles), acceptEdits (éditions auto), plan (propose un plan d'abord)."),
+              .describe("Mode d'autorisation : default (demande pour les actions sensibles), acceptEdits (éditions auto), plan (propose un plan d'abord / lecture seule pour Codex)."),
+            agent: z
+              .enum(['claude', 'codex'])
+              .optional()
+              .describe(pool.codexAvailable ? "Outil de l'agent : claude (défaut) ou codex." : 'Seul claude est disponible sur ce serveur.'),
           },
           async (args) => {
             try {
               const s = pool.spawn({
+                agent: args.agent,
                 task: args.task,
                 name: args.name,
                 cwd: args.cwd,
@@ -280,13 +297,13 @@ export class Manager {
 
   private start(): ManagedSession {
     this.ensureHubSession();
-    const resume = this.claudeSessionId;
+    const resume = this.agentSessionId;
     const session = new ManagedSession(this.hub, {
       hubId: CHEF_ID,
       cwd: this.cfg.defaultCwd,
       model: this.cfg.managerModel,
       permissionMode: 'default',
-      systemPromptAppend: chefPrompt(this.cfg),
+      systemPromptAppend: chefPrompt(this.cfg, this.pool.codexAvailable),
       tools: ['Read', 'Glob', 'Grep', 'TodoWrite'],
       mcpServers: { pixel: this.buildMcpServer() },
       allowedTools: ['Read', 'Glob', 'Grep', 'TodoWrite', ...TOOL_NAMES.map((n) => `${MANAGER_TOOL_PREFIX}${n}`)],
@@ -300,7 +317,7 @@ export class Manager {
       ...(resume ? { resume } : {}),
       callbacks: {
         onInit: (id) => {
-          this.claudeSessionId = id;
+          this.agentSessionId = id;
           removeHookDuplicates(this.hub, CHEF_ID, id);
         },
         onAssistantText: (text) => this.hub.addChat('manager', text),
@@ -321,7 +338,7 @@ export class Manager {
         if (error) {
           this.hub.addChat('system', `La session du Chef s'est arrêtée : ${truncate(message, 300)}`);
           // Une reprise ratée ne doit pas bloquer les prochains essais.
-          this.claudeSessionId = undefined;
+          this.agentSessionId = undefined;
         }
       },
     });

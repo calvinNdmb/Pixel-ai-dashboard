@@ -66,6 +66,9 @@ test('activités et libellés des outils', () => {
   assert.equal(activityForTool('Agent'), 'delegating');
   assert.equal(activityForTool('OutilInconnu'), 'thinking');
   assert.equal(describeTool('Bash', { command: 'npm test' }), '$ npm test');
+  assert.equal(describeTool('Bash', { command: ['bash', '-lc', 'cargo test'] }), '$ cargo test', 'hooks Codex');
+  assert.equal(describeTool('apply_patch', { command: '*** Begin Patch\n*** Update File: src/main.rs\n@@\n*** End Patch' }), 'Modifie main.rs');
+  assert.equal(activityForTool('apply_patch'), 'writing');
   assert.equal(describeTool('WebFetch', { url: 'https://example.com/docs' }), 'Consulte example.com');
   assert.equal(describeTool('mcp__pixel__report_to_user', { title: 'Fini' }), 'Rédige un rapport : Fini');
 });

@@ -1,6 +1,7 @@
 import type { Hub } from './hub';
 import type {
   Activity,
+  AgentKind,
   Commands,
   PermissionDecision,
   PermissionRequest,
@@ -25,6 +26,8 @@ interface Step {
   ask?: boolean;
   fail?: string;
   say?: string;
+  /** Lance un sous-agent (« stagiaire ») avec cette description. */
+  sub?: string;
 }
 
 interface Job {
@@ -110,6 +113,7 @@ function buildJob(task: string, followUp = false): Job {
   const steps: Step[] = [{ activity: 'thinking', label: followUp ? 'Relit les consignes' : 'Analyse la mission', ms: 2400 }];
 
   if (kind === 'research') {
+    steps.push({ activity: 'delegating', tool: 'Agent', label: 'Délègue : explorer la documentation', ms: 2200, sub: 'Explorer la documentation' });
     steps.push(
       {
         activity: 'browsing',
@@ -182,6 +186,7 @@ export class Simulator implements Commands {
   private timers = new Set<ReturnType<typeof setTimeout>>();
   private intervals = new Set<ReturnType<typeof setInterval>>();
   private lastUserAction = 0;
+  private holds = new Map<string, (text: string | null) => void>();
   private disposed = false;
   private readonly speed: number;
   private readonly ambient: number;
@@ -213,17 +218,37 @@ export class Simulator implements Commands {
     });
     this.hub.addChat(
       'manager',
-      "Salut ! Je suis le Chef 👨‍🍳 (mode démo : tout est simulé). Donne-moi un objectif, je le découpe en missions, je recrute des agents et je te fais des rapports au fil de l'eau.",
+      "Salut ! Je suis le Chef 👨‍🍳 (mode démo : tout est simulé). Donne-moi un objectif, je le découpe en missions, je recrute des agents (Claude Code ou Codex) et je te fais des rapports au fil de l'eau.",
     );
     this.later(900, () => this.spawn({ task: MISSIONS[0]!, supervised: true }, this.chefId));
     this.later(2600, () => this.spawn({ task: MISSIONS[2]!, supervised: true }, this.chefId));
-    this.later(4300, () => this.spawn({ task: MISSIONS[4]!, supervised: true }, this.chefId));
-    this.later(6000, () => this.spawnExternal());
+    this.later(4300, () => this.spawn({ task: MISSIONS[4]!, supervised: true, agent: 'codex' }, this.chefId));
+    this.later(6000, () =>
+      this.spawnExternal({
+        name: 'site-vitrine',
+        agent: 'claude',
+        source: 'hook',
+        cwd: '~/projets/site-vitrine',
+        tasks: ['Ajuste le footer', 'Ajoute une page contact', 'Corrige les liens cassés', 'Compresse les images'],
+      }),
+    );
+    this.later(8500, () =>
+      this.spawnExternal({
+        name: 'api-meteo',
+        agent: 'codex',
+        source: 'watch',
+        cwd: '~/projets/api-meteo',
+        host: 'mac-mini',
+        tasks: ['Ajoute un cache sur /forecast', 'Écris les tests du parseur', 'Mets à jour la doc OpenAPI'],
+      }),
+    );
     this.every(16000, () => this.director());
   }
 
   dispose(): void {
     this.disposed = true;
+    for (const resolve of this.holds.values()) resolve(null);
+    this.holds.clear();
     for (const t of this.timers) clearTimeout(t);
     for (const i of this.intervals) clearInterval(i);
     for (const r of this.runs.values()) r.cancel();
@@ -298,19 +323,21 @@ export class Simulator implements Commands {
 
   private spawn(req: SpawnWorkerRequest, parentId?: string): SessionInfo {
     const name = req.name?.trim() || pickName(this.hub.listSessions().map((s) => s.name));
+    const agent: AgentKind = req.agent === 'codex' ? 'codex' : 'claude';
     const s = this.hub.createSession({
       name,
       role: 'worker',
       source: 'demo',
+      agent,
       status: 'starting',
       activity: 'thinking',
       activityLabel: 'Arrive au QG',
       task: req.task,
       controllable: true,
       supervised: req.supervised ?? true,
-      model: req.model || pick(['sonnet', 'sonnet', 'opus', 'haiku']),
+      model: req.model || (agent === 'codex' ? 'codex' : pick(['sonnet', 'sonnet', 'opus', 'haiku'])),
       cwd: req.cwd || '~/projets/boutique',
-      permissionMode: req.permissionMode ?? 'default',
+      permissionMode: agent === 'codex' ? (req.permissionMode === 'plan' ? 'read-only' : 'workspace-write') : (req.permissionMode ?? 'default'),
       ...(parentId ? { parentId } : {}),
     });
     this.hub.addEvent(s.id, 'prompt', req.task);
@@ -322,28 +349,102 @@ export class Simulator implements Commands {
     return s;
   }
 
-  private spawnExternal(): void {
+  private spawnExternal(opts: { name: string; agent: AgentKind; source: 'hook' | 'watch'; cwd: string; host?: string; tasks: string[] }): void {
     const s = this.hub.createSession({
-      name: 'site-vitrine',
+      name: opts.name,
       role: 'external',
-      source: 'hook',
+      source: opts.source,
+      agent: opts.agent,
       status: 'idle',
       activity: 'idle',
       activityLabel: 'Session terminal',
-      task: 'Session Claude Code ouverte dans ton terminal',
+      task: `Session ${opts.agent === 'codex' ? 'Codex' : 'Claude Code'} ouverte dans un terminal`,
       controllable: false,
-      model: 'sonnet',
-      cwd: '~/projets/site-vitrine',
+      model: opts.agent === 'codex' ? 'codex' : 'sonnet',
+      cwd: opts.cwd,
+      ...(opts.host ? { host: opts.host } : {}),
     });
-    this.hub.addEvent(s.id, 'system', 'Session détectée via les hooks Claude Code');
-    const loop = () => {
+    this.hub.addEvent(
+      s.id,
+      'system',
+      opts.source === 'hook'
+        ? `Session ${opts.agent === 'codex' ? 'Codex' : 'Claude Code'} détectée via les hooks`
+        : `Session ${opts.agent === 'codex' ? 'Codex' : 'Claude Code'} repérée via son transcript${opts.host ? ` sur ${opts.host}` : ''}`,
+    );
+    const loop = async (prompt?: string) => {
       const current = this.hub.getSession(s.id);
-      if (!current || current.status === 'ended') return;
-      const task = pick(['Ajuste le footer', 'Ajoute une page contact', 'Corrige les liens cassés', 'Compresse les images']);
-      this.hub.addEvent(s.id, 'prompt', task);
-      void this.runJob(s.id, buildJob(task)).then(() => this.later(rand(9000, 18000), loop));
+      if (!current || current.status === 'ended' || this.disposed) return;
+      const task = prompt ?? pick(opts.tasks);
+      if (!prompt) this.hub.addEvent(s.id, 'prompt', task);
+      await this.runJob(s.id, buildJob(task));
+      // Télécommande : la session hook attend ta prochaine consigne.
+      const reply = opts.source === 'hook' && this.hub.info.remoteMode ? await this.holdForReply(s.id) : null;
+      if (reply) void loop(reply);
+      else this.later(rand(9000, 18000), () => void loop());
     };
-    this.later(3000, loop);
+    this.later(3000, () => void loop());
+  }
+
+  /** Simule le hook Stop retenu par la télécommande. */
+  private holdForReply(id: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      const s = this.hub.getSession(id);
+      if (!s || this.disposed) return resolve(null);
+      const expiresAt = Date.now() + 90_000 / this.speed;
+      this.hub.updateSession(id, {
+        hold: { kind: 'stop', since: Date.now(), expiresAt },
+        status: 'waiting',
+        activity: 'waiting',
+        activityLabel: 'Attend ta prochaine consigne (télécommande)',
+      });
+      this.hub.addEvent(id, 'system', 'Tour terminé — attend ta prochaine consigne depuis le dashboard');
+      const timer = setTimeout(() => this.releaseHold(id, null), 90_000 / this.speed);
+      this.holds.set(id, (text) => {
+        clearTimeout(timer);
+        resolve(text);
+      });
+    });
+  }
+
+  private releaseHold(id: string, text: string | null): boolean {
+    const resolve = this.holds.get(id);
+    if (!resolve) return false;
+    this.holds.delete(id);
+    this.hub.updateSession(id, text ? { hold: undefined, status: 'working', activity: 'thinking', activityLabel: 'Reprend avec ta consigne' } : { hold: undefined, status: 'idle', activity: 'idle', activityLabel: 'Attend ta prochaine demande (terminal)' });
+    if (text) this.hub.addEvent(id, 'prompt', text);
+    else this.hub.addEvent(id, 'system', 'Télécommande : la main revient au terminal');
+    resolve(text);
+    return true;
+  }
+
+  /** Sous-agent (« stagiaire ») : quelques recherches puis il repart. */
+  private spawnSubagent(parentId: string, description: string): void {
+    const parent = this.hub.getSession(parentId);
+    if (!parent) return;
+    const child = this.hub.createSession({
+      name: `${parent.name}·explore`,
+      role: 'subagent',
+      source: 'demo',
+      agent: parent.agent,
+      status: 'working',
+      activity: 'thinking',
+      activityLabel: description,
+      task: description,
+      parentId,
+      controllable: false,
+      cwd: parent.cwd,
+    });
+    this.hub.addEvent(child.id, 'system', `Sous-agent lancé par ${parent.name}`);
+    const steps: Step[] = [
+      { activity: 'reading', tool: 'Glob', label: 'Liste docs/**/*.md', ms: 2200 },
+      { activity: 'browsing', tool: 'WebFetch', label: 'Consulte recharts.org', ms: 3200 },
+      { activity: 'reading', tool: 'Read', label: 'Lit package.json', ms: 2400 },
+    ];
+    void this.runJob(child.id, { steps, summary: 'Notes de lecture transmises.' }).then(() => {
+      if (!this.hub.getSession(child.id)) return;
+      this.hub.updateSession(child.id, { status: 'ended', activity: 'leaving', activityLabel: 'Mission accomplie' });
+      this.later(9000, () => this.hub.removeSession(child.id));
+    });
   }
 
   private async runJob(id: string, job: Job): Promise<void> {
@@ -364,6 +465,7 @@ export class Simulator implements Commands {
       });
       if (step.tool) this.hub.addEvent(id, 'tool', step.label, { tool: step.tool });
       if (step.say) this.hub.addEvent(id, 'text', step.say);
+      if (step.sub) this.spawnSubagent(id, step.sub);
       if (step.file) this.hub.touchFile(id, step.file);
       if (step.ask) {
         const ok = await this.askPermission(id, step);
@@ -447,6 +549,7 @@ export class Simulator implements Commands {
       summary: `Exécuter : ${command}`,
       detail: JSON.stringify({ command, description: 'Lance la suite de vérifications' }, null, 2),
       canAlwaysAllow: s?.source !== 'hook',
+      answerable: s?.source !== 'hook' || this.hub.info.remoteMode,
       createdAt: Date.now(),
     };
     this.hub.updateSession(id, {
@@ -458,7 +561,7 @@ export class Simulator implements Commands {
     this.hub.addEvent(id, 'permission', `Demande d'autorisation : ${req.summary}`, { tool: req.toolName });
     return new Promise((resolve) => {
       if (this.disposed) return resolve(false);
-      const external = s?.source === 'hook';
+      const external = s?.source === 'hook' && !this.hub.info.remoteMode;
       const timer = setTimeout(
         () => this.settlePermission(req.id, true, external ? 'Autorisé dans le terminal' : 'Autorisé automatiquement (démo)'),
         (external ? 9000 : 45000) / this.speed,
@@ -527,7 +630,11 @@ export class Simulator implements Commands {
     if (!fromChef) this.lastUserAction = Date.now();
     if (id === this.chefId) return this.sendToManager(text);
     const s = this.hub.getSession(id);
-    if (!s || !s.controllable) return;
+    if (s && !s.controllable) {
+      if (!this.releaseHold(id, text)) throw new Error("Cette session terminal n'attend pas de consigne : active la télécommande.");
+      return;
+    }
+    if (!s) return;
     this.hub.addEvent(id, 'prompt', text);
     if (this.runs.has(id)) {
       this.hub.addEvent(id, 'text', 'Bien noté, je le prends en compte dès que possible.');
@@ -544,6 +651,7 @@ export class Simulator implements Commands {
       this.setChef('idle', 'Attend tes instructions');
       return;
     }
+    if (this.releaseHold(id, null)) return;
     this.runs.get(id)?.cancel();
     this.runs.delete(id);
     for (const [reqId, p] of this.perms) if (p.sessionId === id) this.settlePermission(reqId, false, 'Demande annulée');
@@ -581,6 +689,12 @@ export class Simulator implements Commands {
     this.runs.get(id)?.cancel();
     this.runs.delete(id);
     this.hub.removeSession(id);
+  }
+
+  async setRemoteMode(on: boolean): Promise<void> {
+    this.lastUserAction = Date.now();
+    this.hub.setInfo({ remoteMode: on });
+    if (!on) for (const id of [...this.holds.keys()]) this.releaseHold(id, null);
   }
 
   async answerPermission(requestId: string, decision: PermissionDecision): Promise<void> {

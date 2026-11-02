@@ -3,7 +3,7 @@ import type { SessionInfo } from '../../../shared/types';
 import { formatCost, truncate } from '../../../shared/util';
 import { sortSessions, useStore } from '../store';
 import { AgentDetail } from './AgentDetail';
-import { Avatar, SourceBadge, StatusChip, activityText, useBackend } from './common';
+import { Avatar, OriginBadges, SourceBadge, StatusChip, activityText, useBackend } from './common';
 import { Icon } from './icons';
 
 type Filter = 'active' | 'all' | 'ended';
@@ -23,10 +23,11 @@ function AgentCard({ s, selected }: { s: SessionInfo; selected: boolean }) {
           <span className="agent-line">
             <strong className="agent-name">{s.name}</strong>
             <SourceBadge session={s} />
+            <OriginBadges session={s} />
             <StatusChip session={s} />
           </span>
           <span className="agent-activity">{activityText(s)}</span>
-          {s.task ? <span className="agent-task">{truncate(s.task, 90)}</span> : null}
+          {s.title || s.task ? <span className="agent-task">{truncate(s.title || s.task || '', 90)}</span> : null}
         </span>
         <span className="agent-meta">
           <span>{formatCost(s.costUsd)}</span>
@@ -71,7 +72,7 @@ export function AgentsPanel() {
           className="btn btn-primary"
           onClick={() => setNewAgentOpen(true)}
           disabled={!canSpawn}
-          title={canSpawn ? 'Lancer une nouvelle session Claude Code' : 'Le SDK Agent est désactivé sur ce serveur'}
+          title={canSpawn ? 'Lancer une nouvelle session Claude Code ou Codex' : 'Le SDK Agent est désactivé sur ce serveur'}
         >
           <Icon name="plus" /> Recruter
         </button>

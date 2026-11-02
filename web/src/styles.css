@@ -24,6 +24,7 @@
   --bad: #f07a72;
   --bad-ink: #2e0d0b;
   --info: #7cbcff;
+  --codex: #5fd4cf;
   --user-bubble: #3b4f8f;
   --focus: #ffd27a;
   --shadow: rgba(5, 3, 15, 0.55);
@@ -57,6 +58,7 @@
     --bad: #c0413c;
     --bad-ink: #fff3f2;
     --info: #2d67b8;
+    --codex: #1d7c78;
     --user-bubble: #d6e1fb;
     --focus: #b8701a;
     --shadow: rgba(80, 56, 20, 0.25);
@@ -87,6 +89,7 @@
   --bad: #c0413c;
   --bad-ink: #fff3f2;
   --info: #2d67b8;
+  --codex: #1d7c78;
   --user-bubble: #d6e1fb;
   --focus: #b8701a;
   --shadow: rgba(80, 56, 20, 0.25);
@@ -116,6 +119,7 @@
   --bad: #f07a72;
   --bad-ink: #2e0d0b;
   --info: #7cbcff;
+  --codex: #5fd4cf;
   --user-bubble: #3b4f8f;
   --focus: #ffd27a;
   --shadow: rgba(5, 3, 15, 0.55);
@@ -215,7 +219,9 @@ code,
   height: 100%;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 12px 14px;
+  /* En appli installée (iOS), la barre d'état recouvre le haut de la page. */
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
   gap: 12px;
 }
 
@@ -379,6 +385,8 @@ code,
 
 .btn,
 .icon-btn,
+.remote-toggle,
+.switch,
 .suggestion,
 .segmented button,
 .tabs button {
@@ -406,6 +414,8 @@ code,
 
 .btn:hover:not(:disabled),
 .icon-btn:hover,
+.remote-toggle:hover,
+.switch:hover,
 .suggestion:hover,
 .segmented button:hover,
 .tabs button:hover {
@@ -995,6 +1005,7 @@ code,
   margin: 0;
   padding: 10px 12px 14px;
   display: grid;
+  align-content: start;
   gap: 10px;
   overflow-y: auto;
   min-height: 0;
@@ -1137,9 +1148,29 @@ code,
 }
 
 .badge-sdk,
-.badge-demo {
+.badge-demo,
+.badge-sub {
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.badge-watch {
+  background: transparent;
+  outline: 1px dashed var(--faint);
+  outline-offset: -1px;
+}
+
+.badge-codex {
+  background: color-mix(in srgb, var(--codex) 18%, transparent);
+  color: var(--codex);
+}
+
+.badge-host {
+  background: transparent;
+  color: var(--faint);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
 }
 
 /* ------------------------------------------------------------------ détail */
@@ -1545,6 +1576,21 @@ textarea:focus {
   color: var(--faint);
 }
 
+.form .form-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.segmented-flush {
+  padding: 2px 2px 4px;
+}
+
+.segmented button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -1619,6 +1665,220 @@ textarea:focus {
   padding-left: 18px;
   display: grid;
   gap: 4px;
+}
+
+/* ------------------------------------------------------------- télécommande */
+
+.remote-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.remote-state {
+  min-width: 28px;
+  padding: 0 4px;
+  font-family: var(--font-data);
+  font-size: 17px;
+  line-height: 18px;
+  text-align: center;
+  background: var(--surface-3);
+  color: var(--faint);
+}
+
+.remote-toggle.on {
+  color: var(--text);
+  background: color-mix(in srgb, var(--good) 16%, var(--surface));
+}
+
+.remote-toggle.on .remote-state {
+  background: var(--good);
+  color: var(--good-ink);
+}
+
+.switch {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.switch-knob {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  background: var(--bg-deep);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.switch-knob::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: var(--faint);
+  transition: transform 120ms steps(3, end);
+}
+
+.switch.on {
+  color: var(--text);
+}
+
+.switch.on .switch-knob {
+  background: color-mix(in srgb, var(--good) 30%, var(--bg-deep));
+}
+
+.switch.on .switch-knob::after {
+  transform: translateX(16px);
+  background: var(--good);
+}
+
+.remote-section {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--line-soft);
+}
+
+.remote-section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.remote-section h3 {
+  margin: 0;
+}
+
+.remote-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.remote-row > div,
+.remote-row > p {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.pairing {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.qr {
+  flex: none;
+  width: 172px;
+  height: 172px;
+  padding: 6px;
+  background: #ffffff;
+  image-rendering: pixelated;
+  box-shadow:
+    0 -2px 0 0 var(--line),
+    0 2px 0 0 var(--line),
+    -2px 0 0 0 var(--line),
+    2px 0 0 0 var(--line);
+}
+
+.pairing-text {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pair-code {
+  font-size: 26px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.break {
+  overflow-wrap: anywhere;
+}
+
+.hold-reply {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--warn) 12%, var(--surface));
+  box-shadow: inset 4px 0 0 0 var(--warn);
+}
+
+.hold-note {
+  margin: 0;
+  font-size: 14px;
+}
+
+.hold-note .icon {
+  color: var(--warn);
+}
+
+/* ------------------------------------------------------------------ connexion */
+
+.login {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px));
+}
+
+.login-card {
+  width: min(400px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  background: var(--surface);
+  box-shadow:
+    0 -2px 0 0 var(--line),
+    0 2px 0 0 var(--line),
+    -2px 0 0 0 var(--line),
+    2px 0 0 0 var(--line),
+    inset 0 2px 0 0 var(--hi);
+}
+
+.login-card h1 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.login-card p {
+  margin: 0;
+}
+
+.login-card label {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.login-card input {
+  font-size: 22px;
+  letter-spacing: 0.08em;
+}
+
+.login-card .btn {
+  margin-top: 4px;
+}
+
+.login-error {
+  color: var(--bad);
+  font-size: 14px;
 }
 
 /* ------------------------------------------------------------------ toasts */
@@ -1728,6 +1988,21 @@ textarea:focus {
 
   .tools {
     margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .remote-label {
+    display: none;
+  }
+
+  .pairing,
+  .remote-row {
+    flex-direction: column;
+  }
+
+  .qr {
+    align-self: center;
   }
 
   .mode {

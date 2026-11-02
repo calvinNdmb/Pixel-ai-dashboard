@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { PermissionModeChoice } from '../../../shared/types';
+import type { AgentKind, PermissionModeChoice } from '../../../shared/types';
 import { useStore } from '../store';
 import { useAction, useBackend } from './common';
 import { Icon } from './icons';
@@ -10,6 +10,16 @@ const MODES: Array<{ value: PermissionModeChoice; label: string; hint: string }>
   { value: 'plan', label: 'Plan d’abord', hint: 'Lit le code et te propose un plan avant de toucher à quoi que ce soit.' },
   { value: 'auto', label: 'Automatique', hint: 'Un classifieur valide les actions sûres et te demande en cas de doute.' },
   { value: 'bypassPermissions', label: 'Sans garde-fou', hint: 'Aucune demande. Seulement si le serveur a ALLOW_BYPASS=1.' },
+];
+
+const CODEX_MODES: Array<{ value: PermissionModeChoice; label: string; hint: string }> = [
+  {
+    value: 'default',
+    label: 'Bac à sable : dossier de travail',
+    hint: 'Codex modifie les fichiers et lance des commandes dans ce dossier, sans accès réseau. Il ne pose pas de questions.',
+  },
+  { value: 'plan', label: 'Lecture seule', hint: 'Codex lit le code et propose, sans rien modifier.' },
+  { value: 'bypassPermissions', label: 'Accès complet', hint: 'Aucun bac à sable. Seulement si le serveur a ALLOW_BYPASS=1.' },
 ];
 
 const MODELS = [
@@ -32,6 +42,8 @@ export function NewAgentDialog() {
   const [model, setModel] = useState('');
   const [mode, setMode] = useState<PermissionModeChoice>('default');
   const [supervised, setSupervised] = useState(true);
+  const [agent, setAgent] = useState<AgentKind>('claude');
+  const codexAvailable = Boolean(info?.codexAvailable);
   const [sending, setSending] = useState(false);
   const firstField = useRef<HTMLTextAreaElement>(null);
 
@@ -61,7 +73,8 @@ export function NewAgentDialog() {
         task: task.trim(),
         ...(name.trim() ? { name: name.trim() } : {}),
         ...(cwd.trim() ? { cwd: cwd.trim() } : {}),
-        ...(model ? { model } : {}),
+        ...(model && agent === 'claude' ? { model } : {}),
+        agent,
         permissionMode: mode,
         supervised,
       });
@@ -76,7 +89,12 @@ export function NewAgentDialog() {
     }
   };
 
-  const modeHint = MODES.find((m) => m.value === mode)?.hint;
+  const modes = agent === 'codex' ? CODEX_MODES : MODES;
+  const modeHint = modes.find((m) => m.value === mode)?.hint;
+  const pickAgent = (a: AgentKind) => {
+    setAgent(a);
+    if (!(a === 'codex' ? CODEX_MODES : MODES).some((m) => m.value === mode)) setMode('default');
+  };
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
@@ -89,6 +107,26 @@ export function NewAgentDialog() {
           </button>
         </header>
         <form className="form" onSubmit={submit}>
+          <span className="form-label" id="na-agent-label">
+            Agent
+          </span>
+          <div className="segmented segmented-flush" role="radiogroup" aria-labelledby="na-agent-label">
+            <button type="button" role="radio" aria-checked={agent === 'claude'} className={agent === 'claude' ? 'on' : ''} onClick={() => pickAgent('claude')}>
+              Claude Code
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={agent === 'codex'}
+              className={agent === 'codex' ? 'on' : ''}
+              onClick={() => pickAgent('codex')}
+              disabled={!codexAvailable}
+              title={codexAvailable ? 'Agent Codex (SDK Codex)' : 'Codex non installé sur le serveur : npm run codex:install'}
+            >
+              Codex
+            </button>
+          </div>
+          {!codexAvailable ? <p className="hint">Pour recruter des agents Codex : <code>npm run codex:install</code> puis <code>codex login</code>.</p> : null}
           <label htmlFor="na-task">Mission</label>
           <textarea
             id="na-task"
@@ -104,22 +142,29 @@ export function NewAgentDialog() {
               <label htmlFor="na-name">Prénom (optionnel)</label>
               <input id="na-name" value={name} maxLength={24} onChange={(e) => setName(e.target.value)} placeholder="Tiré au sort" />
             </div>
-            <div>
-              <label htmlFor="na-model">Modèle</label>
-              <select id="na-model" value={model} onChange={(e) => setModel(e.target.value)}>
-                {MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {agent === 'claude' ? (
+              <div>
+                <label htmlFor="na-model">Modèle</label>
+                <select id="na-model" value={model} onChange={(e) => setModel(e.target.value)}>
+                  {MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <span className="form-label">Modèle</span>
+                <p className="hint">Celui de ta configuration Codex (ou CODEX_MODEL).</p>
+              </div>
+            )}
           </div>
           <label htmlFor="na-cwd">Dossier de travail</label>
           <input id="na-cwd" className="mono" value={cwd} onChange={(e) => setCwd(e.target.value)} placeholder={info?.defaultCwd ?? '.'} />
-          <label htmlFor="na-mode">Autorisations</label>
+          <label htmlFor="na-mode">{agent === 'codex' ? 'Bac à sable' : 'Autorisations'}</label>
           <select id="na-mode" value={mode} onChange={(e) => setMode(e.target.value as PermissionModeChoice)}>
-            {MODES.map((m) => (
+            {modes.map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
               </option>

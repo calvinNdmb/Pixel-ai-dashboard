@@ -79,6 +79,8 @@ export const C = {
   goldDark: '#c08f2a',
 } as const;
 
+import type { AgentKind, Role } from '../../../shared/types';
+
 export interface CharacterPalette {
   hair: string;
   hairShade: string;
@@ -156,7 +158,7 @@ export interface Appearance {
   hair: HairStyle;
 }
 
-export function appearanceFor(seed: number, role: 'manager' | 'worker' | 'external'): Appearance {
+export function appearanceFor(seed: number, role: Role, agent: AgentKind = 'claude'): Appearance {
   const r = seededRandom(seed);
   const pickPair = (list: Array<[string, string]>) => list[Math.floor(r() * list.length) % list.length]!;
   const [skin, skinShade] = pickPair(SKINS);
@@ -169,12 +171,17 @@ export function appearanceFor(seed: number, role: 'manager' | 'worker' | 'extern
     style = 'chef';
     shirt = '#fbf7ef';
     shirtShade = '#d9d0c2';
-  }
-  if (role === 'external') {
-    // Les sessions « terminal » portent un sweat gris : ce sont des visiteurs du QG.
+  } else if (agent === 'codex') {
+    // Les agents Codex portent un sweat anthracite.
+    shirt = '#3a4150';
+    shirtShade = '#272c37';
+  } else if (role === 'external') {
+    // Les sessions « terminal » Claude portent un sweat gris : ce sont des visiteurs du QG.
     shirt = '#7d8597';
     shirtShade = '#636a7a';
   }
+  // Les sous-agents sont les stagiaires du QG : casquette obligatoire.
+  if (role === 'subagent') style = 'cap';
   return {
     hair: style,
     palette: {

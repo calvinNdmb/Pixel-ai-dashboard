@@ -39,7 +39,7 @@ test('system/init renseigne la session Claude', () => {
     { onInit: (sid) => (initId = sid) },
   );
   const s = hub.getSession(id)!;
-  assert.equal(s.claudeSessionId, 'abc-123');
+  assert.equal(s.agentSessionId, 'abc-123');
   assert.equal(s.model, 'modele-test-b');
   assert.equal(s.cwd, '/repo');
   assert.equal(initId, 'abc-123');

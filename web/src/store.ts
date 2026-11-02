@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ChatMessage, Report, ServerInfo, SessionInfo, StreamMessage, TimelineEvent } from '../../shared/types';
 import { uid } from '../../shared/util';
 import type { ConnStatus } from './backend';
+import { sounds } from './sound';
 
 export type Tab = 'chef' | 'agents' | 'journal';
 export type ThemeChoice = 'system' | 'light' | 'dark';
@@ -31,8 +32,10 @@ interface State {
   toasts: Toast[];
   showNames: boolean;
   theme: ThemeChoice;
+  sound: boolean;
   newAgentOpen: boolean;
   helpOpen: boolean;
+  remoteOpen: boolean;
 
   apply(m: StreamMessage): void;
   setConn(c: ConnStatus): void;
@@ -42,8 +45,10 @@ interface State {
   dismissToast(id: string): void;
   setShowNames(v: boolean): void;
   setTheme(t: ThemeChoice): void;
+  setSound(v: boolean): void;
   setNewAgentOpen(v: boolean): void;
   setHelpOpen(v: boolean): void;
+  setRemoteOpen(v: boolean): void;
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -79,8 +84,10 @@ export const useStore = create<State>((set, get) => ({
   toasts: [],
   showNames: load('pixel-show-names', true),
   theme: load<ThemeChoice>('pixel-theme', 'system'),
+  sound: load('pixel-sound', false),
   newAgentOpen: false,
   helpOpen: false,
+  remoteOpen: false,
 
   apply(m) {
     switch (m.type) {
@@ -88,6 +95,7 @@ export const useStore = create<State>((set, get) => ({
         const sessions: Record<string, SessionInfo> = {};
         for (const s of m.sessions) sessions[s.id] = s;
         const last = m.reports[m.reports.length - 1];
+        const firstLoad = !get().ready;
         set({
           info: m.info,
           sessions,
@@ -97,6 +105,12 @@ export const useStore = create<State>((set, get) => ({
           ready: true,
           lastReportAt: Math.max(get().lastReportAt, last?.ts ?? 0),
         });
+        // Lien d'une notification : #agent-<id> ouvre la fiche de l'agent.
+        if (firstLoad) {
+          const hash = typeof location !== 'undefined' ? location.hash : '';
+          const id = hash.startsWith('#agent-') ? decodeURIComponent(hash.slice(7)) : '';
+          if (id && sessions[id]) get().select(id, { openTab: true });
+        }
         break;
       }
       case 'info':
@@ -104,10 +118,16 @@ export const useStore = create<State>((set, get) => ({
         break;
       case 'session': {
         const prev = get().sessions[m.session.id];
-        set({ sessions: { ...get().sessions, [m.session.id]: m.session } });
-        // Nouvelle demande d'autorisation : on prévient.
-        if (m.session.pending && m.session.pending.id !== prev?.pending?.id && m.session.source !== 'hook') {
-          notify(`${m.session.name} attend ton feu vert`, m.session.pending.summary);
+        const s = m.session;
+        set({ sessions: { ...get().sessions, [s.id]: s } });
+        // Quelqu'un a besoin de toi : notification système + carillon.
+        const newAsk = s.pending?.answerable && (s.pending.id !== prev?.pending?.id || !prev?.pending?.answerable);
+        const newHold = Boolean(s.hold) && !prev?.hold;
+        if (newAsk) notify(`${s.name} attend ton feu vert`, s.pending!.summary);
+        if (newHold) notify(`${s.name} attend ta prochaine consigne`, s.lastText ?? 'Tour terminé');
+        if (get().sound && prev) {
+          if (newAsk || newHold) sounds.attention();
+          else if (s.activity === 'done' && prev.activity !== 'done' && s.role !== 'subagent') sounds.done();
         }
         break;
       }
@@ -137,6 +157,7 @@ export const useStore = create<State>((set, get) => ({
           action: { label: 'Lire', tab: 'chef' },
         });
         notify('Rapport du Chef', m.report.title);
+        if (get().sound) sounds.report();
         break;
       }
       case 'chat':
@@ -183,12 +204,22 @@ export const useStore = create<State>((set, get) => ({
     set({ theme });
   },
 
+  setSound(v) {
+    save('pixel-sound', v);
+    if (v) sounds.unlock();
+    set({ sound: v });
+  },
+
   setNewAgentOpen(v) {
     set({ newAgentOpen: v });
   },
 
   setHelpOpen(v) {
     set({ helpOpen: v });
+  },
+
+  setRemoteOpen(v) {
+    set({ remoteOpen: v });
   },
 }));
 

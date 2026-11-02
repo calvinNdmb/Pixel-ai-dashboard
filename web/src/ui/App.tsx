@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Backend } from '../backend';
 import { useStore, type Tab } from '../store';
 import { AgentsPanel } from './AgentsPanel';
@@ -7,8 +7,10 @@ import { BackendProvider } from './common';
 import { HelpDialog } from './HelpDialog';
 import { Icon, type IconName } from './icons';
 import { JournalPanel } from './JournalPanel';
+import { LoginScreen } from './LoginScreen';
 import { NewAgentDialog } from './NewAgentDialog';
 import { PermissionQueue } from './PermissionQueue';
+import { RemoteDialog } from './RemoteDialog';
 import { TopBar } from './TopBar';
 import { WorldView } from './WorldView';
 
@@ -109,18 +111,75 @@ function ConnectionBanner({ backend }: { backend: Backend }) {
   );
 }
 
+type Gate = { state: 'checking' } | { state: 'login'; error: string | null } | { state: 'ready' };
+
+/**
+ * Accès protégé (dashboard ouvert à distance) : vérifie que cet appareil est
+ * connecté avant d'ouvrir le flux, et revient à l'écran de connexion si
+ * l'accès est révoqué en cours de route.
+ */
+function useAuthGate(backend: Backend) {
+  const [gate, setGate] = useState<Gate>(() => (backend.api ? { state: 'checking' } : { state: 'ready' }));
+
+  const check = useCallback(
+    async (error: string | null = null) => {
+      const api = backend.api;
+      if (!api) return setGate({ state: 'ready' });
+      try {
+        const st = await api.authStatus();
+        setGate(st.required && !st.authenticated ? { state: 'login', error } : { state: 'ready' });
+      } catch {
+        // Serveur injoignable : le bandeau de connexion s'en charge.
+        setGate({ state: 'ready' });
+      }
+    },
+    [backend],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const err = backend.prepare ? await backend.prepare() : null;
+      if (!cancelled) await check(err);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [backend, check]);
+
+  return { gate, check };
+}
+
 export function App({ backend }: { backend: Backend }) {
   const tab = useStore((s) => s.tab);
   useTheme();
+  const { gate, check } = useAuthGate(backend);
+  const ready = gate.state === 'ready';
 
-  useEffect(
-    () =>
-      backend.connect({
-        onMessage: (m) => useStore.getState().apply(m),
-        onStatus: (s) => useStore.getState().setConn(s),
-      }),
-    [backend],
-  );
+  useEffect(() => {
+    if (!ready) return;
+    let lastCheck = 0;
+    return backend.connect({
+      onMessage: (m) => useStore.getState().apply(m),
+      onStatus: (s) => {
+        useStore.getState().setConn(s);
+        // Le flux SSE ne donne pas le code HTTP : on vérifie si l'accès a été révoqué.
+        if (s === 'error' && backend.api && Date.now() - lastCheck > 10_000) {
+          lastCheck = Date.now();
+          void check();
+        }
+      },
+    });
+  }, [backend, ready, check]);
+
+  if (gate.state === 'checking') {
+    return (
+      <div className="login">
+        <p className="muted">Connexion au QG…</p>
+      </div>
+    );
+  }
+  if (gate.state === 'login') return <LoginScreen backend={backend} error={gate.error} onDone={() => void check()} />;
 
   return (
     <BackendProvider value={backend}>
@@ -139,6 +198,7 @@ export function App({ backend }: { backend: Backend }) {
         </main>
         <NewAgentDialog />
         <HelpDialog />
+        <RemoteDialog />
         <Toasts />
       </div>
     </BackendProvider>

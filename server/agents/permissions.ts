@@ -38,6 +38,7 @@ export class PermissionBroker {
           summary,
           detail,
           canAlwaysAllow: Boolean(options.suggestions?.length) && !options.suppressAlwaysAllowRule,
+          answerable: true,
           createdAt: Date.now(),
         };
         this.pending.set(req.id, { req, input, suggestions: options.suggestions, resolve });

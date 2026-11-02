@@ -112,7 +112,7 @@ export class Actor {
   constructor(session: SessionInfo, opts: { spawnAtDoor: boolean; now: number }) {
     this.id = session.id;
     this.session = session;
-    this.appearance = appearanceFor(session.seed, session.role);
+    this.appearance = appearanceFor(session.seed, session.role, session.agent);
     this.display = opts.spawnAtDoor ? 'idle' : session.activity;
     this.wanted = session.activity;
     this.displaySince = opts.now - DWELL;
@@ -496,13 +496,14 @@ export class Actor {
     const chefAtDesk = this.role === 'manager' && this.atSpot && this.spot?.id === 'chef-seat';
     if ((opts.names && !chefAtDesk) || opts.selected || opts.hovered) {
       const isChef = this.role === 'manager';
-      const label = isChef ? 'CHEF' : `${this.session.source === 'hook' ? '>' : ''}${shortLabel(this.session.name, 9)}`;
+      const external = this.session.source === 'hook' || this.session.source === 'watch';
+      const label = isChef ? 'CHEF' : `${external ? '>' : ''}${shortLabel(this.session.name, 9)}`;
       const w = textWidth(label) + 4;
       const lx = x - Math.floor(w / 2);
       const ly = Math.round(this.y) + 3;
       ctx.fillStyle = 'rgba(28, 20, 38, 0.78)';
       ctx.fillRect(lx, ly, w, 7);
-      ctx.fillStyle = isChef ? C.gold : this.session.source === 'hook' ? '#9aa0b4' : this.appearance.palette.shirt;
+      ctx.fillStyle = isChef ? C.gold : this.session.agent === 'codex' ? C.teal : external ? '#9aa0b4' : this.appearance.palette.shirt;
       ctx.fillRect(lx, ly + 6, w, 1);
       drawText(ctx, label, lx + 2, ly + 1, isChef ? C.gold : '#fbf7ef');
     }

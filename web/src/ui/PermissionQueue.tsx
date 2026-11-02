@@ -10,9 +10,10 @@ export function PermissionCard({ session: s, compact = false }: { session: Sessi
   const run = useAction();
   const select = useStore((st) => st.select);
   const [busy, setBusy] = useState(false);
+  const remoteMode = useStore((st) => Boolean(st.info?.remoteMode));
   const p = s.pending;
   if (!p) return null;
-  const terminal = s.source === 'hook';
+  const terminal = !p.answerable;
 
   const answer = async (decision: 'allow' | 'always' | 'deny') => {
     setBusy(true);
@@ -44,7 +45,12 @@ export function PermissionCard({ session: s, compact = false }: { session: Sessi
         </details>
       ) : null}
       {terminal ? (
-        <p className="muted small">Session terminal : la question s'affiche dans ton terminal, réponds-y là-bas.</p>
+        <p className="muted small">
+          Session terminal : la question s'affiche dans ton terminal, réponds-y là-bas.
+          {remoteMode || s.source !== 'hook'
+            ? ''
+            : ' Active la télécommande pour que les prochaines demandes attendent ta réponse ici.'}
+        </p>
       ) : (
         <div className="row">
           <button type="button" className="btn btn-good" disabled={busy} onClick={() => answer('allow')}>
@@ -72,7 +78,7 @@ export function PermissionQueue() {
     () =>
       Object.values(sessions)
         .filter((s) => s.pending && s.status !== 'ended')
-        .sort((a, b) => Number(a.source === 'hook') - Number(b.source === 'hook') || (a.pending!.createdAt - b.pending!.createdAt)),
+        .sort((a, b) => Number(!a.pending!.answerable) - Number(!b.pending!.answerable) || a.pending!.createdAt - b.pending!.createdAt),
     [sessions],
   );
   if (!pending.length) return null;

@@ -58,7 +58,7 @@ test('les sessions pilotées par le dashboard sont ignorées (en-tête ou sessio
   const ing = new HookIngestor(hub, (sid) => sid === 'managed-1');
   assert.equal(ing.handle(base('SessionStart', {}, 'x'), { managed: true }).accepted, false);
   assert.equal(ing.handle(base('SessionStart', {}, 'managed-1')).accepted, false);
-  const sdk = hub.createSession({ name: 'Nova', role: 'worker', source: 'sdk', claudeSessionId: 'sdk-9' });
+  const sdk = hub.createSession({ name: 'Nova', role: 'worker', source: 'sdk', agentSessionId: 'sdk-9' });
   assert.equal(ing.handle(base('PreToolUse', { tool_name: 'Read', tool_input: {} }, 'sdk-9')).accepted, false);
   assert.equal(hub.getSession(sdk.id)!.activity, 'idle');
   assert.equal(hub.listSessions().length, 1);
@@ -103,4 +103,65 @@ test('reap() ferme les sessions muettes depuis longtemps', () => {
   ing.handle(base('SessionStart', { source: 'startup' }));
   ing.reap(Date.now() + 4 * 60 * 60 * 1000);
   assert.equal(hub.listSessions()[0]!.status, 'ended');
+});
+
+test('Codex : détecté via le relais, son transcript ou turn_id ; machine distante notée', () => {
+  const hub = makeHub();
+  const ing = new HookIngestor(hub, () => false, 'test-host');
+  ing.handle(base('SessionStart', { pixel_agent: 'codex', pixel_host: 'mac-mini' }, 'c-1', '/home/me/api'));
+  ing.handle(base('UserPromptSubmit', { prompt: 'Go', transcript_path: '/home/me/.codex/sessions/2026/11/02/rollout-x.jsonl' }, 'c-2', '/home/me/cli'));
+  ing.handle(base('UserPromptSubmit', { prompt: 'Go', turn_id: 't-1' }, 'c-3', '/home/me/web'));
+  ing.handle(base('SessionStart', { pixel_agent: 'claude', pixel_host: 'test-host' }, 'k-1', '/home/me/blog'));
+  const byName = Object.fromEntries(hub.listSessions().map((s) => [s.name, s]));
+  assert.equal(byName.api?.agent, 'codex');
+  assert.equal(byName.api?.host, 'mac-mini');
+  assert.equal(byName.cli?.agent, 'codex');
+  assert.equal(byName.web?.agent, 'codex');
+  assert.equal(byName.blog?.agent, 'claude');
+  assert.equal(byName.blog?.host, undefined, 'même machine que le dashboard : pas de badge');
+});
+
+test('commande Codex lisible (sans « bash -lc ») et demande d’autorisation identifiée', () => {
+  const hub = makeHub();
+  const ing = new HookIngestor(hub, () => false);
+  ing.handle(base('PreToolUse', { pixel_agent: 'codex', tool_name: 'shell', tool_input: { command: ['bash', '-lc', 'cargo test'] }, tool_use_id: 'c1' }));
+  const id = hub.listSessions()[0]!.id;
+  assert.equal(hub.getSession(id)!.activity, 'running');
+  assert.equal(hub.getSession(id)!.activityLabel, '$ cargo test');
+  const r = ing.handle(base('PermissionRequest', { tool_name: 'shell', tool_input: { command: ['bash', '-lc', 'rm -rf target'] } }));
+  assert.equal(r.event, 'PermissionRequest');
+  assert.equal(r.sessionId, id);
+  assert.equal(r.requestId, hub.getSession(id)!.pending?.id);
+  assert.equal(hub.getSession(id)!.pending?.answerable, false, 'sans télécommande, on répond dans le terminal');
+});
+
+test('sous-agents : un personnage par agent_id, qui repart quand il a fini', () => {
+  const hub = makeHub();
+  const ing = new HookIngestor(hub, () => false);
+  ing.handle(base('UserPromptSubmit', { prompt: 'Audite le code' }));
+  const parent = hub.listSessions()[0]!;
+  ing.handle(base('SubagentStart', { agent_id: 'a-1', agent_type: 'Explore' }));
+  ing.handle(base('PreToolUse', { agent_id: 'a-1', agent_type: 'Explore', tool_name: 'Grep', tool_input: { pattern: 'TODO' }, tool_use_id: 'g1' }));
+  const child = hub.listSessions().find((s) => s.role === 'subagent')!;
+  assert.ok(child);
+  assert.equal(child.parentId, parent.id);
+  assert.equal(child.name, 'mon-app·Explore');
+  assert.equal(child.activity, 'reading', 'l’outil anime le sous-agent…');
+  assert.notEqual(hub.getSession(parent.id)!.activity, 'reading', '… pas son parent');
+  ing.handle(base('SubagentStop', { agent_id: 'a-1', agent_type: 'Explore', last_assistant_message: '3 TODO trouvés.' }));
+  assert.equal(hub.getSession(child.id)!.status, 'ended');
+  assert.equal(hub.getSession(child.id)!.lastText, '3 TODO trouvés.');
+  ing.handle(base('SubagentStart', { agent_id: 'a-2' }));
+  ing.handle(base('SessionEnd', { reason: 'exit' }));
+  assert.ok(hub.listSessions().filter((s) => s.role === 'subagent').every((s) => s.status === 'ended'), 'fin de session : tout le monde sort');
+});
+
+test('une session repérée par son transcript passe en mode hooks', () => {
+  const hub = makeHub();
+  const s = hub.createSession({ name: 'blog', role: 'external', source: 'watch', agent: 'claude', agentSessionId: 's-1', controllable: false });
+  const ing = new HookIngestor(hub, () => false);
+  const r = ing.handle(base('UserPromptSubmit', { prompt: 'Corrige le RSS' }));
+  assert.equal(r.sessionId, s.id);
+  assert.equal(hub.getSession(s.id)!.source, 'hook');
+  assert.equal(hub.listSessions().length, 1, 'pas de doublon');
 });

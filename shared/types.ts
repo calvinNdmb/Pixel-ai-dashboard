@@ -1,15 +1,19 @@
 // Types partagés entre le serveur, le navigateur et le simulateur de démo.
 
 /** Rôle d'une session dans le QG. */
-export type Role = 'manager' | 'worker' | 'external';
+export type Role = 'manager' | 'worker' | 'external' | 'subagent';
+
+/** Outil qui fait tourner la session. */
+export type AgentKind = 'claude' | 'codex';
 
 /**
  * Origine d'une session :
- * - `sdk`  : lancée et pilotée par le dashboard via le Claude Agent SDK ;
- * - `hook` : session Claude Code lancée ailleurs (terminal, IDE…) et observée via les hooks ;
- * - `demo` : session simulée.
+ * - `sdk`   : lancée et pilotée par le dashboard (Claude Agent SDK ou Codex SDK) ;
+ * - `hook`  : session lancée ailleurs (terminal, IDE…) et suivie via ses hooks ;
+ * - `watch` : session lancée ailleurs et suivie en lisant son transcript (sans hooks) ;
+ * - `demo`  : session simulée.
  */
-export type Source = 'sdk' | 'hook' | 'demo';
+export type Source = 'sdk' | 'hook' | 'watch' | 'demo';
 
 /** Ce que fait le personnage en ce moment : détermine où il va dans le QG. */
 export type Activity =
@@ -40,7 +44,19 @@ export interface PermissionRequest {
   detail?: string;
   /** Une règle « toujours autoriser » est proposée par Claude Code. */
   canAlwaysAllow: boolean;
+  /**
+   * Peut-on répondre depuis le dashboard ? Toujours vrai pour les agents pilotés ;
+   * pour une session terminal, seulement quand le mode télécommande retient la demande.
+   */
+  answerable: boolean;
   createdAt: number;
+}
+
+/** Session terminal retenue par le mode télécommande, en attente de ta prochaine consigne. */
+export interface SessionHold {
+  kind: 'stop';
+  since: number;
+  expiresAt: number;
 }
 
 export interface SessionInfo {
@@ -48,6 +64,14 @@ export interface SessionInfo {
   name: string;
   role: Role;
   source: Source;
+  /** Claude Code ou Codex. */
+  agent: AgentKind;
+  /** Machine qui fait tourner la session (si connue). */
+  host?: string;
+  /** Titre donné par l'outil (ex. titre automatique de Claude Code). */
+  title?: string;
+  /** Mode télécommande : la session attend ta consigne (réponse possible depuis le dashboard). */
+  hold?: SessionHold;
   status: SessionStatus;
   activity: Activity;
   /** Libellé court de l'action en cours : « Lit src/app.ts ». */
@@ -59,8 +83,8 @@ export interface SessionInfo {
   lastText?: string;
   cwd?: string;
   model?: string;
-  /** Identifiant de session Claude Code (session_id). */
-  claudeSessionId?: string;
+  /** Identifiant de la session côté outil (session_id Claude Code, thread Codex). */
+  agentSessionId?: string;
   permissionMode?: string;
   createdAt: number;
   updatedAt: number;
@@ -132,11 +156,24 @@ export interface ServerInfo {
   version: string;
   /** Le SDK Agent est-il utilisable (sinon : observation via hooks uniquement). */
   sdkAvailable: boolean;
+  /** Le SDK Codex est-il installé (agents Codex possibles) ? */
+  codexAvailable: boolean;
   defaultCwd: string;
   maxWorkers: number;
   defaultPermissionMode: PermissionModeChoice;
   /** Un jeton est-il exigé pour l'API ? */
   authRequired: boolean;
+  /**
+   * Mode télécommande : les demandes d'autorisation et les fins de tour des
+   * sessions terminal (hooks) attendent ta réponse dans le dashboard.
+   */
+  remoteMode: boolean;
+  /** Nom de la machine qui héberge le dashboard. */
+  hostName: string;
+  /** Canaux de notification configurés (ntfy, webhook…). */
+  notifyChannels: string[];
+  /** Lecture des transcripts locaux activée (sessions visibles sans hooks). */
+  watching: boolean;
 }
 
 /** Messages poussés en temps réel (SSE) vers le navigateur. */
@@ -158,6 +195,8 @@ export type StreamMessage =
 
 export interface SpawnWorkerRequest {
   task: string;
+  /** Claude Code (défaut) ou Codex. */
+  agent?: AgentKind;
   name?: string;
   cwd?: string;
   model?: string;
@@ -178,4 +217,6 @@ export interface Commands {
   resume(id: string): Promise<void>;
   dismiss(id: string): Promise<void>;
   answerPermission(requestId: string, decision: PermissionDecision, message?: string): Promise<void>;
+  /** Active / coupe le mode télécommande. */
+  setRemoteMode(on: boolean): Promise<void>;
 }

@@ -17,6 +17,24 @@ const MAX_FILES = 20;
 
 type Listener = (msg: StreamMessage) => void;
 
+/** Construit un ServerInfo complet à partir de quelques champs. */
+export function makeInfo(p: Partial<ServerInfo> & Pick<ServerInfo, 'mode'>): ServerInfo {
+  return {
+    version: 'dev',
+    sdkAvailable: false,
+    codexAvailable: false,
+    defaultCwd: '.',
+    maxWorkers: 6,
+    defaultPermissionMode: 'default',
+    authRequired: false,
+    remoteMode: false,
+    hostName: 'local',
+    notifyChannels: [],
+    watching: false,
+    ...p,
+  };
+}
+
 export type NewSession = Pick<SessionInfo, 'name' | 'role' | 'source'> &
   Partial<Omit<SessionInfo, 'name' | 'role' | 'source'>>;
 
@@ -75,8 +93,8 @@ export class Hub {
     return this.sessions.get(id);
   }
 
-  findByClaudeSessionId(claudeSessionId: string): SessionInfo | undefined {
-    for (const s of this.sessions.values()) if (s.claudeSessionId === claudeSessionId) return s;
+  findByAgentSessionId(agentSessionId: string): SessionInfo | undefined {
+    for (const s of this.sessions.values()) if (s.agentSessionId === agentSessionId) return s;
     return undefined;
   }
 
@@ -84,6 +102,7 @@ export class Hub {
     const now = Date.now();
     const id = init.id ?? uid('s_');
     const session: SessionInfo = {
+      agent: 'claude',
       status: 'starting',
       activity: 'idle',
       createdAt: now,

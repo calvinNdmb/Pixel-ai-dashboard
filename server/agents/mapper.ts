@@ -16,11 +16,58 @@ export interface MapperCallbacks {
   /** Fin d'un tour (message `result`). */
   onTurnResult?(result: TurnResult): void;
   /** Message `system/init` reçu : identifiant de session Claude Code connu. */
-  onInit?(claudeSessionId: string): void;
+  onInit?(agentSessionId: string): void;
 }
 
 type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+const SUBAGENT_TOOLS = new Set(['Agent', 'Task']);
+const subKey = (parentId: string, toolUseId: string) => `sub:${parentId}:${toolUseId}`;
+
+/** Crée le personnage d'un sous-agent lancé via l'outil Agent/Task. */
+function startSubagent(hub: Hub, parentId: string, toolUseId: string, input: Rec | undefined): void {
+  const parent = hub.getSession(parentId);
+  if (!parent || hub.findByAgentSessionId(subKey(parentId, toolUseId))) return;
+  const kind = typeof input?.subagent_type === 'string' && input.subagent_type !== 'general-purpose' ? input.subagent_type : 'aide';
+  const description = typeof input?.description === 'string' ? input.description : undefined;
+  const child = hub.createSession({
+    name: `${parent.name}·${kind}`,
+    role: 'subagent',
+    source: parent.source,
+    agent: parent.agent,
+    status: 'working',
+    activity: 'thinking',
+    activityLabel: description ? truncate(description, 60) : 'Sous-agent au travail',
+    task: description ?? `Sous-agent de ${parent.name}`,
+    cwd: parent.cwd,
+    agentSessionId: subKey(parentId, toolUseId),
+    parentId,
+    controllable: false,
+  });
+  hub.addEvent(child.id, 'system', `Sous-agent lancé par ${parent.name}`);
+}
+
+function endSubagent(hub: Hub, parentId: string, toolUseId: string, isError: boolean): void {
+  const child = hub.findByAgentSessionId(subKey(parentId, toolUseId));
+  if (!child || child.status === 'ended') return;
+  hub.updateSession(child.id, {
+    status: 'ended',
+    activity: 'leaving',
+    activityLabel: isError ? 'Sous-agent en échec' : 'Mission accomplie',
+    currentTool: undefined,
+  });
+  hub.addEvent(child.id, isError ? 'error' : 'result', isError ? 'Sous-agent en échec' : 'Sous-agent terminé', { isError });
+}
+
+/** Fin de tour : les sous-agents encore présents quittent le QG. */
+function endAllSubagents(hub: Hub, parentId: string): void {
+  for (const s of hub.listSessions()) {
+    if (s.parentId === parentId && s.role === 'subagent' && s.status !== 'ended') {
+      hub.updateSession(s.id, { status: 'ended', activity: 'leaving', currentTool: undefined });
+    }
+  }
+}
 
 function toolResultText(content: unknown): string {
   if (typeof content === 'string') return content;
@@ -45,7 +92,7 @@ export function applySdkMessage(hub: Hub, sessionId: string, msg: SDKMessage, cb
     case 'system': {
       if (msg.subtype === 'init') {
         hub.updateSession(sessionId, {
-          claudeSessionId: msg.session_id,
+          agentSessionId: msg.session_id,
           model: msg.model,
           cwd: msg.cwd,
           permissionMode: msg.permissionMode,
@@ -64,11 +111,21 @@ export function applySdkMessage(hub: Hub, sessionId: string, msg: SDKMessage, cb
     }
 
     case 'assistant': {
-      // Messages des sous-agents (outil Agent/Task) : on montre juste qu'il délègue.
+      // Messages des sous-agents (outil Agent/Task) : ils animent leur propre personnage.
       if (msg.parent_tool_use_id) {
+        const child = hub.findByAgentSessionId(subKey(sessionId, msg.parent_tool_use_id));
         for (const block of msg.message.content) {
-          if (block.type === 'tool_use') {
-            hub.updateSession(sessionId, { toolUses: (hub.getSession(sessionId)?.toolUses ?? 0) + 1 });
+          if (block.type !== 'tool_use') continue;
+          hub.updateSession(sessionId, { toolUses: (hub.getSession(sessionId)?.toolUses ?? 0) + 1 });
+          if (child && child.status !== 'ended') {
+            const input = isRec(block.input) ? block.input : undefined;
+            hub.updateSession(child.id, {
+              activity: activityForTool(block.name),
+              activityLabel: describeTool(block.name, input),
+              currentTool: block.name,
+              toolUses: (hub.getSession(child.id)?.toolUses ?? 0) + 1,
+            });
+            hub.addEvent(child.id, 'tool', describeTool(block.name, input), { tool: block.name });
           }
         }
         break;
@@ -94,6 +151,7 @@ export function applySdkMessage(hub: Hub, sessionId: string, msg: SDKMessage, cb
           const file = fileForTool(block.name, input);
           if (file) hub.touchFile(sessionId, file);
           hub.addEvent(sessionId, 'tool', label, { tool: block.name });
+          if (SUBAGENT_TOOLS.has(block.name)) startSubagent(hub, sessionId, block.id, input);
         } else if (block.type === 'thinking' || block.type === 'redacted_thinking') {
           if (hub.getSession(sessionId)?.status !== 'waiting') {
             hub.updateSession(sessionId, { status: 'working', activity: 'thinking', activityLabel: 'Réfléchit' });
@@ -114,6 +172,7 @@ export function applySdkMessage(hub: Hub, sessionId: string, msg: SDKMessage, cb
       for (const block of content) {
         if (!isRec(block) || block.type !== 'tool_result') continue;
         sawResult = true;
+        if (typeof block.tool_use_id === 'string') endSubagent(hub, sessionId, block.tool_use_id, Boolean(block.is_error));
         if (block.is_error) {
           hub.addEvent(sessionId, 'error', truncate(toolResultText(block.content) || "L'outil a échoué", 400), { isError: true });
         } else {
@@ -162,6 +221,7 @@ export function applySdkMessage(hub: Hub, sessionId: string, msg: SDKMessage, cb
               : errors.join(' · ') || text || 'erreur pendant l’exécution';
         hub.addEvent(sessionId, 'error', `Tour interrompu : ${truncate(why, 400)}`, { isError: true });
       }
+      endAllSubagents(hub, sessionId);
       cb.onTurnResult?.({ success, text, costUsd: msg.total_cost_usd, errors });
       break;
     }
