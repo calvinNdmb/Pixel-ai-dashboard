@@ -85,6 +85,7 @@
     const cone = new THREE.ConeGeometry(2.6, 9, 6); cone.translate(0, 4.5, 0);
     const ball = new THREE.IcosahedronGeometry(3.2, 0); ball.translate(0, 3.4, 0);
     pines = place(P, cone, 0x2f5f40); rounds = place(Q, ball, 0x4f8a3e);
+    if (R.treesVisible === false) pines.visible = rounds.visible = false;
   }
 
   function placeCamera() {
@@ -150,6 +151,7 @@
     };
     requestAnimationFrame(step);
   };
+  R.setTrees = (v) => { R.treesVisible = v; if (pines) pines.visible = v; if (rounds) rounds.visible = v; R.request(); };
   R.reset = () => { Object.assign(cam, { tx: 0, tz: 0, dist: camera && camera.aspect < 1 ? 1650 : 980, theta: 0.35, phi: 0.92 }); R.request(); };
 
   // Capture d'une vue du lieu, pour l'image d'une fiche

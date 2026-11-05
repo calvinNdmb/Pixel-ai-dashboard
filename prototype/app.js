@@ -18,6 +18,7 @@
     APP.layout();
     APP.renderSidebar();
     APP.views[view].render();
+    APP.shell.sync();
   };
 
   APP.rerender = function () {
@@ -25,6 +26,7 @@
     APP.layout();
     APP.renderSidebar();
     APP.views[U().view].render();
+    APP.shell.sync();
   };
 
   // onglets (haut et bas)
@@ -38,20 +40,6 @@
   // index latéral
   document.getElementById('search').addEventListener('input', APP.renderSidebar);
   document.getElementById('new-entry').addEventListener('click', () => APP.newEntry());
-  document.getElementById('home-btn').addEventListener('click', () => { Object.assign(U(), { entryId: null, editing: false, listMode: false }); APP.go('entries'); });
-  const resetBtn = document.getElementById('reset-btn');
-  let armed = null;
-  resetBtn.addEventListener('click', () => {
-    if (armed) {
-      clearTimeout(armed); armed = null; resetBtn.textContent = 'Réinitialiser la démo';
-      APP.reset();
-      Object.assign(U(), { entryId: null, editing: false, history: [], chapterId: APP.state.chapters[0].id, listMode: false });
-      APP.go('entries'); APP.toast('Démo réinitialisée');
-      return;
-    }
-    resetBtn.textContent = 'Confirmer ?';
-    armed = setTimeout(() => { armed = null; resetBtn.textContent = 'Réinitialiser la démo'; }, 3000);
-  });
 
   // liens auto-générés dans les textes
   document.addEventListener('click', (e) => {

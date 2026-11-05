@@ -3,7 +3,7 @@
   const { h, svg: s } = APP;
   const T = TERRAIN, S = () => APP.state, U = () => APP.ui;
   const WW = T.WW, WH = T.WH;
-  let built = false, fitted = false, pz, stage, vp, gPins, canvas, wrap2d, wrap3d, labels3d, bar, palette, timeline, hint, selected = null, rafPaint = 0, undo = [];
+  let built = false, fitted = false, pz, stage, vp, gPins, gPeaks, canvas, wrap2d, wrap3d, labels3d, bar, dock, timeline, hint, selected = null, rafPaint = 0, undo = [];
   const TOOLS = [['pan', 'Déplacer'], ['raise', 'Relever'], ['lower', 'Creuser'], ['smooth', 'Adoucir'], ['paint', 'Peindre']];
   const tool = () => U().tool || 'pan';
   const mode = () => (U().mapMode === '3d' && R3D.ok ? '3d' : '2d');
@@ -12,13 +12,15 @@
   const years = () => S().entries.filter((e) => e.type === 'evenement' && Number.isFinite(e.year)).map((e) => e.year);
   const yearMax = () => (U().year != null ? U().year : Math.max(...years(), 0));
   function visiblePins() {
-    return S().pins.filter((p) => { const e = APP.entry(p.entryId); return e && !(e.type === 'evenement' && Number.isFinite(e.year) && e.year > yearMax()); });
+    const L = layers();
+    return S().pins.filter((p) => { const e = APP.entry(p.entryId); if (!e) return false; const ev = e.type === 'evenement'; if (ev ? !L.evenements : !L.reperes) return false; return !(ev && Number.isFinite(e.year) && e.year > yearMax()); });
   }
 
-  function repaint() { if (!rafPaint) rafPaint = requestAnimationFrame(() => { rafPaint = 0; T.render2D(canvas); }); }
+  function repaint() { if (!rafPaint) rafPaint = requestAnimationFrame(() => { rafPaint = 0; T.render2D(canvas, drawOpts()); }); }
 
   function drawPins() {
-    gPins.replaceChildren();
+    gPins.replaceChildren(); gPeaks.replaceChildren();
+    if (layers().sommets) for (const pk of T.peaks(4)) gPeaks.append(s('g', { class: 'peak', transform: `translate(${pk.x} ${pk.y})` }, s('path', { d: 'M-7,5 L0,-7 L7,5 Z' }), s('text', { x: 10, y: 4 }, pk.alt.toLocaleString('fr') + ' m')));
     const sc = 1 / Math.sqrt(Math.max(pz ? pz.t.k : 1, 0.3));
     for (const p of visiblePins()) {
       const e = APP.entry(p.entryId), ev = e.type === 'evenement';
@@ -71,30 +73,52 @@
     APP.showPeek(h('div', null, h('h4', null, 'Nouveau repère'), sel, h('div', { class: 'peek-actions' }, h('button', { class: 'btn btn-accent', onclick: () => finish(sel.value) }, 'Placer ici'), h('button', { class: 'btn', onclick: () => { APP.hidePeek(); setPlacing(null); } }, 'Annuler'))), cx, cy);
   }
 
-  // ---------- barre d'outils ----------
+  // ---------- en-tête, calques et dock d'outils ----------
+  const layers = () => (U().layers = U().layers || { forets: true, courbes: true, reperes: true, evenements: true, sommets: true });
+  const LAYERS = [['forets', 'Forêts'], ['courbes', 'Courbes de niveau'], ['reperes', 'Lieux et repères'], ['evenements', 'Événements'], ['sommets', 'Sommets']];
+  const drawOpts = () => ({ trees: layers().forets, contours: layers().courbes });
+  function layersMenu(ev) {
+    ev.stopPropagation();
+    const r = ev.currentTarget.getBoundingClientRect();
+    APP.showPeek(h('div', { class: 'menu' }, h('span', { class: 'menu-label' }, 'Calques'),
+      LAYERS.map(([k, label]) => h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'layer-' + k, checked: layers()[k], onchange: (e) => {
+        layers()[k] = e.target.checked;
+        if (k === 'forets' && R3D.ok) R3D.setTrees(e.target.checked);
+        if (mode() === '2d') T.render2D(canvas, drawOpts());
+        drawPins();
+      } }), label))), r.left + 140, r.bottom - 6);
+  }
   function renderBar() {
     const m = mode();
     const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Vue' },
       h('button', { 'aria-pressed': String(m === '2d'), onclick: () => { U().mapMode = '2d'; APP.views.map.render(); } }, 'Carte 2D'),
       h('button', { 'aria-pressed': String(m === '3d'), disabled: !R3D.ok, title: R3D.ok ? '' : 'WebGL indisponible sur cet appareil', onclick: () => { U().mapMode = '3d'; APP.views.map.render(); } }, 'Relief 3D'));
-    const tools = m === '2d' ? h('div', { class: 'seg tools', role: 'group', 'aria-label': 'Outil' }, TOOLS.map(([id, label]) => h('button', { 'aria-pressed': String(tool() === id), id: 'tool-' + id, onclick: () => { U().tool = id; renderBar(); } }, label))) : null;
-    const size = m === '2d' && tool() !== 'pan' ? h('label', { class: 'size' }, 'Taille', h('input', { type: 'range', id: 'brush-size', min: '10', max: '90', value: String(U().brush || 32), oninput: (e) => (U().brush = +e.target.value) })) : null;
-    const undoBtn = m === '2d' ? h('button', { class: 'btn', id: 'm-undo', disabled: !undo.length, onclick: () => { const snap = undo.pop(); if (!snap) return; const raw = T.raw(); raw.H.set(snap.H); raw.B.set(snap.B); T.version++; T.save(S()); APP.save(); repaint(); renderBar(); } }, 'Annuler') : null;
-    bar.replaceChildren(...[seg, tools, size, undoBtn,
+    const tlOn = U().showTimeline !== false;
+    bar.replaceChildren(...[
+      h('span', { class: 'map-name' }, h('span', { class: 'mn-k' }, 'Carte'), S().world.name),
+      seg,
+      h('button', { class: 'btn', id: 'm-layers', onclick: layersMenu }, 'Calques'),
+      years().length ? h('button', { class: 'btn' + (tlOn ? ' on' : ''), id: 'm-tl', 'aria-pressed': String(tlOn), onclick: () => { U().showTimeline = !tlOn; renderBar(); renderTimeline(); } }, 'Chronologie') : null,
       h('span', { class: 'spacer' }),
       h('button', { class: 'btn', id: 'm-add', onclick: () => { U().placeFor = null; U().mapMode = '2d'; APP.views.map.render(); setPlacing('pin'); } }, '+ Repère'),
       h('button', { class: 'btn btn-accent', id: 'm-event', onclick: () => { U().mapMode = '2d'; APP.views.map.render(); setPlacing('event'); } }, '+ Événement'),
       m === '3d' ? h('button', { class: 'btn', onclick: () => R3D.reset() }, 'Recentrer') : null,
       hint].filter(Boolean));
-    palette.hidden = !(m === '2d' && tool() === 'paint');
-    palette.replaceChildren(...T.BIOMES.map((b, i) => h('button', { class: 'swatch', 'aria-pressed': String((U().biome ?? 3) === i), style: { '--sw': `rgb(${b.color.join(',')})` }, onclick: () => { U().biome = i; renderBar(); } }, h('span', { class: 'sw' }), b.name)));
+    dock.hidden = m !== '2d';
+    if (m === '2d') {
+      const tools = h('div', { class: 'seg tools', role: 'group', 'aria-label': 'Outil' }, TOOLS.map(([id, label]) => h('button', { 'aria-pressed': String(tool() === id), id: 'tool-' + id, onclick: () => { U().tool = id; renderBar(); } }, label)));
+      const size = tool() !== 'pan' ? h('label', { class: 'size' }, 'Taille', h('input', { type: 'range', id: 'brush-size', min: '10', max: '90', value: String(U().brush || 32), oninput: (e) => (U().brush = +e.target.value) })) : null;
+      const undoBtn = h('button', { class: 'btn', id: 'm-undo', disabled: !undo.length, onclick: () => { const snap = undo.pop(); if (!snap) return; const raw = T.raw(); raw.H.set(snap.H); raw.B.set(snap.B); T.version++; T.save(S()); APP.save(); repaint(); renderBar(); } }, 'Annuler');
+      const pal = tool() === 'paint' ? h('div', { class: 'palette' }, T.BIOMES.map((bm, i) => h('button', { class: 'swatch', 'aria-pressed': String((U().biome ?? 3) === i), style: { '--sw': `rgb(${bm.color.join(',')})` }, onclick: () => { U().biome = i; renderBar(); } }, h('span', { class: 'sw' }), bm.name))) : null;
+      dock.replaceChildren(...[pal, h('div', { class: 'dock-row' }, tools, size, undoBtn)].filter(Boolean));
+    }
     stage.classList.toggle('brushing', m === '2d' && tool() !== 'pan');
   }
 
   function renderTimeline() {
     const ys = years();
-    timeline.hidden = !ys.length;
-    if (!ys.length) return;
+    timeline.hidden = !ys.length || U().showTimeline === false;
+    if (timeline.hidden) return;
     const min = Math.min(...ys), max = Math.max(...ys), val = Math.min(max, Math.max(min, yearMax()));
     const n = S().entries.filter((e) => e.type === 'evenement' && Number.isFinite(e.year) && e.year <= val).length;
     timeline.replaceChildren(h('span', { class: 'tl-label' }, 'Chronologie'),
@@ -108,12 +132,12 @@
     wrap2d = h('div', { class: 'map2d' }, canvas);
     labels3d = h('div', { class: 'labels3d' });
     wrap3d = h('div', { class: 'map3d', hidden: true }, labels3d);
-    stage = s('svg', { class: 'stage overlay', id: 'map-stage', role: 'img', 'aria-label': 'Carte du monde avec repères' }, (vp = s('g', null, s('text', { class: 'm-title', x: 30, y: 58 }, S().world.name), (gPins = s('g')))));
+    stage = s('svg', { class: 'stage overlay', id: 'map-stage', role: 'img', 'aria-label': 'Carte du monde avec repères' }, (vp = s('g', null, (gPeaks = s('g')), (gPins = s('g')))));
     hint = h('span', { class: 'place-hint', hidden: true }, '', ' ', h('button', { class: 'link-btn', style: { color: 'inherit', textDecoration: 'underline' }, onclick: () => { U().placeFor = null; setPlacing(null); APP.hidePeek(); } }, 'Annuler'));
     bar = h('div', { class: 'toolbar' });
-    palette = h('div', { class: 'palette', hidden: true });
+    dock = h('div', { class: 'dock' });
     timeline = h('div', { class: 'timeline', hidden: true });
-    root.append(wrap2d, stage, wrap3d, h('div', { class: 'map-ui' }, bar, palette), timeline);
+    root.append(wrap2d, stage, wrap3d, h('div', { class: 'map-ui' }, bar, timeline), dock);
     pz = new APP.PanZoom(stage, vp, {
       min: 0.3, max: 8,
       hit: (e) => { if (tool() !== 'pan' && !U().placing) return '__brush'; const g = e.target.closest && e.target.closest('[data-pin]'); return g ? g.getAttribute('data-pin') : null; },
@@ -132,6 +156,7 @@
       apply();
       canvas.style.transform = `translate(${pz.t.x}px, ${pz.t.y}px) scale(${pz.t.k})`;
       const sc = 1 / Math.sqrt(Math.max(pz.t.k, 0.3));
+      gPeaks.querySelectorAll('.peak').forEach((g) => { const m = /translate\(([^ ]+) ([^)]+)\)/.exec(g.getAttribute('transform')); if (m) g.setAttribute('transform', `translate(${m[1]} ${m[2]}) scale(${sc})`); });
       gPins.querySelectorAll('[data-pin]').forEach((g) => { const p = S().pins.find((x) => x.id === g.getAttribute('data-pin')); if (p) g.setAttribute('transform', `translate(${p.x} ${p.y}) scale(${sc})`); });
     };
     built = true;
@@ -146,7 +171,7 @@
       renderBar(); renderTimeline();
       if (m === '2d') {
         R3D.ok && R3D.unmount();
-        T.render2D(canvas);
+        T.render2D(canvas, drawOpts());
         if (!fitted) { const r = stage.getBoundingClientRect(); pz.fit(r.width < r.height ? { x: 170, y: 150, w: 470, h: 470 } : { x: 0, y: 0, w: WW, h: WH }, 12); fitted = true; }
         else pz.apply();
         if (U().placeFor) setPlacing('pin');

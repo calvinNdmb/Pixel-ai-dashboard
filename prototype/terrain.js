@@ -124,8 +124,8 @@
 
   // ---------- rendu 2D (relief ombré, courbes de niveau, arbres) ----------
   const small = document.createElement('canvas');
-  T.render2D = function (canvas) {
-    const CW = 640, CH = 448, sea = SEA / 255;
+  T.render2D = function (canvas, opts = {}) {
+    const CW = 640, CH = 448, sea = SEA / 255, contours = opts.contours !== false;
     small.width = CW; small.height = CH;
     const sctx = small.getContext('2d'), img = sctx.createImageData(CW, CH), px = img.data;
     const sx = (GW - 1) / CW, sy = (GH - 1) / CH;
@@ -138,7 +138,7 @@
         const dx = T.sample(fx + 0.5, fy) - T.sample(fx - 0.5, fy), dy = T.sample(fx, fy + 0.5) - T.sample(fx, fy - 0.5);
         shade = Math.max(0.72, Math.min(1.22, 1 - (dx + dy) * 9));
         const t = (h - sea) / (1 - sea), fr = (t / 0.055) % 1;
-        if (t > 0.04 && fr < 0.14) shade *= 0.86;
+        if (contours && t > 0.04 && fr < 0.14) shade *= 0.86;
       } else if (sea - h < 0.014) c = c.map((v) => v + (255 - v) * 0.45);
       const o = (y * CW + x) * 4;
       px[o] = c[0] * shade; px[o + 1] = c[1] * shade; px[o + 2] = c[2] * shade; px[o + 3] = 255;
@@ -149,7 +149,7 @@
     ctx.drawImage(small, 0, 0, W, Hh);
     // arbres
     const cw = W / (GW - 1), ch = Hh / (GH - 1);
-    for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+    if (opts.trees !== false) for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
       const b = B[gy * GW + gx];
       if (b !== 3 && b !== 4 && !(b === 5 && hash(gx, gy, 3) > 0.7)) continue;
       if (hash(gx, gy, 4) > 0.8) continue;
@@ -159,6 +159,20 @@
       if (b === 4) { ctx.fillStyle = 'rgb(38,82,58)'; ctx.beginPath(); ctx.moveTo(x, y - s * 1.3); ctx.lineTo(x + s * 0.75, y + s * 0.6); ctx.lineTo(x - s * 0.75, y + s * 0.6); ctx.fill(); }
       else { ctx.fillStyle = b === 5 ? 'rgb(84,104,66)' : 'rgb(58,110,52)'; ctx.beginPath(); ctx.arc(x, y, s * 0.8, 0, 6.283); ctx.fill(); ctx.fillStyle = 'rgba(190,220,140,.35)'; ctx.beginPath(); ctx.arc(x - s * 0.25, y - s * 0.25, s * 0.35, 0, 6.283); ctx.fill(); }
     }
+  };
+  // Sommets : maxima locaux les plus hauts, espacés, avec altitude (même échelle que le serveur MCP)
+  T.peaks = function (n = 4, minDist = 24) {
+    const cand = [];
+    for (let gy = 1; gy < GH - 1; gy++) for (let gx = 1; gx < GW - 1; gx++) {
+      const v = H[gy * GW + gx]; if (v <= SEA + 25) continue;
+      let top = true;
+      for (let dy = -2; dy <= 2 && top; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = gx + dx, yy = gy + dy; if (xx >= 0 && yy >= 0 && xx < GW && yy < GH && H[yy * GW + xx] > v) { top = false; break; } }
+      if (top) cand.push([v, gx, gy]);
+    }
+    cand.sort((a, b) => b[0] - a[0]);
+    const out = [];
+    for (const c of cand) { if (out.every((o) => Math.hypot(o[1] - c[1], o[2] - c[2]) > minDist)) out.push(c); if (out.length >= n) break; }
+    return out.map(([v, gx, gy]) => ({ x: (gx / (GW - 1)) * WW, y: (gy / (GH - 1)) * WH, alt: Math.round(((v / 255 - SEA / 255) / (1 - SEA / 255)) * 1800) }));
   };
   T.raw = () => ({ H, B });
 })();

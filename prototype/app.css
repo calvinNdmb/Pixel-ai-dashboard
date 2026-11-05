@@ -328,3 +328,135 @@ canvas.terrain { position: absolute; left: 0; top: 0; width: 1000px; height: 700
 
 .dl-only { display: none !important; }
 .has-dl .dl-only { display: inline-flex !important; }
+
+/* =========== Mise en page « atelier » : rail, onglets, arborescence, wiki, toile =========== */
+:root { --f-caps: "IM Fell English SC", "IM Fell English", Georgia, serif; --rail: 56px; }
+.topbar { gap: 12px; padding-block: 0; min-height: 52px; }
+.world-switch { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 8px 10px 8px 0; min-width: 0; flex: none; max-width: 260px; text-align: left; }
+.world-switch:hover .brand-name { color: var(--accent); }
+.world-switch .chev { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2; flex: none; }
+.doctabs { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: 2px; align-self: stretch; overflow-x: auto; scrollbar-width: none; padding-top: 8px; }
+.doctabs::-webkit-scrollbar { display: none; }
+.doctab { flex: none; display: inline-flex; align-items: center; gap: 8px; max-width: 200px; border: 1px solid transparent; border-bottom: 0; background: none; border-radius: 9px 9px 0 0; padding: 8px 8px 9px 12px; color: var(--muted); font-size: 14px; }
+.doctab svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; flex: none; }
+.doctab .tl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doctab:hover { color: var(--ink); background: var(--sea-deep); }
+.doctab[aria-selected="true"] { color: var(--ink); background: var(--paper); border-color: var(--rule); box-shadow: inset 0 2px 0 var(--accent); }
+.tab-x { width: 18px; height: 18px; border-radius: 4px; display: grid; place-items: center; font-size: 15px; line-height: 1; color: var(--muted); opacity: .55; }
+.tab-x:hover { background: var(--hl); opacity: 1; color: var(--ink); }
+
+.rail { width: var(--rail); flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0; background: var(--panel); border-right: 1px solid var(--rule); }
+.rail-btn { width: 40px; height: 40px; border-radius: 10px; border: 0; background: none; display: grid; place-items: center; color: var(--muted); }
+.rail-btn svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.rail-btn:hover { background: var(--sea-deep); color: var(--ink); }
+.rail-btn[aria-current="page"] { background: var(--hl); color: var(--accent); }
+.rail-sep { width: 24px; height: 1px; background: var(--rule); margin: 6px 0; }
+
+.sidebar { width: 262px; background: color-mix(in srgb, var(--panel) 70%, var(--paper)); }
+.side-head { padding: 12px 12px 8px; }
+.side-foot { justify-content: stretch; }
+.side-foot .btn { width: 100%; justify-content: center; }
+.thumbs { display: flex; gap: 6px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none; }
+.thumb { flex: none; width: 46px; height: 46px; border-radius: 8px; overflow: hidden; border: 1px solid var(--rule); padding: 0; background: var(--sea-deep); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.side-list { padding: 0 6px 12px; }
+.tree-group { margin-top: 6px; }
+.tree-head { width: 100%; display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 6px 8px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; text-align: left; border-radius: 6px; }
+.tree-head:hover { color: var(--ink); }
+.tree-head .meta { margin-left: auto; letter-spacing: 0; font-weight: 500; }
+.tw { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid currentColor; transition: transform .15s; }
+.tree-group.shut .tw { transform: rotate(-90deg); }
+.tree-item { width: 100%; display: flex; align-items: center; gap: 9px; border: 0; background: none; padding: 6px 8px; border-radius: 7px; text-align: left; font-size: 14px; color: var(--ink); }
+.tree-item.sub { padding-left: 16px; }
+.tree-item svg { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 1.7; flex: none; }
+.tree-item .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-item .meta { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.tree-item:hover { background: var(--sea-deep); }
+.tree-item[aria-current="true"] { background: var(--hl); }
+.tree-item[aria-current="true"] svg { stroke: var(--accent); }
+.ti-thumb { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; flex: none; }
+
+/* menus flottants (monde, calques) */
+.menu { display: grid; gap: 4px; }
+.menu-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 2px 0 4px; }
+.menu input:not([type]) , .menu #world-rename { border: 1px solid var(--rule); background: var(--paper); border-radius: 8px; padding: 8px 10px; font-family: var(--f-display); font-size: 18px; margin-bottom: 6px; width: 100%; box-sizing: border-box; }
+.menu-item { border: 0; background: none; text-align: left; padding: 8px 10px; border-radius: 7px; font-size: 14px; }
+.menu-item:hover { background: var(--sea-deep); }
+.menu-item.danger { color: var(--t-faction); }
+.menu-item.danger[data-armed] { background: var(--t-faction); color: var(--panel); }
+.check { display: flex; align-items: center; gap: 10px; padding: 6px 4px; font-size: 14px; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* ---------- page wiki ---------- */
+.wiki { display: grid; grid-template-columns: minmax(280px, 42%) minmax(0, 1fr); min-height: 100%; }
+.wiki-media { position: sticky; top: 0; height: calc(100vh - 53px); max-height: 100%; align-self: start; background: var(--sea-deep); border-right: 1px solid var(--rule); overflow: hidden; display: flex; flex-direction: column; }
+.wiki-img { flex: 1; min-height: 0; width: 100%; object-fit: cover; display: block; }
+.wiki-ph { flex: 1; display: grid; place-content: center; justify-items: center; gap: 14px; color: var(--muted); font-family: var(--f-body); font-style: italic; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--c) 22%, var(--sea-deep)), var(--sea-deep) 70%); }
+.seal.big { width: 140px; height: 140px; font-size: 64px; }
+.media-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 12px; background: color-mix(in srgb, var(--panel) 92%, transparent); border-top: 1px solid var(--rule); }
+.wiki-doc { min-width: 0; padding-block: 18px 80px; padding-left: clamp(16px, 4vw, 48px); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 820px; box-sizing: border-box; }
+.wiki-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 18px; }
+.crumbs { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.wiki-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.wiki-actions .btn { padding: 5px 10px; font-size: 13px; }
+.wiki-title { font-family: var(--f-caps); font-weight: 400; font-size: clamp(32px, 4.6vw, 52px); letter-spacing: .04em; line-height: 1.02; margin: 0 0 8px; text-wrap: balance; color: var(--ink); }
+.wiki .lead { margin-top: 6px; }
+.wiki-boxes { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 14px; margin: 22px 0 8px; }
+.box { border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; background: color-mix(in srgb, var(--panel) 80%, transparent); min-width: 0; }
+.box h2 { margin: 0 0 8px; font-family: var(--f-caps); font-weight: 400; font-size: 17px; letter-spacing: .06em; color: var(--muted); }
+.toc { margin: 0; padding-left: 20px; display: grid; gap: 3px; font-variant-numeric: tabular-nums; }
+.toc li::marker { color: var(--muted); font-family: var(--f-mono); font-size: 12px; }
+.toc .link-btn { color: var(--ink); font-size: 14px; padding: 1px 0; text-align: left; }
+.toc .link-btn:hover { color: var(--accent); }
+.props { margin: 0; display: grid; gap: 7px; }
+.prop { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.prop dt { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.prop dd { margin: 0; font-size: 14px; min-width: 0; }
+.pills { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+.pills .pill-link { padding: 2px 9px; font-size: 13px; }
+.link-btn.inline { color: var(--accent); padding: 0; font-size: inherit; }
+.wiki-sec { margin-top: 26px; }
+.sec-h { font-family: var(--f-caps); font-weight: 400; font-size: 21px; letter-spacing: .08em; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); scroll-margin-top: 12px; }
+.overview .wiki-title { font-size: clamp(36px, 6vw, 60px); }
+
+/* ---------- toile : plan pointillé et cartes-portraits ---------- */
+.canvas-bg { background: var(--paper); }
+.dot-grid { fill: var(--rule); }
+.g-card rect.card { fill: var(--panel); stroke: var(--c); stroke-width: 1.5; filter: drop-shadow(0 3px 6px rgba(0,0,0,.14)); }
+.g-card rect.portrait { fill: color-mix(in srgb, var(--c) 24%, var(--panel)); }
+.g-card text.initial { font-family: var(--f-display); font-size: 28px; fill: var(--c); text-anchor: middle; dominant-baseline: middle; stroke: none; }
+.g-card text.kind { font-family: var(--f-ui); font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; fill: var(--c); stroke: none; font-weight: 600; text-anchor: middle; }
+.g-card text.name { font-size: 13px; }
+.g-card.sel rect.card { stroke: var(--accent); stroke-width: 3; }
+.g-edge.elbow { stroke-linejoin: round; }
+
+/* ---------- monde : en-tête, dock d'outils, sommets ---------- */
+.map-name { display: inline-flex; align-items: baseline; gap: 8px; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 12px; font-family: var(--f-display); font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.mn-k { font-family: var(--f-ui); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.map-ui .timeline { position: static; align-self: flex-start; width: min(560px, 100%); pointer-events: auto; }
+.dock { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: calc(100% - 24px); }
+.dock-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--rule); border-radius: 14px; padding: 6px; box-shadow: var(--shadow); }
+.dock .seg { border: 0; }
+.dock .palette { align-self: center; justify-content: center; border-radius: 14px; box-shadow: var(--shadow); }
+.dock .size { border: 0; background: none; }
+.peak path { fill: var(--ink); stroke: var(--panel); stroke-width: 1.5; }
+.peak text { font-family: var(--f-mono); font-size: 11px; fill: var(--ink); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+.legend { bottom: 12px; }
+
+@media (max-width: 860px) {
+  .rail, .doctabs { display: none; }
+  .topbar { min-height: 0; padding-block: 6px; }
+  .world-switch { max-width: none; flex: 1; }
+  .sidebar { width: auto; }
+  .wiki { grid-template-columns: minmax(0, 1fr); }
+  .wiki-media { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .wiki-img { aspect-ratio: 16 / 9; height: auto; flex: none; }
+  .wiki-ph { aspect-ratio: 16 / 7; flex: none; }
+  .seal.big { width: 84px; height: 84px; font-size: 40px; }
+  .wiki-doc { padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  .wiki-boxes { grid-template-columns: minmax(0, 1fr); }
+  .prop { grid-template-columns: 92px minmax(0, 1fr); }
+  .dock { bottom: 10px; width: calc(100% - 20px); }
+  .dock-row { padding: 5px; gap: 6px; }
+  .map-name { display: none; }
+}
