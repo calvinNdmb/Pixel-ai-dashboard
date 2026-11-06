@@ -9,7 +9,6 @@ Parts (stl/), each exported in its print orientation, no supports needed:
     PixelNeck.stl        neck (prints upright, 45 deg flare at the top)
     PixelHeadFront.stl   front of the head, holds the screen (prints face-down)
     PixelHeadBack.stl    back of the head (prints back-down)
-    PixelEarLeft.stl / PixelEarRight.stl / PixelEarInner.stl
     ScreenFitTest.stl    thin frame to check the screen size before the big prints
 
     pip install trimesh manifold3d shapely mapbox_earcut numpy scipy
@@ -368,7 +367,7 @@ def build_head():
     # bottom block holding the neck: the socket is split between front and back
     zb_top = cz - sh / 2 - 0.4
     adds.append(slab(-21, 21, f + FRONT_WALL - OVER, f + HEAD_D - HEAD_WALL + OVER, HEAD_Z0 + 0.5, zb_top))
-    # top blocks for the back's tongues, and ear sockets
+    # top blocks for the back's tongues
     zt0 = cz + sh / 2 + 0.4
     for s in (-1, 1):
         adds.append(slab(s * 40 - 5.5, s * 40 + 5.5, f + FRONT_WALL - OVER, f + SPLIT, zt0, HEAD_Z0 + HEAD_H - 0.5))
@@ -382,10 +381,9 @@ def build_head():
     # neck socket (the screen ribbon goes up through the neck)
     cuts.append(ext_xy(oval(NECK_OX + 0.4, NECK_OY + 0.4), HEAD_Z0 - 1, HEAD_Z0 + SOCKET_D + 0.2))
     cuts.append(ext_xy(oval(NECK_OX - 2 * NECK_WALL, NECK_OY - 2 * NECK_WALL), HEAD_Z0, zb_top + 1))
-    # tongue slots (open towards the split face) and ear sockets
+    # tongue slots (open towards the split face)
     for s in (-1, 1):
         cuts.append(slab(s * 40 - 5.2, s * 40 + 5.2, f + SPLIT - 7.0, f + SPLIT + 0.5, zt0 + 1.2, zt0 + 3.2))
-        cuts.append(slab(s * 40 - 4.0, s * 40 + 4.0, f + 4.7, f + 7.3, HEAD_Z0 + HEAD_H - 5.0, HEAD_Z0 + HEAD_H + 1))
     head = D(head, *cuts)
 
     front = I(head, slab(-200, 200, f - 5, f + SPLIT, -10, 400))
@@ -409,20 +407,6 @@ def build_head():
     back = D(back, *jcuts)
     front = D(front, *[cyl(s * JOIN_X, jz, f + 5.0, f + SPLIT + 1, PILOT, axis="y") for s in (-1, 1)])
     return single(front, "PixelHeadFront"), single(back, "PixelHeadBack")
-
-
-def build_ears():
-    ears = []
-    for lean in (-1, 1):
-        tri = Polygon([(-11, 2), (11, 2), (lean * 3.0, 19)]).buffer(3.0, quad_segs=16)
-        ear = ext_xy(tri, 0, 4.0)
-        pocket = Polygon([(-6.5, 5.5), (6.5, 5.5), (lean * 2.0, 15.0)]).buffer(1.2, quad_segs=12)
-        ear = D(ear, ext_xy(pocket, 3.1, 5))
-        tab = ext_xy(box(-3.85, -5.0, 3.85, 0.6), 0.8, 3.2)
-        ears.append(single(U([ear, tab]), "PixelEar"))
-    pocket = Polygon([(-6.5, 5.5), (6.5, 5.5), (0, 15.0)]).buffer(1.05, quad_segs=12)
-    insert = single(ext_xy(pocket, 0, 0.8), "PixelEarInner")
-    return ears, insert
 
 
 def build_fit_test():
@@ -455,13 +439,11 @@ def pose_back_down(m):
 def build_all():
     base, lid, neck = build_base(), build_lid(), build_neck()
     front, back = build_head()
-    (ear_l, ear_r), ear_in = build_ears()
     fit = build_fit_test()
     assembled = dict(PixelBase=base, PixelLid=lid, PixelNeck=neck, PixelHeadFront=front, PixelHeadBack=back)
     printable = {
         "PixelBase": pose_upright(base), "PixelLid": pose_top_down(lid), "PixelNeck": pose_upright(neck),
-        "PixelHeadFront": pose_face_down(front), "PixelHeadBack": pose_back_down(back),
-        "PixelEarLeft": ear_l, "PixelEarRight": ear_r, "PixelEarInner": ear_in, "ScreenFitTest": fit,
+        "PixelHeadFront": pose_face_down(front), "PixelHeadBack": pose_back_down(back), "ScreenFitTest": fit,
     }
     return assembled, printable
 

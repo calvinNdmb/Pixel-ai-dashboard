@@ -20,12 +20,10 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens pour l'impression
 | `PixelNeck.stl` | 52 × 28 × 30 | rose | debout, collerette en bas |
 | `PixelHeadFront.stl` | 124 × 86 × 17 | crème | face avant sur le plateau |
 | `PixelHeadBack.stl` | 120 × 82 × 18 | crème | dos sur le plateau |
-| `PixelEarLeft.stl`, `PixelEarRight.stl` | 28 × 27 × 4 | crème | à plat |
-| `PixelEarInner.stl` (×2) | 15 × 12 × 0,8 | rose | à plat |
 
 - PLA ou PETG, buse 0,4 mm, couches de 0,2 mm, 3 parois, 15 % de remplissage.
-- Il faut un plateau d'au moins **180 × 180 mm**. Compte environ **250 g** de filament en tout.
-- Les seules surfaces en surplomb sont de petits ponts (fentes d'aération, prise USB-C, logements des oreilles et des patins) et des marches de 0,75 mm.
+- Il faut un plateau d'au moins **180 × 180 mm**. Compte environ **245 g** de filament en tout.
+- Les seules surfaces en surplomb sont de petits ponts (fentes d'aération, prise USB-C, logements des patins) et des marches de 0,75 mm.
 
 ### D'abord : le cadre de test de l'écran
 
@@ -62,7 +60,7 @@ Les cotes de l'écran (106 × 68 × 14,05 mm) viennent de fiches revendeurs. Imp
 1. **Le Pi :** visse-le sur ses entretoises, la prise USB-C contre le trou à l'arrière du socle. Branche l'ampli et le haut-parleur, le micro USB, et la nappe DSI (côté Pi).
 2. **Le couvercle :** passe la nappe dans la fente du couvercle, pose le haut-parleur dans son anneau sous la grille, puis visse le couvercle (4 × M2,5 × 8).
 3. **Le cou :** enfile-le sur la nappe et visse sa collerette sur le couvercle (2 × M2,5 × 10).
-4. **La tête :** colle les inserts roses dans les oreilles, puis emboîte les oreilles dans les fentes du haut de l'avant de la tête. Pose l'écran dans l'avant (verre contre la fenêtre), avec 4 carrés de mousse au dos. Branche la nappe sur l'écran.
+4. **La tête :** pose l'écran dans l'avant de la tête (verre contre la fenêtre), avec 4 carrés de mousse au dos. Branche la nappe sur l'écran.
 5. **Fermer la tête :** pose l'avant sur le cou. Accroche l'arrière par ses deux languettes du haut, puis rabats-le vers le bas. Visse par l'arrière les 2 × M2,5 × 20 : elles traversent le cou et verrouillent la tête.
 6. **Le Stream Deck :** branche son câble sur un port USB du Pi, puis pose-le sur les nervures de la fente, avec le bord du bas contre la lèvre avant.
 
