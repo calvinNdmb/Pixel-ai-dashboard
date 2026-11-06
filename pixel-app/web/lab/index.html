@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#d9d2bd">
+<title>Pixel Lab</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<!-- LAB:BODY START -->
+<div class="lab" id="lab" lang="fr" data-skin="retro">
+<header class="top">
+  <h1 class="brand">Pixel <span>Lab</span></h1>
+  <p class="tagline">Essaie chaque thème, humeur, écran et événement de Pixel OS. C'est le vrai code de l'écran, avec de fausses données : pas besoin du vrai Pixel.</p>
+</header>
+
+<main class="stage">
+  <div class="left">
+  <section class="device" id="device" aria-label="Pixel">
+    <div class="monitor">
+      <div class="recess"><div class="screen" id="screen">
+        <canvas id="crt" width="1600" height="960" aria-label="Écran de Pixel : touche-le ou glisse à gauche et à droite"></canvas>
+        <canvas id="testcard" width="800" height="480" hidden aria-label="Mire de test de l'écran"></canvas>
+        <div class="tcbar" id="tcBar" hidden></div>
+      </div></div>
+      <div class="mfoot"><span class="badge">PIXEL</span><span class="leds" title="Allumé · Pixel travaille · Lampes allumées"><i class="led on"></i><i class="led amber" id="ledWork"></i><i class="led" id="ledLights"></i></span></div>
+    </div>
+    <div class="transport" role="group" aria-label="Vitesse des animations">
+      <button type="button" class="tb" id="tPlay" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="4" height="14" rx="1"/><rect x="12" y="3" width="4" height="14" rx="1"/></svg><span>Pause</span></button>
+      <button type="button" class="tb" id="tStep"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3l9 7-9 7z"/><rect x="14" y="3" width="3" height="14" rx="1"/></svg><span>+1 image</span></button>
+      <div class="seg" id="tSpeed" role="group" aria-label="Vitesse">
+        <button type="button" data-speed="0.25">×0,25</button><button type="button" data-speed="0.5">×0,5</button><button type="button" data-speed="1">×1</button><button type="button" data-speed="2">×2</button>
+      </div>
+      <button type="button" class="tb" id="tShot"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l1.5-2h3L13 4h3a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><circle cx="10" cy="10.5" r="3.2" class="hole"/></svg><span>Capture</span></button>
+    </div>
+    <p class="readout" id="readout" aria-live="polite">&nbsp;</p>
+  </section>
+
+  <form class="cmd" id="cmdForm" autocomplete="off">
+    <label for="cmd">C:\PIXEL&gt;</label>
+    <input id="cmd" name="cmd" type="text" enterkeyhint="send" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="tape une commande : salon 40, thème manga, aide…">
+    <button type="submit" id="cmdGo">Envoyer</button>
+  </form>
+  </div>
+
+  <div class="panel" id="panel">
+    <section class="grp" aria-labelledby="hTheme">
+      <h2 id="hTheme">Thème</h2>
+      <div class="chips" id="themeChips" role="group" aria-labelledby="hTheme"></div>
+      <p class="note" id="themeNote"></p>
+    </section>
+
+    <section class="grp" aria-labelledby="hMood">
+      <h2 id="hMood">Humeur</h2>
+      <div class="chips" id="moodChips" role="group" aria-labelledby="hMood"></div>
+      <div class="line"><span class="lbl">Durée</span>
+        <div class="seg" id="moodDur" role="group" aria-label="Durée de l'humeur"><button type="button" data-dur="0">Garder</button><button type="button" data-dur="3000">3 s</button></div>
+      </div>
+      <p class="note" id="moodNote"></p>
+    </section>
+
+    <section class="grp" aria-labelledby="hScreen">
+      <h2 id="hScreen">Écran</h2>
+      <div class="chips" id="screenChips" role="group" aria-labelledby="hScreen"></div>
+      <p class="note">Sur l'écran, glisse à gauche ou à droite pour changer d'écran, comme sur Pixel.</p>
+    </section>
+
+    <section class="grp deckgrp" aria-labelledby="hDeck">
+      <h2 id="hDeck">Stream Deck</h2>
+      <div class="deck"><div class="keys" id="keys"></div></div>
+      <p class="note">Rangées 1 et 2 : les écrans. Rangée 3, en orange : les actions de l'écran ouvert.</p>
+    </section>
+
+    <section class="grp" aria-labelledby="hEvents">
+      <h2 id="hEvents">Événements</h2>
+      <div class="ev"><h3>Notification</h3>
+        <form class="inline" id="toastForm" autocomplete="off"><label class="sr" for="toastText">Texte de la notification</label><input id="toastText" type="text" maxlength="140" value="Ton colis est arrivé !" enterkeyhint="send"><button type="submit">Afficher</button></form>
+      </div>
+      <div class="ev"><h3>Claude</h3><div class="btns">
+        <button type="button" data-act="lab.chat" data-go="claude">Conversation</button>
+        <button type="button" data-act="chat.ask" data-args='{"text":"Raconte-moi une blague courte."}'>Une blague</button>
+        <button type="button" data-act="chat.clear" data-go="claude">Effacer</button>
+      </div></div>
+      <div class="ev"><h3>Codex</h3><div class="btns">
+        <button type="button" data-act="lab.codex" data-go="codex">Tâche réussie</button>
+        <button type="button" data-act="lab.codex" data-args='{"fail":true,"task":"ajoute un test pour la pause"}' data-go="codex">Tâche en échec</button>
+        <button type="button" data-act="codex.stop">Stop</button>
+      </div></div>
+      <div class="ev"><h3>Minuteur</h3><div class="btns">
+        <button type="button" data-act="timer.start" data-args='{"minutes":1}' data-go="minuteur">1 min</button>
+        <button type="button" data-act="lab.timer_end" data-go="minuteur">Finir maintenant</button>
+        <button type="button" data-act="timer.reset" data-go="minuteur">Remettre à zéro</button>
+      </div></div>
+      <div class="ev"><h3>Veille</h3><div class="btns">
+        <button type="button" data-lab="sleep">S'endormir</button>
+        <button type="button" data-lab="wake">Réveiller</button>
+        <label class="sel"><span>Veille auto</span><select id="sleepAfter"><option value="0.5">après 30 s</option><option value="2">après 2 min</option><option value="10">après 10 min</option><option value="1000000">jamais</option></select></label>
+      </div></div>
+      <div class="ev"><h3>Démarrage</h3><div class="btns">
+        <button type="button" data-act="sys.boot">Animation de démarrage</button>
+        <button type="button" data-act="screen.show" data-args='{"screen":"veille"}'>Économiseur d'écran</button>
+      </div></div>
+    </section>
+
+    <section class="grp" aria-labelledby="hLights">
+      <h2 id="hLights">Lumières</h2>
+      <div class="chips" id="sceneChips" role="group" aria-label="Scènes"></div>
+      <div class="chips" id="roomChips" role="group" aria-label="Pièces"></div>
+      <div class="btns">
+        <button type="button" data-act="lights.set" data-args='{"room":"*","on":true}' data-go="lumieres">Tout allumer</button>
+        <button type="button" data-act="lights.set" data-args='{"room":"*","on":false}' data-go="lumieres">Tout éteindre</button>
+      </div>
+    </section>
+
+    <section class="grp" aria-labelledby="hWeather">
+      <h2 id="hWeather">Météo</h2>
+      <div class="chips" id="weatherChips" role="group" aria-labelledby="hWeather"></div>
+      <div class="btns">
+        <button type="button" data-act="view.step" data-args='{"key":"meteo_day","d":-1,"hi":4}' data-go="meteo">Jour −</button>
+        <button type="button" data-act="view.step" data-args='{"key":"meteo_day","d":1,"hi":4}' data-go="meteo">Jour +</button>
+        <button type="button" data-act="view.toggle" data-args='{"key":"units_f"}' id="unitsBtn" aria-pressed="false">°C / °F</button>
+        <button type="button" data-act="weather.say" data-go="meteo">Annoncer</button>
+      </div>
+    </section>
+
+    <section class="grp" aria-labelledby="hAgenda">
+      <h2 id="hAgenda">Agenda</h2>
+      <div class="btns">
+        <button type="button" data-act="view.set" data-args='{"key":"agenda_day","value":0}' data-go="agenda" id="agToday">Aujourd'hui</button>
+        <button type="button" data-act="view.set" data-args='{"key":"agenda_day","value":1}' data-go="agenda" id="agTomorrow">Demain</button>
+      </div>
+      <div class="btns">
+        <button type="button" data-act="lab.agenda" data-args='{"preset":"bientot"}' data-go="agenda">RDV dans 10 min</button>
+        <button type="button" data-act="lab.agenda" data-args='{"preset":"journee"}' data-go="agenda">Journée entière</button>
+        <button type="button" data-act="lab.agenda" data-args='{"preset":"vide"}' data-go="agenda">Agenda vide</button>
+        <button type="button" data-act="lab.agenda" data-args='{"preset":"exemple"}' data-go="agenda">Exemple</button>
+      </div>
+    </section>
+
+    <section class="grp" aria-labelledby="hDisplay">
+      <h2 id="hDisplay">Affichage</h2>
+      <div class="line"><label class="lbl" for="bright">Luminosité</label><input id="bright" type="range" min="30" max="100" step="10" value="100"><output id="brightOut" for="bright">100 %</output></div>
+      <div class="btns"><button type="button" data-act="view.toggle" data-args='{"key":"crt_off"}' id="crtBtn" aria-pressed="true">Effet CRT</button></div>
+      <p class="note">L'effet CRT (lignes de balayage) ne s'affiche qu'avec un thème d'écran cathodique.</p>
+    </section>
+
+    <section class="grp" aria-labelledby="hTour">
+      <h2 id="hTour">Démo auto</h2>
+      <div class="btns">
+        <button type="button" id="tourBtn" aria-pressed="false">Lancer la démo</button>
+        <label class="sel"><span>Une étape toutes les</span><select id="tourEvery"><option value="1500">1,5 s</option><option value="3000">3 s</option><option value="6000">6 s</option></select></label>
+      </div>
+      <p class="note" id="tourNote">Toutes les humeurs, puis tous les écrans, puis le thème suivant. En boucle.</p>
+    </section>
+
+    <section class="grp" aria-labelledby="hTest">
+      <h2 id="hTest">Test de l'écran</h2>
+      <div class="chips" id="testChips" role="group" aria-labelledby="hTest"></div>
+      <div class="btns">
+        <button type="button" id="testClose">Fermer la mire</button>
+        <button type="button" id="benchBtn">Comparer les thèmes</button>
+      </div>
+      <div class="bench" id="benchOut" hidden></div>
+      <p class="note">Pour le vrai écran 7 pouces, ouvre le labo sur Pixel en <a id="kioskLink" href="?kiosk=1">mode plein écran</a>. Là-bas, appuie 1 seconde sur l'écran (ou touche un coin) pour ouvrir le menu.</p>
+    </section>
+
+    <section class="grp" aria-labelledby="hHelp">
+      <h2 id="hHelp">Commandes à taper</h2>
+      <ul class="cmds">
+        <li><code>salon 40</code><span>salon à 40 %</span></li>
+        <li><code>éteins tout</code><span>toutes les pièces</span></li>
+        <li><code>scène film</code><span>une scène Hue</span></li>
+        <li><code>minuteur 1</code><span>minuteur d'une minute</span></li>
+        <li><code>humeur content</code><span>change le visage</span></li>
+        <li><code>thème manga</code><span>change le style</span></li>
+        <li><code>codex corrige le test</code><span>une tâche Codex</span></li>
+        <li><code>météo</code><span>ouvre un écran</span></li>
+        <li><code>aide</code><span>la liste sur l'écran</span></li>
+      </ul>
+      <p class="note">Le reste part à Claude, qui répond avec des phrases toutes faites. Les flèches ← et → changent d'écran.</p>
+    </section>
+  </div>
+</main>
+
+<div class="kmenu" id="kmenu" hidden role="dialog" aria-modal="true" aria-labelledby="kmTitle">
+  <div class="km">
+    <div class="km-head"><b id="kmTitle">Pixel Lab</b><span id="kmInfo"></span><button type="button" id="kmClose">Fermer</button></div>
+    <div class="km-row"><span class="km-l">Thème</span><div class="km-chips" id="kmThemes"></div></div>
+    <div class="km-row"><span class="km-l">Humeur</span><div class="km-chips" id="kmMoods"></div></div>
+    <div class="km-row"><span class="km-l">Écran</span><div class="km-chips" id="kmScreens"></div></div>
+    <div class="km-row"><span class="km-l">Vitesse</span><div class="km-chips" id="kmSpeed">
+      <button type="button" data-speed="0.25">×0,25</button><button type="button" data-speed="0.5">×0,5</button><button type="button" data-speed="1">×1</button><button type="button" data-speed="2">×2</button><button type="button" id="kmPause" aria-pressed="false">Pause</button>
+    </div></div>
+    <div class="km-foot">
+      <button type="button" id="kmTest">Test de l'écran</button>
+      <button type="button" id="kmTour" aria-pressed="false">Démo auto</button>
+      <button type="button" id="kmShot">Capture</button>
+      <button type="button" id="kmFull">Plein écran</button>
+      <button type="button" id="kmQuit">Quitter</button>
+    </div>
+  </div>
+</div>
+
+<div class="shotbox" id="shotBox" hidden role="dialog" aria-modal="true" aria-label="Capture de l'écran">
+  <div class="sb">
+    <img id="shotImg" alt="Capture de l'écran de Pixel">
+    <p>Appuie longuement sur l'image, ou fais un clic droit, pour l'enregistrer.</p>
+    <div class="btns"><a id="shotDl" class="btn" href="#" download="pixel.png">Télécharger</a><button type="button" id="shotClose">Fermer</button></div>
+  </div>
+</div>
+<div class="ltoast" id="ltoast" role="status" hidden></div>
+</div>
+<!-- LAB:BODY END -->
+<script src="clock.js"></script>
+<script src="../themes.js"></script>
+<script src="../screens.js"></script>
+<script src="demo-hub.js"></script>
+<script src="testcard.js"></script>
+<script src="lab.js"></script>
+</body>
+</html>
