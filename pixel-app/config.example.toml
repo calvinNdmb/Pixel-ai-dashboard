@@ -4,8 +4,9 @@
 city = "Paris"              # ou bien : latitude = 48.85 et longitude = 2.35
 
 [agenda]
-# Adresse iCal secrète de ton agenda. Google Agenda : Paramètres > ton agenda >
-# « Adresse secrète au format iCal ». Tu peux en mettre plusieurs.
+# Le plus simple : ajoute tes agendas depuis ton téléphone, page « Agendas » de l'appli.
+# Tu peux aussi les mettre ici. Google Agenda : Paramètres > ton agenda > « Intégrer l'agenda »
+# > « Adresse secrète au format iCal ». Plusieurs adresses possibles (Google, iCloud, Outlook…).
 ics = []
 
 [hue]

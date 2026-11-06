@@ -14,7 +14,7 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 | **Codex** | Lance une tâche de code et affiche son journal en direct. Une notification apparaît sur les autres écrans quand c'est fini. |
 | **Météo** | Météo du jour et des 4 jours suivants (Open-Meteo, gratuit, sans compte). |
 | **Minuteur** | Séances de concentration de 25 minutes et pauses café. |
-| **Agenda** | Aujourd'hui et demain, depuis l'adresse iCal de ton agenda (Google, iCloud, Outlook…). |
+| **Agenda** | Aujourd'hui et demain, depuis Google Agenda (donc aussi l'agenda Samsung relié à ton compte Google), iCloud, Outlook… ou un fichier .ics importé. Plusieurs agendas à la fois. |
 | **Système** | Température, processeur, mémoire, Wi-Fi et luminosité de l'écran. |
 | **Réglages** | Un QR code pour ouvrir l'appli sur ton téléphone, l'association du pont Hue et l'état de chaque service. |
 | **Veille** | Un champ d'étoiles avec Pixel qui dort. Les touches du Stream Deck baissent leur lumière. |
@@ -81,6 +81,17 @@ L'appli marche sur ton Wi-Fi. Sans le code d'accès, un autre appareil du résea
 
 ![Sur un téléphone](preview-phone.png)
 
+## Tes agendas (Google et Samsung)
+
+Sur ton téléphone, dans l'appli, touche **Agendas** (sous le clavier). La page te guide.
+
+- **Google Agenda :** colle l'« adresse secrète au format iCal » de ton agenda. Tu la trouves sur un ordinateur, dans les paramètres de Google Agenda, rubrique « Intégrer l'agenda ». Les changements arrivent sur Pixel toutes les 10 minutes, ou tout de suite avec « Actualiser ».
+- **Agenda Samsung :** il affiche aussi les agendas de ton compte Google. Crée tes rendez-vous dans un agenda Google (pas « Samsung » ni « Téléphone ») : ils arrivent sur Pixel tout seuls.
+- **Rendez-vous seulement dans l'agenda Samsung :** si l'appli te propose de les partager ou de les exporter en fichier .ics (ou .vcs), importe ce fichier sur la même page. C'est une copie : réimporte-le pour le mettre à jour.
+- **Autres agendas :** toute adresse .ics ou webcal:// marche aussi (iCloud, Outlook, Proton…).
+
+Les adresses restent sur le Pi (fichier privé), et les écrans n'affichent que le nom de chaque agenda.
+
 ## Essayer sur ton ordinateur (mode démo)
 
 Lampes, météo, agenda, Claude et Codex sont alors faux, mais tout s'affiche et réagit :
@@ -116,7 +127,7 @@ Le script fait 5 choses :
    sudo nano /etc/pixel.env       # ANTHROPIC_API_KEY=sk-ant-...
    ```
    Sans clé, Claude reste en mode démo.
-2. **Tes réglages :** ouvre `config.toml` pour indiquer ta ville, l'adresse iCal de ton agenda et le dossier de projet de Codex.
+2. **Tes réglages :** ouvre `config.toml` pour indiquer ta ville et le dossier de projet de Codex. Tes agendas s'ajoutent depuis ton téléphone (voir « Tes agendas »).
 3. **Codex :** installe-le (`npm i -g @openai/codex`), puis connecte-toi une fois (`codex login`). Ou mets `OPENAI_API_KEY=...` dans `/etc/pixel.env`. La commande lancée se règle dans `[codex] command` de `config.toml`. Tu peux y mettre Claude Code à la place.
 4. **Hue :** sur Pixel, ouvre **Réglages**, touche **Associer Hue**, puis appuie sur le bouton du pont dans les 30 secondes.
 5. Redémarre : `sudo reboot`.
