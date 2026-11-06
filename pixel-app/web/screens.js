@@ -4,11 +4,17 @@ const cv = document.getElementById('crt'), X = cv.getContext('2d'), W = 800, H =
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rnd = Math.random, clamp = (v, a, b) => Math.max(a, Math.min(b, v)), ease = (a, b, k) => a + (b - a) * k;
 const pad = n => String(Math.floor(n)).padStart(2, '0');
-let now = performance.now(), hits = [], P = null, send = () => {}, offset = 0, first = true;
-const L = { scr: 'visage', ptr: null, look: { x: 0, y: 0, tx: 0, ty: 0, next: 0 }, blink: { t: -1e9, next: 2500 }, local: null,
+let now = performance.now(), hits = [], P = null, send = () => {}, offset = 0, first = true, S = 2;
+const L = { scr: 'visage', ptr: null, blink: { t: -1e9, next: 2500 }, local: null, petted: false,
   lastInput: now, sleepy: false, banner: null, lastToast: 0, boot: -1, lastBootAt: 0, lightV: {}, kiosk: false, theme: 'retro' };
 const srv = () => Date.now() + offset;
 let T, G, D, DK, B, AM, PK, WH;
+
+/* backing store: 1x on Pixel's own 800x480 screen, 2x on phones and computers */
+function fitCanvas() {
+  const w = cv.getBoundingClientRect().width, s = !w ? S : (window.devicePixelRatio || 1) * w / W <= 1.05 ? 1 : 2;
+  if (s !== S || cv.width !== W * s) { S = s; cv.width = W * S; cv.height = H * S; }
+}
 
 /* ---------- drawing helpers (theme-aware) ---------- */
 const F = (s, k) => T.font(s, k);
@@ -18,7 +24,9 @@ function fit(s, maxW, size, k) { X.font = F(size, k); s = String(s); if (X.measu
 function para(s, x, y, maxW, size, c, lh = size + 4) { wrap(s, maxW, size).forEach((l, i) => txt(l, x, y + i * lh, size, c)); }
 const box = (x, y, w, h, c = G, fill) => T.box(x, y, w, h, c, fill);
 const bar = (x, y, n, filled, w, h, gap, on = G, off = DK) => T.bar(x, y, n, filled, w, h, gap, on, off);
-const face = (cx, cy, s, md, lx = 0, ly = 0) => T.face(cx, cy, s, md, lx, ly);
+const face = (cx, cy, s, md, lx = 0, ly = 0, a) => T.face(cx, cy, s, md, lx, ly, a);
+const glow = () => { X.shadowBlur = RM ? 0 : T.glow * S / 2; };
+function rule(x, y, w, h) { if (T.rule) return T.rule(x, y, w, h); X.fillStyle = D; X.globalAlpha = 0.35; X.fillRect(x, y, w, h); X.globalAlpha = 1; }
 function hit(x, y, w, h, fn) { hits.push([x, y, w, h, fn]); }
 function clock() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 const header = title => T.header(title, clock());
@@ -28,31 +36,51 @@ const temp = c => P.view.units_f ? Math.round(c * 9 / 5 + 32) + ' °F' : c + ' �
 function nextEvent() { return (P.agenda.events || []).find(e => e.day === 0 && !e.allday && e.start > nowH()); }
 function mood() {
   if (L.local && now < L.local.until) return L.local.name;
-  const m = P && P.mood; if (m && (!m.until || srv() < m.until)) return m.name;
-  return L.sleepy ? 'endormi' : 'neutre';
+  const m = P && P.mood; if (m && m.name !== 'neutre' && (!m.until || srv() < m.until)) return m.name;
+  if (L.sleepy) return 'endormi';
+  if (P && P.sys && P.sys.temp > 80) return 'malade';
+  return 'neutre';
 }
-const THEMES = PixelThemes({ X, RM, get now() { return now; }, blinkP: () => (now - L.blink.t) / 180, txt, wrap, fit });
+const THEMES = PixelThemes({ X, RM, get now() { return now; }, get S() { return S; }, get scr() { return L.boot >= 0 ? 'boot' : L.scr; },
+  blinkP: () => (now - L.blink.t) / 180, txt, wrap, fit });
+const IDS = Object.keys(THEMES);
 function useTheme(id) { if (T && T.id === id) return; T = THEMES[id] || THEMES.retro; ({ fg: G, dim: D, faint: DK, bg: B, accent: AM, pink: PK, hi: WH } = T.c); L.theme = T.id; }
 useTheme('retro');
+/* one life per face on screen: the big face, the Claude panel, the sleeping face, the boot splash */
+const LIFE = { face: PixelLife(), mini: PixelLife(), nap: PixelLife(), boot: PixelLife() };
+function live(life, cx, cy, u, md, o = {}) { const a = life.update(now, md, o); face(cx, cy, u, a.mood, a.lx, a.ly, a); return a; }
 
 /* ---------- Visage ---------- */
 function drawVisage() {
-  if (T.id === 'retro') { txt('PIXEL OS 1.0', 24, 14, 24, D); txt(clock(), W - 24, 14, 24, D, 'right'); }
-  else txt(clock(), W - 24, 16, 30, D, 'right', 'title');
-  const md = mood(); let tx = L.look.tx, ty = L.look.ty;
-  if (md === 'reflechit') { tx = 1.5; ty = -1; } else if (L.ptr) { tx = clamp((L.ptr.x - 400) / 120, -1.6, 1.6); ty = clamp((L.ptr.y - 230) / 110, -1, 1); }
-  if (md === 'endormi') { tx = 0; ty = 0.4; }
-  L.look.x = ease(L.look.x, tx, 0.16); L.look.y = ease(L.look.y, ty, 0.16);
-  if (md === 'endormi' && T.id !== 'manga') X.globalAlpha = 0.6;
-  face(400, 236, 16, md, L.look.x, L.look.y); X.globalAlpha = 1;
+  if (T.top) T.top(clock()); else txt(clock(), W - 24, 16, 30, D, 'right', 'title');
+  const md = mood(), ptr = L.ptr && !['endormi', 'reflechit'].includes(md) ? { x: clamp((L.ptr.x - 400) / 120, -1.6, 1.6), y: clamp((L.ptr.y - 230) / 110, -1, 1) } : null;
+  const sleepIn = L.kiosk && P ? (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) : Infinity;
+  const a = LIFE.face.update(now, md, { look: ptr, idle: now - L.lastInput, sleepIn, calm: RM });
+  const nap = (a.mood === 'endormi' ? a.k : 0) + (a.from === 'endormi' ? 1 - a.k : 0);
+  X.globalAlpha = 1 - (1 - (T.sleepA ?? 0.6)) * clamp(nap, 0, 1);
+  face(400, 236, 16, a.mood, a.lx, a.ly, a); X.globalAlpha = 1;
   const parts = [], r = P.lights.rooms[0], w = P.weather, e = nextEvent();
   if (r) parts.push(`${r.name} ${r.on ? r.bri + ' %' : 'éteint'}`);
   if (w && w.now) parts.push(temp(w.now.t));
   if (e) parts.push(`${hm(e.start)} ${e.title}`);
   const tick = parts.join('   ·   ');
-  txt(fit(T.id === 'retro' ? tick.toUpperCase() : tick, 760, 24), 400, 440, 24, D, 'center');
-  hit(0, 0, W, H, () => { if (md === 'endormi') { send('mood.set', { name: 'neutre' }); L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; } else L.local = { name: 'content', until: now + 1800 }; });
+  txt(fit(T.upper ? tick.toUpperCase() : tick, 760, 24), 400, 440, 24, D, 'center');
+  hit(0, 0, W, H, () => {
+    if (a.mood === 'endormi') { send('mood.set', { name: 'neutre' }); L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; return; }
+    if (L.petted) { L.petted = false; return; }
+    const r2 = LIFE.face.tap(now); L.local = r2 ? { name: r2, until: now + 2600 } : { name: 'content', until: now + 1800 };
+  });
 }
+/* touch: squash under the finger, petting makes him fall in love (taps are handled by the hit above) */
+let rubAt = null;
+const onFace = p => L.scr === 'visage' && L.boot < 0 && P && Math.abs(p.x - 400) < 330 && p.y > 40 && p.y < 430;
+cv.addEventListener('pointerdown', e => { const p = toCanvas(e); if (onFace(p)) { LIFE.face.press(true); rubAt = p; L.petted = false; } });
+cv.addEventListener('pointermove', e => {
+  if (!rubAt) return;
+  const p = toCanvas(e), r = LIFE.face.rub(p.x - rubAt.x, p.y - rubAt.y, now); rubAt = p;
+  if (r) { L.local = { name: r, until: now + 3200 }; L.petted = true; }
+});
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) cv.addEventListener(ev, () => { if (rubAt) { LIFE.face.press(false); rubAt = null; } });
 
 /* ---------- Lumières ---------- */
 function drawLights() {
@@ -74,7 +102,7 @@ function drawLights() {
     box(x, y, 176, 50, D); txt(fit(n, 164, 30), x + 88, y + 12, 30, G, 'center');
     hit(x, y, 176, 50, () => send('lights.scene', { name: n }));
   });
-  txt("Touche une pièce pour l'allumer · touche la barre pour régler", 400, 440, 22, D, 'center');
+  txt(fit("Touche une pièce pour l'allumer · touche la barre pour régler", 760, 22), 400, 440, 22, D, 'center');
 }
 
 /* ---------- Claude ---------- */
@@ -94,7 +122,7 @@ function drawClaude() {
       const mine = it.m.role === 'user', x = mine ? 596 - it.w : 18;
       T.bubble(x, it.y, it.w, it.h, mine);
       if (it.empty) for (let k = 0; k < 3; k++) { X.globalAlpha = 0.3 + 0.7 * ((Math.floor(now / 250) % 3) === k ? 1 : 0.3); X.fillStyle = WH; X.beginPath(); X.arc(x + 22 + k * 16, it.y + it.h / 2, 5, 0, 7); X.fill(); X.globalAlpha = 1; }
-      else it.lines.forEach((l, j) => txt(l, x + 17, it.y + 11 + j * 30, 28, mine && T.id === 'moderne' ? G : WH));
+      else it.lines.forEach((l, j) => txt(l, x + 17, it.y + 11 + j * 30, 28, T.bubbleInk ? T.bubbleInk(mine) : WH));
     }
     X.restore();
   } else {
@@ -104,8 +132,9 @@ function drawClaude() {
     vis.forEach(([who, l], i) => { const y = 56 + i * 33; if (l === null) txt(who === 'user' ? 'TOI >' : 'CLAUDE >', 24, y + 4, 24, who === 'user' ? D : AM); else txt(l, 40, y, 30, who === 'user' ? G : WH); });
     if (C.phase === 'answer' && Math.floor(now / 300) % 2 && vis.length) { const last = vis[vis.length - 1][1] || ''; X.font = F(30); X.fillRect(40 + X.measureText(last).width + 4, 56 + (vis.length - 1) * 33 + 4, 12, 24); }
   }
-  face(700, 150, 6, C.phase === 'think' ? 'reflechit' : C.phase === 'answer' ? 'content' : 'neutre');
-  X.fillStyle = T.id === 'manga' ? G : D; X.globalAlpha = T.id === 'retro' ? 1 : 0.35; X.fillRect(612, 60, 2, 360); X.globalAlpha = 1;
+  const typing = document.activeElement && document.activeElement.id === 'cmd' && document.activeElement.value, sm = P.mood && (!P.mood.until || srv() < P.mood.until) ? P.mood.name : 'neutre';
+  live(LIFE.mini, 700, 150, 6, C.phase === 'think' ? 'reflechit' : C.phase === 'answer' ? 'content' : typing ? 'ecoute' : sm === 'endormi' ? 'neutre' : sm, { calm: true });
+  rule(612, 60, 2, 360);
   txt(C.phase === 'think' ? 'RÉFLÉCHIT' + '.'.repeat(1 + Math.floor(now / 300) % 3) : C.phase === 'answer' ? 'RÉPOND' : 'PRÊT', 700, 250, 30, C.phase === 'idle' ? D : AM, 'center');
   if (C.status && C.status !== 'prêt') wrap(C.status, 160, 22).forEach((l, i) => txt(l, 700, 294 + i * 24, 22, D, 'center'));
 }
@@ -130,8 +159,8 @@ function drawMeteo() {
   if (!w || w.error) { para(w ? w.error : 'Chargement de la météo…', 24, 80, 752, 32, G); return; }
   const di = clamp(P.view.meteo_day, 0, w.days.length - 1), d = w.days[di], cur = di === 0 ? { ...d, ...w.now } : d;
   T.weather(d.kind, 180, 200, 'big', true);
-  txt(temp(di === 0 ? w.now.t : d.tmax), 380, 56, 120, WH, 'left', T.id === 'retro' ? undefined : 'title'); txt(cur.label, 384, 180, 46, G);
-  txt(fit(w.city, 390, 28), 384, 230, 28, D); txt(`${di ? `${d.tmin} à ${d.tmax} °C · ` : ''}Vent ${cur.wind} km/h · Humidité ${cur.hum} %`, 384, 262, 24, D);
+  txt(temp(di === 0 ? w.now.t : d.tmax), 380, 56, 120, WH, 'left', 'title'); txt(fit(cur.label, 392, 46), 384, 180, 46, G);
+  txt(fit(w.city, 390, 28), 384, 230, 28, D); txt(fit(`${di ? `${d.tmin} à ${d.tmax} °C · ` : ''}Vent ${cur.wind} km/h · Humidité ${cur.hum} %`, 392, 24), 384, 262, 24, D);
   hit(0, 48, W, 260, () => send('weather.say'));
   w.days.forEach((e, i) => {
     const x = 26 + i * 152, y = 316, a = i === di;
@@ -139,14 +168,14 @@ function drawMeteo() {
     txt(temp(e.tmax), x + 70, y + 74, 26, a ? G : D, 'center');
     hit(x, y, 140, 104, () => send('view.set', { key: 'meteo_day', value: i }));
   });
-  txt("Touche un jour pour l'afficher · touche le haut pour l'annonce", 400, 440, 22, D, 'center');
+  txt(fit("Touche un jour pour l'afficher · touche le haut pour l'annonce", 760, 22), 400, 440, 22, D, 'center');
 }
 
 /* ---------- Minuteur ---------- */
 function drawTimer() {
   header('Minuteur');
   const t = P.timer, left = t.running ? Math.max(0, (t.ends_at - srv()) / 1000) : t.left, done = !t.running && left <= 0;
-  txt(t.mode, 400, 58, 38, t.mode === 'TRAVAIL' ? G : AM, 'center', T.id === 'retro' ? undefined : 'title');
+  txt(t.mode, 400, 58, 38, t.mode === 'TRAVAIL' ? G : AM, 'center', 'title');
   const s = Math.ceil(left), m = Math.floor(s / 60);
   T.digits((m > 99 ? String(m) : pad(m)) + ':' + pad(s % 60), 400, 116, done && Math.floor(now / 250) % 2 ? AM : WH);
   bar(26, 252, 25, left / t.total * 25, 24, 22, 6, AM);
@@ -160,11 +189,11 @@ function drawTimer() {
 function drawAgenda() {
   header('Agenda');
   const day = P.view.agenda_day, evs = (P.agenda.events || []).filter(e => e.day === day), y0 = 104, ph = 26, h0 = 8, h1 = 20, nx = nextEvent();
-  txt(day ? 'DEMAIN' : "AUJOURD'HUI", 24, 58, 32, WH, 'left', T.id === 'retro' ? undefined : 'title');
+  txt(day ? 'DEMAIN' : "AUJOURD'HUI", 24, 58, 32, WH, 'left', 'title');
   const allday = evs.filter(e => e.allday).map(e => e.title).join(' · ');
   if (allday) txt(fit(allday, 360, 24), 210, 64, 24, AM);
   for (let h = h0; h <= h1; h += 2) txt(pad(h), 24, y0 + (h - h0) * ph - 10, 22, D);
-  X.globalAlpha = T.id === 'retro' ? 1 : 0.5;
+  X.globalAlpha = T.gridA ?? 0.5;
   for (let h = h0; h <= h1; h++) { X.fillStyle = DK; X.shadowColor = DK; X.fillRect(64, y0 + (h - h0) * ph, 500, 2); }
   X.globalAlpha = 1;
   evs.filter(e => !e.allday).forEach(e => {
@@ -173,10 +202,10 @@ function drawAgenda() {
   });
   if (!evs.length) para(P.agenda.status && P.agenda.status !== 'ok' ? P.agenda.status : 'Rien de prévu.', 90, 180, 460, 28, D);
   if (!day) { const n = nowH(); if (n >= h0 && n <= h1) { const y = y0 + (n - h0) * ph; X.fillStyle = AM; X.shadowColor = AM; X.fillRect(64, y - 1, 500, 3); X.beginPath(); X.arc(62, y, 6, 0, 7); X.fill(); } }
-  X.fillStyle = D; X.globalAlpha = T.id === 'retro' ? 1 : 0.35; X.fillRect(588, 60, 2, 380); X.globalAlpha = 1;
+  rule(588, 60, 2, 380);
   txt('PROCHAIN', 604, 64, 24, D);
-  if (nx) { const ls = wrap(nx.title, 172, 32).slice(0, 4); ls.forEach((l, i) => txt(l, 604, 94 + i * 32, 32, WH)); const y = 102 + ls.length * 32, mins = Math.round((nx.start - nowH()) * 60);
-    txt(hm(nx.start), 604, y, 32, G); txt('dans ' + (mins >= 60 ? Math.floor(mins / 60) + ' h ' + pad(mins % 60) : mins + ' min'), 604, y + 36, 28, AM); }
+  if (nx) { const ls = wrap(nx.title, 172, 32).slice(0, 4); ls.forEach((l, i) => txt(fit(l, 180, 32), 604, 94 + i * 32, 32, WH)); const y = 102 + ls.length * 32, mins = Math.round((nx.start - nowH()) * 60);
+    txt(hm(nx.start), 604, y, 32, G); txt(fit('dans ' + (mins >= 60 ? Math.floor(mins / 60) + ' h ' + pad(mins % 60) : mins + ' min'), 180, 28), 604, y + 36, 28, AM); }
   else para("Plus rien aujourd'hui", 604, 94, 170, 28, G);
 }
 
@@ -193,24 +222,29 @@ function drawSys() {
     ['LUMINOSITÉ', Math.round((s.bright || 1) * 100) + ' %', y => bar(440, y + 10, 10, (s.bright || 1) * 10, 26, 20, 6)],
     ['DISQUE', s.disk == null ? '—' : Math.round(s.disk) + ' % utilisé', y => bar(440, y + 10, 10, (s.disk || 0) / 10, 26, 20, 6, (s.disk || 0) > 90 ? AM : G)],
     ['ALLUMÉ DEPUIS', `${Math.floor(up / 1440)} j ${Math.floor(up % 1440 / 60)} h ${pad(up % 60)} min`, () => {}]];
-  rows.forEach(([l, v, f, warn], i) => { const y = 56 + i * 56; txt(l, 24, y + 10, 24, D); txt(v, 210, y + 2, 34, warn ? AM : G); f(y); });
+  rows.forEach(([l, v, f, warn], i) => { const y = 56 + i * 56; txt(fit(l, 180, 24), 24, y + 10, 24, D); txt(fit(v, 220, 34), 210, y + 2, 34, warn ? AM : G); f(y); });
 }
 
 /* ---------- Réglages ---------- */
-const THEME_LIST = [['retro', 'Rétro'], ['moderne', 'Moderne'], ['manga', 'Manga']];
 function drawSettings() {
   header('Réglages');
   const st = P.settings, q = st.qr || [], n = q.length || 21, m = Math.floor(220 / (n + 8)), qs = m * (n + 8), qx = 24, qy = 64;
   X.shadowBlur = 0; X.fillStyle = T.qr[0]; X.fillRect(qx, qy, qs, qs); X.fillStyle = T.qr[1];
   q.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === '1') X.fillRect(qx + (i + 4) * m, qy + (j + 4) * m, m, m); });
-  X.shadowBlur = RM ? 0 : T.glow;
+  glow();
   const short = u => (u || '').replace(/\?.*$/, '');
-  txt('SUR TON TÉLÉPHONE OU TON PC', 274, 62, 24, D); txt(fit(short(st.url), 500, 32), 274, 88, 32, WH); txt(fit('ou ' + short(st.ip_url), 500, 26), 274, 124, 26, G);
+  txt(fit('SUR TON TÉLÉPHONE OU TON PC', 500, 24), 274, 62, 24, D); txt(fit(short(st.url), 500, 32), 274, 88, 32, WH); txt(fit('ou ' + short(st.ip_url), 500, 26), 274, 124, 26, G);
   para("Scanne le code : il ouvre l'appli avec ton code d'accès. Ensuite : « Ajouter à l'écran d'accueil ».", 274, 158, 500, 24, D, 26);
   [['HUE', P.lights.status], ['CLAUDE', st.claude], ['STREAM DECK', st.deck], ['MODE', st.demo ? 'DÉMO (fausses données)' : 'normal']].forEach(([k, v], i) => {
-    txt(k, 24, 300 + i * 30, 24, D); txt(fit(String(v || '—'), 560, 26), 210, 299 + i * 30, 26, G); });
-  txt('THÈME', 24, 432, 26, D);
-  THEME_LIST.forEach(([id, name], i) => { const x = 210 + i * 176, a = T.id === id; box(x, 420, 160, 46, a ? G : D, a ? G : null); txt(name, x + 80, 431, 28, a ? B : G, 'center'); hit(x, 420, 160, 46, () => send('theme.set', { name: id })); });
+    txt(fit(k, 176, 22), 24, 292 + i * 26, 22, D); txt(fit(String(v || '—'), 566, 24), 210, 291 + i * 26, 24, G); });
+  // theme picker: chips in rows of 4, as many rows as needed
+  const per = 4, rows = Math.ceil(IDS.length / per), ch = rows > 1 ? 34 : 44, cw = 134, y0 = 480 - 8 - rows * (ch + 6) + 6;
+  txt('THÈME', 24, y0 + (rows > 1 ? ch - 6 : 8), 26, D);
+  IDS.forEach((id, i) => {
+    const x = 210 + (i % per) * (cw + 8), y = y0 + Math.floor(i / per) * (ch + 6), on = T.id === id, sz = rows > 1 ? 24 : 28;
+    box(x, y, cw, ch, on ? G : D, on ? G : null); txt(fit(THEMES[id].name, cw - 12, sz), x + cw / 2, y + (ch - sz) / 2 + 1, sz, on ? (T.onFg || B) : G, 'center');
+    hit(x, y, cw, ch, () => send('theme.set', { name: id }));
+  });
 }
 
 /* ---------- Veille ---------- */
@@ -223,33 +257,31 @@ function drawVeille(dt) {
     const sx = 400 + st.x / st.z * 260, sy = 240 + st.y / st.z * 160; if (sx < 0 || sx > W || sy < 0 || sy > H) { st.z = 0; continue; }
     T.star(sx, sy, st.z < 0.3 ? 4 : st.z < 0.6 ? 3 : 2, st.z < 0.4);
   }
-  X.shadowBlur = RM ? 0 : T.glow;
+  glow();
   drift.x += drift.vx * dt; drift.y += drift.vy * dt;
   if (drift.x < 110 || drift.x > W - 110) drift.vx *= -1; if (drift.y < 90 || drift.y > H - 90) drift.vy *= -1;
-  X.globalAlpha = 0.85; face(Math.round(drift.x), Math.round(drift.y), 6, 'endormi'); X.globalAlpha = 0.45 + 0.35 * Math.sin(now / 900);
+  X.globalAlpha = 0.85; live(LIFE.nap, Math.round(drift.x), Math.round(drift.y), 6, 'endormi', { calm: true }); X.globalAlpha = 0.45 + 0.35 * Math.sin(now / 900);
   txt("Touche l'écran pour réveiller Pixel", 400, 440, 24, D, 'center'); X.globalAlpha = 1;
   hit(0, 0, W, H, () => send('screen.show', { screen: 'visage' }));
 }
 
 /* ---------- Démarrage, notifications ---------- */
+const BOOT_MS = 3500;
+function bootRows() {
+  const st = P.settings;          // a connected Stream Deck reads "Stream Deck MK.2 (15 touches)"; a working Claude reads "prêt"
+  return [['Raspberry Pi 4', P.sys.ram_total ? Math.round(P.sys.ram_total / 1.05e9) + ' Go' : '', true], ['Écran 7"', '800x480', true],
+    ['Stream Deck', (st.deck || '').split(' (')[0], /touches/.test(st.deck || '')], ['Pont Hue', P.lights.rooms.length + ' pièces', P.lights.status === 'ok' || P.lights.status === 'démo'],
+    ['Claude', st.claude || '', st.claude === 'prêt']];
+}
+function splash(e, info) {                       // default boot: Pixel wakes up under his name
+  info.face(400, 190, 9, e < 2300 ? 'endormi' : 'content');
+  txt('Pixel', 400, 316, 70, WH, 'center', 'title');
+  bar(250, 412, 20, clamp((e - 300) / 2600, 0, 1) * 20, 13, 12, 2, G);
+}
 function drawBoot() {
-  const e = now - L.boot, st = P.settings;
-  if (T.id !== 'retro') {                          // splash: Pixel wakes up
-    const p = clamp((e - 300) / 2600, 0, 1);
-    face(400, 190, 9, e < 2300 ? 'endormi' : 'content');
-    txt('Pixel', 400, 316, 70, WH, 'center', 'title');
-    bar(250, 412, 20, p * 20, 13, 12, 2, G);
-    if (e > 3500) { L.boot = -1; L.local = { name: 'content', until: now + 1500 }; }
-    return;
-  }
-  const ok = v => v && !/non|erreur|absente|démo|pas|injoignable|associer/i.test(v), ram = P.sys.ram_total ? Math.round(P.sys.ram_total / 1.05e9) + ' Go' : '';
-  const rows = [['PIXEL BIOS 1.0', null], [`Raspberry Pi 4 ........ ${ram}`, true], ['Écran 7" .............. 800x480', true],
-    [`Stream Deck ........... ${(st.deck || '').split(' (')[0]}`, ok(st.deck)], [`Pont Hue .............. ${P.lights.rooms.length} pièces`, P.lights.status === 'ok' || P.lights.status === 'démo'],
-    [`Claude ................ ${st.claude || ''}`, ok(st.claude)], ['Chargement de Pixel OS', null]];
-  rows.forEach(([l, good], i) => { if (e > i * 330) txt(fit(l, 640, 30), 40, 40 + i * 40, 30, i ? G : WH); if (good !== null && e > i * 330 + 180) txt(good ? 'OK' : '--', 760, 40 + i * 40, 30, good ? WH : AM, 'right'); });
-  if (e > 2000) { const p = clamp((e - 2000) / 1200, 0, 1); bar(40, 340, 30, p * 30, 18, 24, 6); txt(Math.round(p * 100) + ' %', 760, 338, 30, G, 'right'); }
-  if (Math.floor(now / 400) % 2) X.fillRect(40, 400, 16, 26);
-  if (e > 3500) { L.boot = -1; L.local = { name: 'content', until: now + 1500 }; }
+  const e = now - L.boot, info = { rows: bootRows(), face: (cx, cy, u, md) => live(LIFE.boot, cx, cy, u, md, { calm: true }) };
+  (T.boot || splash)(e, info);
+  if (e > BOOT_MS) { L.boot = -1; L.local = { name: 'content', until: now + 1500 }; }
 }
 function drawBanner() {
   const b = L.banner; if (!b) return; const e = now - b.t; if (e > b.ms + 440) { L.banner = null; return; }
@@ -261,24 +293,31 @@ function drawBanner() {
 /* ---------- loop and API ---------- */
 const DRAW = { visage: drawVisage, lumieres: drawLights, claude: drawClaude, codex: drawCodex, meteo: drawMeteo, minuteur: drawTimer,
   agenda: drawAgenda, systeme: drawSys, reglages: drawSettings, veille: drawVeille };
-let last = performance.now();
+let last = performance.now(), fitAt = 0;
 function update() {
-  if (now > L.blink.next) { L.blink.t = now; L.blink.next = now + 2000 + rnd() * 4000; }
-  if (now > L.look.next) { const c = rnd() < 0.35; L.look.tx = c ? 0 : (rnd() * 2 - 1) * 1.5; L.look.ty = c ? 0 : (rnd() * 2 - 1) * 0.8; L.look.next = now + 1400 + rnd() * 2600; }
+  if (now > L.blink.next) { L.blink.t = now; L.blink.next = now + 2000 + rnd() * 4000; }   // for faces drawn without a life state
   if (L.kiosk && P && L.scr === 'visage' && !L.sleepy && now - L.lastInput > (P.settings.sleep_min || 10) * 60000) L.sleepy = true;
+  if (now > fitAt) { fitAt = now + 1000; fitCanvas(); }
 }
 function frame(t) {
   const dt = Math.min(60, t - last); last = t; now = t; update(); hits = [];
-  X.setTransform(2, 0, 0, 2, 0, 0); X.globalAlpha = 1; X.shadowBlur = 0; T.bg(dt); X.shadowBlur = RM ? 0 : T.glow;
+  X.setTransform(S, 0, 0, S, 0, 0); X.globalAlpha = 1; X.shadowBlur = 0; T.bg(dt); glow();
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
   else (DRAW[L.scr] || drawVisage)(dt);
   drawBanner();
+  if (T.fg) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }
   requestAnimationFrame(frame);
 }
+function toCanvas(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; }
+addEventListener('resize', () => { fitAt = 0; });
 return {
   local: L,
-  start() { for (const f of ['30px VT323', '30px Fredoka', '30px Bangers', 'bold 30px "Comic Neue"']) document.fonts?.load(f).catch(() => {}); requestAnimationFrame(frame); },
+  start() {
+    const fonts = new Set(Object.values(THEMES).flatMap(t => t.fonts || []));
+    for (const f of fonts) document.fonts?.load(f).catch(() => {});
+    fitCanvas(); requestAnimationFrame(frame);
+  },
   setSend(fn) { send = fn; },
   setState(p) {
     offset = p.server_now - Date.now(); useTheme(p.view.theme);
@@ -289,6 +328,6 @@ return {
   },
   input() { L.lastInput = now; if (L.sleepy) { L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; return true; } return false; },
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
-  toCanvas(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; },
+  toCanvas,
 };
 })();

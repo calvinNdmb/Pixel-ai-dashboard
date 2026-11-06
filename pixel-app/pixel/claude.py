@@ -6,15 +6,14 @@ import logging
 import re
 
 from .commands import norm
-from .keys import NAV
+from .keys import MOODS, NAV, THEMES
 
 log = logging.getLogger("pixel.claude")
-MOODS = ["neutre", "content", "surpris", "amoureux", "clin", "endormi"]
 SYSTEM = (
     "Tu es Pixel, un petit ordinateur de bureau rétro : un Raspberry Pi 4 dans un boîtier beige façon années 90, "
-    "avec un écran cathodique de 4,3 pouces et un Stream Deck en guise de clavier. Tu vis sur le bureau de la personne "
+    "avec un écran tactile de 7 pouces et un Stream Deck en guise de clavier. Tu vis sur le bureau de la personne "
     "qui te parle. Réponds en français, en la tutoyant, en une à trois phrases courtes et sans Markdown : "
-    "tes réponses s'affichent en vert sur un petit écran.\n"
+    "tes réponses s'affichent sur un petit écran.\n"
     "Tes outils agissent pour de vrai sur la maison et sur ton écran. Avant de parler des lampes, de la météo, "
     "de l'agenda ou du minuteur, lis-les avec get_status. Quand tu agis, dis simplement ce que tu as fait. "
     "Ne lance Codex que si on te le demande."
@@ -35,9 +34,13 @@ TOOLS = [
     tool("recall_scene", "Active une scène Hue par son nom.", {"scene": {"type": "string"}}, ["scene"]),
     tool("start_timer", "Lance le minuteur pour un nombre de minutes.", {"minutes": {"type": "number", "minimum": 1, "maximum": 180}}, ["minutes"]),
     tool("show_screen", "Affiche un écran de Pixel.", {"screen": {"type": "string", "enum": NAV}}, ["screen"]),
-    tool("set_mood", "Change l'expression du visage de Pixel pendant quelques secondes.", {"mood": {"type": "string", "enum": MOODS}}, ["mood"]),
-    tool("set_theme", "Change le style de l'écran de Pixel : retro (écran vert des années 90), moderne (yeux lumineux qui rebondissent) ou manga (grands yeux brillants).",
-         {"theme": {"type": "string", "enum": ["retro", "moderne", "manga"]}}, ["theme"]),
+    tool("set_mood", "Change l'expression du visage de Pixel pendant quelques secondes : content, surpris, amoureux, clin (clin d'œil), "
+                     "endormi, triste, fache (fâché), confus, excite (des étoiles dans les yeux), fier (lunettes de soleil), malade, "
+                     "baille (il bâille), reflechit, ecoute, neutre.", {"mood": {"type": "string", "enum": MOODS}}, ["mood"]),
+    tool("set_theme", "Change le style de l'écran de Pixel : retro (écran vert des années 90), moderne (yeux lumineux qui rebondissent), "
+                      "manga (grands yeux brillants), neon (nuit synthwave, néons roses et bleus), croquis (dessin au crayon sur un cahier) "
+                      "ou lcd (console de poche, quatre tons de vert).",
+         {"theme": {"type": "string", "enum": list(THEMES)}}, ["theme"]),
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
 
@@ -54,7 +57,7 @@ def check(name, a):
         "start_timer": isinstance(a.get("minutes"), (int, float)) and 1 <= a["minutes"] <= 180,
         "show_screen": a.get("screen") in NAV,
         "set_mood": a.get("mood") in MOODS,
-        "set_theme": a.get("theme") in ("retro", "moderne", "manga"),
+        "set_theme": a.get("theme") in THEMES,
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
@@ -65,7 +68,7 @@ class Claude:
         self.hub, self.C = hub, hub.s["chat"]
         self.model = cfg.get("model", "claude-opus-5-5")
         self.effort = cfg.get("effort", "low")
-        self.history, self.busy, self.client = [], False, None
+        self.history, self.busy, self.client, self.end_mood = [], False, None, "content"
         if not hub.demo:
             try:
                 import anthropic
@@ -120,6 +123,7 @@ class Claude:
             return "ok"
         if name == "set_mood":
             h.mood(a["mood"], 0 if a["mood"] == "endormi" else 3000)
+            self.end_mood = a["mood"]                  # keep it once the answer is done
             return "ok"
         if name == "set_theme":
             await h.dispatch("theme.set", {"name": a["theme"]})
@@ -141,6 +145,7 @@ class Claude:
         self.busy = True
         self.C["messages"] = (self.C["messages"] + [{"role": "user", "text": text}, {"role": "assistant", "text": ""}])[-30:]
         self.C["phase"] = "think"
+        self.end_mood = "content"
         self.hub.mood("reflechit", 60000)
         try:
             await (self._real(text) if self.client else self._demo(text))
@@ -149,7 +154,7 @@ class Claude:
             self.C["phase"] = "idle"
             if not self.C["messages"][-1]["text"]:
                 self.C["messages"][-1]["text"] = "…"
-            self.hub.mood("content", 2000)
+            self.hub.mood(self.end_mood, 2000 if self.end_mood == "content" else 4000)
 
     async def _real(self, text):
         A = self.anthropic
@@ -181,6 +186,7 @@ class Claude:
                     continue
                 uses = [b for b in resp.content if b.type == "tool_use"]
                 if resp.stop_reason == "refusal":
+                    self.end_mood = "confus"
                     self._say(" (Je ne peux pas répondre à ça.)")
                     return
                 if not uses:
@@ -221,6 +227,7 @@ class Claude:
 
     def _fail(self, start, msg):
         del self.history[start:]                       # roll back to the last complete exchange
+        self.end_mood = "triste"
         self.C["messages"][-1]["text"] = msg
         self.hub.mark()
 
@@ -230,6 +237,13 @@ class Claude:
         m = re.search(r"(salon|bureau|chambre|cuisine)\D*(\d{1,3})", t)
         if "blague" in t:
             reply = "Tu sais pourquoi je ne bouge jamais la tête ? Pas de servos, pas de soucis."
+            self.end_mood = "clin"
+        elif "merci" in t:
+            reply = "Avec plaisir, c'est toujours un bonheur de t'aider."
+            self.end_mood = "amoureux"
+        elif "bravo" in t:
+            reply = "Merci ! Je suis assez fier de moi, je dois dire."
+            self.end_mood = "fier"
         elif m:
             await h.dispatch("lights.set", {"room": m.group(1), "bri": int(m.group(2))})
             reply = f"C'est fait : {m.group(1)} à {m.group(2)} %."
@@ -245,5 +259,3 @@ class Claude:
         for ch in reply:
             self._say(ch)
             await asyncio.sleep(0.025)
-        if "blague" in t:
-            h.mood("clin", 2200)

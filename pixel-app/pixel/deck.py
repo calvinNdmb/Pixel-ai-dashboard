@@ -13,6 +13,9 @@ STYLES = {
     "retro": {"fg": (70, 255, 130), "bg": (8, 16, 11), "cur": ((8, 16, 11), (70, 255, 130)), "act": (255, 179, 71), "font": [DEJAVU]},
     "moderne": {"fg": (232, 236, 255), "bg": (21, 27, 51), "cur": ((12, 17, 36), (127, 243, 255)), "act": (255, 184, 107), "font": [os.path.join(WEB, "Fredoka.ttf"), DEJAVU]},
     "manga": {"fg": (27, 27, 31), "bg": (251, 247, 238), "cur": ((251, 247, 238), (27, 27, 31)), "act": (232, 56, 79), "font": [os.path.join(WEB, "Bangers-Regular.ttf"), DEJAVU]},
+    "neon": {"fg": (63, 246, 255), "bg": (12, 5, 34), "cur": ((12, 5, 34), (255, 79, 216)), "act": (255, 160, 61), "font": [os.path.join(WEB, "ChakraPetch-SemiBold.ttf"), DEJAVU]},
+    "croquis": {"fg": (44, 44, 48), "bg": (251, 248, 239), "cur": ((24, 24, 27), (255, 233, 77)), "act": (210, 65, 44), "font": [os.path.join(WEB, "PatrickHand-Regular.ttf"), DEJAVU]},
+    "lcd": {"fg": (32, 44, 24), "bg": (197, 208, 139), "cur": ((197, 208, 139), (32, 44, 24)), "act": (58, 76, 36), "font": [os.path.join(WEB, "PixelifySans.ttf"), DEJAVU]},
 }
 
 
@@ -117,7 +120,7 @@ def _font(ImageFont, size, fonts):
     for f in fonts:
         try:
             font = ImageFont.truetype(f, size)
-            if "Fredoka" in f:
+            if "Fredoka" in f or "Pixelify" in f:       # variable fonts: a bolder instance reads better on the keys
                 try:
                     font.set_variation_by_name("SemiBold")
                 except (OSError, ValueError):

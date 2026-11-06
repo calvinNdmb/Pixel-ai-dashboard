@@ -48,6 +48,13 @@ def core_actions(hub, datadir):
             ui_file.write_text(json.dumps({"theme": name}))
             hub.toast("THÈME " + THEMES[name].upper())
 
+    @hub.action("theme.step")
+    async def theme_step(d=1):
+        """Next (d=1) or previous (d=-1) theme, for the "Thème −" / "Thème +" keys. Saved like theme.set."""
+        ids = list(THEMES)
+        i = ids.index(v["theme"]) if v["theme"] in ids else 0
+        await theme(ids[(i + int(d)) % len(ids)])
+
     @hub.action("screen.show")
     async def show(screen):
         if screen in NAV:
