@@ -1,87 +1,99 @@
-# Pixel
+# Pixel (édition rétro)
 
-Compagnon de bureau : un écran tactile 4,3" en guise de visage, un Stream Deck MK.2 incliné à l'avant et un Raspberry Pi 4 caché dans le socle. Il n'a aucune pièce mobile, et **un seul câble** sort : l'alimentation USB-C du Pi.
+Un petit PC beige des années 90… qui est en réalité un Raspberry Pi 4.
 
-![Pixel](preview.png)
+- **Le moniteur cathodique** contient un écran tactile 4,3".
+- **Le boîtier de bureau** cache le Pi 4 et le haut-parleur.
+- **Le « clavier »** est le Stream Deck MK.2, posé devant sur un plateau.
 
-L'écran sur l'image est une maquette : un visage animé, et un tableau de bord avec les lumières Hue, Claude, Codex et la musique. L'appli reste à écrire.
+Il n'a aucune pièce mobile, et **un seul câble** sort : l'alimentation USB-C du Pi.
+
+![Pixel rétro](preview.png)
+
+L'écran sur l'image est une maquette en style écran vert (un visage en pixels et un terminal avec Hue, Claude, Codex, musique et météo). L'appli reste à écrire.
 
 ![Dedans](preview-inside.png)
 
 ## Pièces à imprimer
 
-Elles sont toutes dans `stl/`, déjà posées dans le bon sens pour l'impression, **sans supports**.
+Elles sont toutes dans `stl/`, déjà posées dans le bon sens pour l'impression, **sans supports**. Imprime tout en PLA beige ou ivoire. Le plateau et le pied peuvent être d'un beige un peu plus foncé.
 
-| Fichier | Taille (mm) | Couleur proposée | Sens d'impression |
-| --- | --- | --- | --- |
-| `ScreenFitTest.stl` | 113 × 75 × 6 | n'importe laquelle | **À imprimer en premier** (voir plus bas) |
-| `PixelBase.stl` | 148 × 170 × 60 | vert sauge | debout, fond sur le plateau |
-| `PixelLid.stl` | 135 × 73 × 11 | vert sauge | à l'envers (dessus sur le plateau) |
-| `PixelNeck.stl` | 52 × 28 × 30 | rose | debout, collerette en bas |
-| `PixelHeadFront.stl` | 124 × 86 × 17 | crème | face avant sur le plateau |
-| `PixelHeadBack.stl` | 120 × 82 × 18 | crème | dos sur le plateau |
+| Fichier | Taille (mm) | Sens d'impression |
+| --- | --- | --- |
+| `ScreenFitTest.stl` | 113 × 75 × 6 | **À imprimer en premier** (voir plus bas) |
+| `PixelMonitorFront.stl` | 128 × 98 × 20 | face avant sur le plateau |
+| `PixelMonitorBack.stl` | 116 × 92 × 44 | dos sur le plateau |
+| `PixelStand.stl` | Ø 64 × 10 | à l'envers |
+| `PixelCase.stl` | 150 × 102 × 58 | à l'envers (dessus sur le plateau) |
+| `PixelCaseBottom.stl` | 145 × 97 × 7 | à plat |
+| `PixelKeyboardTray.stl` | 136 × 94 × 20 | à plat |
 
-- PLA ou PETG, buse 0,4 mm, couches de 0,2 mm, 3 parois, 15 % de remplissage.
-- Il faut un plateau d'au moins **180 × 180 mm**. Compte environ **245 g** de filament en tout.
-- Les seules surfaces en surplomb sont de petits ponts (fentes d'aération, prise USB-C, logements des patins) et des marches de 0,75 mm.
+- **Réglages :** buse 0,4 mm, couches de 0,2 mm, 3 parois, 15 % de remplissage.
+- **Taille du plateau :** au moins **180 × 180 mm**.
+- **Filament :** environ **300 g** en tout.
+- **Détails gravés :** les lecteurs CD et disquette, le bouton, les voyants, les boutons du moniteur et le badge « PIXEL » sont gravés. Ils s'impriment sans rien de spécial.
+- **Surplombs :** il ne reste que de petits ponts, comme les fentes d'aération et le tunnel du câble.
 
 ### D'abord : le cadre de test de l'écran
 
-Les cotes de l'écran (106 × 68 × 14,05 mm) viennent de fiches revendeurs. Imprime `ScreenFitTest.stl` et pose l'écran dedans : il doit entrer sans forcer, avec moins d'un demi-millimètre de jeu. S'il ne va pas, mesure l'écran, corrige `SCR_W`, `SCR_H` et `SCR_T` en haut de `generate.py`, puis relance le script.
+Les cotes de l'écran (106 × 68 × 14,05 mm) viennent de fiches de revendeurs.
+1. Imprime `ScreenFitTest.stl` et pose l'écran dedans. Il doit entrer sans forcer, avec moins d'un demi-millimètre de jeu.
+2. S'il ne va pas, mesure ton écran et corrige `SCR_W`, `SCR_H` et `SCR_T` en haut de `generate.py`.
+3. Relance le script.
 
 ## Matériel
 
 | Pièce | Qté | Note |
 | --- | --- | --- |
-| Raspberry Pi 4 (4 Go ou plus) | 1 | tu l'as. 4 Go minimum pour faire tourner Claude Code dessus |
-| Stream Deck MK.2 | 1 | tu l'as. Retire son pied et garde son câble USB-C → USB-A |
+| Raspberry Pi 4 (4 Go ou plus) | 1 | tu l'as |
+| Stream Deck MK.2 | 1 | tu l'as. Retire son pied |
 | Waveshare **4.3inch DSI LCD** tactile 800×480 (SKU 16239) | 1 | |
 | Nappe DSI 15 broches, **200 mm** | 1 | celle livrée avec l'écran est trop courte |
+| **Câble USB-C coudé à 90° → USB-A**, environ 30 cm | 1 | pour le Stream Deck : sa prise est au dos et le Stream Deck est presque à plat |
 | Alimentation officielle Raspberry Pi 4, USB-C 5,1 V 3 A | 1 | le seul câble |
 | Radiateur passif pour Pi 4 (25 mm de haut maximum) | 1 | |
-| Haut-parleur Ø 40 mm, 4 Ω, 3 W | 1 | sous la grille en cœur |
-| Ampli I2S MAX98357A | 1 | branché sur le GPIO du Pi |
+| Haut-parleur Ø 40 mm, 4 Ω, 3 W, avec un ampli I2S MAX98357A | 1 | sous les fentes du dessus du boîtier |
 | Mini micro USB | 1 | |
 | Carte microSD (32 Go ou plus) | 1 | |
-| Patins caoutchouc Ø 10 mm | 4 | |
+| Patins caoutchouc Ø 10 mm | 8 | 4 sous le boîtier, 4 sous le plateau |
 | Mousse adhésive de 1 mm | 4 petits carrés | derrière l'écran |
 
 ### Vis (M2,5, vissées directement dans le plastique)
 
 | Vis | Qté | Usage |
 | --- | --- | --- |
-| M2,5 × 6 | 4 | le Pi sur ses entretoises |
-| M2,5 × 8 | 4 | le couvercle sur le socle |
-| M2,5 × 10 | 2 | le cou sur le couvercle |
-| M2,5 × 20 | 2 | la tête : par l'arrière, à travers le cou, jusque dans l'avant |
+| M2,5 × 6 | 4 | le Pi sur le fond du boîtier |
+| M2,5 × 8 | 4 | le fond sur le boîtier |
+| M2,5 × 8 | 4 | le pied sur le boîtier (vissées depuis l'intérieur) |
+| M2,5 × 10 | 4 | le moniteur sur le pied (vissées depuis l'intérieur du pied) |
+| M2,5 × 12 | 2 | le plateau du Stream Deck contre le boîtier (vissées depuis l'intérieur) |
 
 ## Montage
 
-1. **Le Pi :** visse-le sur ses entretoises, la prise USB-C contre le trou à l'arrière du socle. Branche l'ampli et le haut-parleur, le micro USB, et la nappe DSI (côté Pi).
-2. **Le couvercle :** passe la nappe dans la fente du couvercle, pose le haut-parleur dans son anneau sous la grille, puis visse le couvercle (4 × M2,5 × 8).
-3. **Le cou :** enfile-le sur la nappe et visse sa collerette sur le couvercle (2 × M2,5 × 10).
-4. **La tête :** pose l'écran dans l'avant de la tête (verre contre la fenêtre), avec 4 carrés de mousse au dos. Branche la nappe sur l'écran.
-5. **Fermer la tête :** pose l'avant sur le cou. Accroche l'arrière par ses deux languettes du haut, puis rabats-le vers le bas. Visse par l'arrière les 2 × M2,5 × 20 : elles traversent le cou et verrouillent la tête.
-6. **Le Stream Deck :** branche son câble sur un port USB du Pi, puis pose-le sur les nervures de la fente, avec le bord du bas contre la lèvre avant.
+1. **Le moniteur :** pose l'écran dans l'avant du moniteur, verre contre la fenêtre, avec 4 carrés de mousse au dos. Branche la nappe DSI. Accroche l'arrière par ses deux languettes du haut, puis rabats-le vers le bas.
+2. **Le pied :** passe la nappe dans le trou du pied. Visse le pied sous le moniteur avec 4 × M2,5 × 10, depuis l'intérieur du pied. Ces vis serrent aussi l'avant et l'arrière du moniteur ensemble.
+3. **Sur le boîtier :** passe la nappe dans le trou du dessus du boîtier. Visse le pied avec 4 × M2,5 × 8, depuis l'intérieur du boîtier.
+4. **Dans le boîtier :** colle le haut-parleur dans son anneau sous les fentes. Visse le Pi sur le fond (4 × M2,5 × 6), prise USB-C vers l'arrière. Branche la nappe, l'ampli, le micro (sur le port USB du fond) et le câble du Stream Deck (sur le port USB de devant).
+5. **Le plateau :** fais passer le câble du Stream Deck par le tunnel du plateau, puis par le trou du bas de la façade du boîtier. Visse le plateau contre le boîtier avec 2 × M2,5 × 12, depuis l'intérieur.
+6. **Fermer :** visse le fond (4 × M2,5 × 8), branche le câble coudé sur le Stream Deck et pose-le dans son plateau.
 
 ## Vérifications faites sur ordinateur
 
-- **Collisions :** aucune entre les pièces, ni avec le Stream Deck, l'écran, le Pi 4 (prises USB branchées comprises) et le haut-parleur.
-- **Les vis de la tête** traversent bien l'arrière, la paroi du cou, puis environ 7 mm de l'avant.
-- **Le visage reste visible** au-dessus du Stream Deck : le bas de la tête est à 82 mm de haut, le haut du Stream Deck à 78 mm.
+- **Collisions :** aucune entre les pièces, ni avec le Stream Deck et sa prise coudée, l'écran, le Pi 4 (prises USB comprises) et le haut-parleur.
+- **Visibilité :** la façade du boîtier (lecteurs, bouton, voyants) reste au-dessus du Stream Deck.
+- **Stabilité :** le plateau plein à l'avant sert de lest. D'après une estimation des poids, il faut pousser d'environ 4 N vers l'arrière, en haut de l'écran, pour faire basculer l'ensemble. Un toucher normal est bien en dessous.
 - Rien n'a encore été imprimé.
 
 ## À savoir
 
-- **L'alimentation de l'écran :** si ton modèle demande un 5 V séparé en plus de la nappe, fais monter 2 fils depuis le GPIO du Pi par le cou.
-- **La stabilité :** tapoter l'écran ne pose aucun problème. Un appui fort vers l'arrière peut le faire basculer, d'après une estimation des poids. Dans ce cas, colle 100 à 200 g de lest (rondelles ou pièces) au fond du socle, sous le Stream Deck.
-- **La chaleur :** le Pi respire par les fentes du fond et des côtés, et par la grille en cœur.
+- **L'alimentation de l'écran :** si ton modèle demande un 5 V séparé en plus de la nappe, fais monter 2 fils depuis le GPIO du Pi par le pied.
+- **La chaleur :** le Pi respire par le fond, les côtés, le « ventilateur » perforé à l'arrière et les fentes du dessus.
 
 ## Modifier
 
 Toutes les cotes sont en haut de `generate.py`. Relance ensuite :
 
 ```bash
-pip install trimesh manifold3d shapely mapbox_earcut numpy scipy
+pip install trimesh manifold3d shapely mapbox_earcut numpy scipy matplotlib
 python generate.py
 ```
