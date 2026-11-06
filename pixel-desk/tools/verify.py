@@ -1,0 +1,299 @@
+"""Pixel: every check on the 3D model, for v1 (default) and v2 (V2_PANEL = True).
+
+    python3 tools/verify.py            # both versions, about 2 minutes
+    python3 tools/verify.py --v1       # only v1 (what generate.py exports by default)
+
+Checks: collisions between the printed parts and with the bought parts (screen and everything on its back,
+faux Pi + header + Dupont plugs, Pi 4 with its plugs, Stream Deck module / keys / USB-C plug, option tray,
+v2 front-panel parts and LED strip), monitor fit (glass pocket, window, posts, back opening), ribbon slot,
+print checks (build volume, mesh health, overhangs, thin walls), filament, stability.
+Exit code 0 when every check passes.
+"""
+import argparse
+import sys
+import time
+import warnings
+
+import numpy as np
+
+import checks
+import mocks
+
+g = mocks.g
+warnings.filterwarnings("ignore")
+np.seterr(all="ignore")
+
+FAILS = []
+# Intentionally thin features, with the reason (they are reported, not failed)
+THIN_OK = {"PixelKeyboardLeds": "the translucent LED bar is 0.8 mm thick on purpose (light guide)"}
+
+# bought parts, for the stability estimate (grams)
+SCREEN_G, PI_G, SD_MODULE_G, CABLES_G = 280.0, 70.0, 120.0, 40.0
+
+
+def check(ok, label, detail=""):
+    print(("  OK    " if ok else "  FAIL  ") + label + (f"  [{detail}]" if detail else ""))
+    if not ok:
+        FAILS.append(label)
+    return ok
+
+
+def ov(a, b):
+    if not (np.all(a.bounds[0] < b.bounds[1]) and np.all(a.bounds[1] > b.bounds[0])):
+        return 0.0
+    return round(abs(a.intersection(b, engine="manifold").volume), 3)
+
+
+def no_overlap(group_a, group_b, label, skip=()):
+    bad = []
+    for ka, a in group_a.items():
+        for kb, b in group_b.items():
+            if ka == kb or (ka, kb) in skip or (kb, ka) in skip:
+                continue
+            v = ov(a, b)
+            if v > 0.01:
+                bad.append(f"{ka} x {kb}: {v} mm3")
+    check(not bad, label, "; ".join(bad[:6]))
+    return bad
+
+
+def run(v2):
+    g.V2_PANEL = v2
+    tag = "v2" if v2 else "v1"
+    print(f"\n================ Pixel {tag} (V2_PANEL = {v2})")
+    t0 = time.time()
+    slivers = []
+    single = g.single
+
+    def spy(mesh, name):                                     # generate.single keeps the main body: count what it drops
+        pieces = mesh.split(only_watertight=False)
+        slivers.extend(f"{name} {abs(p.volume):.3f} mm3" for p in pieces if abs(p.volume) <= 1.0)
+        return single(mesh, name)
+
+    g.single = spy
+    try:
+        asm, prn = g.build_all()
+    finally:
+        g.single = single
+    print(f"  built {len(prn)} print files in {time.time() - t0:.1f} s: {', '.join(prn)}")
+    check(not slivers, "no slivers: every part comes out of the booleans as one piece", "; ".join(slivers[:5]))
+    check(("PixelKeyboardLeds" in prn) == v2, "PixelKeyboardLeds.stl exported only in v2", f"exported: {'PixelKeyboardLeds' in prn}")
+
+    # ---------------------------------------------------------------- printed parts against each other
+    print("-- collisions")
+    names = list(asm)
+    bad = []
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            v = ov(asm[a], asm[b])
+            if v > 0.01:
+                bad.append(f"{a} x {b}: {v}")
+    check(not bad, f"no overlap between the {len(names)} assembled printed parts", "; ".join(bad))
+
+    scr = mocks.screen_parts()
+    adp = mocks.adapter_parts()
+    printed = {k: m for k, m in asm.items()}
+    no_overlap(scr, printed, "screen, LCD back, tabs, driver board, standoffs, spring contacts, DSI connector + ribbon, "
+                             "touch flex vs printed parts")
+    no_overlap(adp, printed, "header (body, pins), Dupont plugs + wires on the faux Pi vs printed parts")
+    no_overlap(adp, scr, "header and Dupont plugs vs the screen's parts (the short ends just touch the spring contacts)")
+    tails = adp["header_pins"].bounds[0]
+    plate_low = asm["PixelScreenPowerAdapter"].bounds[0]
+    stick = plate_low[1] - tails[1]                          # the Pi frame's w is the monitor's Y at any rotation
+    pogo_top = scr["pogo_pins"].bounds[1][1]
+    check(abs(stick - g.PIN_BELOW) < 0.05 and abs(pogo_top - tails[1]) < 0.1,
+          "header short ends stick out under the faux Pi like a soldered Pi header and meet the spring contacts",
+          f"{stick:.2f} mm (PIN_BELOW), spring contacts on pins {g.POGO_PINS}")
+
+    pis = mocks.pi_blocks()
+    bad = [f"{k}: {ov(m, asm['PixelCase'])}/{ov(m, asm['PixelCaseBottom'])}" for k, m in pis.items()
+           if max(ov(m, asm["PixelCase"]), ov(m, asm["PixelCaseBottom"])) > 0.01]
+    check(not bad, "Pi 4 (ports, heatsink, SD card, GPIO, DSI) + plugs (Stream Deck, mic, USB-C, 2 Dupont) vs case / bottom",
+          "; ".join(bad))
+    spk = mocks.speaker()
+    check(ov(spk, asm["PixelCase"]) < 0.01 and sum(ov(spk, m) for m in pis.values()) < 0.01,
+          "40 mm speaker (v2) under its slots vs case / Pi")
+
+    body, keys, conn, plug = mocks.sd_module()
+    base, top = asm["PixelKeyboardBase"], asm["PixelKeyboardTop"]
+    check(ov(body, base) + ov(body, top) < 0.01, "Stream Deck module body vs keyboard base / top")
+    check(sum(ov(k, base) + ov(k, top) for k in keys) < 0.01, "15 keys vs keyboard base / top")
+    check(ov(conn, base) + ov(plug, base) < 0.01, "module USB-C connector + 90 deg plug vs keyboard base")
+    check(plug.bounds[0][2] > 0.5, "90 deg plug stays above the desk", f"lowest point {plug.bounds[0][2]:.1f} mm")
+    deck_body, deck_plug, _ = mocks.deck()
+    tray = g.build_tray()
+    check(ov(deck_body, tray) + ov(deck_plug, tray) < 0.01, "option tray vs whole Stream Deck + 90 deg plug")
+    check(ov(tray, asm["PixelCase"]) < 0.01, "option tray vs case")
+
+    if v2:
+        fp = mocks.front_parts()
+        bad = []
+        for k, m in fp.items():
+            for other, mm in [("case", asm["PixelCase"]), ("kb base", base), ("kb top", top), ("speaker", spk)] + list(pis.items()):
+                if ov(m, mm) > 0.01:
+                    bad.append(f"{k} x {other}")
+        for i, a in enumerate(list(fp)):
+            for b in list(fp)[i + 1:]:
+                if ov(fp[a], fp[b]) > 0.01:
+                    bad.append(f"{a} x {b}")
+        check(not bad, "v2 front parts (power, Turbo, RGB LED, 2 LED holders) vs case / keyboard / speaker / Pi / each other",
+              "; ".join(bad))
+        strip = mocks.kb_led_strip()
+        bar = asm["PixelKeyboardLeds"]
+        check(ov(strip, base) + ov(strip, top) + ov(strip, bar) < 0.01, "v2 LED strip vs keyboard base / top / bar")
+        check(ov(bar, top) + ov(bar, base) < 0.01, "v2 translucent bar vs keyboard top / base")
+        check(abs(prn["PixelKeyboardLeds"].bounds[0][2]) < 0.01, "v2 bar and top stay aligned in the print files")
+    else:
+        case = asm["PixelCase"]
+        intact = []
+        for (x, z), d in g.front_panel_holes():
+            probe = g.cyl_y(x, z, g.CASE_Y0 + 0.9, g.CASE_Y0 + g.WALL - 0.1, 1.6)
+            intact.append(ov(probe, case) / probe.volume)
+        check(min(intact) > 0.95, "v1 front panel: buttons and LEDs are engraved, the wall is whole behind them",
+              f"wall kept {min(intact) * 100:.0f} %")
+        tl = []
+        for u in g.KB_LED_U:
+            probe = g.kb_box(u - 1.0, u + 1.0, g.KB_LED_V - 0.5, g.KB_LED_V + 0.5, 0.1, g.KB_TOP_T - 0.7)
+            tl.append(ov(probe, top) / probe.volume)
+        check(min(tl) > 0.95, "v1 keyboard: the 3 LED marks are engraved, no windows")
+        pocket_probe = g.kb_box(g.KB_LED_U[0] - 4.0, g.KB_LED_U[-1] + 4.0, g.KB_LED_V - 5.5, g.KB_LED_V + 5.5, -3.0, -0.6)
+        check(ov(pocket_probe, base) / pocket_probe.volume > 0.95, "v1 keyboard base: no LED strip pocket")
+
+    # ---------------------------------------------------------------- monitor
+    print("-- monitor and screen")
+    cx, cz = g.screen_box(); vx, vz = g.view_centre(); z0 = g.MON_Z0
+    sw, sh = g.SCR_W + 2 * g.SCR_CLR, g.SCR_H + 2 * g.SCR_CLR
+    mx = (g.WIN_W - g.ACTIVE_W) / 2 - abs(vx - cx - g.VIEW_DX); mz = (g.WIN_H - g.ACTIVE_H) / 2 - abs(vz - cz - g.VIEW_DZ)
+    check(mx > 1.0 and mz > 1.0, "the window shows the whole picture", f"margins {mx:.1f} mm left/right, {mz:.1f} mm top/bottom; "
+          f"the picture may be off-centre by up to that much")
+    lip_x = (sw - g.WIN_W) / 2 - abs(g.VIEW_DX); lip_z = (sh - g.WIN_H) / 2 - abs(g.VIEW_DZ)
+    check(min(lip_x, lip_z) > 5.0, "the bezel holds the glass by its black border", f"lip {lip_x:.1f} mm sides, {lip_z:.1f} mm top/bottom")
+    walls = dict(sides=g.BEZ_WALL, top=g.BEZ_TOP, chin=g.SCR_BOTTOM - g.SCR_CLR)
+    check(min(walls.values()) >= 3.0, "bezel walls around the glass pocket", ", ".join(f"{k} {v:.2f}" for k, v in walls.items()))
+    inner_hw = g.BACK_FRONT_W / 2 - g.WALL; inner_top = z0 + g.BACK_FRONT_H - g.WALL
+    gap_x = inner_hw - sw / 2; gap_z = inner_top - (cz + sh / 2)
+    check(gap_x >= 0.5 and gap_z >= 0.5 and g.BACK_FRONT_W / 2 <= g.BEZ_W / 2 - 1.0,
+          "the CRT back's opening clears the glass pocket and its rim sits on the bezel", f"{gap_x:.2f} / {gap_z:.2f} mm")
+    zt = g.tongue_z()
+    check(zt - (cz + sh / 2) >= 1.0 and z0 + g.BEZ_H - (zt + 2.0) >= 2.0, "tongue slots inside the bezel's top wall",
+          f"{zt - (cz + sh / 2):.1f} mm under, {z0 + g.BEZ_H - zt - 2:.1f} mm over")
+    lcd_x0, lcd_x1 = cx + g.LCD_DX - g.LCD_W / 2, cx + g.LCD_DX + g.LCD_W / 2
+    lcd_z0, lcd_z1 = cz + g.LCD_DZ - g.LCD_H / 2, cz + g.LCD_DZ + g.LCD_H / 2
+    edge = min(min(px - lcd_x0, lcd_x1 - px, pz - lcd_z0, lcd_z1 - pz) for px, pz in g.post_positions()) - g.POST_D / 2
+    check(edge >= 2.0, "the 4 posts press on the LCD's metal back", f"{edge:.1f} mm from its edge, through {g.FOAM_T} mm foam")
+    rear_hw, rear_top = g.BACK_W / 2 - g.WALL, z0 + g.BACK_H - g.WALL
+    fit = min(min(rear_hw - abs(px) - g.POST_D / 2, rear_top - pz - g.POST_D / 2) for px, pz in g.post_positions())
+    check(fit >= 1.0, "the posts reach the back's rear wall without leaving it", f"{fit:.1f} mm")
+    post_parts = {f"post{i}": g.cyl_y(px, pz, g.y_lcd_back() + g.FOAM_T, g.y_lcd_back() + 60, g.POST_D)
+                  for i, (px, pz) in enumerate(g.post_positions())}
+    keep = {k: v for k, v in scr.items() if k not in ("lcd", "glass")}
+    no_overlap(post_parts, {**keep, **adp, "faux Pi": asm["PixelScreenPowerAdapter"]},
+               "posts clear of the tabs, driver board, faux Pi, header, Dupont plugs, DSI ribbon, touch flex")
+    others = {"faux Pi": asm["PixelScreenPowerAdapter"], "Dupont plugs": adp["dupont"], "DSI ribbon": scr["ribbon_down"],
+              "tabs": g.U([scr[f"tab{i}"] for i in range(4)])}
+    clear = {k: min(float(np.min(m.nearest.on_surface(np.array([[px, m.centroid[1], pz]]))[1])) - g.POST_D / 2
+                    for px, pz in g.post_positions()) for k, m in others.items()}
+    print("        nearest post: " + ", ".join(f"{k} {v:.1f} mm" for k, v in clear.items()))
+    holes = np.array([g.pi_world(x, y) for x, y in g.PI_HOLES])
+    d = sorted({round(float(np.linalg.norm(holes[i] - holes[j])), 2) for i in range(4) for j in range(i + 1, 4)})
+    check(abs(d[0] - 49.0) < 0.01 and abs(d[1] - 58.0) < 0.01, "faux Pi: Pi 4 hole pattern 58 x 49 mm",
+          f"{d[:2]}; pin 1 at x {g.gpio_xy(1)[0]:.2f}, y {g.gpio_xy(1)[1]:.2f} on the Pi drawing")
+
+    # ---------------------------------------------------------------- ribbon slot and cable lengths
+    print("-- cables")
+    bundle = mocks.ribbon_bundle()
+    no_overlap(bundle, {k: asm[k] for k in ("PixelCase", "PixelStand", "PixelMonitorBack", "PixelMonitorFront")},
+               "DSI ribbon + 2 Dupont plugs pass through the slots (monitor floor, stand, case top)")
+    f = g.MON_F
+    p_conn = g.pi_world(1.3, 27.6, -g.STANDOFF_H + 1.0)
+    p_fold = g.pi_world(-6.0, 27.6, -g.STANDOFF_H + 1.0)
+    pocket_bottom = cz - sh / 2
+    x0s, x1s, y0s, y1s = g.RIBBON_SLOT
+    slot_top = np.array([(x0s + x1s) / 2, (y0s + y1s) / 2, z0 + 11.0])
+    slot_bot = np.array([slot_top[0], slot_top[1], g.CASE_H - g.WALL - 1.0])
+    pi_dsi = np.array([*g.pi_xy(3.1, 27.5), g.PLATE_T + g.PI_STANDOFF + 1.4 + 5.5])
+    path = [p_conn, p_fold, [p_fold[0], p_fold[1], pocket_bottom + 1.5], [p_fold[0], f + g.BEZ_D + 4.0, pocket_bottom + 1.5],
+            slot_top, slot_bot, pi_dsi]
+    L = sum(np.linalg.norm(np.subtract(path[i + 1], path[i])) for i in range(len(path) - 1))
+    check(L + 40.0 <= 300.0, "a 300 mm DSI ribbon is long enough", f"path about {L:.0f} mm + 40 mm for the folds and connectors")
+    hdr = g.pi_world(*g.gpio_xy(g.POGO_PINS[0]), g.ADP_T + g.DUPONT[1])
+    pi_pin = np.array([*g.pi_xy(*g.gpio_xy(g.POGO_PINS[0])), g.PLATE_T + g.PI_STANDOFF + 1.4 + 8.5 + g.DUPONT[1]])
+    wpath = [hdr, [hdr[0], hdr[1], z0 + 14.0], slot_top + [0, 2, 0], slot_bot + [0, 2, 0], pi_pin]
+    Lw = sum(np.linalg.norm(np.subtract(wpath[i + 1], wpath[i])) for i in range(len(wpath) - 1))
+    check(Lw + 30.0 <= 400.0, "40 cm Dupont wires are long enough", f"path about {Lw:.0f} mm")
+
+    # ---------------------------------------------------------------- print files
+    print("-- print files (Bambu Lab P2S, 256 mm cube)")
+    total = 0.0
+    rows = []
+    for name, m in prn.items():
+        ok_fit, ext = checks.printer_fit(m)
+        h = checks.mesh_health(m)
+        healthy = h["watertight"] and h["winding"] and h["volume"] and h["bodies"] == 1 and h["degenerate"] == 0 and h["duplicate"] == 0
+        oh = checks.overhangs(m)
+        bad_oh = [r for r in oh if not r["ok"]]
+        edges = []
+        thin = checks.thin_walls(m, edges=edges)["z"]
+        floors = checks.thin_floors(m)
+        grams = g.filament_g(m)
+        if name != "PixelStreamDeckTray":
+            total += grams
+        thin_txt = (f"thin walls in {len(thin)} layers (worst {thin[0][2]} mm2 at {thin[0][3][0]})" if thin else "no thin walls") + \
+                   (f", thin floors {[(round(r['area'], 1), round(r['thickness'], 2)) for r in floors[:3]]}" if floors else ", no thin floors")
+        thin_ok = (not thin and not floors) or name in THIN_OK
+        widest = max([r["span"] for r in oh], default=0.0)
+        check(ok_fit and healthy and not bad_oh and thin_ok,
+              f"{name:24s} {ext[0]:5.1f} x {ext[1]:5.1f} x {ext[2]:5.1f} mm  ~{grams:4.0f} g",
+              f"{'fits' if ok_fit else 'TOO BIG'}; {'clean mesh' if healthy else h}; "
+              f"{len(oh)} overhangs, all bridges (widest span {widest:.1f} mm)" if not bad_oh else
+              f"overhangs needing support: {[(round(r['area']), round(r['span'], 1), round(r['length'], 1), r['centre']) for r in bad_oh[:3]]}")
+        if thin or floors:
+            print(f"        {thin_txt}" + (f"  -> accepted: {THIN_OK[name]}" if name in THIN_OK else ""))
+        if edges:
+            print(f"        {len(edges)} thin edges on thick material (engraving ridges, knife edges, chamfers): "
+                  f"up to {max(a for _, a in edges):.1f} mm2 per layer, cosmetic")
+        rows.append((name, ext, grams))
+    print(f"  filament for the {tag} set (without the option tray): ~{total:.0f} g")
+
+    # ---------------------------------------------------------------- stability
+    print("-- stability")
+    masses = []
+    for name, m in asm.items():
+        masses.append((g.filament_g(m), m.center_mass))
+    glass = scr["glass"]; lcd = scr["lcd"]
+    masses.append((SCREEN_G, (glass.center_mass + lcd.center_mass) / 2))
+    masses.append((PI_G, mocks.pi_blocks(False)["board"].center_mass))
+    masses.append((SD_MODULE_G, body.center_mass))
+    masses.append((CABLES_G, np.array([0.0, g.CASE_Y0 + g.CASE_D / 2, 20.0])))
+    M = sum(mm for mm, _ in masses)
+    com = sum(mm * np.asarray(c) for mm, c in masses) / M
+    y_axis = max(y for _, y in g.case_feet()) + 5.0          # rear rubber feet, back edge
+    tips = {}
+    for label, zp in (("top of the picture", vz + g.ACTIVE_H / 2), ("top of the monitor", z0 + g.BEZ_H)):
+        tips[label] = M / 1000 * 9.81 * (y_axis - com[1]) / zp
+    check(com[1] < y_axis, "the centre of mass is in front of the rear feet",
+          f"total ~{M:.0f} g, centre of mass Y {com[1]:.0f} mm, Z {com[2]:.0f} mm; rear feet at Y {y_axis:.0f} mm")
+    check(min(tips.values()) > 2.5, "a finger push does not tip Pixel over backwards",
+          "; ".join(f"{v:.1f} N at the {k}" for k, v in tips.items()) + " (a tap is about 1 N)")
+    mon = [asm["PixelMonitorFront"], asm["PixelMonitorBack"], glass]
+    print(f"        monitor depth {asm['PixelMonitorBack'].bounds[1][1] - asm['PixelMonitorFront'].bounds[0][1]:.0f} mm, "
+          f"total height {max(m.bounds[1][2] for m in mon):.0f} mm, total width {max(m.extents[0] for m in asm.values()):.0f} mm")
+    return dict(total=total, rows=rows, tips=tips, com=com, mass=M, ribbon=L, wires=Lw)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--v1", action="store_true", help="only check v1")
+    args = ap.parse_args()
+    t = time.time()
+    run(False)
+    if not args.v1:
+        run(True)
+    g.V2_PANEL = False
+    print(f"\n{'ALL CHECKS PASSED' if not FAILS else str(len(FAILS)) + ' CHECK(S) FAILED: ' + '; '.join(FAILS)}"
+          f"  ({time.time() - t:.0f} s)")
+    sys.exit(1 if FAILS else 0)
+
+
+if __name__ == "__main__":
+    main()
