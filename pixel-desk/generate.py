@@ -1,7 +1,8 @@
 """Pixel, retro edition: a beige 90s desktop PC that is really a Raspberry Pi 4.
 
-- The "CRT monitor" holds a 4.3" touch screen (Waveshare 4.3inch DSI LCD).
-- The "desktop case" holds the Raspberry Pi 4, the speaker and the wiring.
+- The "CRT monitor" holds a 7" touch screen (Freenove FNK0078, 800x480, DSI).
+- The "desktop case" holds the Raspberry Pi 4, the speaker and the wiring. Its front panel has a real
+  power button, a "Turbo" button, two status LEDs and an RGB notification LED.
 - The "keyboard" is a Stream Deck MK.2 lying on a low tray in front.
 No moving parts. One cable: the Pi's USB-C power.
 
@@ -13,6 +14,8 @@ Parts (stl/), each exported in its print orientation, no supports needed:
     PixelCaseBottom.stl    bottom plate, the Pi is screwed on it (prints flat)
     PixelKeyboardBase.stl  retro keyboard that holds the Stream Deck MK.2's inner module (prints upright)
     PixelKeyboardTop.stl   beige keyboard top with the 15 key holes (prints top-down)
+    PixelKeyboardLeds.stl  translucent bar for the 3 keyboard LED windows (same position as the top:
+                           load both as one object in the slicer to print it in translucent filament)
     PixelStreamDeckTray.stl  option: low tray for a whole, unopened Stream Deck MK.2 (prints upright)
     ScreenFitTest.stl      thin frame to check the screen size before the big prints
 
@@ -38,17 +41,22 @@ SD_W, SD_H, SD_T = 118.0, 84.0, 25.0            # Stream Deck MK.2, stand remove
 SD_ANGLE = 7.0                                  # keyboard-like tilt
 SD_CLR = 0.75
 
-# Waveshare 4.3inch DSI LCD (SKU 16239), outline from retailer data: measure yours
-# and print ScreenFitTest.stl first.
-SCR_W, SCR_H, SCR_T = 106.0, 68.0, 14.05
-SCR_CLR = 0.3
-WIN_W, WIN_H, WIN_R = 101.0, 63.0, 2.0          # visible window
-ACTIVE_W, ACTIVE_H = 95.04, 53.86               # for previews only
+# Freenove 7" touch screen FNK0078 (800x480, DSI). Outline from two published cases made for it
+# (screen pocket 166.5 x 102.5 mm): measure yours and print ScreenFitTest.stl first.
+SCR_W, SCR_H, SCR_T = 165.0, 101.0, 10.0
+SCR_CLR = 0.75
+WIN_W, WIN_H, WIN_R = 160.0, 94.0, 2.0          # window: shows the whole picture even if it is 3 mm off-centre
+ACTIVE_W, ACTIVE_H = 154.2, 85.9                # for previews only
 
 PI_L, PI_W = 85.0, 56.0                         # Raspberry Pi 4 board
 PI_HOLES = [(3.5, 3.5), (61.5, 3.5), (3.5, 52.5), (61.5, 52.5)]
 PI_STANDOFF = 5.0
 SPK_D, SPK_H = 40.0, 18.0                       # 40 mm speaker
+# real front-panel parts, held by their own nuts in holes through the case front (centres: X, Z)
+PWR_XZ, PWR_HOLE = (76.0, 51.0), 16.2           # 16 mm momentary metal button with LED ring
+TURBO_XZ, TURBO_HOLE = (56.0, 51.0), 12.2       # 12 mm momentary button, the "Turbo" of old PCs
+LED3_X, LED3_Z, LED3_HOLE = (24.0, 32.0), 51.0, 5.0   # two 3 mm LEDs in chrome holders: power, activity
+LED5_XZ, LED5_HOLE = (42.0, 51.0), 8.0          # 5 mm addressable RGB LED in a chrome holder: notifications
 
 # ------------------------------------------------------------------ layout
 WALL = 2.4
@@ -63,13 +71,13 @@ POCKET_DEPTH = 5.0
 POCKET_S0 = 4.5                                 # front rim, measured along the slope
 
 # desktop case
-CASE_HW, CASE_Y0, CASE_D, CASE_H = 75.0, 94.5, 130.0, 58.0
+CASE_HW, CASE_Y0, CASE_D, CASE_H = 100.0, 94.5, 160.0, 64.0
 CASE_Y1 = CASE_Y0 + CASE_D
 CASE_R, CASE_CHAMFER = 4.0, 2.0
 PLATE_T = 2.4
-PI_X0 = 58.0                                    # X of the Pi's SD-card edge (board rotated 180 deg)
+PI_X0 = CASE_HW - 17.0                          # X of the Pi's SD-card edge (board rotated 180 deg)
 PI_Y0 = CASE_Y1 - WALL - 2.2                    # Y of the Pi's USB-C edge (audio jack clears the wall)
-SPK_XY = (45.0, 120.0)
+SPK_XY = (-72.0, CASE_Y1 - 32.0)                # back left, clear of the monitor's tapered back
 TRAY_SCREWS_X = 45.0
 SD_CABLE_X = -33.8                              # X of the Stream Deck's USB-C port (and of the cable tunnel)
 
@@ -89,21 +97,31 @@ MOD_V0 = 16.0                                    # module's front edge, along th
 MOD_CLR, MOD_LEDGE = 0.25, 2.5                   # the module rests on its outer 2.5 mm only
 KB_TOP_SCREWS = [(-62.0, 8.0), (62.0, 8.0), (-62.0, 90.0), (62.0, 90.0)]
 TRAY_SCREW_Z = 8.0
+# three real status LEDs in the keyboard: a 3-LED piece of WS2812B strip (144 LEDs/m, 5 V) under three
+# windows filled by a small bar printed in translucent filament
+KB_LED_PITCH = 1000.0 / 144                     # LED spacing on a 144 LEDs/m strip
+KB_LED_U = [38.0 + KB_LED_PITCH * k for k in range(3)]
+KB_LED_V = 8.0
+KB_LED_WIN = (4.6, 2.0)                         # window in the top plate
+KB_LED_BAR = (2 * KB_LED_PITCH + 8.6, 5.0)      # translucent bar under the plate, its bumps fill the windows
+KB_LED_BAR_T = 0.8
 
 # stand (swivel foot)
-STAND_R, STAND_H, STAND_CHAMFER = 32.0, 10.0, 3.0
-STAND_Y = 132.0
+STAND_R, STAND_H, STAND_CHAMFER = 36.0, 10.0, 3.0
+STAND_Y = 160.0                                 # under the monitor's centre of mass
 STAND_CASE_SCREWS = [(0, 24.0), (0, -24.0), (26.0, 0), (-26.0, 0)]   # relative to the stand centre
 STAND_MON_SCREWS = [(-18.0, -9.0), (18.0, -9.0), (-18.0, 9.0), (18.0, 9.0)]
 
 # monitor
-MON_F = STAND_Y - 20.0                          # front face of the bezel
+MON_F = CASE_Y0 + 14.0                          # front face of the bezel
 MON_Z0 = CASE_H + STAND_H                       # bottom of the monitor
-BEZ_W, BEZ_H, BEZ_D, BEZ_R, BEZ_CHAMFER = 128.0, 98.0, 20.0, 5.0, 1.5
+BEZ_W, BEZ_H, BEZ_D, BEZ_R, BEZ_CHAMFER = 190.0, 135.0, 22.0, 7.0, 1.5
 FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth
-SCR_BOTTOM = 18.0                               # screen bottom above the monitor's bottom
-BACK_FRONT_W, BACK_FRONT_H = 118.0, 92.0                 # deep, boxy CRT back
-BACK_W, BACK_H, BACK_D, BACK_R = 100.0, 78.0, 95.0, 6.0
+SCR_BOTTOM = 20.0                               # screen bottom above the monitor's bottom
+BACK_FRONT_W, BACK_FRONT_H = 180.0, 128.0                # deep, boxy CRT back
+BACK_W, BACK_H, BACK_D, BACK_R = 150.0, 105.0, 120.0, 8.0
+TONGUE_X = 60.0                                 # the back hooks into the bezel with two tongues at the top
+POST_X, POST_DZ = 60.0, 35.0                    # four posts press the screen forward (1 mm foam pads)
 
 
 # ------------------------------------------------------------------ helpers
@@ -315,6 +333,11 @@ def build_keyboard():
         cuts.append(cyl_axis(pb - 1.0 * n, kb_world(u, v, -10.0), CBORE_D + 0.4))              # well: an M2.5x10 reaches the boss
     for x, y in ((-52, 10), (52, 10), (-52, 82), (52, 82)):
         cuts.append(cyl(x, y, -1, 1.0, 10.5))
+    # LED strip pocket under the windows, and a tunnel for its 3 wires into the cavity under the module
+    # (from there they follow the Stream Deck cable through the tunnel into the case)
+    u0, u1 = KB_LED_U[0] - 4.5, KB_LED_U[-1] + 4.5
+    cuts.append(kb_box(u0, u1, KB_LED_V - 6.25, KB_LED_V + 6.25, -3.5, 1))
+    cuts.append(kb_box(u0, u0 + 5.0, KB_LED_V + 2.0, MOD_V0 + MOD_LEDGE + 2.0, -depth - 3.0, -2.0))
     base = single(D(base, *cuts), "PixelKeyboardBase")
 
     # top plate, built in the local frame (w = 0 is its underside)
@@ -332,13 +355,20 @@ def build_keyboard():
     fu, fv = module_uv(MOD_W / 2, MOD_H / 2)
     frame = rrect(MOD_W + 4, MOD_H - 7, 3.0, 0, fv + 2.2).difference(rrect(MOD_W + 2.6, MOD_H - 8.4, 2.4, 0, fv + 2.2))
     marks = [frame, text_poly("PIXEL", 6.0, -58.0, 5.0)]
-    marks += [rrect(4.5, 1.8, 0.6, 38 + 7.5 * k, 8.0) for k in range(3)]
+    for u in KB_LED_U:                                                                          # LED windows
+        tcuts.append(ext_xy(rrect(*KB_LED_WIN, 0.6, u, KB_LED_V), -1, KB_TOP_T + 1))
+    mid = (KB_LED_U[0] + KB_LED_U[-1]) / 2
+    tcuts.append(ext_xy(rrect(*KB_LED_BAR, 0.8, mid, KB_LED_V), -1, KB_LED_BAR_T))            # recess for the bar
     for mk in marks:
         for g_ in getattr(mk, "geoms", [mk]):
             if g_.area > 0.01:
                 tcuts.append(ext_xy(g_, KB_TOP_T - 0.6, KB_TOP_T + 1))
     top_local = single(D(top, *tcuts), "PixelKeyboardTop")
-    return base, kb_local(top_local), top_local
+    bw, bh = KB_LED_BAR
+    bar = U([ext_xy(rrect(bw - 0.2, bh - 0.2, 0.7, mid, KB_LED_V), 0, KB_LED_BAR_T - 0.05)] +
+            [ext_xy(rrect(KB_LED_WIN[0] - 0.2, KB_LED_WIN[1] - 0.2, 0.5, u, KB_LED_V), KB_LED_BAR_T - 0.1, KB_TOP_T) for u in KB_LED_U])
+    leds_local = single(bar, "PixelKeyboardLeds")
+    return base, kb_local(top_local), top_local, kb_local(leds_local), leds_local
 
 
 # ------------------------------------------------------------------ desktop case
@@ -354,6 +384,18 @@ def case_inner_box():
 def plate_screws():
     x0, x1, y0, y1 = case_inner_box()
     return [(x0 + 6.6, y0 + 6.6), (x1 - 6.6, y0 + 6.6), (x0 + 6.6, y1 - 6.6), (x1 - 6.6, y1 - 6.6)]
+
+
+def front_panel_holes():
+    return [(PWR_XZ, PWR_HOLE), (TURBO_XZ, TURBO_HOLE), (LED5_XZ, LED5_HOLE)] + [((x, LED3_Z), LED3_HOLE) for x in LED3_X]
+
+
+def teardrop(x, z, d):
+    """Round hole with a small point at the bottom: the case prints upside down, so the point is the
+    top of the hole on the printer and needs no support. The part's own flange hides it."""
+    r = d / 2
+    c = Point(x, z).buffer(r, quad_segs=24)
+    return c.union(Polygon([(x - r * 0.7071, z - r * 0.7071), (x, z - r * 1.4142), (x + r * 0.7071, z - r * 0.7071)]))
 
 
 def build_case():
@@ -394,24 +436,25 @@ def build_case():
     for r_, n_ in ((5.0, 8), (10.0, 14), (15.0, 20)):
         for k in range(n_):
             t = 2 * np.pi * k / n_
-            cuts.append(cyl_y(-30 + r_ * cos(t), 30 + r_ * sin(t), y1 - 1, CASE_Y1 + 1, 2.4, sections=12))
+            cuts.append(cyl_y(-45 + r_ * cos(t), 32 + r_ * sin(t), y1 - 1, CASE_Y1 + 1, 2.4, sections=12))
     # side vents
     for s in (-1, 1):
-        for k in range(8):
-            y = CASE_Y1 - 55 + 6 * k
+        for k in range(11):
+            y = CASE_Y1 - 75 + 6 * k
             cuts.append(slab(min(s * (CASE_HW + 1), s * (CASE_HW - WALL - 1)), max(s * (CASE_HW + 1), s * (CASE_HW - WALL - 1)),
-                             y, y + 2.0, 14, 44))
-    # front panel, engraved: CD-ROM bay, floppy drive, power button, LEDs
+                             y, y + 2.0, 14, 48))
+    # front panel: engraved CD-ROM and floppy bays, real holes for the buttons and LEDs
     yf = CASE_Y0
     det = [
-        rrect(58, 13, 1.0, -37, 47.5).difference(rrect(56.4, 11.4, 0.6, -37, 47.5)),   # 5.25" bay outline
-        rrect(50, 0.8, 0.2, -37, 47.0), rrect(7, 2.4, 0.5, -14, 43.5),                  # tray line, eject
-        rrect(40, 9, 1.0, 18, 47.0).difference(rrect(38.4, 7.4, 0.6, 18, 47.0)),        # 3.5" bay outline
-        rrect(28, 1.6, 0.6, 15, 47.6), rrect(4, 2, 0.5, 33, 44.6),                      # floppy slot, button
-        ring(57, 47.0, 10.0, 8.0), rrect(4.0, 1.6, 0.6, 47.5, 52.0), rrect(4.0, 1.6, 0.6, 47.5, 43.0),
+        rrect(64, 14, 1.0, -60, 52.0).difference(rrect(62.4, 12.4, 0.6, -60, 52.0)),   # 5.25" bay outline
+        rrect(56, 0.8, 0.2, -60, 51.4), rrect(7, 2.4, 0.5, -34, 47.8),                  # tray line, eject
+        rrect(40, 9, 1.0, -2, 51.0).difference(rrect(38.4, 7.4, 0.6, -2, 51.0)),        # 3.5" bay outline
+        rrect(28, 1.6, 0.6, -5, 51.6), rrect(4, 2, 0.5, 13, 48.6),                      # floppy slot, button
     ]
     for p in det:
         cuts.append(engrave_front(p, yf, 0.8))
+    for (hx, hz), d in front_panel_holes():
+        cuts.append(ext_xz(teardrop(hx, hz, d), CASE_Y0 - 1, y0 + 1))
     case = D(case, *cuts)
     return single(case, "PixelCase")
 
@@ -481,15 +524,16 @@ def build_monitor():
                   ext_xz(rrect(WIN_W + 2 * FUNNEL, WIN_H + 2 * FUNNEL, WIN_R + FUNNEL * 0.5, cx, cz), f - 0.01, f + 0.01))
     cuts.append(funnel)
     # tongue slots for the back, pilots for the stand screws
+    zt = z0 + BEZ_H - 9.2
     for s in (-1, 1):
-        cuts.append(slab(s * 40 - 5.2, s * 40 + 5.2, f + BEZ_D - 6.5, f + BEZ_D + 0.5, 156.8, 158.8))
+        cuts.append(slab(s * TONGUE_X - 5.2, s * TONGUE_X + 5.2, f + BEZ_D - 6.5, f + BEZ_D + 0.5, zt, zt + 2.0))
     for dx, dy in STAND_MON_SCREWS:
         if STAND_Y + dy < f + BEZ_D:
             cuts.append(cyl(dx, STAND_Y + dy, z0 - 1, z0 + 12, PILOT))
     # engraved controls under the screen: badge, knobs, LED, power button
-    zc = z0 + 8.0
-    det = [text_poly("PIXEL", 6.5, -57.0, zc - 3.0), ring(16, zc, 4.6, 3.0), ring(24, zc, 4.6, 3.0), ring(32, zc, 4.6, 3.0),
-           rrect(5.0, 1.8, 0.6, 42.5, zc), ring(53.5, zc, 9.0, 7.0), Point(53.5, zc).buffer(1.0, quad_segs=12)]
+    zc = z0 + 9.0
+    det = [text_poly("PIXEL", 7.0, -86.0, zc - 3.3), ring(46, zc, 4.6, 3.0), ring(54, zc, 4.6, 3.0), ring(62, zc, 4.6, 3.0),
+           rrect(5.0, 1.8, 0.6, 71.5, zc), ring(83, zc, 9.0, 7.0), Point(83, zc).buffer(1.0, quad_segs=12)]
     for p in det:
         cuts.append(engrave_front(p, f, 0.7))
     bezel = single(D(front, *cuts), "PixelMonitorFront")
@@ -499,33 +543,33 @@ def build_monitor():
     adds = []
     # posts pressing the screen forward (with 1 mm foam pads)
     y_press = f + FUNNEL + SCR_T + 1.0
-    for px in (-35.0, 35.0):
-        for pz in (cz - 16.0, cz + 8.0):
+    for px in (-POST_X, POST_X):
+        for pz in (cz - POST_DZ, cz + POST_DZ):
             adds.append(cyl_y(px, pz, y_press, f + BEZ_D + BACK_D - WALL + OVER, 8.0))
     # bottom block for the stand screws
     # (ends in a 45 deg ramp so it prints without support)
-    adds.append(hull(slab(-26, 26, f + BEZ_D, f + BEZ_D + 20, z0 + 0.5, z0 + 10),
-                     slab(-26, 26, f + BEZ_D + 20, f + BEZ_D + 29.5, z0 + 0.5, z0 + 1.0)))
+    yb0, yb1 = STAND_Y - 16.0, STAND_Y + 16.0
+    adds.append(hull(slab(-26, 26, yb0, yb1, z0 + 0.5, z0 + 10), slab(-26, 26, yb1, yb1 + 9.5, z0 + 0.5, z0 + 1.0)))
     # tongues reaching into the bezel
     for s in (-1, 1):
-        adds.append(slab(s * 40 - 4.8, s * 40 + 4.8, f + BEZ_D - 6.0, f + BEZ_D + 2.0, 157.0, 158.6))
+        adds.append(slab(s * TONGUE_X - 4.8, s * TONGUE_X + 4.8, f + BEZ_D - 6.0, f + BEZ_D + 2.0, zt + 0.2, zt + 1.8))
     back = I(U([back, *adds]), U([monitor_back_solid(), slab(-200, 200, f + BEZ_D - 7, f + BEZ_D + 0.01, -10, 400)]))
     bcuts = []
     for dx, dy in STAND_MON_SCREWS:
         if STAND_Y + dy > f + BEZ_D:
             bcuts.append(cyl(dx, STAND_Y + dy, z0 - 1, z0 + 9, PILOT))
-    bcuts.append(slab(-10, 10, f + BEZ_D - 0.5, f + BEZ_D + 8, z0 - 1, z0 + 11))        # screen ribbon, open to the split face
+    bcuts.append(slab(-10, 10, STAND_Y - 2, STAND_Y + 9, z0 - 1, z0 + 11))             # screen ribbon and power wires, into the stand
     # perforated grilles on both sides and on top (only through the walls, clear of the screen posts)
-    cols_y = [f + BEZ_D + 40 + 9 * j for j in range(6)]
+    cols_y = [f + BEZ_D + 40 + 9 * j for j in range(7)]
     for s in (-1, 1):
-        for i in range(7):
-            z = z0 + 22 + 8 * i
+        for i in range(9):
+            z = z0 + 24 + 8 * i
             for y in cols_y:
-                bcuts.append(slab(min(s * 44, s * 70), max(s * 44, s * 70), y, y + 6.0, z, z + 2.2))
-    for i in range(13):
-        x = -36 + 6 * i
+                bcuts.append(slab(min(s * 66, s * 100), max(s * 66, s * 100), y, y + 6.0, z, z + 2.2))
+    for i in range(17):
+        x = -48 + 6 * i
         for y in cols_y:
-            bcuts.append(slab(x - 1.1, x + 1.1, y, y + 6.0, z0 + 70, z0 + 110))
+            bcuts.append(slab(x - 1.1, x + 1.1, y, y + 6.0, z0 + 100, z0 + 140))
     back = single(D(back, *bcuts), "PixelMonitorBack")
     return bezel, back
 
@@ -538,27 +582,32 @@ def build_fit_test():
 
 
 # ------------------------------------------------------------------ print poses
-def pose(m, kind):
-    m = m.copy()
+def pose_matrix(m, kind):
     rot = {"upright": None, "top_down": (np.pi, [1, 0, 0]), "face_down": (np.pi / 2, [1, 0, 0]),
            "back_down": (-np.pi / 2, [1, 0, 0])}[kind]
-    if rot:
-        m.apply_transform(trimesh.transformations.rotation_matrix(*rot))
-    m.apply_translation([-m.centroid[0], -m.centroid[1], -m.bounds[0][2]])
-    return m
+    R = trimesh.transformations.rotation_matrix(*rot) if rot else np.eye(4)
+    mm = m.copy(); mm.apply_transform(R)
+    return trimesh.transformations.translation_matrix([-mm.centroid[0], -mm.centroid[1], -mm.bounds[0][2]]) @ R
+
+
+def pose(m, kind, like=None):
+    """Print orientation. like=other part: use that part's transform (multi-material parts stay aligned)."""
+    mm = m.copy(); mm.apply_transform(pose_matrix(like if like is not None else m, kind))
+    return mm
 
 
 def build_all():
     tray, case, plate, stand = build_tray(), build_case(), build_case_bottom(), build_stand()
     bezel, back = build_monitor()
-    kb_base, kb_top, kb_top_local = build_keyboard()
-    assembled = dict(PixelKeyboardBase=kb_base, PixelKeyboardTop=kb_top, PixelCase=case, PixelCaseBottom=plate,
+    kb_base, kb_top, kb_top_local, kb_leds, kb_leds_local = build_keyboard()
+    assembled = dict(PixelKeyboardBase=kb_base, PixelKeyboardTop=kb_top, PixelKeyboardLeds=kb_leds, PixelCase=case, PixelCaseBottom=plate,
                      PixelStand=stand, PixelMonitorFront=bezel, PixelMonitorBack=back)
     printable = {
         "PixelMonitorFront": pose(bezel, "face_down"), "PixelMonitorBack": pose(back, "back_down"),
         "PixelStand": pose(stand, "top_down"), "PixelCase": pose(case, "top_down"),
         "PixelCaseBottom": pose(plate, "upright"), "PixelKeyboardBase": pose(kb_base, "upright"),
-        "PixelKeyboardTop": pose(kb_top_local, "top_down"), "PixelStreamDeckTray": pose(tray, "upright"),
+        "PixelKeyboardTop": pose(kb_top_local, "top_down"), "PixelKeyboardLeds": pose(kb_leds_local, "top_down", like=kb_top_local),
+        "PixelStreamDeckTray": pose(tray, "upright"),
         "ScreenFitTest": build_fit_test(),
     }
     return assembled, printable
