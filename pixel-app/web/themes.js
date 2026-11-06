@@ -1,5 +1,18 @@
 /* Pixel OS themes. Each theme draws the background, headers, panels, bars, icons and the face.
    retro: green CRT, pixel blocks. moderne: smooth glowing eyes that bounce. manga: big shiny anime eyes on paper. */
+/* Every face mood that every theme can draw. Used by the server, the Stream Deck and the test lab:
+   add new moods here (id = ascii, used in commands; name = French label; desc = when it shows). */
+window.PixelMoods = [
+  { id: 'neutre', name: 'Neutre', desc: 'Par défaut : cligne des yeux, regarde autour de lui, suit ton doigt.' },
+  { id: 'content', name: 'Content', desc: 'Quand tu le touches, quand Codex réussit.' },
+  { id: 'surpris', name: 'Surpris', desc: 'Notification, fin du minuteur, réveil en sursaut.' },
+  { id: 'amoureux', name: 'Amoureux', desc: 'Quand tu lui dis merci.' },
+  { id: 'clin', name: "Clin d'œil", desc: 'Après une blague.' },
+  { id: 'endormi', name: 'Endormi', desc: 'Après un moment sans rien faire.' },
+  { id: 'reflechit', name: 'Réfléchit', desc: 'Pendant que Claude prépare sa réponse.' },
+  { id: 'ecoute', name: 'Écoute', desc: 'Pendant que tu parles à Claude.' },
+];
+
 window.PixelThemes = H => {
 const X = H.X, W = 800, HT = 480, TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
