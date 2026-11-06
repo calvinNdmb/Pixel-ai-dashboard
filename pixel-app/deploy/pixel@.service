@@ -1,0 +1,17 @@
+# Lance le serveur de Pixel au démarrage.
+# Installation : sudo cp deploy/pixel@.service /etc/systemd/system/ && sudo systemctl enable --now pixel@$USER
+[Unit]
+Description=Pixel, serveur du compagnon de bureau
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=%i
+WorkingDirectory=/home/%i/Pixel-ai-dashboard/pixel-app
+EnvironmentFile=-/etc/pixel.env
+ExecStart=/home/%i/Pixel-ai-dashboard/pixel-app/.venv/bin/python server.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

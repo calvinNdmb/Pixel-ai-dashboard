@@ -10,7 +10,7 @@ Il n'a aucune pièce mobile, et **un seul câble** sort : l'alimentation USB-C d
 
 ![Pixel rétro](preview.png)
 
-L'écran sur l'image est une maquette en style écran vert (un visage en pixels et un terminal avec Hue, Claude, Codex, musique et météo). L'appli reste à écrire.
+L'écran affiche l'appli Pixel, en style écran vert : un visage en pixels et des menus pour Hue, Claude, Codex, la météo, l'agenda et le minuteur. Elle est dans [`pixel-app/`](../pixel-app/).
 
 ![Dedans](preview-inside.png)
 

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#d9d2bd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pixel">
+<title>Pixel</title>
+<link rel="manifest" href="app/manifest.webmanifest">
+<link rel="icon" href="app/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="app/icon-180.png">
+<link rel="stylesheet" href="app/style.css">
+</head>
+<body>
+<main class="device">
+  <div class="monitor">
+    <div class="recess"><div class="screen" id="screen">
+      <canvas id="crt" width="1600" height="960" aria-label="Écran de Pixel"></canvas>
+      <form class="cmd" id="cmdForm" autocomplete="off">
+        <label for="cmd">C:\PIXEL&gt;</label>
+        <input id="cmd" name="cmd" type="text" enterkeyhint="send" spellcheck="false" placeholder="tape une commande ou une question">
+      </form>
+      <div class="osk" id="osk" hidden></div>
+    </div></div>
+    <div class="mfoot"><span class="badge">PIXEL</span><span class="conn" id="conn">connexion…</span></div>
+  </div>
+  <div class="kb">
+    <div class="keys" id="keys"></div>
+    <div class="kfoot">
+      <button type="button" class="follow" id="follow" aria-pressed="true">Miroir de Pixel</button>
+      <span class="hint">Tape <b>aide</b> pour la liste des commandes</span>
+    </div>
+  </div>
+</main>
+<script src="app/screens.js"></script>
+<script src="app/app.js"></script>
+</body>
+</html>

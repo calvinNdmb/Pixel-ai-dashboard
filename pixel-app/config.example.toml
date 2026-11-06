@@ -1,0 +1,32 @@
+# Copie ce fichier en config.toml, puis remplis ce qui te concerne.
+
+[weather]
+city = "Paris"              # ou bien : latitude = 48.85 et longitude = 2.35
+
+[agenda]
+# Adresse iCal secrète de ton agenda. Google Agenda : Paramètres > ton agenda >
+# « Adresse secrète au format iCal ». Tu peux en mettre plusieurs.
+ics = []
+
+[hue]
+# Laisse vide : sur l'écran Réglages, la touche ASSOCIER HUE trouve le pont toute seule.
+# bridge = "192.168.1.20"
+
+[claude]
+model = "claude-opus-5-5"
+effort = "low"              # low = réponses rapides ; medium ou high pour qu'il réfléchisse plus
+
+[codex]
+# La tâche tapée est ajoutée à la fin de la commande.
+command = ["codex", "exec", "--full-auto"]
+workdir = "~/projets"
+# Avec Claude Code à la place : command = ["claude", "-p"]
+
+[streamdeck]
+brightness = 70             # 0 à 100
+
+[ui]
+sleep_minutes = 10          # Pixel s'endort sur le visage après ce temps sans rien
+
+# [security]
+# token = "..."             # code d'accès des téléphones ; créé tout seul sinon

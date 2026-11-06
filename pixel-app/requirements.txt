@@ -1,0 +1,8 @@
+aiohttp>=3.9
+anthropic>=2.6
+psutil>=5.9
+segno>=1.6
+icalendar>=5.0
+recurring-ical-events>=2.0
+streamdeck>=0.9.5
+pillow>=10.0

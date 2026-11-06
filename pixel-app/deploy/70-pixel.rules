@@ -1,0 +1,5 @@
+# Stream Deck (Elgato, vendor 0fd9): accessible without root.
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0fd9", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEMS=="hidraw", ATTRS{idVendor}=="0fd9", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# Screen backlight: lets Pixel change the brightness.
+SUBSYSTEM=="backlight", RUN+="/bin/chmod 0666 /sys/class/backlight/%k/brightness"
