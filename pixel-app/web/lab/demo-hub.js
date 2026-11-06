@@ -26,6 +26,10 @@ const MOODS = (Array.isArray(window.PixelMoods) ? window.PixelMoods : []).filter
   .map(m => ({ id: m.id, name: String(m.name || m.id), desc: String(m.desc || '') }));
 if (!MOODS.some(m => m.id === 'neutre')) MOODS.unshift({ id: 'neutre', name: 'Neutre', desc: '' });
 const MNAME = Object.fromEntries(MOODS.map(m => [m.id, m.name]));
+const ANIMS = (window.Pixel52 && Array.isArray(window.Pixel52.animations) ? window.Pixel52.animations : []).map(a => ({ id: a.id, label: a.label, group: a.group, duration: a.duration }));
+const ABY = Object.fromEntries(ANIMS.map(a => [a.id, a])), SHOW = ANIMS.filter(a => a.group !== 'Idle').map(a => a.id);
+const AGROUPS = ['Humeurs', 'Émotions', 'Activités', 'Système', 'Repos', 'Idle'];
+const FACES = { pack: 'Pack 52', vivant: 'Vivant' };
 
 /* ---------- fake data (same as the server's --demo mode) ---------- */
 const QR = ["1111111000100010001111111","1000001010100010101000001","1011101010010001001011101","1011101010011110101011101","1011101000100110101011101","1000001000001100101000001","1111111010101010101111111","0000000011100001000000000","1000001011100101011001110","1111000101110101010111110","0100011101101001100101011","1111000110001001101011001","1100011011000010101100001","1000110000101011100100010","1011001011100001011001011","1000110011101010011010101","1001001011001100111110100","0000000010100110100010100","1111111001001110101011001","1000001001110001100010010","1011101001011101111111111","1011101000001000011101011","1011101001101000100100101","1000001001001000110110001","1111111010011111111001001"];
@@ -57,7 +61,8 @@ const SCENES = { Lecture: [[1, 90], [1, 100], [0, 30], [1, 60]], Film: [[1, 15],
 const S = {
   screen: 'visage',
   mood: { name: 'neutre', until: 0 },
-  view: { meteo_day: 0, units_f: false, agenda_day: 0, crt_off: false, osk: false, theme: TNAME.retro ? 'retro' : THEMES[0].id },
+  view: { meteo_day: 0, units_f: false, agenda_day: 0, crt_off: false, osk: false, theme: TNAME.retro ? 'retro' : THEMES[0].id, face: ANIMS.length ? 'pack' : 'vivant' },
+  anim: null,
   lights: { status: 'démo', rooms: ROOMS.map(([name, on, bri], i) => ({ id: String(i), name, on, bri })), scenes: Object.keys(SCENES) },
   chat: { phase: 'idle', status: 'démo (pas de clé API)', messages: [] },
   codex: { task: '', running: false, status: 'Tape : codex <ta tâche>', lines: [] },
@@ -86,7 +91,12 @@ const fill5 = a => [...a, null, null, null, null, null].slice(0, 5);
 function row3(scr) {
   const t = S.timer;
   switch (scr) {
-    case 'visage': return fill5(MOODS.filter(m => m.id !== 'neutre').slice(0, 5).map(m => { const ms = MOOD_MS[m.id] ?? 3000; return K(keyLabel(m.name), 'mood.set', ms ? { name: m.id, ms } : { name: m.id }); }));
+    case 'visage': {
+      const ids = MOODS.map(m => m.id), i = ids.indexOf(S.mood.name), next = i >= 0 ? ids[(i + 1) % ids.length] : 'content';
+      const last = S.anim && S.anim.id, anim = SHOW.length ? SHOW[(SHOW.indexOf(last) + 1) % SHOW.length] : null;
+      const row = MOODS.filter(m => ['content', 'surpris', 'amoureux'].includes(m.id)).map(m => K(keyLabel(m.name), 'mood.set', { name: m.id, ms: MOOD_MS[m.id] ?? 3000 }));
+      return fill5([...row, anim ? K('Anim +', 'anim.play', { id: anim }) : null, K('Humeur +', 'mood.set', next === 'endormi' ? { name: next } : { name: next, ms: 4000 })]);
+    }
     case 'lumieres': return fill5([K('Tout\nallumer', 'lights.set', { room: '*', on: true }), K('Tout\néteindre', 'lights.set', { room: '*', on: false }), ...S.lights.scenes.slice(0, 3).map(n => K(n.slice(0, 9), 'lights.scene', { name: n }))]);
     case 'claude': return [K('Clavier', 'view.toggle', { key: 'osk' }), K('Météo ?', 'chat.send', { text: "Quel temps fait-il aujourd'hui ?" }), K('Agenda ?', 'chat.send', { text: "Qu'est-ce que j'ai aujourd'hui ?" }), K('Blague', 'chat.send', { text: 'Raconte-moi une blague courte.' }), K('Effacer', 'chat.clear')];
     case 'codex': return [K('Clavier', 'view.toggle', { key: 'osk' }), K('Relancer', 'codex.run'), K('Stop', 'codex.stop'), K('Effacer', 'codex.clear'), null];
@@ -190,6 +200,13 @@ const A = {
   'theme.set': ({ name }) => { if (!TNAME[name]) return; S.view.theme = name; toast('THÈME ' + TNAME[name].toUpperCase()); },
   'screen.show': ({ screen }) => { if (!NAV.includes(screen)) return; if (S.screen === 'veille' && screen !== 'veille') mood('surpris', 900); S.screen = screen; },
   'mood.set': ({ name, ms = 0 }) => mood(String(name), Math.trunc(num(ms, 0))),
+  'face.set': ({ name }) => { if (!FACES[name]) return; S.view.face = name; toast('VISAGE : ' + FACES[name].toUpperCase()); },
+  'anim.play': ({ id, loops = null }) => {               // once or twice (loops = 0: until another one), then back to the mood or the idle
+    const a = ABY[id]; if (!a) return;
+    const n = loops == null ? (a.duration <= 4 ? 2 : 1) : Math.max(0, Math.min(20, Math.trunc(num(loops, 1)))), t0 = Date.now();
+    S.anim = { id, t0, loops: n, until: n ? t0 + n * a.duration * 1000 : 0 };
+  },
+  'anim.stop': () => { S.anim = null; },
   'view.set': ({ key, value }) => { if (key in S.view) S.view[key] = value; },
   'view.toggle': ({ key }) => { if (key in S.view) S.view[key] = !S.view[key]; },
   'view.step': ({ key, d = 1, lo = 0, hi = 4 }) => { if (key in S.view) S.view[key] = Math.max(lo, Math.min(hi, Math.trunc(S.view[key]) + Math.trunc(d))); },
@@ -250,12 +267,17 @@ const A = {
 };
 
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
-const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · sinon : Claude";
+const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · visage vivant · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
 THEMES.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });
 for (const [w, id] of [['actuel', 'moderne'], ['anime', 'manga']]) if (TNAME[id]) THEME_WORDS[w] ??= id;     // commands.py extras
 MOODS.forEach(m => { MOOD_WORDS[kw(m.id)] = m.id; MOOD_WORDS[kw(m.name)] ??= m.id; });
+const akey = s => kw(s).replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();      // anims.py key()
+const ANIM_WORDS = {};
+for (const a of ANIMS) for (const w of [a.id, a.id.replace(/-/g, ' '), a.label]) ANIM_WORDS[akey(w)] ??= a.id;
+const BARE = { danse: 'danse', chante: 'chante', coucou: 'salut', bisou: 'bisou' };
+const FACE_WORDS = { pack: 'pack', 'pack 52': 'pack', 52: 'pack', animations: 'pack', vivant: 'vivant', anime: 'vivant' };
 function findRoom(word) {
   const w = norm(word).replace(/^(le|la|les|l')\s*/, '');
   if (['tout', 'toutes', 'tous', 'partout', 'lumieres', 'lampes', '*'].includes(w)) return '*';
@@ -279,6 +301,14 @@ function command(raw) {
   }
   if ((m = kw(raw).match(/^(?:theme|style)\s+(.+)$/)) && THEME_WORDS[m[1]]) return A['theme.set']({ name: THEME_WORDS[m[1]] });
   if ((m = kw(raw).match(/^humeur\s+(.+)$/)) && MOOD_WORDS[m[1]]) { const id = MOOD_WORDS[m[1]]; A['screen.show']({ screen: 'visage' }); return A['mood.set']({ name: id, ms: id === 'endormi' ? 0 : 3000 }); }
+  if ((m = t.match(/^visage\s+(.+)$/)) && FACE_WORDS[m[1]]) { A['face.set']({ name: FACE_WORDS[m[1]] }); return A['screen.show']({ screen: 'visage' }); }
+  if (['animations', 'les animations', 'liste des animations'].includes(t))
+    return toast('Les 52 animations. ' + AGROUPS.map(g => g + ' : ' + ANIMS.filter(a => a.group === g).map(a => a.label).join(', ')).join(' · ') + '. Tape « anim » et son nom.', 15000);
+  if ((m = t.match(/^(?:anim|animation)\s+(.+)$/)) || BARE[t]) {
+    const id = BARE[t] || ANIM_WORDS[akey(m[1])];
+    if (!id) { mood('confus', 2500); return toast('Je ne connais pas cette animation. Tape « animations » pour la liste.', 5000); }
+    A['screen.show']({ screen: 'visage' }); return A['anim.play']({ id });
+  }
   if (SCREEN_WORDS[t]) return A['screen.show']({ screen: SCREEN_WORDS[t] });
   A['chat.ask']({ text: raw });
 }
@@ -295,11 +325,11 @@ setInterval(() => {
 }, 1000);
 
 return {
-  NAV, NAMES, THEMES, MOODS, KINDS, S, norm, row3, snapshot,
+  NAV, NAMES, THEMES, MOODS, KINDS, ANIMS, AGROUPS, FACES, S, norm, row3, snapshot,
   themeName: id => TNAME[id] || id, moodName: id => MNAME[id] || id,
   busy: () => ({ chat: chatBusy, codex: S.codex.running }),
   /* Initial values, before the first listener (no toast): the lab restores the last theme and screen. */
-  configure({ theme, screen, sleep_min } = {}) { if (TNAME[theme]) S.view.theme = theme; if (NAV.includes(screen)) S.screen = screen; if (Number(sleep_min) > 0) S.settings.sleep_min = Number(sleep_min); },
+  configure({ theme, screen, sleep_min, face } = {}) { if (TNAME[theme]) S.view.theme = theme; if (NAV.includes(screen)) S.screen = screen; if (Number(sleep_min) > 0) S.settings.sleep_min = Number(sleep_min); if (FACES[face] && ANIMS.length) S.view.face = face; },
   dispatch(action, args = {}) {
     const f = A[action];
     if (!f) { console.warn('Pixel Lab: unknown action', action); return; }

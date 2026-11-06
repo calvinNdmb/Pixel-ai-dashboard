@@ -1,0 +1,476 @@
+{
+ "name": "Pixel",
+ "version": "2.1.0",
+ "source": "Pixel_Animations_52 (pack de l'utilisateur)",
+ "grid": {
+  "width": 96,
+  "height": 54
+ },
+ "fps": 20,
+ "palette": [
+  "#031009",
+  "#42ff84",
+  "#a4ffc2",
+  "#ff80ad",
+  "#eac27c",
+  "#74d6e8",
+  "#176542",
+  "#437052"
+ ],
+ "themes": [
+  {
+   "id": "retro",
+   "label": "Rétro",
+   "renderer": "pixel-grid",
+   "defaultFps": 24
+  },
+  {
+   "id": "modern",
+   "label": "Moderne",
+   "renderer": "canvas-vector",
+   "defaultFps": 60
+  },
+  {
+   "id": "manga",
+   "label": "Manga",
+   "renderer": "canvas-vector",
+   "defaultFps": 60
+  }
+ ],
+ "animations": [
+  {
+   "id": "content",
+   "label": "Content",
+   "group": "Idle",
+   "duration": 4,
+   "description": "Un petit sourire et un clignement tranquille.",
+   "idleWeight": 3,
+   "loop": true
+  },
+  {
+   "id": "curieux",
+   "label": "Curieux",
+   "group": "Idle",
+   "duration": 5,
+   "description": "Il regarde autour de lui, puis penche la tête.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "clin-oeil",
+   "label": "Clin d’œil",
+   "group": "Humeurs",
+   "duration": 3,
+   "description": "Un clin d’œil avec une petite étincelle.",
+   "loop": true
+  },
+  {
+   "id": "salut",
+   "label": "Coucou",
+   "group": "Humeurs",
+   "duration": 4,
+   "description": "Il te salue avec sa petite main pixelisée.",
+   "loop": true
+  },
+  {
+   "id": "rire",
+   "label": "Fou rire",
+   "group": "Humeurs",
+   "duration": 3,
+   "description": "Les yeux plissés, il rit de tout son écran.",
+   "loop": true
+  },
+  {
+   "id": "surpris",
+   "label": "Surpris",
+   "group": "Humeurs",
+   "duration": 3,
+   "description": "Il recule, ouvre grand les yeux, puis se détend.",
+   "loop": true
+  },
+  {
+   "id": "timide",
+   "label": "Timide",
+   "group": "Humeurs",
+   "duration": 4,
+   "description": "Un regard de côté et des joues toutes roses.",
+   "loop": true
+  },
+  {
+   "id": "fier",
+   "label": "Fier",
+   "group": "Humeurs",
+   "duration": 4,
+   "description": "Le menton relevé, une étoile bien méritée.",
+   "loop": true
+  },
+  {
+   "id": "amoureux",
+   "label": "Amoureux",
+   "group": "Émotions",
+   "duration": 4,
+   "description": "Ses yeux deviennent des cœurs qui battent.",
+   "loop": true
+  },
+  {
+   "id": "bisou",
+   "label": "Bisou",
+   "group": "Émotions",
+   "duration": 4,
+   "description": "Il ferme les yeux et souffle un petit cœur.",
+   "loop": true
+  },
+  {
+   "id": "etoiles",
+   "label": "Émerveillé",
+   "group": "Émotions",
+   "duration": 4,
+   "description": "Des étoiles dans les yeux et des paillettes autour.",
+   "loop": true
+  },
+  {
+   "id": "triste",
+   "label": "Triste",
+   "group": "Émotions",
+   "duration": 5,
+   "description": "Un regard tombant, puis une petite larme.",
+   "loop": true
+  },
+  {
+   "id": "boudeur",
+   "label": "Boudeur",
+   "group": "Émotions",
+   "duration": 4,
+   "description": "Il se détourne, croise le regard et gonfle les joues.",
+   "loop": true
+  },
+  {
+   "id": "colere",
+   "label": "En colère",
+   "group": "Émotions",
+   "duration": 3,
+   "description": "Sourcils froncés et petite bouffée de vapeur.",
+   "loop": true
+  },
+  {
+   "id": "panique",
+   "label": "Paniqué",
+   "group": "Émotions",
+   "duration": 3,
+   "description": "Il tremble, transpire et cherche une solution.",
+   "loop": true
+  },
+  {
+   "id": "confus",
+   "label": "Perplexe",
+   "group": "Émotions",
+   "duration": 4,
+   "description": "Une inclinaison hésitante et un point d’interrogation.",
+   "loop": true
+  },
+  {
+   "id": "reflechit",
+   "label": "Réfléchit",
+   "group": "Idle",
+   "duration": 5,
+   "description": "Les yeux vers le haut, les idées font leur chemin.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "idee",
+   "label": "Eurêka !",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Une pause… puis une ampoule s’allume.",
+   "loop": true
+  },
+  {
+   "id": "ecoute",
+   "label": "À l’écoute",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Il se penche pour écouter et acquiesce doucement.",
+   "loop": true
+  },
+  {
+   "id": "parle",
+   "label": "Bavarde",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Une bouche qui articule et des petits hochements.",
+   "loop": true
+  },
+  {
+   "id": "chante",
+   "label": "Chante",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Des notes de musique et une mélodie imaginaire.",
+   "loop": true
+  },
+  {
+   "id": "danse",
+   "label": "Danse",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Deux pas de côté, un rebond et des bras en rythme.",
+   "loop": true
+  },
+  {
+   "id": "code",
+   "label": "Code",
+   "group": "Activités",
+   "duration": 5,
+   "description": "Concentré, il tape sur son petit clavier.",
+   "loop": true
+  },
+  {
+   "id": "recherche",
+   "label": "Cherche",
+   "group": "Activités",
+   "duration": 5,
+   "description": "Une loupe balaie l’écran, puis il trouve un indice.",
+   "loop": true
+  },
+  {
+   "id": "chargement",
+   "label": "Chargement",
+   "group": "Système",
+   "duration": 4,
+   "description": "Il suit des yeux une petite comète circulaire.",
+   "loop": true
+  },
+  {
+   "id": "succes",
+   "label": "Bravo !",
+   "group": "Système",
+   "duration": 4,
+   "description": "Un sourire, une coche et une pluie de confettis.",
+   "loop": true
+  },
+  {
+   "id": "erreur",
+   "label": "Oups…",
+   "group": "Système",
+   "duration": 4,
+   "description": "Il remarque une erreur et secoue la tête.",
+   "loop": true
+  },
+  {
+   "id": "notification",
+   "label": "Notification",
+   "group": "Système",
+   "duration": 4,
+   "description": "Une enveloppe arrive et attire son attention.",
+   "loop": true
+  },
+  {
+   "id": "connexion",
+   "label": "Connecté",
+   "group": "Système",
+   "duration": 4,
+   "description": "Les ondes se propagent, le sourire revient.",
+   "loop": true
+  },
+  {
+   "id": "deconnexion",
+   "label": "Hors ligne",
+   "group": "Système",
+   "duration": 4,
+   "description": "Il cherche le signal et constate la coupure.",
+   "loop": true
+  },
+  {
+   "id": "mise-a-jour",
+   "label": "Mise à jour",
+   "group": "Système",
+   "duration": 5,
+   "description": "Une barre se remplit, puis il ouvre les yeux.",
+   "loop": true
+  },
+  {
+   "id": "bug",
+   "label": "Petit bug",
+   "group": "Système",
+   "duration": 4,
+   "description": "Ses pixels se décalent brièvement, puis se remettent.",
+   "loop": true
+  },
+  {
+   "id": "sommeil",
+   "label": "Dodo",
+   "group": "Repos",
+   "duration": 5,
+   "description": "Les paupières fermées, il respire avec ses petits Z.",
+   "loop": true
+  },
+  {
+   "id": "reveil",
+   "label": "Réveil",
+   "group": "Repos",
+   "duration": 5,
+   "description": "Il entrouvre les yeux, s’étire et sourit.",
+   "loop": true
+  },
+  {
+   "id": "baille",
+   "label": "Bâillement",
+   "group": "Idle",
+   "duration": 5,
+   "description": "Un long bâillement, puis un clignement fatigué.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "fatigue",
+   "label": "Fatigué",
+   "group": "Idle",
+   "duration": 4,
+   "description": "Il lutte contre le sommeil et sa tête tombe.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "batterie-faible",
+   "label": "À plat",
+   "group": "Repos",
+   "duration": 4,
+   "description": "Les yeux lourds, la batterie presque vide.",
+   "loop": true
+  },
+  {
+   "id": "recharge",
+   "label": "Recharge",
+   "group": "Repos",
+   "duration": 4,
+   "description": "L’énergie remonte et ses yeux retrouvent leur éclat.",
+   "loop": true
+  },
+  {
+   "id": "reve",
+   "label": "Rêve",
+   "group": "Repos",
+   "duration": 5,
+   "description": "Endormi, il rêve d’une petite étoile filante.",
+   "loop": true
+  },
+  {
+   "id": "zen",
+   "label": "Zen",
+   "group": "Idle",
+   "duration": 6,
+   "description": "Une respiration lente et des yeux sereins.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "idle-respire",
+   "label": "Respiration",
+   "group": "Idle",
+   "duration": 8,
+   "description": "Une respiration discrète, presque immobile.",
+   "idleWeight": 3,
+   "loop": true
+  },
+  {
+   "id": "idle-cligne",
+   "label": "Double blink",
+   "group": "Idle",
+   "duration": 7,
+   "description": "Un clignement naturel, parfois suivi d’un deuxième.",
+   "idleWeight": 3,
+   "loop": true
+  },
+  {
+   "id": "idle-regard",
+   "label": "Coup d’œil",
+   "group": "Idle",
+   "duration": 10,
+   "description": "Il observe à gauche, puis à droite, et revient vers toi.",
+   "idleWeight": 3,
+   "loop": true
+  },
+  {
+   "id": "idle-incline",
+   "label": "Petite inclinaison",
+   "group": "Idle",
+   "duration": 8,
+   "description": "La tête légèrement penchée, il attend tranquillement.",
+   "idleWeight": 3,
+   "loop": true
+  },
+  {
+   "id": "idle-sourit",
+   "label": "Petit sourire",
+   "group": "Idle",
+   "duration": 8,
+   "description": "Un sourire lui échappe, puis il retrouve son calme.",
+   "idleWeight": 3,
+   "loop": true
+  },
+  {
+   "id": "idle-haut",
+   "label": "Dans les nuages",
+   "group": "Idle",
+   "duration": 9,
+   "description": "Il lève doucement les yeux, perdu dans ses pensées.",
+   "idleWeight": 3,
+   "loop": true
+  },
+  {
+   "id": "idle-bas",
+   "label": "Regard en bas",
+   "group": "Idle",
+   "duration": 9,
+   "description": "Il regarde un instant sous son écran.",
+   "idleWeight": 3,
+   "loop": true
+  },
+  {
+   "id": "idle-somnole",
+   "label": "Micro-sieste",
+   "group": "Idle",
+   "duration": 10,
+   "description": "Il pique du nez, se ressaisit, puis se réveille.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "idle-etire",
+   "label": "Petit étirement",
+   "group": "Idle",
+   "duration": 10,
+   "description": "Il s’étire lentement avant de retrouver sa pose.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "idle-gratouille",
+   "label": "Gratouille",
+   "group": "Idle",
+   "duration": 10,
+   "description": "Une petite démangeaison sur la joue.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "idle-luciole",
+   "label": "La luciole",
+   "group": "Idle",
+   "duration": 12,
+   "description": "Une luciole passe ; Pixel la suit des yeux.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "idle-impatient",
+   "label": "Tapotement",
+   "group": "Idle",
+   "duration": 10,
+   "description": "En attendant, il tapote doucement du bout des doigts.",
+   "idleWeight": 1,
+   "loop": true
+  }
+ ]
+}

@@ -73,6 +73,19 @@
       <p class="note">Rangées 1 et 2 : les écrans. Rangée 3, en orange : les actions de l'écran ouvert.</p>
     </section>
 
+    <section class="grp" aria-labelledby="hAnim">
+      <h2 id="hAnim">Animations</h2>
+      <div class="line"><span class="lbl">Visage</span>
+        <div class="seg" id="faceSeg" role="group" aria-label="Visage de Pixel"><button type="button" data-face="pack">Pack 52</button><button type="button" data-face="vivant">Vivant</button></div>
+      </div>
+      <div class="btns">
+        <button type="button" id="idleBtn" aria-pressed="true">Idle vivant</button>
+        <button type="button" id="allBtn" aria-pressed="false">Tout voir</button>
+      </div>
+      <div id="animGroups"></div>
+      <p class="note" id="animNote">Les 52 animations de ton pack. Touche-en une pour la jouer.</p>
+    </section>
+
     <section class="grp" aria-labelledby="hEvents">
       <h2 id="hEvents">Événements</h2>
       <div class="ev"><h3>Notification</h3>
@@ -152,7 +165,7 @@
         <button type="button" id="tourBtn" aria-pressed="false">Lancer la démo</button>
         <label class="sel"><span>Une étape toutes les</span><select id="tourEvery"><option value="1500">1,5 s</option><option value="3000">3 s</option><option value="6000">6 s</option></select></label>
       </div>
-      <p class="note" id="tourNote">Toutes les humeurs, puis tous les écrans, puis le thème suivant. En boucle.</p>
+      <p class="note" id="tourNote">Toutes les humeurs, des animations, puis tous les écrans, puis le thème suivant. En boucle.</p>
     </section>
 
     <section class="grp" aria-labelledby="hTest">
@@ -174,6 +187,9 @@
         <li><code>scène film</code><span>une scène Hue</span></li>
         <li><code>minuteur 1</code><span>minuteur d'une minute</span></li>
         <li><code>humeur content</code><span>change le visage</span></li>
+        <li><code>anim danse</code><span>une des 52 animations</span></li>
+        <li><code>animations</code><span>la liste des animations</span></li>
+        <li><code>visage vivant</code><span>l'autre visage</span></li>
         <li><code>thème manga</code><span>change le style</span></li>
         <li><code>codex corrige le test</code><span>une tâche Codex</span></li>
         <li><code>météo</code><span>ouvre un écran</span></li>
@@ -214,6 +230,8 @@
 </div>
 <!-- LAB:BODY END -->
 <script src="clock.js"></script>
+<script src="../pack52/pixel52.js"></script>
+<script src="../pack52/pixel52-themes.js"></script>
 <script src="../themes.js"></script>
 <script src="../screens.js"></script>
 <script src="demo-hub.js"></script>

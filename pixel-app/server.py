@@ -11,19 +11,20 @@ import logging
 import os
 import secrets
 import socket
+import time
 import tomllib
 from pathlib import Path
 
 import segno
 from aiohttp import WSMsgType, web
 
-from pixel import commands, timer
+from pixel import anims, commands, timer
 from pixel.agenda import Agenda
 from pixel.claude import Claude
 from pixel.codex import Codex
 from pixel.deck import Deck
 from pixel.hue import Hue
-from pixel.keys import NAV, THEMES
+from pixel.keys import FACES, NAV, THEMES
 from pixel.state import Hub
 from pixel.system import System, local_ip
 from pixel.weather import Weather
@@ -40,13 +41,41 @@ def core_actions(hub, datadir):
     v["theme"] = saved.get("theme") or hub.cfg.get("ui", {}).get("theme", "retro")
     if v["theme"] not in THEMES:
         v["theme"] = "retro"
+    v["face"] = saved.get("face") or hub.cfg.get("ui", {}).get("face", "pack")      # the animation pack, or the living face
+    if v["face"] not in FACES:
+        v["face"] = "pack"
+    hub.s.setdefault("anim", None)
+
+    def save():
+        ui_file.write_text(json.dumps({"theme": v["theme"], "face": v["face"]}))
 
     @hub.action("theme.set")
     async def theme(name):
         if name in THEMES:
             v["theme"] = name
-            ui_file.write_text(json.dumps({"theme": name}))
+            save()
             hub.toast("THÈME " + THEMES[name].upper())
+
+    @hub.action("face.set")
+    async def face(name):
+        """The face: "pack" (the 52 animations of the user's pack) or "vivant" (the living face). Saved like the theme."""
+        if name in FACES:
+            v["face"] = name
+            save()
+            hub.toast("VISAGE : " + FACES[name].upper())
+
+    @hub.action("anim.play")
+    async def anim_play(id, loops=None):
+        """Plays one of the pack's animations once or a few times (loops=0: until another one), then back to the mood or the idle."""
+        if id not in anims.BY_ID:
+            return
+        n = anims.loops(id) if loops is None else max(0, min(20, int(loops)))
+        t0 = time.time() * 1000
+        hub.s["anim"] = {"id": id, "t0": t0, "loops": n, "until": t0 + n * anims.BY_ID[id]["duration"] * 1000 if n else 0}
+
+    @hub.action("anim.stop")
+    async def anim_stop():
+        hub.s["anim"] = None
 
     @hub.action("theme.step")
     async def theme_step(d=1):

@@ -1,7 +1,8 @@
 """Builds the README previews from the screenshots of tests/shots.js.
 
-    python3 tests/sheets.py shots .      -> preview-themes.png (every mood, one column per theme)
+    python3 tests/sheets.py shots .      -> preview-themes.png (every mood of the living face, one column per theme)
                                             preview-themes-screens.png (six screens and the boot, one row per theme)
+                                            preview-pack52.png (a dozen of the pack's animations, one column per theme)
 """
 import re
 import sys
@@ -62,5 +63,23 @@ def screens_sheet():
     save(img, OUT / "preview-themes-screens.png")
 
 
+def pack_sheet():
+    names = ["idle-respire", "content", "rire", "amoureux", "etoiles", "triste", "colere", "danse", "chante", "code", "succes", "sommeil"]
+    labels = {m[0]: m[1] for m in re.findall(r"^    \['([a-z-]+)',['\"]([^'\"]+)", (APP / "web" / "pack52" / "pixel52.js").read_text(), re.M)}
+    tw, th, lab, top = 250, 141, 150, 36
+    img = Image.new("RGB", (lab + len(THEMES) * (tw + 8) + 8, top + len(names) * (th + 8) + 8), BG)
+    d = ImageDraw.Draw(img)
+    for i, name in enumerate(THEMES.values()):
+        d.text((lab + 8 + i * (tw + 8) + tw // 2, 10), name, fill=INK, font=font(20), anchor="mt")
+    for j, a in enumerate(names):
+        y = top + 8 + j * (th + 8)
+        d.text((12, y + th // 2), labels.get(a, a), fill=INK, font=font(17), anchor="lm")
+        for i, tid in enumerate(THEMES):
+            shot = Image.open(SHOTS / f"{tid}-anim-{a}.png").crop((64, 50, 736, 428)).resize((tw, th), Image.LANCZOS)
+            img.paste(shot, (lab + 8 + i * (tw + 8), y))
+    save(img, OUT / "preview-pack52.png")
+
+
 moods_sheet()
 screens_sheet()
+pack_sheet()

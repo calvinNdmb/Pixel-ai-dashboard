@@ -1,7 +1,10 @@
 """Stream Deck layout: rows 1-2 open a screen, row 3 acts on the open screen."""
+from .anims import SHOW
 
 # id -> French name, in the order of the "Thème −" / "Thème +" keys (same ids as web/themes.js)
 THEMES = {"retro": "Rétro", "moderne": "Moderne", "manga": "Manga", "neon": "Néon", "croquis": "Croquis", "lcd": "LCD"}
+# the face: the user's animation pack (52 animations), or the living face
+FACES = {"pack": "Pack 52", "vivant": "Vivant"}
 # every face mood, in the order of the "Humeur +" key (same ids as window.PixelMoods in web/themes.js)
 MOODS = ["neutre", "content", "surpris", "amoureux", "clin", "endormi", "reflechit", "ecoute",
          "triste", "fache", "confus", "excite", "fier", "malade", "baille"]
@@ -19,8 +22,10 @@ def row3(screen, s):
     if screen == "visage":
         cur = s["mood"]["name"]          # the last mood shown, even if it is over: the key walks through every mood
         nxt = MOODS[(MOODS.index(cur) + 1) % len(MOODS)] if cur in MOODS else "content"
+        last = (s.get("anim") or {}).get("id")      # the last animation played: the key walks through the 34 that are not idles
+        anim = SHOW[(SHOW.index(last) + 1) % len(SHOW)] if last in SHOW else SHOW[0]
         return [K("Content", "mood.set", name="content", ms=2500), K("Surpris", "mood.set", name="surpris", ms=1800),
-                K("Amoureux", "mood.set", name="amoureux", ms=3000), K("Clin\nd'œil", "mood.set", name="clin", ms=1600),
+                K("Amoureux", "mood.set", name="amoureux", ms=3000), K("Anim +", "anim.play", id=anim),
                 K("Humeur +", "mood.set", name=nxt, ms=0 if nxt == "endormi" else 4000)]
     if screen == "lumieres":
         scenes = [K(n[:9], "lights.scene", name=n) for n in s["lights"]["scenes"][:3]]

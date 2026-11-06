@@ -54,7 +54,7 @@ function skin(id) {
 let P = null, kiosk = qs.has('kiosk') || location.hash === '#kiosk';
 document.body.classList.toggle('kiosk', kiosk);
 L.kiosk = kiosk;                              // kiosk: the boot splash plays on the first state, like on the Pi
-hub.configure({ theme: saved.theme, screen: saved.screen, sleep_min: saved.sleepAfter });
+hub.configure({ theme: saved.theme, screen: saved.screen, sleep_min: saved.sleepAfter, face: saved.face });
 if (Number(saved.speed) > 0) C.setSpeed(Number(saved.speed));
 Screens.setSend((action, args) => hub.dispatch(action, args));
 const curMood = () => {                          // same rule as screens.js mood()
@@ -84,6 +84,36 @@ for (const t of hub.THEMES) {
 setT($('themeNote'), `${hub.THEMES.length} thèmes trouvés dans themes.js.`);
 for (const m of hub.MOODS) { const b = chip(m.name, () => pickMood(m.id)); b.dataset.id = m.id; if (m.desc) b.title = m.desc; $('moodChips').append(b); moodChips.push(b); }
 for (const id of hub.NAV) { const b = chip(hub.NAMES[id], () => pickScreen(id)); b.dataset.id = id; $('screenChips').append(b); screenChips.push(b); }
+
+/* ---------- the 52 animations of the user's pack, by category ---------- */
+const animChips = [];
+let showAll = null;                                   // "Tout voir": every animation, one loop each
+function pickAnim(id, keep = false) {
+  touch(); stopTour(); if (!keep) stopAll();
+  if (P && P.screen !== 'visage') hub.dispatch('screen.show', { screen: 'visage' });
+  L.local = null; L.sleepy = false;
+  hub.dispatch('anim.play', L.packIdle === false || keep ? { id, loops: keep ? 1 : 0 } : { id });
+}
+for (const g of hub.AGROUPS) {
+  const list = hub.ANIMS.filter(a => a.group === g); if (!list.length) continue;
+  const box = el('div', 'ev'), row = el('div', 'chips'); box.append(el('h3', null, g), row); row.setAttribute('role', 'group'); row.setAttribute('aria-label', g);
+  for (const a of list) { const b = chip(a.label, () => pickAnim(a.id)); b.dataset.id = a.id; row.append(b); animChips.push(b); }
+  $('animGroups').append(box);
+}
+if (!hub.ANIMS.length) setT($('animNote'), "Le pack d'animations n'est pas chargé.");
+document.querySelectorAll('#faceSeg button').forEach(b => b.addEventListener('click', () => { touch(); hub.dispatch('face.set', { name: b.dataset.face }); }));
+$('idleBtn').addEventListener('click', () => { L.packIdle = L.packIdle === false; if (L.packIdle) hub.dispatch('anim.stop'); syncStatic(); });
+function stopAll() { if (!showAll) return; showAll = null; syncStatic(); }
+$('allBtn').addEventListener('click', () => {
+  touch(); stopTour();
+  if (showAll) return stopAll();
+  showAll = { i: 0, at: C.now() }; pickAnim(hub.ANIMS[0].id, true); syncStatic();
+});
+setInterval(() => {                                   // on the virtual clock: slows down and pauses with the face
+  if (!showAll) return;
+  const a = hub.ANIMS[showAll.i];
+  if (C.now() - showAll.at >= a.duration * 1000) { showAll.i = (showAll.i + 1) % hub.ANIMS.length; showAll.at = C.now(); pickAnim(hub.ANIMS[showAll.i].id, true); }
+}, 100);
 document.querySelectorAll('#moodDur button').forEach(b => b.addEventListener('click', () => { remember('moodDur', Number(b.dataset.dur)); syncStatic(); }));
 let wx = 'exemple';
 for (const k of [...hub.KINDS, { id: 'melange', name: 'Mélange' }, { id: 'exemple', name: 'Exemple' }]) {
@@ -206,6 +236,7 @@ function tourSteps() {
   for (let k = 0; k < th.length; k++) {
     const t = th[(i0 + k) % th.length];
     for (const m of hub.MOODS) out.push({ theme: t.id, screen: 'visage', mood: m.id, label: `${t.name} · humeur ${m.name}` });
+    hub.ANIMS.forEach((a, j) => { if (j % th.length === k) out.push({ theme: t.id, screen: 'visage', anim: a.id, label: `${t.name} · animation ${a.label}` }); });
     for (const s of hub.NAV) if (s !== 'visage') out.push({ theme: t.id, screen: s, label: `${t.name} · écran ${hub.NAMES[s]}` });
   }
   return out;
@@ -214,13 +245,15 @@ function applyStep(st) {
   const S = hub.S, b = hub.busy();
   if (S.view.theme !== st.theme) hub.dispatch('theme.set', { name: st.theme });
   if (S.screen !== st.screen) hub.dispatch('screen.show', { screen: st.screen });
+  if (st.anim) { L.local = null; L.sleepy = false; hub.dispatch('mood.set', { name: 'neutre', ms: 1 }); hub.dispatch('anim.play', { id: st.anim, loops: 0 }); return; }
+  if (S.anim) hub.dispatch('anim.stop');
   if (st.mood) { L.local = null; L.sleepy = false; hub.dispatch('mood.set', { name: st.mood }); }
   else if (S.mood.name !== 'neutre' || !S.mood.until || Date.now() < S.mood.until) hub.dispatch('mood.set', { name: 'neutre', ms: 1 });   // no mood
   if (st.screen === 'claude' && !S.chat.messages.length && !b.chat) hub.dispatch('chat.send', { text: 'Raconte-moi une blague courte.' });   // give each screen something to show
   if (st.screen === 'codex' && !S.codex.task && !b.codex) hub.dispatch('lab.codex');
   if (st.screen === 'minuteur' && !S.timer.running) hub.dispatch('timer.start', { minutes: 25 });
 }
-function startTour() { const steps = tourSteps(); tour = { steps, i: 0, at: C.now(), every: Number(tourSel.value) }; applyStep(steps[0]); syncStatic(); }
+function startTour() { stopAll(); const steps = tourSteps(); tour = { steps, i: 0, at: C.now(), every: Number(tourSel.value) }; applyStep(steps[0]); syncStatic(); }
 function stopTour() { if (!tour) return; tour = null; syncStatic(); }
 const toggleTour = () => { touch(); tour ? stopTour() : startTour(); };
 $('tourBtn').addEventListener('click', toggleTour);
@@ -306,7 +339,9 @@ function syncStatic() {
   press($('kmPause'), paused);
   document.querySelectorAll('#moodDur button').forEach(b => press(b, Number(b.dataset.dur) === (Number(saved.moodDur) || 0)));
   press($('tourBtn'), !!tour); setT($('tourBtn'), tour ? 'Arrêter la démo' : 'Lancer la démo'); press($('kmTour'), !!tour);
-  setT($('tourNote'), tour ? `Étape ${tour.i + 1} sur ${tour.steps.length} : ${tour.steps[tour.i].label}` : 'Toutes les humeurs, puis tous les écrans, puis le thème suivant. En boucle.');
+  setT($('tourNote'), tour ? `Étape ${tour.i + 1} sur ${tour.steps.length} : ${tour.steps[tour.i].label}` : 'Toutes les humeurs, des animations, puis tous les écrans, puis le thème suivant. En boucle.');
+  press($('idleBtn'), L.packIdle !== false); press($('allBtn'), !!showAll);
+  setT($('allBtn'), showAll ? 'Arrêter' : 'Tout voir');
   testChips.forEach(b => press(b, b.dataset.id === TC.page));
 }
 function refresh() {                                  // things that change without a new state: mood expiry, fps
@@ -314,7 +349,11 @@ function refresh() {                                  // things that change with
   const md = curMood();
   moodChips.forEach(b => press(b, b.dataset.id === md)); kmM.forEach(b => press(b, b.dataset.id === md));
   const m = hub.MOODS.find(x => x.id === md);
-  setT($('moodNote'), m ? (m.desc ? `${m.name}. ${m.desc}` : m.name) : '');
+  setT($('moodNote'), !m ? '' : md === 'neutre' && P.view.face !== 'vivant' ? "Neutre. Avec le pack 52 : les animations d'attente, tirées au sort." : m.desc ? `${m.name}. ${m.desc}` : m.name);
+  const pa = P.view.face !== 'vivant' || (P.anim && (!P.anim.until || Date.now() < P.anim.until)) ? L.packNow : null;
+  animChips.forEach(b => press(b, b.dataset.id === pa));
+  if (showAll) { const a = hub.ANIMS[showAll.i]; setT($('animNote'), `Tout voir : ${showAll.i + 1} sur ${hub.ANIMS.length}, ${a.label}.`); }
+  else { const a = hub.ANIMS.find(x => x.id === pa); setT($('animNote'), a ? `${a.label} (${a.group}). Touche une animation pour la jouer.` : 'Les 52 animations de ton pack. Touche-en une pour la jouer.'); }
   const st = C.stats(), fps = Math.round(st.fps);
   const info = `${hub.themeName(P.view.theme)} · ${hub.NAMES[P.screen]} · ${hub.moodName(md)} · ${speedLabel()}${C.paused ? ' · en pause' : ''} · ${fps} im/s`;
   setT($('readout'), info); setT($('kmInfo'), info);
@@ -329,6 +368,7 @@ function render(s) {
   s.keys.nav.forEach((k, i) => { setT(KB[i], k.label); KB[i].classList.toggle('cur', k.id === s.screen); KB[i].setAttribute('aria-label', 'Écran ' + k.label); });
   (s.keys.row3[s.screen] || []).forEach((k, j) => { const b = KB[10 + j]; setT(b, k ? k.label : ''); b.disabled = !k; if (k) b.setAttribute('aria-label', k.label.replace('\n', ' ')); else b.removeAttribute('aria-label'); });
   themeChips.forEach(b => press(b, b.dataset.id === v.theme)); kmT.forEach(b => press(b, b.dataset.id === v.theme));
+  document.querySelectorAll('#faceSeg button').forEach(b => press(b, b.dataset.face === (v.face || 'pack')));
   screenChips.forEach(b => press(b, b.dataset.id === s.screen)); kmS.forEach(b => press(b, b.dataset.id === s.screen));
   weatherChips.forEach(b => press(b, b.dataset.id === wx));
   s.lights.rooms.forEach((r, i) => { const b = roomChips[i]; if (!b) return; setT(b, r.on ? `${r.name} ${r.bri} %` : `${r.name} éteint`); press(b, r.on); });
@@ -337,7 +377,7 @@ function render(s) {
   const b = Math.round(s.sys.bright * 100); if (document.activeElement !== $('bright')) { $('bright').value = String(b); setT($('brightOut'), b + ' %'); }
   $('ledWork').classList.toggle('on', s.chat.phase !== 'idle' || s.codex.running || s.timer.running);
   $('ledLights').classList.toggle('on', s.lights.rooms.some(r => r.on));
-  remember('theme', v.theme); remember('screen', s.screen);
+  remember('theme', v.theme); remember('screen', s.screen); remember('face', v.face);
 }
 hub.listen(snap => {
   const first = !P; P = snap;
@@ -350,5 +390,5 @@ syncStatic();
 Screens.start();
 
 /* For tests and the curious: the lab's parts. */
-window.PixelLab = { hub, clock: C, testcard: TC, screens: Screens, get tour() { return tour; }, get kiosk() { return kiosk; }, setKiosk, openMenu, closeMenu, shot, bench, sleepNow, wake, curMood };
+window.PixelLab = { hub, clock: C, testcard: TC, screens: Screens, get tour() { return tour; }, get kiosk() { return kiosk; }, get showAll() { return showAll; }, setKiosk, openMenu, closeMenu, shot, bench, sleepNow, wake, curMood, pickAnim };
 })();

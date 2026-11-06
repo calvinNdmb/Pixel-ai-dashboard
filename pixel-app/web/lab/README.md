@@ -50,11 +50,12 @@ chromium-browser --kiosk "http://localhost:8080/lab?kiosk=1"
 | **Humeur** | Toutes les humeurs du visage. **Garder** la laisse, **3 s** la fait durer 3 secondes. |
 | **Écran** | Les 10 écrans. Sur l'écran, tu peux aussi toucher et glisser. |
 | **Stream Deck** | Les 15 touches. Rangées 1 et 2 : les écrans. Rangée 3 : les actions de l'écran ouvert. |
+| **Animations** | Les 52 animations de ton pack, par famille : Humeurs, Émotions, Activités, Système, Repos, Idle. **Idle vivant** enchaîne les animations d'attente quand rien ne se passe ; éteint, l'animation choisie tourne en boucle. **Pack 52 / Vivant** change de visage. **Tout voir** les joue toutes, une boucle chacune. |
 | **Événements** | Notification avec ton texte, conversation avec Claude, tâche Codex réussie ou en échec, minuteur d'une minute et fin tout de suite, veille et réveil, animation de démarrage. |
 | **Lumières, météo, agenda** | Scènes et pièces, chaque météo (soleil, nuages, pluie, neige, orage) pour aujourd'hui et les jours suivants, °C ou °F, agenda d'aujourd'hui ou de demain, rendez-vous dans 10 minutes. |
 | **Affichage** | Luminosité et effet cathodique. |
 | **Vitesse** | ×0,25, ×0,5, ×1, ×2, **Pause** et **+1 image** (une image de plus, toujours en pause). |
-| **Démo auto** | Toutes les humeurs, puis tous les écrans, puis le thème suivant, en boucle. Tu choisis le temps entre deux étapes. |
+| **Démo auto** | Toutes les humeurs, quelques animations du pack (les 52 sur un tour complet), puis tous les écrans, puis le thème suivant, en boucle. Tu choisis le temps entre deux étapes. |
 | **Capture** | Enregistre l'écran de Pixel en image PNG. Sur un téléphone, l'image s'affiche : appuie longuement dessus pour la garder. |
 | **Barre de commande** | Les mêmes commandes que sur Pixel : `salon 40`, `thème manga`, `humeur content`, `minuteur 1`, `aide`… Le reste part à Claude, qui répond avec des phrases toutes faites. |
 

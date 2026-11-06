@@ -5,6 +5,7 @@ Anything that is not a command goes to Claude.
 import re
 import unicodedata
 
+from . import anims
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -12,7 +13,10 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "neon": "neon", "synthwave": "neon", "fluo": "neon", "croquis": "croquis", "crayon": "croquis",
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
-        "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · sinon : Claude")
+        "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · visage vivant · sinon : Claude")
+# a few words that play an animation on their own
+BARE = {"danse": "danse", "chante": "chante", "coucou": "salut", "bisou": "bisou"}
+FACE_WORDS = {"pack": "pack", "pack 52": "pack", "52": "pack", "animations": "pack", "vivant": "vivant", "anime": "vivant"}
 
 
 def norm(s):
@@ -100,6 +104,23 @@ async def run(hub, text):
             return hub.toast("Je ne connais pas cette humeur. Essaie : humeur triste, humeur fier…", 5000)
         await hub.dispatch("screen.show", {"screen": "visage"})
         return await hub.dispatch("mood.set", {"name": name, "ms": 0 if name == "endormi" else 3000})
+
+    m = re.match(r"^visage\s+(.+)$", t)
+    if m and m.group(1) in FACE_WORDS:
+        await hub.dispatch("face.set", {"name": FACE_WORDS[m.group(1)]})
+        return await hub.dispatch("screen.show", {"screen": "visage"})
+
+    if t in ("animations", "les animations", "liste des animations"):
+        groups = [g + " : " + ", ".join(a["label"] for a in anims.ANIMS if a["group"] == g) for g in anims.GROUPS]
+        return hub.toast("Les 52 animations. " + " · ".join(groups) + ". Tape « anim » et son nom.", 15000)
+    m = re.match(r"^(?:anim|animation)\s+(.+)$", t)
+    if m or t in BARE:
+        a = BARE.get(t) or anims.WORDS.get(anims.key(m.group(1)))
+        if not a:
+            hub.mood("confus", 2500)
+            return hub.toast("Je ne connais pas cette animation. Tape « animations » pour la liste.", 5000)
+        await hub.dispatch("screen.show", {"screen": "visage"})
+        return await hub.dispatch("anim.play", {"id": a})
 
     if t in SCREEN_WORDS:
         return await hub.dispatch("screen.show", {"screen": SCREEN_WORDS[t]})

@@ -23,7 +23,8 @@ sys.path.insert(0, str(APP))
 from pixel.claude import TOOLS  # noqa: E402
 from pixel.commands import norm  # noqa: E402
 from pixel.deck import STYLES  # noqa: E402
-from pixel.keys import MOODS, THEMES  # noqa: E402
+from pixel import anims  # noqa: E402
+from pixel.keys import FACES, MOODS, THEMES  # noqa: E402
 from pixel.system import local_ip  # noqa: E402
 
 fails = []
@@ -77,6 +78,15 @@ def static_checks():
     tools = {t["name"]: t["input_schema"]["properties"] for t in TOOLS}
     check("Claude can pick every theme", tools["set_theme"]["theme"]["enum"] == list(THEMES))
     check("Claude can pick every mood", tools["set_mood"]["mood"]["enum"] == MOODS)
+    pack = (web / "pack52" / "pixel52.js").read_text()
+    engine_ids = re.findall(r"^    \['([a-z-]+)',", pack, re.M)
+    check("the pack: 52 animations, 18 idles, the same ids in animations.json and in the engine", len(anims.IDS) == 52 and engine_ids == anims.IDS
+          and sum(a["group"] == "Idle" for a in anims.ANIMS) == 18, f"{len(engine_ids)} {len(anims.IDS)}")
+    check("the pack's globals are renamed (Pixel52, Pixel52Themes)", "scope.Pixel52=api" in pack and "scope.PixelThemes" not in pack
+          and "scope.Pixel52Themes=" in (web / "pack52" / "pixel52-themes.js").read_text())
+    check("the app and the lab load the pack before themes.js", all(
+        (web / f).read_text().index("pack52/pixel52-themes.js") < (web / f).read_text().index("themes.js\"") for f in ("index.html", "lab/index.html")))
+    check("Claude can play every animation", tools["play_animation"]["animation"]["enum"] == anims.IDS)
 
 
 async def main(args):
@@ -198,6 +208,57 @@ async def main(args):
             check("an unknown theme lists the themes", state["view"]["theme"] == "neon" and "Les thèmes" in state["toast"]["msg"], state["toast"]["msg"])
             await cmd(f"thème {norm(THEMES['croquis'])}")
 
+            # ---- the animation pack ----
+            check("the face is the pack by default", state["view"]["face"] == "pack", state["view"].get("face"))
+            await act("anim.play", id="danse")
+            a = state["anim"] or {}
+            check("anim.play danse", a.get("id") == "danse" and a.get("loops") == 2 and abs(a["until"] - a["t0"] - 8000) < 1, str(a))
+            await act("anim.play", id="reve")
+            check("a long animation plays once", (state["anim"] or {}).get("loops") == 1)
+            await act("anim.play", id="pas-une-animation")
+            check("an unknown animation is refused", state["anim"]["id"] == "reve")
+            await act("anim.play", id="rire", loops=0)
+            check("anim.play with loops=0 keeps playing", state["anim"]["id"] == "rire" and state["anim"]["until"] == 0)
+            await act("anim.stop")
+            check("anim.stop", state["anim"] is None)
+            for text, want in [("anim danse", "danse"), ("animation fou rire", "rire"), ("anim clin d'oeil", "clin-oeil"), ("anim Eurêka !", "idee"),
+                               ("ANIMATION BRAVO", "succes"), ("anim mise a jour", "mise-a-jour"), ("anim idle-luciole", "idle-luciole"),
+                               ("danse", "danse"), ("chante", "chante"), ("coucou", "salut"), ("bisou", "bisou")]:
+                await act("screen.show", 0.1, screen="meteo")
+                await act("anim.stop", 0.1)
+                await cmd(text, 0.3)
+                check(f"'{text}' plays {want}", (state["anim"] or {}).get("id") == want and state["screen"] == "visage", str(state["anim"]))
+            await cmd("anim pirate")
+            check("an unknown animation makes him confused and says so", state["mood"]["name"] == "confus" and "animation" in state["toast"]["msg"])
+            await cmd("animations")
+            check("'animations' lists them", state["toast"]["msg"].startswith("Les 52 animations") and "Gratouille" in state["toast"]["msg"] and state["toast"]["ms"] == 15000)
+            await cmd("minuteur 5")
+            await cmd("pause")
+            check("'pause' is still the timer's command", not state["timer"]["running"] and state["screen"] == "minuteur")
+            await cmd("météo")
+            check("'météo' still opens its screen", state["screen"] == "meteo")
+            key = state["keys"]["row3"]["visage"]
+            check("Visage keys: Anim + and Humeur +", [k["label"] for k in key[3:]] == ["Anim +", "Humeur +"] and key[3]["action"] == "anim.play"
+                  and key[3]["args"]["id"] == anims.SHOW[(anims.SHOW.index("bisou") + 1) % len(anims.SHOW)], str(key[3:]))
+            await act(key[3]["action"], **key[3]["args"])
+            check("pressing Anim + plays the next one", state["anim"]["id"] == key[3]["args"]["id"])
+            for _ in range(len(anims.SHOW)):
+                k = state["keys"]["row3"]["visage"][3]
+                await act(k["action"], 0.15, **k["args"])
+            check("Anim + walks through the 34 that are not idles", state["anim"]["id"] == key[3]["args"]["id"])
+            for name in FACES:
+                await act("face.set", name=name)
+                check(f"face.set {name} is saved", state["view"]["face"] == name and json.loads((datadir / "ui.json").read_text()) == {"theme": "croquis", "face": name})
+            await cmd("visage pack")
+            check("'visage pack'", state["view"]["face"] == "pack" and state["screen"] == "visage")
+            await cmd("visage vivant")
+            check("'visage vivant'", state["view"]["face"] == "vivant")
+            await act("face.set", name="autre")
+            check("an unknown face is refused", state["view"]["face"] == "vivant")
+            await act("screen.show", screen="meteo")
+            await cmd("visage")
+            check("'visage' alone still opens the screen", state["screen"] == "visage")
+
         ip = local_ip()
         token_file = datadir / "token"
         if ip and token_file.exists():
@@ -220,7 +281,9 @@ async def after_restart(args):
     async with aiohttp.ClientSession() as http:
         async with http.ws_connect(f"http://127.0.0.1:{args.port}/ws") as ws:
             m = await ws.receive(timeout=3)
-            check("the theme choice survives a restart", json.loads(m.data)["data"]["view"]["theme"] == "croquis")
+            v = json.loads(m.data)["data"]["view"]
+            check("the theme choice survives a restart", v["theme"] == "croquis")
+            check("the face choice survives a restart", v["face"] == "vivant", v.get("face"))
 
 
 if __name__ == "__main__":

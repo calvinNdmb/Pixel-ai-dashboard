@@ -1246,5 +1246,74 @@ const lcd = {
   },
 };
 
+/* =================== the user's animation pack (web/pack52) ===================
+   52 animations drawn by the pack's own engine: window.Pixel52 (96x54 pixel frames) and window.Pixel52Themes
+   (vector Moderne and Manga, 600x337.5 scaled to the box). theme.packFace(x, y, w, h, st) draws one frame in a
+   16:9 box, transparent over our background; st = {id, time (s), from: {id, time} | null, k: 0..1}. After a change
+   the vector renderer blends the two poses for 0.42 s; the pixel styles dissolve block by block (k). */
+const pkOff = {};
+function pkCanvas(key, w, h) {                       // an offscreen canvas at the backing scale, reused every frame
+  const S = SC(), cw = Math.max(1, Math.round(w * S)), ch = Math.max(1, Math.round(h * S));
+  let c = pkOff[key]; if (!c) c = pkOff[key] = document.createElement('canvas');
+  if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; }
+  return c;
+}
+const rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const pkLayers = {};
+function pkLayer(name) {                             // a 96x54 canvas and its pixels
+  let l = pkLayers[name];
+  if (!l) { const c = document.createElement('canvas'); c.width = 96; c.height = 54; const g = c.getContext('2d'); l = pkLayers[name] = { c, g, img: g.createImageData(96, 54) }; }
+  return l;
+}
+function pkFrame(st) {                               // the pack's frame, mixed with the previous one during a change
+  const P52 = window.Pixel52, a = P52.frame(st.id, st.time);
+  if (!st.from || st.k >= 1) return a;
+  const b = P52.frame(st.from.id, st.from.time), out = new Uint8Array(a.length);
+  for (let j = 0; j < 54; j++) for (let i = 0; i < 96; i++) { const n = j * 96 + i; out[n] = bayer(i, j) < st.k ? a[n] : b[n]; }
+  return out;
+}
+function pkPaint(layer, buf, pal, alpha = 255) {     // palette indices -> pixels (index 0 stays transparent)
+  const l = pkLayer(layer), d = l.img.data;
+  for (let n = 0; n < buf.length; n++) { const c = pal[buf[n]], o = n * 4; if (c) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = alpha; } else d[o + 3] = 0; }
+  l.g.putImageData(l.img, 0, 0); return l.c;
+}
+/* pixel styles: o = {pal: 8 colours (index 0 unused), glow: halo alpha, shadow: [r, g, b, a] drop shadow, grid: gap colour} */
+function pkPixels(x, y, w, h, st, o) {
+  if (!window.Pixel52) return;
+  const buf = pkFrame(st), s = w / 96, ga = X.globalAlpha, sm = X.imageSmoothingEnabled, sbv = X.shadowBlur; X.shadowBlur = 0;   // the glow is ours, not shadowBlur
+  if (o.shadow) { X.imageSmoothingEnabled = false; X.drawImage(pkPaint('shadow', buf, o.shadowPal, o.shadow[3]), x + s * 0.4, y + s * 0.4, w, h); }
+  const img = pkPaint('main', buf, o.pal);
+  if (o.glow) { X.imageSmoothingEnabled = true; X.globalAlpha = ga * o.glow; X.drawImage(img, x - s, y - s, w + 2 * s, h + 2 * s); X.globalAlpha = ga; }
+  X.imageSmoothingEnabled = false; X.drawImage(img, x, y, w, h); X.imageSmoothingEnabled = sm;
+  if (o.grid) X.drawImage(cached('pk-grid' + w + 'x' + h + o.grid, w, h, g => { g.fillStyle = o.grid; for (let i = 1; i < 96; i++) g.fillRect(i * s - 0.5, 0, 1, h); for (let j = 1; j < 54; j++) g.fillRect(0, j * s - 0.5, w, 1); }), x, y, w, h);
+  X.shadowBlur = sbv;
+}
+/* vector styles: the pack's Moderne or Manga, then our post effect: 'glow' (neon bloom) or 'graphite' (pencil on the paper) */
+function pkVector(x, y, w, h, st, theme, post) {
+  const V = window.Pixel52Themes; if (!V) return;
+  const c = pkCanvas('v' + Math.round(w) + 'x' + Math.round(h), w, h);
+  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from });
+  const ga = X.globalAlpha, op = X.globalCompositeOperation, b = X.shadowBlur; X.shadowBlur = 0;
+  if (post === 'glow') {                             // cheap bloom: a small copy, blown up and added
+    const sc = pkCanvas('vb' + Math.round(w) + 'x' + Math.round(h), w / 6, h / 6), g = sc.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, sc.width, sc.height); g.drawImage(c, 0, 0, sc.width, sc.height);
+    X.globalCompositeOperation = 'lighter'; X.globalAlpha = ga * 0.75; X.drawImage(sc, x - 8, y - 8, w + 16, h + 16); X.globalCompositeOperation = op; X.globalAlpha = ga;
+  }
+  if (post === 'graphite') X.globalCompositeOperation = 'luminosity';      // the drawing takes the paper's colour: graphite
+  X.drawImage(c, x, y, w, h); X.globalCompositeOperation = op; X.shadowBlur = b;
+}
+const PK_RETRO = [null, R.fg, R.hi, R.pink, R.accent, R.hi, R.dim, '#2c6e46'].map(c => c && rgb(c));
+const PK_LCD = [null, S3, S1, S2, S3, S2, S2, S1].map(c => c && rgb(c)), PK_LCD_SH = [null, 1, 1, 1, 1, 1, 1, 1].map(c => c && [32, 44, 24]);
+retro.packFace = (x, y, w, h, st) => pkPixels(x, y, w, h, st, { pal: PK_RETRO, glow: 0.42, grid: R.bg });
+lcd.packFace = (x, y, w, h, st) => {
+  const s = Math.max(2, Math.round(w / 45)), head = lcdHead(s, 0);   // the creature's head and antenna around the pack's face
+  if (w >= 300) { const hw = 32, hh = 20, hx = Math.round(x + w / 2 - (hw / 2 + 2) * s), hy = Math.round(y + h * 0.56 - (hh / 2 + 6) * s); X.drawImage(head, hx, hy, head.width / SC(), head.height / SC()); lpx(hx + (2 + hw / 2) * s - s / 2, hy + s, s * 2, Math.floor(H.now / 600) % 2 ? S3 : S2); }
+  pkPixels(x, y, w, h, st, { pal: PK_LCD, shadowPal: PK_LCD_SH, shadow: [32, 44, 24, 60], grid: S0 });
+};
+moderne.packFace = (x, y, w, h, st) => pkVector(x, y, w, h, st, 'modern');
+manga.packFace = (x, y, w, h, st) => pkVector(x, y, w, h, st, 'manga');
+neon.packFace = (x, y, w, h, st) => pkVector(x, y, w, h, st, 'modern', 'glow');
+croquis.packFace = (x, y, w, h, st) => pkVector(x, y, w, h, st, 'manga', 'graphite');
+
 return { retro, moderne, manga, neon, croquis, lcd };
 };

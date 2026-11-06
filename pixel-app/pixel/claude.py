@@ -6,6 +6,7 @@ import logging
 import re
 
 from .commands import norm
+from . import anims
 from .keys import MOODS, NAV, THEMES
 
 log = logging.getLogger("pixel.claude")
@@ -41,6 +42,9 @@ TOOLS = [
                       "manga (grands yeux brillants), neon (nuit synthwave, néons roses et bleus), croquis (dessin au crayon sur un cahier) "
                       "ou lcd (console de poche, quatre tons de vert).",
          {"theme": {"type": "string", "enum": list(THEMES)}}, ["theme"]),
+    tool("play_animation", "Joue une animation du visage de Pixel, une ou deux fois, puis il revient à son humeur. Les animations : "
+                           + " ; ".join(f"{a['id']} ({a['label']})" for a in anims.ANIMS) + ".",
+         {"animation": {"type": "string", "enum": anims.IDS}}, ["animation"]),
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
 
@@ -58,6 +62,7 @@ def check(name, a):
         "show_screen": a.get("screen") in NAV,
         "set_mood": a.get("mood") in MOODS,
         "set_theme": a.get("theme") in THEMES,
+        "play_animation": a.get("animation") in anims.BY_ID,
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
@@ -127,6 +132,9 @@ class Claude:
             return "ok"
         if name == "set_theme":
             await h.dispatch("theme.set", {"name": a["theme"]})
+            return "ok"
+        if name == "play_animation":
+            await h.dispatch("anim.play", {"id": a["animation"]})
             return "ok"
         if name == "run_codex":
             await h.dispatch("codex.run", {"task": a["task"]})

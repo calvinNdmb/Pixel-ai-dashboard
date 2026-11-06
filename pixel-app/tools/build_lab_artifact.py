@@ -4,7 +4,8 @@
     python3 tools/build_lab_artifact.py OUT.html
 
 The file holds the page content only: the host wraps it in <!doctype>, <html>, <head> and <body>.
-Everything is inlined (the lab's CSS and markup, themes.js, screens.js, the fake server, the lab scripts),
+Everything is inlined (the lab's CSS and markup, the user's animation pack, themes.js, screens.js, the fake server,
+the lab scripts),
 in the order of the <script> tags of web/lab/index.html, so new scripts are picked up on their own.
 The only external resource is the Google Fonts stylesheet for the fonts listed in web/fonts.json.
 Nothing is fetched at run time: the font list is passed to the page in window.PIXEL_LAB_BUILD.
@@ -36,6 +37,9 @@ def build():
     sources = re.findall(r'<script\s+src="([^"]+)"\s*>\s*</script>', page.split(END, 1)[1])
     if not sources:
         sys.exit("web/lab/index.html: no <script src> after the body markers")
+    for need in ("../pack52/pixel52.js", "../pack52/pixel52-themes.js"):     # the 52 animations must travel with the lab
+        if need not in sources:
+            sys.exit(f"web/lab/index.html: {need} is not loaded: the artifact would have no animation pack")
 
     fonts = json.loads((WEB / "fonts.json").read_text(encoding="utf-8"))
     families = "&".join("family=" + f["google"] for f in fonts if f.get("google"))

@@ -50,15 +50,69 @@ useTheme('retro');
 const LIFE = { face: PixelLife(), mini: PixelLife(), nap: PixelLife(), boot: PixelLife() };
 function live(life, cx, cy, u, md, o = {}) { const a = life.update(now, md, o); face(cx, cy, u, a.mood, a.lx, a.ly, a); return a; }
 
+/* ---------- the user's animation pack (web/pack52): Pixel's face by default, view.face = "pack"; "vivant" = the living face ---------- */
+const PACK = (window.Pixel52 && window.Pixel52.animations) || [], PBY = Object.fromEntries(PACK.map(a => [a.id, a]));
+const IDLES = PACK.filter(a => a.group === 'Idle');
+const MOOD_ANIM = { content: 'content', surpris: 'surpris', amoureux: 'amoureux', clin: 'clin-oeil', endormi: 'sommeil', reflechit: 'reflechit', ecoute: 'ecoute',
+  triste: 'triste', fache: 'colere', confus: 'confus', excite: 'etoiles', fier: 'fier', malade: 'batterie-faible', baille: 'baille' };
+function PackPlayer() {             // what one pack face plays: an animation while it is wanted, else the idle
+  const st = { id: 'idle-respire', time: 0, from: null, k: 1 }; let idling = true;
+  const go = id => { if (!PBY[id] || id === st.id) return; st.from = { id: st.id, time: st.time }; st.id = id; st.time = 0; st.k = 0; };
+  function nextIdle() {             // a weighted draw over the 18 idles, never the same one twice in a row
+    const c = IDLES.filter(a => a.id !== st.id); let r = rnd() * c.reduce((s, a) => s + (a.idleWeight || 1), 0);
+    for (const a of c) { r -= a.idleWeight || 1; if (r < 0) return a.id; }
+    return c[c.length - 1].id;
+  }
+  return {
+    st,
+    update(dt, want, idle = true) {
+      st.time += dt / 1000; st.k = Math.min(1, st.k + dt / 260);
+      if (want) { go(want); idling = false; }
+      else if (!idling) { idling = true; if (idle) go(nextIdle()); }
+      else if (idle && IDLES.length && st.time >= (PBY[st.id] ? PBY[st.id].duration : 4)) go(nextIdle());    // one loop of each idle
+      return st;
+    },
+  };
+}
+const PLAY = { face: PackPlayer(), mini: PackPlayer(), nap: PackPlayer() };
+const packMode = () => PACK.length > 0 && !!T.packFace && !(P && P.view && P.view.face === 'vivant');
+const serverAnim = () => { const a = P && P.anim; return a && PBY[a.id] && (!a.until || srv() < a.until) ? a.id : null; };
+const sleepCycle = () => (now / 1000) % 15 < 10 ? 'sommeil' : 'reve';
+function packWant() {               // touch first, then what was asked, then the events, then the mood, then the idle
+  if (L.pack && now < L.pack.until) return L.pack.id;                       // a laugh, waking up
+  if (L.local && now < L.local.until) return MOOD_ANIM[L.local.name] || null;   // happy, angry, in love (touch)
+  const sa = serverAnim(); if (sa) return sa;
+  if (L.packEv && now < L.packEv.until) return L.packEv.id;                 // notification, Codex result
+  if (P.chat && P.chat.phase === 'answer') return 'parle';
+  const md = mood();
+  if (md === 'endormi') return sleepCycle();
+  if (md !== 'neutre') return MOOD_ANIM[md] || null;
+  if (P.codex && P.codex.running) return 'code';
+  if (L.kiosk && (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) < 10000) return 'idle-somnole';   // nodding off
+  return null;
+}
+function packDraw(player, want, x, y, w, h, a) {   // a: life state for the touch physics (squash under the finger, bounce)
+  const st = player.update(fdt, want, L.packIdle !== false);
+  if (player === PLAY.face) L.packNow = st.id;            // for the lab: what the big face plays
+  X.save();
+  if (a) { const px = x + w / 2, py = y + h; X.translate(px, py - a.hop * 16); X.scale(1 + 0.5 * a.sq, 1 - 0.5 * a.sq); X.translate(-px, -py); }
+  T.packFace(x, y, w, h, st); X.restore();
+  return st;
+}
+const PBOX = { x: 64, y: 50, w: 672, h: 378 };       // 16:9 between the header and the bottom line (7 screen pixels per pack pixel)
+
 /* ---------- Visage ---------- */
 function drawVisage() {
   if (T.top) T.top(clock()); else txt(clock(), W - 24, 16, 30, D, 'right', 'title');
-  const md = mood(), ptr = L.ptr && !['endormi', 'reflechit'].includes(md) ? { x: clamp((L.ptr.x - 400) / 120, -1.6, 1.6), y: clamp((L.ptr.y - 230) / 110, -1, 1) } : null;
+  const md = mood(), pack = packMode(), anim = serverAnim(), ptr = L.ptr && !['endormi', 'reflechit'].includes(md) ? { x: clamp((L.ptr.x - 400) / 120, -1.6, 1.6), y: clamp((L.ptr.y - 230) / 110, -1, 1) } : null;
   const sleepIn = L.kiosk && P ? (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) : Infinity;
-  const a = LIFE.face.update(now, md, { look: ptr, idle: now - L.lastInput, sleepIn, calm: RM });
-  const nap = (a.mood === 'endormi' ? a.k : 0) + (a.from === 'endormi' ? 1 - a.k : 0);
-  X.globalAlpha = 1 - (1 - (T.sleepA ?? 0.6)) * clamp(nap, 0, 1);
-  face(400, 236, 16, a.mood, a.lx, a.ly, a); X.globalAlpha = 1;
+  const a = LIFE.face.update(now, md, { look: ptr, idle: now - L.lastInput, sleepIn, calm: RM || pack || !!anim });
+  if (pack || (anim && T.packFace)) packDraw(PLAY.face, pack ? packWant() : anim, PBOX.x, PBOX.y, PBOX.w, PBOX.h, a);
+  else {
+    const nap = (a.mood === 'endormi' ? a.k : 0) + (a.from === 'endormi' ? 1 - a.k : 0);
+    X.globalAlpha = 1 - (1 - (T.sleepA ?? 0.6)) * clamp(nap, 0, 1);
+    face(400, 236, 16, a.mood, a.lx, a.ly, a); X.globalAlpha = 1;
+  }
   const parts = [], r = P.lights.rooms[0], w = P.weather, e = nextEvent();
   if (r) parts.push(`${r.name} ${r.on ? r.bri + ' %' : 'éteint'}`);
   if (w && w.now) parts.push(temp(w.now.t));
@@ -66,9 +120,10 @@ function drawVisage() {
   const tick = parts.join('   ·   ');
   txt(fit(T.upper ? tick.toUpperCase() : tick, 760, 24), 400, 440, 24, D, 'center');
   hit(0, 0, W, H, () => {
-    if (a.mood === 'endormi') { send('mood.set', { name: 'neutre' }); L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; return; }
+    if (md === 'endormi') { send('mood.set', { name: 'neutre' }); L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; return; }
     if (L.petted) { L.petted = false; return; }
     const r2 = LIFE.face.tap(now); L.local = r2 ? { name: r2, until: now + 2600 } : { name: 'content', until: now + 1800 };
+    if (r2) L.pack = null; else if (rnd() < 0.3) L.pack = { id: 'rire', until: now + 3000 };      // sometimes a tap makes him laugh
   });
 }
 /* touch: squash under the finger, petting makes him fall in love (taps are handled by the hit above) */
@@ -79,7 +134,7 @@ cv.addEventListener('pointerdown', e => { const p = toCanvas(e); L.petted = fals
 cv.addEventListener('pointermove', e => {
   if (!rubAt) return;
   const p = toCanvas(e), r = LIFE.face.rub(p.x - rubAt.x, p.y - rubAt.y, now); rubAt = p;
-  if (r) { L.local = { name: r, until: now + 3200 }; L.petted = true; }
+  if (r) { L.local = { name: r, until: now + 3200 }; L.petted = true; L.pack = null; }
 });
 for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) cv.addEventListener(ev, () => { if (rubAt) { LIFE.face.press(false); rubAt = null; } });
 
@@ -134,7 +189,8 @@ function drawClaude() {
     if (C.phase === 'answer' && Math.floor(now / 300) % 2 && vis.length) { const last = vis[vis.length - 1][1] || ''; X.font = F(30); X.fillRect(40 + X.measureText(last).width + 4, 56 + (vis.length - 1) * 33 + 4, 12, 24); }
   }
   const typing = document.activeElement && document.activeElement.id === 'cmd' && document.activeElement.value, sm = P.mood && (!P.mood.until || srv() < P.mood.until) ? P.mood.name : 'neutre';
-  live(LIFE.mini, 700, 150, 6, C.phase === 'think' ? 'reflechit' : C.phase === 'answer' ? 'content' : typing ? 'ecoute' : sm === 'endormi' ? 'neutre' : sm, { calm: true });
+  if (packMode()) packDraw(PLAY.mini, C.phase === 'think' ? 'reflechit' : C.phase === 'answer' ? 'parle' : typing ? 'ecoute' : serverAnim() || (sm !== 'endormi' && MOOD_ANIM[sm]) || null, 606, 96, 192, 108);
+  else live(LIFE.mini, 700, 150, 6, C.phase === 'think' ? 'reflechit' : C.phase === 'answer' ? 'content' : typing ? 'ecoute' : sm === 'endormi' ? 'neutre' : sm, { calm: true });
   rule(612, 60, 2, 360);
   txt(C.phase === 'think' ? 'RÉFLÉCHIT' + '.'.repeat(1 + Math.floor(now / 300) % 3) : C.phase === 'answer' ? 'RÉPOND' : 'PRÊT', 700, 250, 30, C.phase === 'idle' ? D : AM, 'center');
   if (C.status && C.status !== 'prêt') wrap(C.status, 160, 22).forEach((l, i) => txt(l, 700, 294 + i * 24, 22, D, 'center'));
@@ -236,6 +292,12 @@ function drawSettings() {
   const short = u => (u || '').replace(/\?.*$/, '');
   txt(fit('SUR TON TÉLÉPHONE OU TON PC', 500, 24), 274, 62, 24, D); txt(fit(short(st.url), 500, 32), 274, 88, 32, WH); txt(fit('ou ' + short(st.ip_url), 500, 26), 274, 124, 26, G);
   para("Scanne le code : il ouvre l'appli avec ton code d'accès. Ensuite : « Ajouter à l'écran d'accueil ».", 274, 158, 500, 24, D, 26);
+  txt('VISAGE', 274, 230, 24, D);
+  [['pack', 'Pack 52'], ['vivant', 'Vivant']].forEach(([id, name], i) => {
+    const x = 380 + i * 142, on = (P.view.face || 'pack') === id;
+    box(x, 222, 134, 34, on ? G : D, on ? G : null); txt(name, x + 67, 227, 24, on ? (T.onFg || B) : G, 'center');
+    hit(x, 222, 134, 34, () => send('face.set', { name: id }));
+  });
   [['HUE', P.lights.status], ['CLAUDE', st.claude], ['STREAM DECK', st.deck], ['MODE', st.demo ? 'DÉMO (fausses données)' : 'normal']].forEach(([k, v], i) => {
     txt(fit(k, 176, 22), 24, 292 + i * 26, 22, D); txt(fit(String(v || '—'), 566, 24), 210, 291 + i * 26, 24, G); });
   // theme picker: chips in rows of 4, as many rows as needed
@@ -261,7 +323,9 @@ function drawVeille(dt) {
   glow();
   drift.x += drift.vx * dt; drift.y += drift.vy * dt;
   if (drift.x < 110 || drift.x > W - 110) drift.vx *= -1; if (drift.y < 90 || drift.y > H - 90) drift.vy *= -1;
-  X.globalAlpha = 0.85; live(LIFE.nap, Math.round(drift.x), Math.round(drift.y), 6, 'endormi', { calm: true }); X.globalAlpha = 0.45 + 0.35 * Math.sin(now / 900);
+  X.globalAlpha = 0.85;
+  if (packMode()) packDraw(PLAY.nap, sleepCycle(), Math.round(drift.x) - 96, Math.round(drift.y) - 54, 192, 108); else live(LIFE.nap, Math.round(drift.x), Math.round(drift.y), 6, 'endormi', { calm: true });
+  X.globalAlpha = 0.45 + 0.35 * Math.sin(now / 900);
   txt("Touche l'écran pour réveiller Pixel", 400, 440, 24, D, 'center'); X.globalAlpha = 1;
   hit(0, 0, W, H, () => send('screen.show', { screen: 'visage' }));
 }
@@ -280,28 +344,29 @@ function splash(e, info) {                       // default boot: Pixel wakes up
   bar(250, 412, 20, clamp((e - 300) / 2600, 0, 1) * 20, 13, 12, 2, G);
 }
 function drawBoot() {
-  const e = now - L.boot, info = { rows: bootRows(), face: (cx, cy, u, md) => live(LIFE.boot, cx, cy, u, md, { calm: true }) };
+  const e = now - L.boot, pack = packMode();
+  const info = { rows: bootRows(), face: (cx, cy, u, md) => { if (!pack) return live(LIFE.boot, cx, cy, u, md, { calm: true }); const w = 96 * Math.max(2, Math.round(u * 40 / 96)), h = w * 9 / 16; packDraw(PLAY.face, md === 'endormi' ? 'sommeil' : 'reveil', cx - w / 2, cy - h / 2, w, h); } };
   (T.boot || splash)(e, info);
-  if (e > BOOT_MS) { L.boot = -1; L.local = { name: 'content', until: now + 1500 }; }
+  if (e > BOOT_MS) { L.boot = -1; L.local = { name: 'content', until: now + 1500 }; if (pack) L.pack = { id: 'reveil', until: now + 4000 }; }
 }
 function drawBanner() {
   const b = L.banner; if (!b) return; const e = now - b.t; if (e > b.ms + 440) { L.banner = null; return; }
-  const ls = wrap(b.msg, 680, 26).slice(0, 4), h = 24 + ls.length * 28;
+  const big = b.msg.length > 180, fs = big ? 21 : 26, lh = fs + 2, ls = wrap(b.msg, 680, fs).slice(0, big ? 12 : 4), h = 24 + ls.length * lh;
   const k = e < 220 ? e / 220 : e > b.ms + 220 ? (b.ms + 440 - e) / 220 : 1, y = -h - 8 + k * (h + 16);
-  box(50, y, 700, h, AM, B); ls.forEach((l, i) => txt(l, 400, y + 12 + i * 28, 26, AM, 'center'));
+  box(50, y, 700, h, AM, B); ls.forEach((l, i) => txt(l, 400, y + 12 + i * lh, fs, AM, 'center'));
 }
 
 /* ---------- loop and API ---------- */
 const DRAW = { visage: drawVisage, lumieres: drawLights, claude: drawClaude, codex: drawCodex, meteo: drawMeteo, minuteur: drawTimer,
   agenda: drawAgenda, systeme: drawSys, reglages: drawSettings, veille: drawVeille };
-let last = performance.now(), fitAt = 0;
+let last = performance.now(), fitAt = 0, fdt = 16;
 function update() {
   if (now > L.blink.next) { L.blink.t = now; L.blink.next = now + 2000 + rnd() * 4000; }   // for faces drawn without a life state
   if (L.kiosk && P && L.scr === 'visage' && !L.sleepy && now - L.lastInput > (P.settings.sleep_min || 10) * 60000) L.sleepy = true;
   if (now > fitAt) { fitAt = now + 1000; fitCanvas(); }
 }
 function frame(t) {
-  const dt = Math.min(60, t - last); last = t; now = t; update(); hits = [];
+  const dt = Math.min(60, t - last); last = t; now = t; fdt = dt; update(); hits = [];
   X.setTransform(S, 0, 0, S, 0, 0); X.globalAlpha = 1; X.shadowBlur = 0; T.bg(dt); glow();
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
@@ -323,11 +388,18 @@ return {
   setState(p) {
     offset = p.server_now - Date.now(); useTheme(p.view.theme);
     if (first) { L.lastToast = p.toast?.id || 0; L.lastBootAt = p.boot_at; if (L.kiosk) L.boot = now; first = false; }
-    if (p.toast && p.toast.id !== L.lastToast) { L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now }; }
+    if (P && P.codex && P.codex.running && p.codex && !p.codex.running && p.codex.status !== 'arrêté') L.packEv = { id: /^terminé/.test(p.codex.status) ? 'succes' : 'erreur', until: now + 4000 };
+    if (p.toast && p.toast.id !== L.lastToast) {
+      L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now };
+      const busy = p.mood && p.mood.name !== 'neutre' && (!p.mood.until || p.server_now < p.mood.until);
+      if (!busy && !(L.packEv && now < L.packEv.until) && !/^(THÈME|VISAGE) /.test(p.toast.msg)) L.packEv = { id: 'notification', until: now + 4000 };   // not for our own settings
+    }
+    if (P && P.screen === 'veille' && p.screen === 'visage') L.pack = { id: 'reveil', until: now + 5000 };
+    if (p.anim && p.anim.t0 !== (P && P.anim && P.anim.t0)) { L.pack = null; L.local = null; }   // a new animation asked for takes over at once
     if (p.boot_at > L.lastBootAt) { L.lastBootAt = p.boot_at; L.boot = now; }
     P = p;
   },
-  input() { L.lastInput = now; if (L.sleepy) { L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; return true; } return false; },
+  input() { L.lastInput = now; if (L.sleepy) { L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; return true; } return false; },
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

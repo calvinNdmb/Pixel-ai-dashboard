@@ -1,6 +1,6 @@
 # Pixel : l'appli
 
-L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les menus sur l'écran de Pixel, et pilote les 15 touches du Stream Deck. La même appli s'ouvre aussi sur ton téléphone ou ton ordinateur, où tu peux taper au clavier. Elle a six thèmes : Rétro, Moderne, Manga, Néon, Croquis et LCD.
+L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les menus sur l'écran de Pixel, et pilote les 15 touches du Stream Deck. La même appli s'ouvre aussi sur ton téléphone ou ton ordinateur, où tu peux taper au clavier. Elle a six thèmes : Rétro, Moderne, Manga, Néon, Croquis et LCD. Le visage de Pixel vient de ton pack de 52 animations ; l'ancien visage vivant reste au choix.
 
 ![Les écrans de Pixel](preview.png)
 
@@ -8,7 +8,7 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 
 | Écran | Contenu |
 | --- | --- |
-| **Visage** | Pixel cligne des yeux, regarde autour de lui, suit ton doigt et change d'humeur. Quand il s'ennuie, il sautille, s'étire et bâille. Il s'endort après 10 minutes sans rien. |
+| **Visage** | Pixel joue les 52 animations de ton pack : il respire, cligne des yeux, regarde autour de lui, change d'humeur, danse ou chante quand tu le demandes. Il s'endort après 10 minutes sans rien. |
 | **Lumières** | Tes pièces Philips Hue : allumer, éteindre, régler la luminosité, lancer une scène. |
 | **Claude** | Tu écris, Claude répond à l'écran. Il peut aussi agir : régler les lampes, lancer le minuteur, lire la météo et l'agenda, changer d'écran ou de thème, lancer Codex. |
 | **Codex** | Lance une tâche de code et affiche son journal en direct. Une notification apparaît sur les autres écrans quand c'est fini. |
@@ -38,9 +38,65 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 
 Le choix est gardé au redémarrage. Les touches du Stream Deck et de l'appli sur téléphone changent de couleurs et de police avec le thème.
 
+## Les 52 animations
+
+Le visage de Pixel vient de **ton pack** « Pixel OS — 3 thèmes, 52 animations » (version 2.1) : 34 expressions, activités et états, et 18 animations d'attente. Le pack est copié tel quel dans `web/pack52/`. Seuls les noms de deux variables ont changé (`Pixel52` et `Pixel52Themes`), pour ne pas gêner ceux de Pixel OS. Les dessins et le moteur des animations sont les tiens.
+
+![Le catalogue de ton pack, en Rétro](web/pack52/Catalogue_Pixel.png)
+
+Pixel les dessine dans ses 6 thèmes :
+- **Rétro** reprend les pixels de ton pack, aux couleurs de l'écran vert ;
+- **Moderne** et **Manga** reprennent son dessin Moderne et Manga ;
+- **Néon** reprend le Moderne, avec un halo de néon ;
+- **Croquis** reprend le Manga, au crayon sur la page ;
+- **LCD** reprend les pixels en quatre verts, dans la tête de la petite créature.
+
+Le visage tient dans un cadre 16:9 entre le haut de l'écran et la ligne du bas. D'une animation à l'autre, la pose glisse en douceur. En Rétro et en LCD, ce sont les pixels qui se mélangent.
+
+![Douze animations dans les 6 thèmes](preview-pack52.png)
+
+**Quand rien ne se passe**, Pixel enchaîne les 18 animations d'attente, une boucle chacune. Il les tire au sort : les plus discrètes reviennent plus souvent, et jamais deux fois la même de suite. Avant de s'endormir, il pique du nez (Micro-sieste), puis il fait dodo et rêve.
+
+**Chaque humeur a son animation :**
+
+| Humeur | Animation |
+| --- | --- |
+| Neutre | les animations d'attente |
+| Content, Surpris, Amoureux, Réfléchit, Triste, Confus, Fier | les animations du même nom |
+| Clin d'œil | Clin d'œil |
+| Endormi | Dodo et Rêve |
+| Écoute | À l'écoute |
+| Fâché | En colère |
+| Excité | Émerveillé |
+| Malade | À plat |
+| Bâille | Bâillement |
+
+**Ce qui se passe autour de lui :**
+- une notification fait arriver une enveloppe ;
+- Codex au travail : il tape sur son clavier ; réussi : Bravo ! ; en échec : Oups… ;
+- Claude réfléchit : Réfléchit ; Claude répond : Bavarde ;
+- au réveil et à la fin du démarrage : Réveil.
+
+**Le toucher :**
+- sous ton doigt, le visage s'écrase un peu, puis rebondit ;
+- une tape : Content, ou parfois Fou rire ;
+- cinq tapes de suite : En colère ;
+- une caresse d'un côté à l'autre : Amoureux.
+
+**Pour en jouer une :**
+- tape `anim danse`, `animation fou rire`, `anim clin d'oeil`… (le nom, avec ou sans accents) ;
+- ou simplement `danse`, `chante`, `coucou`, `bisou` ;
+- `animations` affiche la liste ;
+- sur le Stream Deck, écran Visage : la touche **Anim +** les passe en revue ;
+- demande à Claude « fais-moi une petite danse ».
+
+Elle se joue une ou deux fois, puis Pixel revient à son humeur. Ça marche dans les 6 thèmes, quel que soit le visage choisi. Sur l'écran Claude, la petite tête réfléchit, parle et écoute avec les mêmes animations.
+
+**Pour garder l'ancien visage :** dans **Réglages**, touche **Vivant** à côté de « VISAGE ». Tu peux aussi taper `visage vivant`, puis `visage pack` pour revenir au pack. Le choix est gardé au redémarrage.
+
 ## Les humeurs
 
-Tous les thèmes dessinent les 15 humeurs. Pixel passe de l'une à l'autre en douceur : les yeux et la bouche se transforment (en Rétro et en LCD, les pixels se mélangent).
+Tous les thèmes dessinent les 15 humeurs. Avec le visage du pack, chaque humeur joue son animation (voir plus haut). Avec le visage vivant, montré ici, il passe de l'une à l'autre en douceur : les yeux et la bouche se transforment (en Rétro et en LCD, les pixels se mélangent).
 
 | Humeur | Quand |
 | --- | --- |
@@ -64,7 +120,7 @@ Tous les thèmes dessinent les 15 humeurs. Pixel passe de l'une à l'autre en do
 
 Tape `humeur triste`, `humeur fier`… pour en voir une. Sur le Stream Deck, la touche **Humeur +** de l'écran Visage les passe toutes en revue.
 
-![Les 15 humeurs dans les 6 thèmes](preview-themes.png)
+![Les 15 humeurs du visage vivant dans les 6 thèmes](preview-themes.png)
 
 ![Les écrans dans les 6 thèmes](preview-themes-screens.png)
 
@@ -90,13 +146,16 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 | `humeur content`, `humeur triste`, `humeur fâché`… | change l'humeur du visage |
 | `thème néon`, `thème croquis`, `thème lcd`, `thème rétro`… | change le style de l'écran |
 | `thème suivant`, `thème précédent` | passe au thème d'après, ou d'avant |
+| `anim danse`, `animation fou rire`, `danse`, `coucou`… | joue une des 52 animations |
+| `animations` | affiche la liste des animations |
+| `visage vivant`, `visage pack` | change de visage |
 | `aide` | affiche la liste des commandes |
 | n'importe quoi d'autre | c'est envoyé à Claude, par exemple « baisse un peu les lumières, je regarde un film » |
 
 ## Le Stream Deck
 
 - **Rangées 1 et 2 :** les 10 écrans.
-- **Rangée 3 (en couleur) :** des actions qui changent selon l'écran. Par exemple : humeurs et *Humeur +* sur Visage, scènes sur Lumières, *Pause café* sur Minuteur, *Clavier* sur Claude, *Thème −* et *Thème +* sur Réglages.
+- **Rangée 3 (en couleur) :** des actions qui changent selon l'écran. Par exemple : humeurs, *Anim +* et *Humeur +* sur Visage, scènes sur Lumières, *Pause café* sur Minuteur, *Clavier* sur Claude, *Thème −* et *Thème +* sur Réglages.
 - **Dessin des touches :** aux couleurs et avec la police du thème. L'écran ouvert est mis en valeur.
 
 ## Sur ton téléphone
@@ -183,8 +242,9 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Agendas** (`test_agenda.py`) : un agenda Google (heure de Paris, événement répété, vacances sur plusieurs jours, soirée après minuit, événement annulé), un fichier Samsung .vcs importé puis réimporté, un rendez-vous présent dans deux agendas affiché une seule fois, les erreurs (404, page web, pas d'internet), le fichier privé, et l'adresse secrète qui n'arrive jamais sur les écrans.
 - **Pixel Lab** : 140 vérifications dans Chromium, sur ordinateur, téléphone et en plein écran 800 × 480.
 - **Claude** (`test_claude_loop.py`) : la boucle a tourné face à un faux serveur d'API. Claude règle le salon, change de thème et d'humeur, et un thème inconnu est refusé.
-- **Visage** (`test_life.js`) : clignements, regards, bâillements, étirements, réactions au toucher, et chaque thème dessine chaque humeur et chaque passage d'une humeur à l'autre sans erreur.
-- **Affichage** (`shots.js`) : les 10 écrans, le démarrage et les 15 humeurs s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois.
+- **Visage vivant** (`test_life.js`) : clignements, regards, bâillements, étirements, réactions au toucher, et chaque thème dessine chaque humeur et chaque passage d'une humeur à l'autre sans erreur.
+- **Animations** (`test_pack.js`) : chaque thème dessine les 52 animations à plusieurs moments, avec les deux visages et les passages de l'une à l'autre. Les humeurs, l'attente tirée au sort, le toucher et les événements jouent les bonnes animations. `test_pixel.py` vérifie aussi `anim.play`, les commandes `anim …`, la touche *Anim +* et le choix du visage après un redémarrage.
+- **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
 
@@ -194,6 +254,7 @@ python3 tests/test_real.py
 python3 tests/test_claude_loop.py
 python3 tests/test_agenda.py
 node tests/test_life.js
+node tests/test_pack.js
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -214,6 +275,7 @@ Pas encore testé avec le vrai matériel :
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
+| `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |
 | `tests/` | les tests et les captures d'écran |
 | `tools/` | `build_lab_artifact.py` fait du labo une seule page HTML |
 | `deploy/` | installation sur le Pi : script, service systemd, ouverture en plein écran, règles d'accès |
