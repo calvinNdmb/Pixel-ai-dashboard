@@ -171,6 +171,9 @@ cv.addEventListener('pointerdown', e => {
   down = { ...Screens.toCanvas(e), id: e.pointerId, long: false }; clearTimeout(lpTimer);
   if (kiosk) lpTimer = setTimeout(() => { if (down) { down.long = true; openMenu(); } }, 1000);   // long press: lab menu
 });
+cv.addEventListener('pointermove', e => {      // a finger that moves (petting Pixel, a swipe) is not a long press
+  if (down && down.id === e.pointerId) { const p = Screens.toCanvas(e); if (Math.hypot(p.x - down.x, p.y - down.y) > 20) clearTimeout(lpTimer); }
+});
 cv.addEventListener('pointerup', e => {
   clearTimeout(lpTimer);
   if (!down || down.id !== e.pointerId) return;
@@ -179,7 +182,7 @@ cv.addEventListener('pointerup', e => {
   if (kiosk && corner(d) && corner(p) && Math.hypot(p.x - d.x, p.y - d.y) < 30) return openMenu();   // tap in a corner: lab menu
   if (Screens.input()) return;
   const dx = p.x - d.x, dy = p.y - d.y;
-  if (Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy)) return swipe(dx < 0 ? 1 : -1);
+  if (!L.petted && Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy)) return swipe(dx < 0 ? 1 : -1);   // not while petting Pixel
   Screens.hit(p.x, p.y);
 });
 cv.addEventListener('pointercancel', () => { clearTimeout(lpTimer); down = null; });

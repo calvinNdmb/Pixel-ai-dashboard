@@ -74,7 +74,8 @@ function drawVisage() {
 /* touch: squash under the finger, petting makes him fall in love (taps are handled by the hit above) */
 let rubAt = null;
 const onFace = p => L.scr === 'visage' && L.boot < 0 && P && Math.abs(p.x - 400) < 330 && p.y > 40 && p.y < 430;
-cv.addEventListener('pointerdown', e => { const p = toCanvas(e); if (onFace(p)) { LIFE.face.press(true); rubAt = p; L.petted = false; } });
+// every new touch clears "petted", so a swipe on another screen still changes screen
+cv.addEventListener('pointerdown', e => { const p = toCanvas(e); L.petted = false; if (onFace(p)) { LIFE.face.press(true); rubAt = p; } });
 cv.addEventListener('pointermove', e => {
   if (!rubAt) return;
   const p = toCanvas(e), r = LIFE.face.rub(p.x - rubAt.x, p.y - rubAt.y, now); rubAt = p;

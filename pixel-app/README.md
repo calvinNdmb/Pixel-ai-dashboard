@@ -134,6 +134,15 @@ python server.py --demo
 
 Ouvre ensuite <http://localhost:8080> pour la version téléphone, ou <http://localhost:8080/?kiosk=1> pour l'écran de Pixel.
 
+## Tester les animations : Pixel Lab
+
+Le labo d'essai : chaque thème, chaque humeur, les 10 écrans et tous les événements (notification, Claude, Codex, minuteur, veille, démarrage…), avec ralenti, pause et un test du vrai écran 7 pouces (couleurs, bords, toucher, images par seconde). Il est dessiné par le vrai code de Pixel, avec de fausses données.
+
+- **Sur ton ordinateur :** lance le mode démo ci-dessus, puis ouvre <http://localhost:8080/lab>.
+- **Sur le Pi, en plein écran :** `chromium-browser --kiosk "http://localhost:8080/lab?kiosk=1"`. Appuie 1 seconde sur l'écran pour ouvrir le menu.
+
+Tout est expliqué dans [web/lab/README.md](web/lab/README.md).
+
 ## Installer sur le Raspberry Pi
 
 Il faut Raspberry Pi OS avec le bureau (Bookworm ou plus récent), et ce dépôt copié dans ton dossier personnel.
@@ -171,6 +180,8 @@ L'appli est gratuite. Les réponses de Claude sont facturées à l'usage sur ton
 Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Commandes et accès** (`test_pixel.py`) : lampes, scènes, minuteur, écrans, Claude et Codex en démo, refus d'un appareil sans code d'accès. Chaque thème : choix dans Réglages, touches *Thème −* et *Thème +*, commande `thème …`, choix gardé après un redémarrage. Chaque humeur avec `humeur …`.
 - **Données réelles** (`test_real.py`) : la vraie météo d'Open-Meteo, un agenda iCal avec un événement sur la journée et un événement répété, et les 15 touches du Stream Deck dessinées dans chaque thème.
+- **Agendas** (`test_agenda.py`) : un agenda Google (heure de Paris, événement répété, vacances sur plusieurs jours, soirée après minuit, événement annulé), un fichier Samsung .vcs importé puis réimporté, un rendez-vous présent dans deux agendas affiché une seule fois, les erreurs (404, page web, pas d'internet), le fichier privé, et l'adresse secrète qui n'arrive jamais sur les écrans.
+- **Pixel Lab** : 140 vérifications dans Chromium, sur ordinateur, téléphone et en plein écran 800 × 480.
 - **Claude** (`test_claude_loop.py`) : la boucle a tourné face à un faux serveur d'API. Claude règle le salon, change de thème et d'humeur, et un thème inconnu est refusé.
 - **Visage** (`test_life.js`) : clignements, regards, bâillements, étirements, réactions au toucher, et chaque thème dessine chaque humeur et chaque passage d'une humeur à l'autre sans erreur.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage et les 15 humeurs s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois.
@@ -181,6 +192,7 @@ Pour les relancer :
 python3 tests/test_pixel.py          # lance son propre serveur de démo sur le port 8102
 python3 tests/test_real.py
 python3 tests/test_claude_loop.py
+python3 tests/test_agenda.py
 node tests/test_life.js
 ```
 
@@ -200,7 +212,10 @@ Pas encore testé avec le vrai matériel :
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
 | `pixel/` | un module par service : `hue`, `claude`, `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches) et `state` (état partagé) |
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
+| `web/reglages.html` | la page **Agendas** du téléphone |
+| `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `tests/` | les tests et les captures d'écran |
+| `tools/` | `build_lab_artifact.py` fait du labo une seule page HTML |
 | `deploy/` | installation sur le Pi : script, service systemd, ouverture en plein écran, règles d'accès |
 | `config.example.toml` | les réglages à copier en `config.toml` |
 
