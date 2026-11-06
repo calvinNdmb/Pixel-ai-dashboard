@@ -36,6 +36,8 @@ TOOLS = [
     tool("start_timer", "Lance le minuteur pour un nombre de minutes.", {"minutes": {"type": "number", "minimum": 1, "maximum": 180}}, ["minutes"]),
     tool("show_screen", "Affiche un écran de Pixel.", {"screen": {"type": "string", "enum": NAV}}, ["screen"]),
     tool("set_mood", "Change l'expression du visage de Pixel pendant quelques secondes.", {"mood": {"type": "string", "enum": MOODS}}, ["mood"]),
+    tool("set_theme", "Change le style de l'écran de Pixel : retro (écran vert des années 90), moderne (yeux lumineux qui rebondissent) ou manga (grands yeux brillants).",
+         {"theme": {"type": "string", "enum": ["retro", "moderne", "manga"]}}, ["theme"]),
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
 
@@ -52,6 +54,7 @@ def check(name, a):
         "start_timer": isinstance(a.get("minutes"), (int, float)) and 1 <= a["minutes"] <= 180,
         "show_screen": a.get("screen") in NAV,
         "set_mood": a.get("mood") in MOODS,
+        "set_theme": a.get("theme") in ("retro", "moderne", "manga"),
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
@@ -117,6 +120,9 @@ class Claude:
             return "ok"
         if name == "set_mood":
             h.mood(a["mood"], 0 if a["mood"] == "endormi" else 3000)
+            return "ok"
+        if name == "set_theme":
+            await h.dispatch("theme.set", {"name": a["theme"]})
             return "ok"
         if name == "run_codex":
             await h.dispatch("codex.run", {"task": a["task"]})

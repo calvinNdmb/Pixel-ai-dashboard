@@ -1,4 +1,5 @@
 """Stream Deck layout: rows 1-2 open a screen, row 3 acts on the open screen."""
+THEMES = {"retro": "Rétro", "moderne": "Moderne", "manga": "Manga"}
 NAV = ["visage", "lumieres", "claude", "codex", "meteo", "minuteur", "agenda", "systeme", "reglages", "veille"]
 NAMES = {"visage": "Visage", "lumieres": "Lumières", "claude": "Claude", "codex": "Codex", "meteo": "Météo",
          "minuteur": "Minuteur", "agenda": "Agenda", "systeme": "Système", "reglages": "Réglages", "veille": "Veille"}
@@ -36,7 +37,7 @@ def row3(screen, s):
         return [K("Lumi. −", "sys.bright", d=-0.1), K("Lumi. +", "sys.bright", d=0.1), K("Effet\nCRT", "view.toggle", key="crt_off"),
                 K("Démar-\nrage", "sys.boot"), K("Veille", "screen.show", screen="veille")]
     if screen == "reglages":
-        return [K("Associer\nHue", "lights.pair"), K("Clavier", "view.toggle", key="osk"), None, None, None]
+        return [K("Associer\nHue", "lights.pair"), K("Clavier", "view.toggle", key="osk")] + [K(n, "theme.set", name=i) for i, n in THEMES.items()]
     if screen == "veille":
         return [K("Réveiller", "screen.show", screen="visage"), None, None, None, None]
     return [None] * 5

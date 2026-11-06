@@ -18,7 +18,7 @@ class Hub:
         self.s = {
             "screen": "visage",
             "mood": {"name": "neutre", "until": 0},
-            "view": {"meteo_day": 0, "units_f": False, "agenda_day": 0, "crt_off": False, "osk": False},
+            "view": {"meteo_day": 0, "units_f": False, "agenda_day": 0, "crt_off": False, "osk": False, "theme": "retro"},
             "lights": {"status": "démarrage", "rooms": [], "scenes": []},
             "chat": {"phase": "idle", "status": "", "messages": []},
             "codex": {"task": "", "running": False, "status": "", "lines": []},

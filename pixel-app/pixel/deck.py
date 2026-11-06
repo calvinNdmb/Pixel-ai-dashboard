@@ -1,12 +1,19 @@
 """Stream Deck MK.2: draws the 15 keys in Pixel's green-screen style and sends presses to the hub."""
 import asyncio
 import logging
+import os
 
 from .keys import NAV
 
 log = logging.getLogger("pixel.deck")
-GREEN, AMBER, BLACK = (70, 255, 130), (255, 179, 71), (8, 16, 11)
-FONTS = ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", "DejaVuSansMono-Bold.ttf"]
+WEB = os.path.join(os.path.dirname(__file__), "..", "web")
+DEJAVU = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
+# key colours per theme: text, background, current screen (text, background), row-3 actions
+STYLES = {
+    "retro": {"fg": (70, 255, 130), "bg": (8, 16, 11), "cur": ((8, 16, 11), (70, 255, 130)), "act": (255, 179, 71), "font": [DEJAVU]},
+    "moderne": {"fg": (232, 236, 255), "bg": (21, 27, 51), "cur": ((12, 17, 36), (127, 243, 255)), "act": (255, 184, 107), "font": [os.path.join(WEB, "Fredoka.ttf"), DEJAVU]},
+    "manga": {"fg": (27, 27, 31), "bg": (251, 247, 238), "cur": ((251, 247, 238), (27, 27, 31)), "act": (232, 56, 79), "font": [os.path.join(WEB, "Bangers-Regular.ttf"), DEJAVU]},
+}
 
 
 class Deck:
@@ -29,7 +36,9 @@ class Deck:
         try:
             decks = [d for d in DeviceManager().enumerate() if d.is_visual()]
         except Exception as e:                      # hidapi missing, no permission...
-            self.hub.s["settings"]["deck"] = f"erreur : {e}"
+            msg = str(e)
+            self.hub.s["settings"]["deck"] = ("pilote USB manquant (sudo apt install libhidapi-libusb0)" if "HID" in msg
+                                              else "accès refusé (règle udev, voir install.sh)" if "ermission" in msg else f"erreur : {msg[:60]}")
             return
         if not decks:
             self.hub.s["settings"]["deck"] = "non branché"
@@ -57,14 +66,14 @@ class Deck:
         if k:
             await self.hub.dispatch(k["action"], k["args"])
 
-    def _image(self, label, fg, bg):
+    def _image(self, label, fg, bg, fonts):
         from PIL import Image, ImageDraw, ImageFont
         from StreamDeck.ImageHelpers import PILHelper
         img = PILHelper.create_key_image(self.deck, background=bg)
         draw = ImageDraw.Draw(img)
         w, h = img.size
         for size in (17, 15, 13, 11):
-            font = _font(ImageFont, size)
+            font = _font(ImageFont, size, fonts)
             box = draw.multiline_textbbox((0, 0), label, font=font, align="center")
             if box[2] - box[0] <= w - 8:
                 break
@@ -75,12 +84,14 @@ class Deck:
         """Redraw the keys whose label or colour changed."""
         if self.deck is None:
             return
-        scr = snap["screen"]
+        scr, theme = snap["screen"], snap["view"].get("theme", "retro")
+        st = STYLES.get(theme, STYLES["retro"])
+        fonts = tuple(st["font"])
         want = {}
         for i, k in enumerate(snap["keys"]["nav"]):
-            want[i] = (k["label"], BLACK, GREEN) if k["id"] == scr else (k["label"], GREEN, BLACK)
+            want[i] = (k["label"], *st["cur"], fonts) if k["id"] == scr else (k["label"], st["fg"], st["bg"], fonts)
         for j, k in enumerate(snap["keys"]["row3"].get(scr, [None] * 5)):
-            want[len(NAV) + j] = (k["label"], AMBER, BLACK) if k else ("", BLACK, BLACK)
+            want[len(NAV) + j] = (k["label"], st["act"], st["bg"], fonts) if k else ("", st["bg"], st["bg"], fonts)
         changed = {i: v for i, v in want.items() if self.cache.get(i) != v}
         bright = 10 if scr == "veille" else int(self.cfg.get("brightness", 70))
         if not changed and bright == self.bright:
@@ -94,18 +105,24 @@ class Deck:
                 if bright != self.bright:
                     self.deck.set_brightness(bright)
                     self.bright = bright
-                for i, (label, fg, bg) in changed.items():
-                    self.deck.set_key_image(i, self._image(label, fg, bg))
+                for i, (label, fg, bg, fonts) in changed.items():
+                    self.deck.set_key_image(i, self._image(label, fg, bg, fonts))
         except Exception as e:                      # unplugged
             log.warning("Stream Deck lost: %s", e)
             self.deck, self.cache = None, {}
             self.hub.s["settings"]["deck"] = "débranché"
 
 
-def _font(ImageFont, size):
-    for f in FONTS:
+def _font(ImageFont, size, fonts):
+    for f in fonts:
         try:
-            return ImageFont.truetype(f, size)
+            font = ImageFont.truetype(f, size)
+            if "Fredoka" in f:
+                try:
+                    font.set_variation_by_name("SemiBold")
+                except (OSError, ValueError):
+                    pass
+            return font
         except OSError:
             continue
     return ImageFont.load_default()

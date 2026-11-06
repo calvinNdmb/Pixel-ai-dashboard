@@ -6,6 +6,7 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch { return 
 let token = qs.get('t') || store.get('pixel_t');
 if (qs.get('t')) { store.set('pixel_t', qs.get('t')); history.replaceState(null, '', location.pathname + (kiosk ? '?kiosk=1' : '')); }
 document.body.classList.toggle('kiosk', kiosk);
+if (!kiosk) document.querySelector('.recess').after($('cmdForm'));    // phone/PC: the command bar sits under the screen
 const L = Screens.local; L.kiosk = kiosk;
 let P = null, ws = null, retry = 500, opened = false, follow = store.get('pixel_follow') !== '0', oskLocal = false;
 const NAV = ['visage', 'lumieres', 'claude', 'codex', 'meteo', 'minuteur', 'agenda', 'systeme', 'reglages', 'veille'];
@@ -53,7 +54,8 @@ function render() {
     P.keys.nav.forEach((k, i) => { setT(KB[i], k.label); KB[i].classList.toggle('cur', k.id === L.scr); KB[i].setAttribute('aria-label', 'Écran ' + k.label); });
     (P.keys.row3[L.scr] || []).forEach((k, j) => { const b = KB[10 + j]; setT(b, k ? k.label : ''); b.disabled = !k; if (k) b.setAttribute('aria-label', k.label.replace('\n', ' ')); });
   }
-  $('screen').classList.toggle('flat', !!P.view.crt_off);
+  document.body.dataset.theme = P.view.theme || 'retro';
+  $('screen').classList.toggle('flat', !!P.view.crt_off || (P.view.theme || 'retro') !== 'retro');
   $('crt').style.filter = kiosk && !P.sys.hw_bright && P.sys.bright < 1 ? `brightness(${P.sys.bright})` : '';
   const osk = kiosk && (oskLocal || P.view.osk);
   $('osk').hidden = !osk;

@@ -27,6 +27,7 @@ brightness = 70             # 0 à 100
 
 [ui]
 sleep_minutes = 10          # Pixel s'endort sur le visage après ce temps sans rien
+theme = "retro"             # retro, moderne ou manga (se change aussi dans Réglages)
 
 # [security]
 # token = "..."             # code d'accès des téléphones ; créé tout seul sinon

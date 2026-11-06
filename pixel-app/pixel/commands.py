@@ -7,7 +7,8 @@ import unicodedata
 
 from .keys import NAV, NAMES
 
-HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · "
+THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "manga": "manga", "anime": "manga"}
+HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · sinon : Claude")
 MOODS = {"neutre", "content", "surpris", "amoureux", "clin", "endormi"}
 
@@ -72,6 +73,10 @@ async def run(hub, text):
         if v in ("on", "off"):
             return await hub.dispatch("lights.set", {"room": room, "on": v == "on"})
         return await hub.dispatch("lights.set", {"room": room, "bri": max(0, min(100, int(v)))})
+
+    m = re.match(r"^(?:theme|style)\s+(\w+)$", t)
+    if m and m.group(1) in THEME_WORDS:
+        return await hub.dispatch("theme.set", {"name": THEME_WORDS[m.group(1)]})
 
     m = re.match(r"^humeur\s+(\w+)$", t)
     if m and m.group(1) in MOODS:

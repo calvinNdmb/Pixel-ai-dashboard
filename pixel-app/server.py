@@ -23,7 +23,7 @@ from pixel.claude import Claude
 from pixel.codex import Codex
 from pixel.deck import Deck
 from pixel.hue import Hue
-from pixel.keys import NAV
+from pixel.keys import NAV, THEMES
 from pixel.state import Hub
 from pixel.system import System, local_ip
 from pixel.weather import Weather
@@ -33,8 +33,20 @@ log = logging.getLogger("pixel")
 LOCAL = {"127.0.0.1", "::1"}
 
 
-def core_actions(hub):
+def core_actions(hub, datadir):
     v = hub.s["view"]
+    ui_file = datadir / "ui.json"
+    saved = json.loads(ui_file.read_text()) if ui_file.exists() else {}
+    v["theme"] = saved.get("theme") or hub.cfg.get("ui", {}).get("theme", "retro")
+    if v["theme"] not in THEMES:
+        v["theme"] = "retro"
+
+    @hub.action("theme.set")
+    async def theme(name):
+        if name in THEMES:
+            v["theme"] = name
+            ui_file.write_text(json.dumps({"theme": name}))
+            hub.toast("THÈME " + THEMES[name].upper())
 
     @hub.action("screen.show")
     async def show(screen):
@@ -69,7 +81,7 @@ def qr_rows(url):
 
 async def serve(args, cfg, datadir, token):
     hub = Hub(cfg, args.demo)
-    core_actions(hub)
+    core_actions(hub, datadir)
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"
