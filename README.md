@@ -1,6 +1,6 @@
 # Pixel-ai-dashboard
 
-**Pixel**, un compagnon de bureau avec un écran tactile, un Stream Deck MK.2 et un Raspberry Pi 4 : lumières Hue, discussions avec Claude ou Codex, visage animé.
+**Pixel**, un compagnon de bureau avec un écran tactile, un Stream Deck MK.2 et un Raspberry Pi 4 : lumières Hue, discussions avec Claude ou Codex, visage animé (52 animations, 6 thèmes).
 
 | Dossier | Contenu |
 | --- | --- |
