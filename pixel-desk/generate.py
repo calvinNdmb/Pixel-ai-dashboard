@@ -11,7 +11,9 @@ Parts (stl/), each exported in its print orientation, no supports needed:
     PixelStand.stl         round swivel foot under the monitor (prints top-down)
     PixelCase.stl          desktop case shell (prints top-down)
     PixelCaseBottom.stl    bottom plate, the Pi is screwed on it (prints flat)
-    PixelKeyboardTray.stl  low tray for the Stream Deck (prints upright)
+    PixelKeyboardBase.stl  retro keyboard that holds the Stream Deck MK.2's inner module (prints upright)
+    PixelKeyboardTop.stl   beige keyboard top with the 15 key holes (prints top-down)
+    PixelStreamDeckTray.stl  option: low tray for a whole, unopened Stream Deck MK.2 (prints upright)
     ScreenFitTest.stl      thin frame to check the screen size before the big prints
 
     pip install trimesh manifold3d shapely mapbox_earcut numpy scipy matplotlib
@@ -56,7 +58,7 @@ OVER = 0.01
 
 # keyboard tray (front)
 TRAY_HW, TRAY_D, TRAY_R = 68.0, 94.0, 6.0
-TRAY_Z_FRONT = 8.0                              # room under the deck for a 90 deg USB-C plug
+TRAY_Z_FRONT = 9.5                              # room under the deck for a 90 deg USB-C plug
 POCKET_DEPTH = 5.0
 POCKET_S0 = 4.5                                 # front rim, measured along the slope
 
@@ -69,6 +71,23 @@ PI_X0 = 58.0                                    # X of the Pi's SD-card edge (bo
 PI_Y0 = CASE_Y1 - WALL - 2.2                    # Y of the Pi's USB-C edge (audio jack clears the wall)
 SPK_XY = (45.0, 120.0)
 TRAY_SCREWS_X = 45.0
+SD_CABLE_X = -33.8                              # X of the Stream Deck's USB-C port (and of the cable tunnel)
+
+# retro keyboard around the Stream Deck MK.2's inner module
+# (module dimensions: github.com/stagehacks/Stream-Deck-Module, drawing at 1:1)
+KB_ANGLE = 10.0
+KB_W, KB_D, KB_R = 136.0, 94.0, 6.0
+KB_Z_FRONT = 17.5                               # room under the module for a 90 deg USB-C plug
+KB_TOP_T = 2.0
+MOD_W, MOD_H, MOD_T = 107.0, 70.0, 9.0          # module body (buttons stick out 3 mm in front)
+MOD_KEY_X = [14.975 + 19.26 * i for i in range(5)]  # key centres from the module's left edge
+MOD_KEY_Y = [19.195, 38.465, 57.725]                # key centres from the module's top edge
+KEY_CUT, KEY_R = 17.0, 3.5                       # Elgato faceplate cutout
+MOD_CONN = (19.7, 19.9)                          # USB-C on the back, from the top-left corner
+MOD_CONN_DEPTH = 8.9                             # how far the connector sticks out behind the body
+MOD_V0 = 16.0                                    # module's front edge, along the slope
+MOD_CLR, MOD_LEDGE = 0.25, 2.5                   # the module rests on its outer 2.5 mm only
+KB_TOP_SCREWS = [(-62.0, 8.0), (62.0, 8.0), (-62.0, 90.0), (62.0, 90.0)]
 TRAY_SCREW_Z = 8.0
 
 # stand (swivel foot)
@@ -220,15 +239,106 @@ def build_tray():
     hw = SD_W / 2 + SD_CLR
     cuts = [ext_yz(pk, -hw, hw)]
     # pocket for the Stream Deck's USB-C plug, and a tunnel to the back into the case
-    cuts.append(slab(-20, 20, 64, top(dp["s1"])[0] - 1.0, 3.0, 40))
-    cuts.append(slab(-7, 7, 70, TRAY_D + 1, 3.0, 13.0))
+    cuts.append(slab(SD_CABLE_X - 14, SD_CABLE_X + 14, 48, top(dp["s1"])[0] - 1.0, 1.6, 40))
+    cuts.append(slab(SD_CABLE_X - 7, SD_CABLE_X + 7, 70, TRAY_D + 1, 3.0, 13.0))
     # pilots for the two screws coming from inside the case
     for s in (-1, 1):
         cuts.append(cyl_y(s * TRAY_SCREWS_X, TRAY_SCREW_Z, TRAY_D - 12, TRAY_D + 1, PILOT))
     # rubber feet
     for x, y in ((-52, 14), (52, 14), (-52, 80), (52, 80)):
         cuts.append(cyl(x, y, -1, 1.0, 10.5))
-    return single(D(tray, *cuts), "PixelKeyboardTray")
+    return single(D(tray, *cuts), "PixelStreamDeckTray")
+
+
+# ------------------------------------------------------------------ retro keyboard (Stream Deck module inside)
+def kb_frame():
+    """Local keyboard frame -> world: u = X, v up the slope from the front edge, w out of the top surface."""
+    a = radians(KB_ANGLE)
+    return np.array([[1, 0, 0, 0], [0, cos(a), -sin(a), 0], [0, sin(a), cos(a), KB_Z_FRONT], [0, 0, 0, 1]], float)
+
+
+def kb_local(mesh):
+    m = mesh.copy(); m.apply_transform(kb_frame()); return m
+
+
+def kb_box(u0, u1, v0, v1, w0, w1):
+    return kb_local(slab(u0, u1, v0, v1, w0, w1))
+
+
+def kb_world(u, v, w):
+    return (kb_frame() @ np.array([u, v, w, 1.0]))[:3]
+
+
+def module_uv(x, y):
+    """Module front-view coordinates (x from the left edge, y from the top edge) -> keyboard (u, v)."""
+    return x - MOD_W / 2, MOD_V0 + MOD_H - y
+
+
+def kb_top_outline():
+    a = radians(KB_ANGLE)
+    return rrect(KB_W, KB_D / cos(a), KB_R, 0, KB_D / cos(a) / 2)
+
+
+def kb_screw_axis(u, v):
+    """Screw from below the base up into the top plate, perpendicular to the plate."""
+    p0 = kb_world(u, v, 0.0)
+    n = kb_world(u, v, 1.0) - p0
+    t = -p0[2] / n[2]                              # where the axis meets the desk (z = 0)
+    return p0, n, p0 + t * n
+
+
+def cyl_axis(p_from, p_to, d, sections=32):
+    c = trimesh.creation.cylinder(radius=d / 2, segment=[p_from, p_to], sections=sections)
+    return c
+
+
+def build_keyboard():
+    a = radians(KB_ANGLE)
+    z_back = KB_Z_FRONT + KB_D * tan(a)
+    prof = Polygon([(0, 0), (0, KB_Z_FRONT), (KB_D, z_back), (KB_D, 0)])
+    base = I(ext_xy(rrect(KB_W, KB_D, KB_R, 0, KB_D / 2), 0, 60), ext_yz(prof, -200, 200))
+    hw, c = MOD_W / 2 + MOD_CLR, MOD_CLR
+    depth = MOD_T + 0.3                           # + a 0.5 mm foam strip on the ledge clamps the module
+    cuts = [kb_box(-hw, hw, MOD_V0 - c, MOD_V0 + MOD_H + c, -depth, 5),                       # module body
+            kb_box(-hw + MOD_LEDGE, hw - MOD_LEDGE, MOD_V0 + MOD_LEDGE, MOD_V0 + MOD_H - MOD_LEDGE, -depth - 3.0, 1)]
+    cu, cv = module_uv(*MOD_CONN)
+    plug_pocket = kb_box(cu - 11, cu + 11, cv - 11, cv + 11, -40, 1)                           # USB-C + 90 deg plug
+    cuts.append(I(plug_pocket, slab(-200, 200, -10, 200, 1.6, 100)))
+    pocket_y = kb_world(cu, cv - 11, 0)[1]
+    cuts.append(slab(SD_CABLE_X - 7, SD_CABLE_X + 7, pocket_y, KB_D + 1, 3.0, 13.0))           # cable tunnel to the case
+    for s_ in (-1, 1):
+        cuts.append(cyl_y(s_ * TRAY_SCREWS_X, TRAY_SCREW_Z, KB_D - 12, KB_D + 1, PILOT))
+    for u, v in KB_TOP_SCREWS:                                                                    # top-plate screws
+        p0, n, pb = kb_screw_axis(u, v)
+        cuts.append(kb_local(cyl(u, v, -6.2, 0.5, 7.6)))                                         # boss pocket
+        cuts.append(cyl_axis(pb - 1.0 * n, p0, CLEAR))
+        cuts.append(cyl_axis(pb - 1.0 * n, kb_world(u, v, -10.0), CBORE_D + 0.4))              # well: an M2.5x10 reaches the boss
+    for x, y in ((-52, 10), (52, 10), (-52, 82), (52, 82)):
+        cuts.append(cyl(x, y, -1, 1.0, 10.5))
+    base = single(D(base, *cuts), "PixelKeyboardBase")
+
+    # top plate, built in the local frame (w = 0 is its underside)
+    top = ext_xy(kb_top_outline(), 0, KB_TOP_T)
+    adds = [cyl(u, v, -6.0, OVER, 7.0) for u, v in KB_TOP_SCREWS]
+    top = U([top, *adds])
+    tcuts = []
+    for x in MOD_KEY_X:
+        for y in MOD_KEY_Y:
+            u, v = module_uv(x, y)
+            tcuts.append(ext_xy(rrect(KEY_CUT, KEY_CUT, KEY_R, u, v), -1, KB_TOP_T + 1))
+    for u, v in KB_TOP_SCREWS:
+        tcuts.append(cyl(u, v, -6.5, KB_TOP_T - 0.8, PILOT))
+    # engraved on the top face: key-field frame, PIXEL badge, three status LEDs
+    fu, fv = module_uv(MOD_W / 2, MOD_H / 2)
+    frame = rrect(MOD_W + 4, MOD_H - 7, 3.0, 0, fv + 2.2).difference(rrect(MOD_W + 2.6, MOD_H - 8.4, 2.4, 0, fv + 2.2))
+    marks = [frame, text_poly("PIXEL", 6.0, -58.0, 5.0)]
+    marks += [rrect(4.5, 1.8, 0.6, 38 + 7.5 * k, 8.0) for k in range(3)]
+    for mk in marks:
+        for g_ in getattr(mk, "geoms", [mk]):
+            if g_.area > 0.01:
+                tcuts.append(ext_xy(g_, KB_TOP_T - 0.6, KB_TOP_T + 1))
+    top_local = single(D(top, *tcuts), "PixelKeyboardTop")
+    return base, kb_local(top_local), top_local
 
 
 # ------------------------------------------------------------------ desktop case
@@ -275,7 +385,7 @@ def build_case():
     # tray screws + Stream Deck cable through the front wall
     for s in (-1, 1):
         cuts.append(cyl_y(s * TRAY_SCREWS_X, TRAY_SCREW_Z, CASE_Y0 - 1, y0 + 4, CLEAR))
-    cuts.append(slab(-7, 7, CASE_Y0 - 1, y0 + 1, 3.0, 13.0))
+    cuts.append(slab(SD_CABLE_X - 7, SD_CABLE_X + 7, CASE_Y0 - 1, y0 + 1, 3.0, 13.0))
     # Pi USB-C power through the back wall
     ux, _ = pi_xy(11.2, 0)
     uz = PLATE_T + PI_STANDOFF + 1.4 + 1.6
@@ -441,12 +551,14 @@ def pose(m, kind):
 def build_all():
     tray, case, plate, stand = build_tray(), build_case(), build_case_bottom(), build_stand()
     bezel, back = build_monitor()
-    assembled = dict(PixelKeyboardTray=tray, PixelCase=case, PixelCaseBottom=plate, PixelStand=stand,
-                     PixelMonitorFront=bezel, PixelMonitorBack=back)
+    kb_base, kb_top, kb_top_local = build_keyboard()
+    assembled = dict(PixelKeyboardBase=kb_base, PixelKeyboardTop=kb_top, PixelCase=case, PixelCaseBottom=plate,
+                     PixelStand=stand, PixelMonitorFront=bezel, PixelMonitorBack=back)
     printable = {
         "PixelMonitorFront": pose(bezel, "face_down"), "PixelMonitorBack": pose(back, "back_down"),
         "PixelStand": pose(stand, "top_down"), "PixelCase": pose(case, "top_down"),
-        "PixelCaseBottom": pose(plate, "upright"), "PixelKeyboardTray": pose(tray, "upright"),
+        "PixelCaseBottom": pose(plate, "upright"), "PixelKeyboardBase": pose(kb_base, "upright"),
+        "PixelKeyboardTop": pose(kb_top_local, "top_down"), "PixelStreamDeckTray": pose(tray, "upright"),
         "ScreenFitTest": build_fit_test(),
     }
     return assembled, printable
