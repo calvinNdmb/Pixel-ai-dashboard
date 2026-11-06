@@ -61,22 +61,26 @@ Les cotes du module du Stream Deck viennent du plan publié par le projet [Strea
 | Stream Deck MK.2 | 1 | tu l'as. On en sort le module ; garde la coque et la face avant d'origine |
 | Écran tactile **Freenove 7" IPS** 800 × 480, DSI (FNK0078H) | 1 | la version TN marche aussi, mais elle pâlit quand on la regarde de côté |
 | Nappe DSI 15 broches, pas de 1 mm, **300 mm** | 1 | celle livrée est trop courte. Prends le même type de contacts que la nappe livrée : regarde de quel côté ils sont à chaque bout |
-| 2 fils femelle-femelle de 30 cm | 2 | le 5 V et la masse de l'écran, qui montent par le pied |
+| 2 fils femelle-femelle de 30 cm | 2 | le 5 V et la masse de l'écran, qui montent par le pied (voir « Le 5 V de l'écran » plus bas) |
 | **Câble USB-C coudé à 90° → USB-A**, environ 30 cm | 1 | pour le Stream Deck : la prise est au dos du module. La tête coudée doit faire 8 mm d'épaisseur maximum |
 | Alimentation officielle Raspberry Pi 4, USB-C 5,1 V 3 A | 1 | le seul câble |
 | Radiateur passif pour Pi 4 (25 mm de haut maximum) | 1 | |
-| Haut-parleur Ø 40 mm, 4 Ω, 3 W, avec un ampli I2S MAX98357A | 1 | sous les fentes, à l'arrière gauche du dessus |
+| [Mini haut-parleur USB](https://www.amazon.fr/s?k=mini+haut-parleur+USB+raspberry+pi) | 1 | branché sur un port USB du Pi, rien à souder. Un ampli MAX98357A demanderait de souder ses broches. Je l'installerai sous les fentes selon sa taille |
 | Mini micro USB | 1 | |
 | Carte microSD (32 Go ou plus) | 1 | |
-| [Bouton poussoir métal **16 mm**, momentané, anneau LED](https://www.amazon.fr/s?k=bouton+poussoir+16mm+momentan%C3%A9+anneau+LED+5V) | 1 | bouton d'allumage. **Momentané** (pas « à verrouillage »), LED en **5 V ou 3-6 V** (pas 12 V). Vert pour le look rétro |
-| [Bouton poussoir métal **12 mm**, momentané](https://www.amazon.fr/s?k=bouton+poussoir+12mm+momentan%C3%A9+m%C3%A9tal) | 1 | le bouton « Turbo » |
+| [Bouton poussoir métal **16 mm**, momentané, anneau LED, **avec câble**](https://www.amazon.fr/s?k=bouton+poussoir+16mm+momentan%C3%A9+anneau+LED+avec+c%C3%A2ble) | 1 | bouton d'allumage. **Momentané** (pas « à verrouillage »), LED en **5 V ou 3-6 V** (pas 12 V), **fils déjà montés** (câble ou prise fournie). Vert pour le look rétro |
+| [Bouton poussoir métal **12 mm**, momentané, **avec fils**](https://www.amazon.fr/s?k=bouton+poussoir+12mm+momentan%C3%A9+pr%C3%A9c%C3%A2bl%C3%A9) | 1 | le bouton « Turbo ». **Fils déjà montés** |
 | [LED 3 mm précâblées 5 V](https://www.amazon.fr/s?k=LED+3mm+pr%C3%A9c%C3%A2bl%C3%A9es+5V), 1 verte et 1 orange | 2 | voyants « marche » et « activité » |
 | [Supports chromés pour LED 3 mm](https://www.amazon.fr/s?k=support+LED+3mm+chrome) | 2 | trou de 5 mm dans la façade |
-| [LED RVB **adressable** ronde 5 mm](https://www.amazon.fr/s?k=LED+adressable+5mm+PL9823) (PL9823 ou WS2812 « F5 ») | 1 | voyant de notification. **4 pattes**, 5 V |
+| [LED RVB **adressable** ronde 5 mm](https://www.amazon.fr/s?k=LED+adressable+5mm+PL9823) (PL9823 ou WS2812 « F5 ») | 1 | voyant de notification. **4 pattes**, 5 V. Ses pattes s'enfoncent dans des fils Dupont femelle |
 | [Support chromé pour LED 5 mm](https://www.amazon.fr/s?k=support+LED+5mm+chrome) | 1 | trou de 8 mm dans la façade |
-| [Ruban LED **WS2812B, 144 LED/m**, 5 V](https://www.amazon.fr/s?k=ruban+WS2812B+144+LED+5V) | 3 LED | les 3 voyants du clavier : coupe un morceau de 3 LED. 144 LED/m est important, c'est l'écart entre les fenêtres |
-| [Fils Dupont femelle-femelle](https://www.amazon.fr/s?k=c%C3%A2bles+dupont+femelle+femelle) | 1 lot | pour brancher tout ça sur le Pi sans souder |
-| Résistance de 330 Ω | 1 | conseillée sur le fil de données des LED RVB |
+| [Ruban LED **WS2812B, 144 LED/m**, 5 V](https://www.amazon.fr/s?k=ruban+WS2812B+144+LED+5V) | 3 LED | les 3 voyants du clavier. 144 LED/m est important, c'est l'écart entre les fenêtres. Coupe les **3 premières LED du rouleau** aux ciseaux : elles gardent le **connecteur d'origine**, rien à souder |
+| [Câble JST SM 3 broches](https://www.amazon.fr/s?k=connecteur+JST+SM+3+broches+c%C3%A2ble+ruban+LED) | 1 | se branche sur le connecteur du ruban. Souvent fourni avec le rouleau |
+| [**Bornier à vis pour GPIO**, avec nappe 40 broches](https://www.amazon.fr/s?k=bornier+%C3%A0+vis+GPIO+raspberry+pi+nappe+40) | 1 | tous les fils s'y vissent, sans soudure. Deux fils par vis pour partager le 5 V. Il se colle au fond du boîtier |
+| [Connecteurs à levier (type Wago 221)](https://www.amazon.fr/s?k=wago+221+connecteur+levier) | 1 petit lot | pour relier deux fils sans soudure (la résistance, la LED RVB et le ruban) |
+| [Fils Dupont femelle-femelle](https://www.amazon.fr/s?k=c%C3%A2bles+dupont+femelle+femelle) | 1 lot | pour les pattes de la LED RVB et les fils de l'écran. Pour les visser dans le bornier, coupe un bout et dénude 5 mm |
+| Pince à dénuder et petit tournevis plat | 1 | rien d'autre comme outil |
+| Résistance de 330 Ω | 1 | *option* : sur le fil de données des LED RVB, reliée avec un connecteur à levier. Ça marche souvent sans |
 | Patins caoutchouc Ø 10 mm | 8 | 4 sous le boîtier, 4 sous le clavier |
 | Mousse adhésive de 1 mm | 4 petits carrés | au bout des 4 tiges qui tiennent l'écran |
 | Mousse adhésive de 0,5 mm | une bande de 2,5 mm de large | sur le rebord qui porte le module, pour le serrer |
@@ -96,20 +100,25 @@ Les liens sont des recherches Amazon.fr. Vérifie sur la fiche ce qui est écrit
 
 ## Branchements sur le Pi
 
-Les numéros sont ceux des broches du connecteur GPIO (1 à 40). Chaque fil a sa broche de masse, il y en a juste assez.
+**Rien à souder :** tout se visse sur le bornier à vis, branché sur le GPIO du Pi par sa nappe. Le bornier reprend les broches du Pi ; ses vis portent le nom des broches (5V, GND, GPIO 10…). Les numéros ci-dessous sont ceux des broches (1 à 40).
 
 | Pièce | Fil | Broche |
 | --- | --- | --- |
 | Écran | 5 V / masse (en plus de la nappe, branchée sur la prise DISPLAY) | 2 / 6 |
-| Ampli MAX98357A | Vin / masse / BCLK / LRC / DIN | 4 / 14 / 12 / 35 / 40 |
 | Bouton d'allumage | contact / masse | 5 (GPIO 3) / 9 |
 | Anneau du bouton | + / − | 11 (GPIO 17) / 20 |
 | Bouton Turbo | contact / masse | 13 (GPIO 27) / 25 |
 | Voyant vert « marche » | + / − | 15 (GPIO 22) / 30 |
 | Voyant orange « activité » | + / − | 16 (GPIO 23) / 34 |
-| LED RVB de la façade, puis les 3 du clavier (en chaîne) | données (avec la 330 Ω) / 5 V / masse | 19 (GPIO 10) / 4, partagée avec l'ampli / 39 |
+| LED RVB de la façade, puis les 3 du clavier (en chaîne) | données / 5 V / masse | 19 (GPIO 10) / 4 / 39 |
 
-**Chaîne des LED RVB :** la sortie de la LED de la façade va à l'entrée du morceau de ruban du clavier. Les 3 fils (5 V, masse, données) passent dans le tunnel du câble du Stream Deck.
+![Brancher le ruban LED sans soudure](branchement-ruban-led.png)
+
+**Chaîne des LED RVB :**
+- La sortie de la LED de la façade va à l'entrée du ruban du clavier.
+- Le 5 V et la masse du ruban se vissent avec ceux de la LED, sur les mêmes vis du bornier.
+- Les 3 fils du ruban passent dans le tunnel du câble du Stream Deck.
+- Pas de LED de façade pour l'instant ? Visse directement le ruban : données sur GPIO 10, 5 V, masse.
 
 À ajouter dans `/boot/firmware/config.txt` :
 
@@ -117,7 +126,6 @@ Les numéros sont ceux des broches du connecteur GPIO (1 à 40). Chaque fil a sa
 dtoverlay=gpio-shutdown,gpio_pin=3   # le bouton éteint Pixel ; un 2e appui le rallume
 gpio=22=op,dh                        # le voyant vert s'allume dès le démarrage
 dtparam=spi=on                       # les LED RVB
-dtoverlay=max98357a                  # l'ampli du haut-parleur
 ```
 
 Le bouton et le voyant vert marchent avec ces seules lignes. L'appli Pixel ne commande pas encore les autres voyants, l'anneau ni le Turbo : c'est la prochaine étape.
@@ -133,16 +141,18 @@ Le bouton et le voyant vert marchent avec ces seules lignes. L'appli Pixel ne co
 3. **Sur le boîtier :** passe la nappe et les fils dans le trou du dessus du boîtier. Visse le pied avec 4 × M2,5 × 8, depuis l'intérieur du boîtier.
 4. **La façade :** visse le bouton d'allumage, le Turbo et les supports de LED dans leurs trous, avec leurs écrous, par l'intérieur. Clipse les LED dans leurs supports.
 5. **Dans le boîtier :**
-   1. Colle le haut-parleur dans son anneau, sous les fentes.
+   1. Pose le haut-parleur USB sous les fentes.
    2. Visse le Pi sur le fond (4 × M2,5 × 6), prise USB-C vers l'arrière.
-   3. Branche la nappe et tous les fils sur le GPIO (tableau ci-dessus), puis le micro (sur le port USB du fond).
+   3. Colle le bornier à vis au fond du boîtier et branche sa nappe sur le GPIO du Pi.
+   4. Visse tous les fils sur le bornier (tableau ci-dessus).
+   5. Branche le micro et le haut-parleur sur les ports USB.
 6. **Sortir le module du Stream Deck :** débranche-le. Soulève un coin de sa face avant jusqu'au clic, puis l'autre coin (c'est la méthode d'Elgato pour changer la face). Retire la face, retourne la coque : le module tombe tout seul. Range la coque et la face d'origine, pour pouvoir le remonter.
 7. **Le clavier :**
-   1. Colle le morceau de ruban de 3 LED dans le creux sous les fenêtres, LED vers le haut, l'entrée des données côté gauche. Passe ses 3 fils dans le petit tunnel qui descend sous le module.
+   1. Colle le morceau de ruban de 3 LED dans le creux sous les fenêtres, LED vers le haut, le connecteur d'origine côté gauche. Passe son câble dans le petit tunnel qui descend sous le module.
    2. Branche le câble coudé sur la prise au dos du module et fais-le passer par le tunnel du socle, avec les 3 fils des LED.
    3. Colle la bande de mousse sur le rebord, puis pose le module, touches vers le haut et prise vers l'arrière gauche.
    4. Si la barre translucide est imprimée à part, glisse-la par en dessous dans les fenêtres du dessus. Pose le dessus et visse-le par en dessous (4 × M2,5 × 10).
-8. **Contre le boîtier :** fais passer le câble du Stream Deck et les 3 fils par le trou en bas à gauche de la façade. Branche le câble sur le port USB de devant du Pi, et les 3 fils à la sortie de la LED RVB de la façade. Visse le clavier contre le boîtier avec 2 × M2,5 × 12, depuis l'intérieur.
+8. **Contre le boîtier :** fais passer le câble du Stream Deck et les 3 fils par le trou en bas à gauche de la façade. Branche le câble sur le port USB de devant du Pi, et les 3 fils du ruban sur le bornier (ou à la sortie de la LED RVB de la façade). Visse le clavier contre le boîtier avec 2 × M2,5 × 12, depuis l'intérieur.
 9. **Fermer :** visse le fond du boîtier (4 × M2,5 × 8).
 
 *Option sans ouvrir le Stream Deck :* imprime `PixelStreamDeckTray.stl` à la place des deux pièces du clavier. Pose le Stream Deck entier dedans, sans son pied, et branche-le avec le même câble coudé. Les voyants du clavier ne sont alors pas utilisés.
@@ -161,11 +171,10 @@ Le bouton et le voyant vert marchent avec ces seules lignes. L'appli Pixel ne co
 
 ## À savoir
 
-- **Le dos de l'écran :** Freenove ne publie pas de plan. À la réception, regarde :
-  - où est la prise de la nappe ;
-  - où prendre le 5 V et la masse : l'écran les prend normalement par de petites broches à ressort qui touchent le GPIO quand le Pi est vissé derrière lui.
-
-  Si une des 4 tiges tombe sur un composant, déplace-la (`POST_X`, `POST_DZ` dans `generate.py`).
+- **Le dos de l'écran :** Freenove ne publie pas de plan. À la réception, regarde où est la prise de la nappe. Si une des 4 tiges tombe sur un composant, déplace-la (`POST_X`, `POST_DZ` dans `generate.py`).
+- **Le 5 V de l'écran, sans soudure :** l'écran prend normalement son 5 V par de petites broches à ressort, qui touchent le GPIO quand le Pi est vissé derrière lui. Ici, le Pi est dans le boîtier. Deux cas :
+  - si la carte de l'écran a aussi un petit connecteur 5 V / masse, les 2 fils Dupont s'y branchent ;
+  - sinon, je dessinerai un « faux Pi » : une plaque vissée sur les entretoises de l'écran, avec un petit morceau de connecteur à broches mâles là où le Pi aurait son GPIO. Les broches à ressort appuient dessus, et les 2 fils Dupont se branchent de l'autre côté.
 - **Éteint, mais pas tout à fait :** après un appui sur le bouton, le Pi 4 s'arrête proprement mais reste sous tension, prêt à redémarrer au prochain appui. Pour l'éteindre complètement, débranche-le.
 - **Le courant :** l'alimentation de 3 A suffit pour le Pi, l'écran, le Stream Deck et les LED, tant que les LED RVB restent à luminosité modérée.
 - **La chaleur :** le Pi respire par le fond, les côtés, le « ventilateur » perforé à l'arrière et les fentes du dessus.
