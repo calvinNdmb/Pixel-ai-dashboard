@@ -105,6 +105,11 @@ async def serve(args, cfg, datadir, token):
     async def index(request):
         return web.FileResponse(HERE / "web" / "index.html", headers={"Cache-Control": "no-cache"})
 
+    async def lab(request):
+        """Short addresses for Pixel Lab (the static route does not serve a folder's index.html)."""
+        q = request.query_string
+        raise web.HTTPFound("/app/lab/index.html" + ("?" + q if q else ""))
+
     async def ws_handler(request):
         if request.remote not in LOCAL and request.query.get("t") != token:
             raise web.HTTPForbidden(text="Code d'accès manquant : scanne le QR code dans Réglages sur l'écran de Pixel.")
@@ -128,6 +133,8 @@ async def serve(args, cfg, datadir, token):
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_get("/ws", ws_handler)
+    for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
+        app.router.add_get(path, lab)
     app.router.add_static("/app/", HERE / "web")
     runner = web.AppRunner(app)
     await runner.setup()

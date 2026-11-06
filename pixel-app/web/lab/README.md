@@ -24,14 +24,14 @@ cd pixel-app
 python3 server.py --demo
 ```
 
-Puis ouvre http://localhost:8080/app/lab/index.html (avec `index.html` à la fin). Le serveur sert déjà le dossier `web/`, rien à changer.
+Puis ouvre http://localhost:8080/lab. Le serveur sert déjà le dossier `web/`, rien à changer.
 
 **3. Sur le Pi, avec le vrai écran**
 
 Le serveur de Pixel tourne déjà au démarrage. Branche un clavier, ferme l'écran de Pixel avec Alt+F4, ouvre un terminal et tape :
 
 ```
-chromium-browser --kiosk "http://localhost:8080/app/lab/index.html?kiosk=1"
+chromium-browser --kiosk "http://localhost:8080/lab?kiosk=1"
 ```
 
 (Sur les versions récentes, la commande s'appelle `chromium`.) Le labo prend tout l'écran, comme Pixel.
