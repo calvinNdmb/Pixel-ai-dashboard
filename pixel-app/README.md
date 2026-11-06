@@ -1,6 +1,6 @@
 # Pixel : l'appli
 
-L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les menus en style écran vert sur l'écran de 4,3", et pilote les 15 touches du Stream Deck. La même appli s'ouvre aussi sur ton téléphone ou ton ordinateur, où tu peux taper au clavier.
+L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les menus sur l'écran de Pixel, et pilote les 15 touches du Stream Deck. La même appli s'ouvre aussi sur ton téléphone ou ton ordinateur, où tu peux taper au clavier. Elle a trois thèmes : Rétro, Moderne et Manga.
 
 ![Les écrans de Pixel](preview.png)
 
@@ -10,7 +10,7 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 | --- | --- |
 | **Visage** | Pixel cligne des yeux, regarde autour de lui, suit ton doigt et change d'humeur. Il s'endort après 10 minutes sans rien. |
 | **Lumières** | Tes pièces Philips Hue : allumer, éteindre, régler la luminosité, lancer une scène. |
-| **Claude** | Tu écris, Claude répond à l'écran. Il peut aussi agir : régler les lampes, lancer le minuteur, lire la météo et l'agenda, changer d'écran, lancer Codex. |
+| **Claude** | Tu écris, Claude répond à l'écran. Il peut aussi agir : régler les lampes, lancer le minuteur, lire la météo et l'agenda, changer d'écran ou de thème, lancer Codex. |
 | **Codex** | Lance une tâche de code et affiche son journal en direct. Une notification apparaît sur les autres écrans quand c'est fini. |
 | **Météo** | Météo du jour et des 4 jours suivants (Open-Meteo, gratuit, sans compte). |
 | **Minuteur** | Séances de concentration de 25 minutes et pauses café. |
@@ -18,6 +18,26 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 | **Système** | Température, processeur, mémoire, Wi-Fi et luminosité de l'écran. |
 | **Réglages** | Un QR code pour ouvrir l'appli sur ton téléphone, l'association du pont Hue et l'état de chaque service. |
 | **Veille** | Un champ d'étoiles avec Pixel qui dort. Les touches du Stream Deck baissent leur lumière. |
+
+## Les thèmes
+
+| Thème | Style |
+| --- | --- |
+| **Rétro** | Écran vert de vieux PC, visage en gros pixels, lignes de balayage. |
+| **Moderne** | Fond bleu nuit, grands yeux lumineux et arrondis qui flottent, rebondissent et clignent en douceur. Les messages de Claude sont dans des bulles. |
+| **Manga** | Page de manga : grands yeux brillants avec reflets, joues rosées, trame de points. Il a aussi des effets de manga : traits de vitesse quand il est surpris, bulle au nez quand il dort, étoile quand il fait un clin d'œil. |
+
+**Pour changer de thème :**
+- sur l'écran **Réglages** ;
+- avec les touches de la rangée du bas du Stream Deck sur Réglages ;
+- en tapant `thème manga` ;
+- en demandant à Claude « mets le thème moderne ».
+
+Le choix est gardé au redémarrage. Les touches du Stream Deck et de l'appli sur téléphone changent de couleurs avec le thème.
+
+![Les 8 humeurs dans les 3 thèmes](preview-themes.png)
+
+![Les écrans dans les 3 thèmes](preview-themes-screens.png)
 
 ## Taper au clavier
 
@@ -39,6 +59,7 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 | `codex corrige le test qui échoue` | lance une tâche Codex |
 | `météo`, `agenda`, `système`… | ouvre cet écran |
 | `humeur content` | change l'humeur du visage |
+| `thème manga`, `thème moderne`, `thème rétro` | change le style de l'écran |
 | `aide` | affiche la liste des commandes |
 | n'importe quoi d'autre | c'est envoyé à Claude, par exemple « baisse un peu les lumières, je regarde un film » |
 
@@ -107,11 +128,11 @@ L'appli est gratuite. Les réponses de Claude sont facturées à l'usage sur ton
 ## Vérifications faites
 
 Testé sur ordinateur :
-- **Commandes et accès :** les 19 tests passent (lampes, scènes, minuteur, écrans, humeurs, Claude en démo, Codex en démo, refus d'un appareil sans code d'accès).
+- **Commandes et accès :** les 25 tests passent (lampes, scènes, minuteur, écrans, humeurs, thèmes, Claude en démo, Codex en démo, refus d'un appareil sans code d'accès).
 - **Données réelles :** la vraie météo d'Open-Meteo, et un agenda iCal avec un événement sur la journée et un événement répété.
 - **Claude :** la boucle a tourné face à un faux serveur d'API. Claude demande à régler le salon, la lampe change, puis la réponse s'affiche.
 - **Stream Deck :** le dessin des 15 touches a été testé avec un Stream Deck simulé.
-- **Affichage :** les 10 écrans s'affichent sans erreur, sur l'écran 800 × 480 et sur un téléphone.
+- **Affichage :** les 10 écrans et les 8 humeurs s'affichent sans erreur dans les 3 thèmes, sur l'écran 800 × 480 et sur un téléphone.
 
 Pas encore testé avec le vrai matériel :
 - le Raspberry Pi ;
@@ -126,8 +147,8 @@ Pas encore testé avec le vrai matériel :
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
 | `pixel/` | un module par service : `hue`, `claude`, `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches) et `state` (état partagé) |
-| `web/` | l'interface : `screens.js` dessine les écrans, `app.js` gère la connexion, les touches et le clavier |
+| `web/` | l'interface : `themes.js` dessine les 3 styles (fonds, visages, icônes), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
 | `deploy/` | installation sur le Pi : script, service systemd, ouverture en plein écran, règles d'accès |
 | `config.example.toml` | les réglages à copier en `config.toml` |
 
-La police VT323 est sous licence SIL Open Font License (`web/VT323-OFL.txt`).
+Les polices VT323, Fredoka, Bangers et Comic Neue sont sous licence SIL Open Font License (fichiers `web/*-OFL.txt`).
