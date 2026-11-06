@@ -5,12 +5,14 @@ Anything that is not a command goes to Claude.
 import re
 import unicodedata
 
-from .keys import NAV, NAMES
+from .keys import MOODS, NAMES, NAV, THEMES
 
-THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "manga": "manga", "anime": "manga"}
-HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · "
-        "codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · sinon : Claude")
-MOODS = {"neutre", "content", "surpris", "amoureux", "clin", "endormi"}
+# accent-free words for each theme ("thème néon" is normalised to "theme neon")
+THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "manga": "manga", "anime": "manga",
+               "neon": "neon", "synthwave": "neon", "fluo": "neon", "croquis": "croquis", "crayon": "croquis",
+               "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
+HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
+        "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · sinon : Claude")
 
 
 def norm(s):
@@ -20,6 +22,11 @@ def norm(s):
 
 SCREEN_WORDS = {norm(NAMES[i]): i for i in NAV} | {"lumiere": "lumieres", "lampes": "lumieres", "timer": "minuteur",
                                                     "meteo": "meteo", "systeme": "systeme", "visage": "visage"}
+# every mood by its id, plus the French words people type ("humeur fâchée", "humeur clin d'œil")
+MOOD_WORDS = {m: m for m in MOODS} | {"heureux": "content", "joyeux": "content", "amoureuse": "amoureux", "clin d'oeil": "clin",
+                                      "clin d'œil": "clin", "dort": "endormi", "endormie": "endormi", "reflechis": "reflechit",
+                                      "fachee": "fache", "colere": "fache", "confuse": "confus", "perdu": "confus", "excitee": "excite",
+                                      "fiere": "fier", "cool": "fier", "malade": "malade", "baille": "baille", "fatigue": "baille"}
 
 
 def find_room(hub, word):
@@ -74,14 +81,25 @@ async def run(hub, text):
             return await hub.dispatch("lights.set", {"room": room, "on": v == "on"})
         return await hub.dispatch("lights.set", {"room": room, "bri": max(0, min(100, int(v)))})
 
-    m = re.match(r"^(?:theme|style)\s+(\w+)$", t)
-    if m and m.group(1) in THEME_WORDS:
-        return await hub.dispatch("theme.set", {"name": THEME_WORDS[m.group(1)]})
+    m = re.match(r"^(?:theme|style)\s+(\S+)$", t)
+    if m:
+        w = m.group(1)
+        if w in ("suivant", "+", "plus"):
+            return await hub.dispatch("theme.step", {"d": 1})
+        if w in ("precedent", "-", "moins"):
+            return await hub.dispatch("theme.step", {"d": -1})
+        if w in THEME_WORDS:
+            return await hub.dispatch("theme.set", {"name": THEME_WORDS[w]})
+        return hub.toast("Les thèmes : " + ", ".join(n.lower() for n in THEMES.values()), 5000)
 
-    m = re.match(r"^humeur\s+(\w+)$", t)
-    if m and m.group(1) in MOODS:
+    m = re.match(r"^humeur\s+(.+)$", t)
+    if m:
+        name = MOOD_WORDS.get(m.group(1).strip())
+        if not name:
+            hub.mood("confus", 2500)
+            return hub.toast("Je ne connais pas cette humeur. Essaie : humeur triste, humeur fier…", 5000)
         await hub.dispatch("screen.show", {"screen": "visage"})
-        return await hub.dispatch("mood.set", {"name": m.group(1), "ms": 0 if m.group(1) == "endormi" else 3000})
+        return await hub.dispatch("mood.set", {"name": name, "ms": 0 if name == "endormi" else 3000})
 
     if t in SCREEN_WORDS:
         return await hub.dispatch("screen.show", {"screen": SCREEN_WORDS[t]})

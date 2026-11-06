@@ -100,7 +100,8 @@ cv.addEventListener('pointerdown', e => { down = { ...Screens.toCanvas(e), t: pe
 cv.addEventListener('pointerup', e => {
   if (!down) return; const p = Screens.toCanvas(e), dx = p.x - down.x, dy = p.y - down.y; down = null;
   if (Screens.input()) return;
-  if (Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy)) { const i = NAV.indexOf(L.scr); show(NAV[(i + (dx < 0 ? 1 : NAV.length - 1)) % NAV.length]); return; }
+  // a swipe changes screen (not while petting Pixel)
+  if (!L.petted && Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy)) { const i = NAV.indexOf(L.scr); show(NAV[(i + (dx < 0 ? 1 : NAV.length - 1)) % NAV.length]); return; }
   Screens.hit(p.x, p.y);
 });
 

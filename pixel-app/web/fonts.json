@@ -2,5 +2,10 @@
   {"family": "VT323", "file": "VT323-Regular.ttf", "license": "VT323-OFL.txt", "google": "VT323"},
   {"family": "Fredoka", "file": "Fredoka.ttf", "license": "Fredoka-OFL.txt", "google": "Fredoka:wght@400;500;600;700"},
   {"family": "Bangers", "file": "Bangers-Regular.ttf", "license": "Bangers-OFL.txt", "google": "Bangers"},
-  {"family": "Comic Neue", "file": "ComicNeue-Bold.ttf", "license": "ComicNeue-OFL.txt", "google": "Comic+Neue:wght@700"}
+  {"family": "Comic Neue", "file": "ComicNeue-Bold.ttf", "license": "ComicNeue-OFL.txt", "google": "Comic+Neue:wght@700"},
+  {"family": "Audiowide", "file": "Audiowide-Regular.ttf", "license": "Audiowide-OFL.txt", "google": "Audiowide"},
+  {"family": "Chakra Petch", "file": "ChakraPetch-SemiBold.ttf", "license": "ChakraPetch-OFL.txt", "google": "Chakra+Petch:wght@600"},
+  {"family": "Patrick Hand", "file": "PatrickHand-Regular.ttf", "license": "PatrickHand-OFL.txt", "google": "Patrick+Hand"},
+  {"family": "Caveat", "file": "Caveat.ttf", "license": "Caveat-OFL.txt", "google": "Caveat:wght@400..700"},
+  {"family": "Pixelify Sans", "file": "PixelifySans.ttf", "license": "PixelifySans-OFL.txt", "google": "Pixelify+Sans:wght@400..700"}
 ]
