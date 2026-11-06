@@ -61,7 +61,7 @@ POCKET_DEPTH = 5.0
 POCKET_S0 = 4.5                                 # front rim, measured along the slope
 
 # desktop case
-CASE_HW, CASE_Y0, CASE_D, CASE_H = 75.0, 94.5, 102.0, 58.0
+CASE_HW, CASE_Y0, CASE_D, CASE_H = 75.0, 94.5, 130.0, 58.0
 CASE_Y1 = CASE_Y0 + CASE_D
 CASE_R, CASE_CHAMFER = 4.0, 2.0
 PLATE_T = 2.4
@@ -83,8 +83,8 @@ MON_Z0 = CASE_H + STAND_H                       # bottom of the monitor
 BEZ_W, BEZ_H, BEZ_D, BEZ_R, BEZ_CHAMFER = 128.0, 98.0, 20.0, 5.0, 1.5
 FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth
 SCR_BOTTOM = 18.0                               # screen bottom above the monitor's bottom
-BACK_FRONT_W, BACK_FRONT_H = 116.0, 92.0
-BACK_W, BACK_H, BACK_D, BACK_R = 84.0, 66.0, 38.0, 5.0
+BACK_FRONT_W, BACK_FRONT_H = 118.0, 92.0                 # deep, boxy CRT back
+BACK_W, BACK_H, BACK_D, BACK_R = 100.0, 78.0, 95.0, 6.0
 
 
 # ------------------------------------------------------------------ helpers
@@ -288,7 +288,7 @@ def build_case():
     # side vents
     for s in (-1, 1):
         for k in range(8):
-            y = 150 + 5 * k
+            y = CASE_Y1 - 55 + 6 * k
             cuts.append(slab(min(s * (CASE_HW + 1), s * (CASE_HW - WALL - 1)), max(s * (CASE_HW + 1), s * (CASE_HW - WALL - 1)),
                              y, y + 2.0, 14, 44))
     # front panel, engraved: CD-ROM bay, floppy drive, power button, LEDs
@@ -318,7 +318,7 @@ def build_case_bottom():
     for x, y in plate_screws():
         cuts += [cyl(x, y, -1, PLATE_T + 1, CLEAR), cyl(x, y, -1, CBORE_H, CBORE_D)]
     for k in range(6):                                               # vents under the Pi
-        y = 142 + 7 * k
+        y = PI_Y0 - 50 + 7 * k
         cuts.append(slab(-20, 45, y, y + 3.0, -1, PLATE_T + 1))
     for x, y in plate_screws():                                      # rubber feet next to the screws
         cuts.append(cyl(x + (-8 if x > 0 else 8), y, -1, 1.0, 10.5))
@@ -391,9 +391,11 @@ def build_monitor():
     y_press = f + FUNNEL + SCR_T + 1.0
     for px in (-35.0, 35.0):
         for pz in (cz - 16.0, cz + 8.0):
-            adds.append(cyl_y(px, pz, y_press, f + BEZ_D + BACK_D - WALL + OVER, 6.0))
+            adds.append(cyl_y(px, pz, y_press, f + BEZ_D + BACK_D - WALL + OVER, 8.0))
     # bottom block for the stand screws
-    adds.append(slab(-26, 26, f + BEZ_D, f + BEZ_D + BACK_D - WALL + OVER, z0 + 0.5, z0 + 10))   # runs to the back: no overhang
+    # (ends in a 45 deg ramp so it prints without support)
+    adds.append(hull(slab(-26, 26, f + BEZ_D, f + BEZ_D + 20, z0 + 0.5, z0 + 10),
+                     slab(-26, 26, f + BEZ_D + 20, f + BEZ_D + 29.5, z0 + 0.5, z0 + 1.0)))
     # tongues reaching into the bezel
     for s in (-1, 1):
         adds.append(slab(s * 40 - 4.8, s * 40 + 4.8, f + BEZ_D - 6.0, f + BEZ_D + 2.0, 157.0, 158.6))
@@ -403,14 +405,17 @@ def build_monitor():
         if STAND_Y + dy > f + BEZ_D:
             bcuts.append(cyl(dx, STAND_Y + dy, z0 - 1, z0 + 9, PILOT))
     bcuts.append(slab(-10, 10, f + BEZ_D - 0.5, f + BEZ_D + 8, z0 - 1, z0 + 11))        # screen ribbon, open to the split face
-    yb0, yb1 = f + BEZ_D + 8, f + BEZ_D + BACK_D - 6
-    for s in (-1, 1):                                                                    # side vents
-        for k in range(6):
-            z = z0 + 18 + 7.5 * k
-            bcuts.append(slab(min(s * 30, s * 70), max(s * 30, s * 70), yb0, yb1, z, z + 2.2))
-    for k in range(9):                                                                   # top vents
-        x = -30 + 7.5 * k
-        bcuts.append(slab(x - 1.1, x + 1.1, yb0, yb1, z0 + 40, z0 + 120))
+    # perforated grilles on both sides and on top (only through the walls, clear of the screen posts)
+    cols_y = [f + BEZ_D + 40 + 9 * j for j in range(6)]
+    for s in (-1, 1):
+        for i in range(7):
+            z = z0 + 22 + 8 * i
+            for y in cols_y:
+                bcuts.append(slab(min(s * 44, s * 70), max(s * 44, s * 70), y, y + 6.0, z, z + 2.2))
+    for i in range(13):
+        x = -36 + 6 * i
+        for y in cols_y:
+            bcuts.append(slab(x - 1.1, x + 1.1, y, y + 6.0, z0 + 70, z0 + 110))
     back = single(D(back, *bcuts), "PixelMonitorBack")
     return bezel, back
 

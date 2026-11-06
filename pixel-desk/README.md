@@ -2,7 +2,7 @@
 
 Un petit PC beige des années 90… qui est en réalité un Raspberry Pi 4.
 
-- **Le moniteur cathodique** contient un écran tactile 4,3".
+- **Le moniteur cathodique** contient un écran tactile 4,3". Il fait 115 mm de profondeur, avec de grandes grilles perforées comme un vrai tube.
 - **Le boîtier de bureau** cache le Pi 4 et le haut-parleur.
 - **Le « clavier »** est le Stream Deck MK.2, posé devant sur un plateau.
 
@@ -22,15 +22,15 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens pour l'impression
 | --- | --- | --- |
 | `ScreenFitTest.stl` | 113 × 75 × 6 | **À imprimer en premier** (voir plus bas) |
 | `PixelMonitorFront.stl` | 128 × 98 × 20 | face avant sur le plateau |
-| `PixelMonitorBack.stl` | 116 × 92 × 44 | dos sur le plateau |
+| `PixelMonitorBack.stl` | 118 × 92 × 101 | dos sur le plateau |
 | `PixelStand.stl` | Ø 64 × 10 | à l'envers |
-| `PixelCase.stl` | 150 × 102 × 58 | à l'envers (dessus sur le plateau) |
-| `PixelCaseBottom.stl` | 145 × 97 × 7 | à plat |
+| `PixelCase.stl` | 150 × 130 × 58 | à l'envers (dessus sur le plateau) |
+| `PixelCaseBottom.stl` | 145 × 125 × 7 | à plat |
 | `PixelKeyboardTray.stl` | 136 × 94 × 20 | à plat |
 
 - **Réglages :** buse 0,4 mm, couches de 0,2 mm, 3 parois, 15 % de remplissage.
 - **Taille du plateau :** au moins **180 × 180 mm**.
-- **Filament :** environ **300 g** en tout.
+- **Filament :** environ **350 g** en tout.
 - **Détails gravés :** les lecteurs CD et disquette, le bouton, les voyants, les boutons du moniteur et le badge « PIXEL » sont gravés. Ils s'impriment sans rien de spécial.
 - **Surplombs :** il ne reste que de petits ponts, comme les fentes d'aération et le tunnel du câble.
 
