@@ -1,0 +1,8 @@
+# Identifiants et fichiers personnels : ne jamais les committer
+.spotify_token
+oauth.json
+browser.json
+state.json
+rapport.csv
+.env
+__pycache__/
