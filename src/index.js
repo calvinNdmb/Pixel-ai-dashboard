@@ -6,7 +6,8 @@ const env = process.env;
 const display = createServer({ port: Number(env.PORT) || 3000, viewKey: env.VIEW_KEY || '' });
 
 if (process.argv.includes('--demo')) {
-  startDemo({ display });
+  // --calme : la démo ne déclenche pas d'actions toute seule (pratique pour tester la manette).
+  startDemo({ display, actions: !process.argv.includes('--calme') });
 } else if (!env.DISCORD_TOKEN) {
   console.error('DISCORD_TOKEN manquant : copie .env.example en .env et remplis-le.');
   console.error('Pour tester sans Discord : npm run demo');

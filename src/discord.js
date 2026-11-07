@@ -1,11 +1,74 @@
 // Bot Discord : rejoint le salon vocal et signale qui parle, en direct.
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { ApplicationCommandOptionType, Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
 import {
   VoiceConnectionStatus,
   entersState,
   getVoiceConnection,
   joinVoiceChannel,
 } from '@discordjs/voice';
+import { ACTIONS, EMOTES } from '../public/actions.js';
+
+// Commandes slash : /taper @quelqu'un, /danse, /emote...
+const COMMANDS = [
+  ...ACTIONS.map((a) => ({
+    name: a.id,
+    description: a.description,
+    options: a.target
+      ? [{ type: ApplicationCommandOptionType.User, name: 'cible', description: 'Qui ?', required: true }]
+      : [],
+  })),
+  {
+    name: 'emote',
+    description: 'Afficher une réaction au-dessus de ton personnage',
+    options: [
+      {
+        type: ApplicationCommandOptionType.String,
+        name: 'emoji',
+        description: 'Laquelle ?',
+        required: true,
+        choices: EMOTES.map((e) => ({ name: `${e.emoji} ${e.label}`, value: e.id })),
+      },
+    ],
+  },
+];
+
+async function registerCommands(guild) {
+  try {
+    await guild.commands.set(COMMANDS);
+  } catch (err) {
+    console.warn(
+      `[discord] commandes slash non installées sur « ${guild.name} » (${err.message}). ` +
+        'Ré-invite le bot avec le lien du README (scope applications.commands).',
+    );
+  }
+}
+
+/** Traite une commande slash (/taper @quelqu'un, /danse, /emote...). */
+export async function handleCommand(interaction, display) {
+  if (!interaction.isChatInputCommand()) return;
+  const isEmote = interaction.commandName === 'emote';
+  const def = ACTIONS.find((a) => a.id === interaction.commandName);
+  if (!def && !isEmote) return;
+
+  const target = def?.target ? interaction.options.getUser('cible') : null;
+  const result = display.triggerAction({
+    from: interaction.user.id,
+    action: isEmote ? 'emote' : def.id,
+    target: target?.id,
+    emote: isEmote ? interaction.options.getString('emoji') : undefined,
+  });
+
+  let content;
+  if (!result.ok) content = `❌ ${result.error}`;
+  else if (isEmote) content = `${result.emote.emoji} Réaction envoyée !`;
+  else if (!def.target) content = `${def.icon} ${def.done}`;
+  else {
+    const name = interaction.options.getMember('cible')?.displayName ?? target?.displayName ?? '';
+    content = `${def.icon} ${def.done.replace('{cible}', `**${name}**`)}`;
+  }
+  // Réponse visible seulement par la personne (pas de spam dans le salon).
+  await interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
+}
 
 export function startDiscordBot({ token, followUserId, guildId, voiceChannelId, display }) {
   const client = new Client({
@@ -80,6 +143,7 @@ export function startDiscordBot({ token, followUserId, guildId, voiceChannelId, 
 
   client.once(Events.ClientReady, async () => {
     console.log(`[discord] connecté en tant que ${client.user.tag}`);
+    for (const guild of client.guilds.cache.values()) registerCommands(guild);
 
     if (followUserId) {
       // Si la personne suivie est déjà en vocal, on la rejoint tout de suite.
@@ -94,6 +158,10 @@ export function startDiscordBot({ token, followUserId, guildId, voiceChannelId, 
       else console.error('[discord] VOICE_CHANNEL_ID introuvable ou pas un salon vocal');
     }
   });
+
+  client.on(Events.GuildCreate, (guild) => registerCommands(guild));
+
+  client.on(Events.InteractionCreate, (interaction) => handleCommand(interaction, display));
 
   client.on(Events.VoiceStateUpdate, (oldState, newState) => {
     if (newState.id === client.user.id) {

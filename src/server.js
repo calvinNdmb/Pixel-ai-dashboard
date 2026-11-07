@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { ACTIONS, EMOTES } from '../public/actions.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -52,6 +53,7 @@ export function createServer({ port = 3000, viewKey = '' } = {}) {
     const url = new URL(req.url, 'http://localhost');
     let pathname = decodeURIComponent(url.pathname);
     if (pathname === '/') pathname = '/index.html';
+    if (pathname === '/manette') pathname = '/manette.html';
 
     if (pathname === '/health') {
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -77,7 +79,7 @@ export function createServer({ port = 3000, viewKey = '' } = {}) {
     });
   });
 
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096 });
 
   const snapshot = () => ({
     type: 'state',
@@ -102,7 +104,37 @@ export function createServer({ port = 3000, viewKey = '' } = {}) {
     ws.isAlive = true;
     ws.on('pong', () => (ws.isAlive = true));
     ws.send(JSON.stringify(snapshot()));
+
+    // Les manettes envoient des actions (taper, danser...).
+    ws.on('message', (data) => {
+      let msg;
+      try {
+        msg = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (msg?.type !== 'action') return;
+      const str = (v) => (typeof v === 'string' && v.length <= 64 ? v : undefined);
+      const result = triggerAction({ from: str(msg.from), action: str(msg.action), target: str(msg.target), emote: str(msg.emote) });
+      if (!result.ok) ws.send(JSON.stringify({ type: 'error', message: result.error }));
+    });
   });
+
+  // Valide une action (manette, commande Discord ou démo) puis la diffuse à tous les écrans.
+  const lastAction = new Map();
+  function triggerAction({ from, action, target, emote }) {
+    const fail = (error) => ({ ok: false, error });
+    const def = ACTIONS.find((a) => a.id === action);
+    const emoteDef = action === 'emote' ? EMOTES.find((e) => e.id === emote) : null;
+    if (!def && !emoteDef) return fail('Action inconnue.');
+    if (!state.members.has(from)) return fail('Tu dois être dans le salon vocal où se trouve le bot.');
+    if (def?.target && !state.members.has(target)) return fail("Ta cible n'est pas dans le salon vocal.");
+    const now = Date.now();
+    if (now - (lastAction.get(from) ?? 0) < 250) return fail('Doucement ! 😅');
+    lastAction.set(from, now);
+    broadcast({ type: 'action', action, from, target: def?.target ? target : undefined, emote: emoteDef?.id });
+    return { ok: true, def, emote: emoteDef };
+  }
 
   // Détecte les écrans déconnectés brutalement (Wi-Fi coupé, veille...).
   const heartbeat = setInterval(() => {
@@ -130,11 +162,15 @@ export function createServer({ port = 3000, viewKey = '' } = {}) {
   });
 
   server.listen(port, '0.0.0.0', () => {
-    const suffix = viewKey ? `/?key=${encodeURIComponent(viewKey)}` : '/';
+    const key = viewKey ? `?key=${encodeURIComponent(viewKey)}` : '';
     console.log('\nAffichage disponible sur :');
-    console.log(`  ce PC           → http://localhost:${port}${suffix}`);
+    console.log(`  ce PC           → http://localhost:${port}/${key}`);
     for (const ip of lanAddresses()) {
-      console.log(`  autre appareil  → http://${ip}:${port}${suffix}`);
+      console.log(`  autre appareil  → http://${ip}:${port}/${key}`);
+    }
+    console.log('Manette (taper, danser, réactions...) :');
+    for (const host of ['localhost', ...lanAddresses()]) {
+      console.log(`                    http://${host}:${port}/manette${key}`);
     }
     console.log('');
   });
@@ -154,6 +190,7 @@ export function createServer({ port = 3000, viewKey = '' } = {}) {
       state.members = next;
       broadcast(snapshot());
     },
+    triggerAction,
     setSpeaking(id, speaking) {
       const member = state.members.get(id);
       if (!member || member.speaking === speaking) return;

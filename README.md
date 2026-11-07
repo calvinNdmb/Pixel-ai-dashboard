@@ -2,12 +2,14 @@
 
 Des personnages en pixel art qui s'animent **en direct** quand les gens parlent dans un salon vocal Discord : bouche qui bouge, rebond, halo vert, ondes sonores.
 
+Et on peut **interagir** : taper quelqu'un, lui mettre un coup de marteau, lui lancer une tomate, faire un câlin, danser, sauter, faire coucou ou afficher une réaction emoji. Ça se fait depuis une manette web (téléphone ou PC, avec raccourcis clavier) ou avec des commandes Discord (`/taper @quelqu'un`).
+
 L'affichage est une simple page web. On peut donc l'ouvrir **sur n'importe quel écran ou appareil** : un deuxième écran, une tablette, un téléphone, une TV, un autre PC, ou OBS.
 
 ```
-Discord (salon vocal)
-   │  « untel commence / arrête de parler »
-   ▼
+Discord (salon vocal)          Manettes (téléphones, PC)        /taper @Bobby dans Discord
+   │  qui parle                     │  « je tape Bobby »               │
+   ▼                                ▼                                  ▼
 Bot Discord + serveur web (ce projet, tourne sur ton PC, un Raspberry Pi ou un serveur)
    │  WebSocket, temps réel
    ▼
@@ -28,15 +30,20 @@ npm install
 npm run demo
 ```
 
-Ce mode simule un salon avec 4 personnes qui parlent. Le terminal affiche les adresses à ouvrir :
+Ce mode simule un salon avec 4 personnes qui parlent et s'embêtent de temps en temps. Le terminal affiche les adresses à ouvrir :
 
 ```
 Affichage disponible sur :
   ce PC           → http://localhost:3000/
   autre appareil  → http://192.168.1.42:3000/
+Manette (taper, danser, réactions...) :
+                    http://localhost:3000/manette
+                    http://192.168.1.42:3000/manette
 ```
 
-Ouvre la deuxième adresse sur ton téléphone ou ta tablette, connecté au même Wi-Fi : tu dois voir les personnages bouger en même temps que sur le PC.
+Ouvre la deuxième adresse sur ton téléphone ou ta tablette, connecté au même Wi-Fi : tu dois voir les personnages bouger en même temps que sur le PC. Ouvre aussi la manette, choisis un perso et appuie sur **T** : il va taper sa cible.
+
+`npm run demo -- --calme` lance la démo sans actions automatiques, pour tester la manette tranquillement.
 
 ## 2. Créer le bot Discord (une seule fois)
 
@@ -44,9 +51,9 @@ Ouvre la deuxième adresse sur ton téléphone ou ta tablette, connecté au mêm
 2. Onglet **Bot** : clique sur **Reset Token** et copie le token. Il ne faut le donner à personne.
 3. Onglet **OAuth2**, puis copie l'**Application ID** (Client ID). Ouvre ensuite cette adresse en remplaçant `TON_CLIENT_ID` :
    ```
-   https://discord.com/oauth2/authorize?client_id=TON_CLIENT_ID&scope=bot&permissions=1049600
+   https://discord.com/oauth2/authorize?client_id=TON_CLIENT_ID&scope=bot+applications.commands&permissions=1049600
    ```
-   Elle invite le bot sur ton serveur avec les permissions « Voir les salons » et « Se connecter ».
+   Elle invite le bot sur ton serveur avec les permissions « Voir les salons » et « Se connecter », ainsi que les commandes slash (`/taper`...).
 4. Dans Discord, active **Paramètres → Avancés → Mode développeur**. Fais ensuite un clic droit sur ton pseudo, puis **Copier l'identifiant de l'utilisateur**.
 
 ## 3. Configuration
@@ -93,7 +100,31 @@ Choisis une de ces options :
 
 Dès que l'affichage est accessible depuis Internet, **définis `VIEW_KEY`** dans `.env` et ouvre `https://.../?key=ta-cle`. La clé est ensuite mémorisée par l'appareil.
 
-## 5. Options d'affichage (dans l'adresse)
+## 5. Interactions : taper, bonk, tomate...
+
+| Action | Effet | Touche | Commande Discord |
+|---|---|---|---|
+| ✋ Taper | Ton perso fonce sur la cible et lui met une claque : « PAF! », yeux en croix, trace rouge sur la joue | `T` | `/taper cible:@quelqu'un` |
+| 🔨 Bonk | Coup de marteau sur la tête : la tête s'enfonce, étoiles qui tournent | `B` | `/bonk cible:@…` |
+| 🍅 Tomate | Lancer de tomate en cloche, la cible reste tachée quelques secondes | `L` | `/tomate cible:@…` |
+| 🤗 Câlin | Les deux persos se serrent, avec des cœurs | `C` | `/calin cible:@…` |
+| 💃 Danse | Ton perso danse avec des notes de musique | `D` | `/danse` |
+| 🦘 Saut | Ton perso saute | `Espace` | `/saut` |
+| 👋 Coucou | Il fait coucou avec une bulle « Coucou! » | `S` | `/coucou` |
+| 😂❤️😮😡👍💀 | Bulle emoji au-dessus de ton perso | `R` `A` `O` `G` `P` `M` | `/emote` |
+
+### Avec la manette (`/manette`)
+- Ouvre `http://<ip-du-pc>:3000/manette` sur ton téléphone ou dans une fenêtre de ton PC.
+- La première fois, choisis **qui tu es**. C'est mémorisé.
+- Choisis ta **cible** en touchant son perso, ou avec les touches `1` à `9` ou `←` `→`, puis appuie sur une action.
+- Astuce : envoie à chaque ami un lien perso `http://…/manette?me=SON_ID_DISCORD`, il n'aura rien à choisir.
+
+Les raccourcis clavier ne marchent que quand la fenêtre de la manette est active : un navigateur ne peut pas capter les touches pendant que tu es dans un jeu. Pour ça, une manette sur téléphone posé à côté du clavier est l'idéal.
+
+### Avec les commandes Discord
+Elles marchent pour tous ceux qui sont dans le salon vocal du bot, même à distance, sans rien ouvrir. On les tape dans n'importe quel salon texte du serveur, par exemple le chat du salon vocal. La réponse du bot n'est visible que par la personne qui a tapé la commande, pour ne pas spammer le salon.
+
+## 6. Options d'affichage (dans l'adresse)
 
 | Option | Effet |
 |---|---|
@@ -107,7 +138,7 @@ Dès que l'affichage est accessible depuis Internet, **définis `VIEW_KEY`** dan
 
 Les options se combinent, par exemple `http://192.168.1.42:3000/?bg=transparent&silent=dim`.
 
-## 6. Personnaliser les personnages
+## 7. Personnaliser les personnages
 
 Chaque personne reçoit automatiquement un personnage unique, toujours le même, calculé à partir de son ID Discord. Pour le modifier, édite `config/characters.json`. **Les écrans se mettent à jour tout seuls, sans redémarrage.**
 
@@ -142,19 +173,24 @@ Mets tes images dans `public/sprites/` (du PNG pixel art de préférence), puis 
 }
 ```
 
-`idle` est l'image au repos. Les images de `talk` défilent pendant que la personne parle.
+`idle` est l'image au repos. Les images de `talk` défilent pendant que la personne parle. Les interactions marchent aussi avec des sprites (déplacements, marteau, bulles), mais sans les poses des bras ni les expressions du visage.
 
 ## Structure
 
 ```
-src/index.js       point d'entrée (bot ou démo)
-src/discord.js     bot : rejoint le vocal, détecte qui parle
-src/server.js      serveur web + WebSocket, diffuse vers tous les écrans
-src/demo.js        salon simulé pour tester
-public/            la page d'affichage (canvas pixel art)
+src/index.js            point d'entrée (bot ou démo)
+src/discord.js          bot : rejoint le vocal, détecte qui parle, commandes slash
+src/server.js           serveur web + WebSocket, valide les actions, diffuse vers tous les écrans
+src/demo.js             salon simulé pour tester
+public/index.html       la page d'affichage (app.js)
+public/manette.html     la manette (manette.js)
+public/actions.js       liste des interactions (touches, commandes...)
+public/character.js     dessin des persos et de leurs poses
+public/effects.js       animations des interactions (déplacements, particules, bulles)
 config/characters.json  apparence des personnages
 ```
 
 ## Limites
 - Le bot doit pouvoir rejoindre le salon. Ça ne marche donc que sur un serveur où tu peux l'inviter, pas dans les appels privés ni les groupes.
+- La manette n'a pas de mot de passe par personne : n'importe qui ayant l'adresse peut choisir n'importe quel perso. Entre amis ça va ; si l'adresse est publique, mets une `VIEW_KEY`.
 - L'animation suit le **fait de parler**, pas les syllabes exactes. La bouche s'ouvre et se ferme de façon naturelle tant que la personne parle.
