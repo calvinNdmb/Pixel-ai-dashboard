@@ -1,0 +1,20 @@
+{
+  "name": "pixel-ai-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personnages pixel art animés quand on parle sur Discord, affichables sur n importe quel écran ou appareil",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "demo": "node --env-file-if-exists=.env src/index.js --demo"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "discord.js": "^14.28.1",
+    "ws": "^8.22.1"
+  }
+}

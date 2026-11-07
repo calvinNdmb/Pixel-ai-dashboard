@@ -1,0 +1,9 @@
+{
+  "name": "Pixel Voice",
+  "short_name": "Pixel Voice",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#1b1d2a",
+  "theme_color": "#1b1d2a"
+}

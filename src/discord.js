@@ -1,0 +1,133 @@
+// Bot Discord : rejoint le salon vocal et signale qui parle, en direct.
+import { Client, Events, GatewayIntentBits } from 'discord.js';
+import {
+  VoiceConnectionStatus,
+  entersState,
+  getVoiceConnection,
+  joinVoiceChannel,
+} from '@discordjs/voice';
+
+export function startDiscordBot({ token, followUserId, guildId, voiceChannelId, display }) {
+  const client = new Client({
+    // Pas d'intent privilégié nécessaire : les états vocaux suffisent.
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+  });
+
+  let current = null; // { guildId, channelId }
+
+  const memberInfo = (member) => ({
+    id: member.id,
+    name: member.displayName,
+    avatar: member.displayAvatarURL({ extension: 'png', size: 128 }),
+  });
+
+  function refreshMembers() {
+    if (!current) return;
+    const channel = client.channels.cache.get(current.channelId);
+    if (!channel?.isVoiceBased()) return;
+    display.setMembers(
+      [...channel.members.values()].filter((m) => m.id !== client.user.id).map(memberInfo),
+    );
+  }
+
+  function disconnect() {
+    if (!current) return;
+    getVoiceConnection(current.guildId)?.destroy();
+    current = null;
+  }
+
+  function leave() {
+    if (!current) return;
+    disconnect();
+    display.setChannel(null);
+    console.log('[discord] salon vocal quitté');
+  }
+
+  function join(channel) {
+    if (current?.channelId === channel.id) return;
+    // Changement de salon : on repart d'une connexion propre (évite les écouteurs en double).
+    disconnect();
+
+    current = { guildId: channel.guildId, channelId: channel.id };
+    const connection = joinVoiceChannel({
+      channelId: channel.id,
+      guildId: channel.guildId,
+      adapterCreator: channel.guild.voiceAdapterCreator,
+      selfDeaf: false, // indispensable : un bot sourd ne reçoit pas les paquets audio
+      selfMute: true,
+    });
+
+    connection.receiver.speaking.on('start', (userId) => display.setSpeaking(userId, true));
+    connection.receiver.speaking.on('end', (userId) => display.setSpeaking(userId, false));
+
+    connection.on(VoiceConnectionStatus.Disconnected, async () => {
+      try {
+        // Déplacement de salon ou micro-coupure : Discord se reconnecte tout seul.
+        await Promise.race([
+          entersState(connection, VoiceConnectionStatus.Signalling, 5000),
+          entersState(connection, VoiceConnectionStatus.Connecting, 5000),
+        ]);
+      } catch {
+        // Vraiment déconnecté (expulsé, salon supprimé...).
+        if (getVoiceConnection(channel.guildId) === connection) leave();
+      }
+    });
+
+    display.setChannel({ name: channel.name });
+    refreshMembers();
+    console.log(`[discord] salon rejoint : ${channel.guild.name} / ${channel.name}`);
+  }
+
+  client.once(Events.ClientReady, async () => {
+    console.log(`[discord] connecté en tant que ${client.user.tag}`);
+
+    if (followUserId) {
+      // Si la personne suivie est déjà en vocal, on la rejoint tout de suite.
+      for (const guild of client.guilds.cache.values()) {
+        const channel = guild.voiceStates.cache.get(followUserId)?.channel;
+        if (channel) return join(channel);
+      }
+      console.log('[discord] en attente que tu rejoignes un salon vocal...');
+    } else if (guildId && voiceChannelId) {
+      const channel = await client.channels.fetch(voiceChannelId).catch(() => null);
+      if (channel?.isVoiceBased()) join(channel);
+      else console.error('[discord] VOICE_CHANNEL_ID introuvable ou pas un salon vocal');
+    }
+  });
+
+  client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+    if (newState.id === client.user.id) {
+      // Le bot lui-même a été déplacé ou déconnecté par quelqu'un.
+      if (!newState.channelId) leave();
+      else if (current && newState.channelId !== current.channelId) {
+        current.channelId = newState.channelId;
+        display.setChannel({ name: newState.channel.name });
+        refreshMembers();
+      }
+      return;
+    }
+
+    if (followUserId && newState.id === followUserId) {
+      if (newState.channel) join(newState.channel);
+      else leave();
+      return;
+    }
+
+    // Quelqu'un arrive, part, ou change de pseudo/avatar dans notre salon.
+    if (current && (oldState.channelId === current.channelId || newState.channelId === current.channelId)) {
+      refreshMembers();
+    }
+  });
+
+  client.login(token).catch((err) => {
+    console.error(`[discord] connexion impossible : ${err.message}`);
+    process.exit(1);
+  });
+
+  const shutdown = () => {
+    leave();
+    client.destroy().finally(() => process.exit(0));
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
