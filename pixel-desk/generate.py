@@ -19,6 +19,8 @@ Parts (stl/), each exported in its print orientation, no supports needed:
                                  piece of pin header where the Pi's GPIO pins would be (prints flat)
     PixelStreamDeckTray.stl      option: low tray for a whole, unopened Stream Deck MK.2 (prints upright)
     ScreenFitTest.stl            thin frame to check the screen size before the big prints
+    StreamDeckFitTest.stl        the keyboard top's key field on a short rim of the module pocket: press it on the
+                                 bare Stream Deck module to check the 15 key windows before the keyboard (prints flat)
   v2 only (V2_PANEL = True):
     PixelKeyboardLeds.stl        translucent bar for the 3 keyboard LED windows (same position as the top:
                                  load both as one object in the slicer to print it in translucent filament)
@@ -139,6 +141,9 @@ MOD_CONN = (19.7, 19.9)                          # USB-C on the back, from the t
 MOD_CONN_DEPTH = 8.9                             # how far the connector sticks out behind the body
 MOD_V0 = 16.0                                    # module's front edge, along the slope
 MOD_CLR, MOD_LEDGE = 0.25, 2.5                   # the module rests on its outer 2.5 mm only
+MOD_DEPTH = MOD_T + 0.3                          # pocket depth down to the ledge (+ a 0.5 mm foam strip on the ledge
+                                                 # clamps the module)
+SDTEST_RIM = 2.0                                 # StreamDeckFitTest: wall around the module pocket
 KB_TOP_SCREWS = [(-62.0, 8.0), (62.0, 8.0), (-62.0, 85.0), (62.0, 85.0)]   # the rear ones keep 1.9 mm of back wall
 TRAY_SCREW_Z = 8.0
 # three status LEDs in the keyboard: engraved marks in v1; in v2 a 3-LED piece of WS2812B strip (144 LEDs/m, 5 V)
@@ -367,6 +372,17 @@ def module_uv(x, y):
     return x - MOD_W / 2, MOD_V0 + MOD_H - y
 
 
+def mod_pocket():
+    """Module pocket in the keyboard base, (u0, u1, v0, v1): the module with MOD_CLR all around."""
+    hw, c = MOD_W / 2 + MOD_CLR, MOD_CLR
+    return -hw, hw, MOD_V0 - c, MOD_V0 + MOD_H + c
+
+
+def kb_key_windows():
+    """The 15 key windows of the keyboard top, (u, v) outlines."""
+    return [rrect(KEY_CUT, KEY_CUT, KEY_R, *module_uv(x, y)) for x in MOD_KEY_X for y in MOD_KEY_Y]
+
+
 def kb_top_outline():
     a = radians(KB_ANGLE)
     return rrect(KB_W, KB_D / cos(a), KB_R, 0, KB_D / cos(a) / 2)
@@ -389,9 +405,8 @@ def build_keyboard():
     z_back = KB_Z_FRONT + KB_D * tan(a)
     prof = Polygon([(0, 0), (0, KB_Z_FRONT), (KB_D, z_back), (KB_D, 0)])
     base = I(ext_xy(rrect(KB_W, KB_D, KB_R, 0, KB_D / 2), 0, 60), ext_yz(prof, -200, 200))
-    hw, c = MOD_W / 2 + MOD_CLR, MOD_CLR
-    depth = MOD_T + 0.3                           # + a 0.5 mm foam strip on the ledge clamps the module
-    cuts = [kb_box(-hw, hw, MOD_V0 - c, MOD_V0 + MOD_H + c, -depth, 5),                       # module body
+    hw, depth = MOD_W / 2 + MOD_CLR, MOD_DEPTH
+    cuts = [kb_box(*mod_pocket(), -depth, 5),                                                   # module body
             kb_box(-hw + MOD_LEDGE, hw - MOD_LEDGE, MOD_V0 + MOD_LEDGE, MOD_V0 + MOD_H - MOD_LEDGE, -depth - 3.0, 1)]
     cu, cv = module_uv(*MOD_CONN)
     plug_pocket = kb_box(cu - 11, cu + 11, cv - 11, cv + 11, -40, 1)                           # USB-C + 90 deg plug
@@ -420,10 +435,7 @@ def build_keyboard():
     adds = [cyl(u, v, -6.0, OVER, 7.0) for u, v in KB_TOP_SCREWS]
     top = U([top, *adds])
     tcuts = []
-    for x in MOD_KEY_X:
-        for y in MOD_KEY_Y:
-            u, v = module_uv(x, y)
-            tcuts.append(ext_xy(rrect(KEY_CUT, KEY_CUT, KEY_R, u, v), -1, KB_TOP_T + 1))
+    tcuts += [ext_xy(w, -1, KB_TOP_T + 1) for w in kb_key_windows()]
     for u, v in KB_TOP_SCREWS:                                    # blind: 1.2 mm of top stays over the screw tip
         tcuts.append(cyl(u, v, -6.5, KB_TOP_T - 1.2, PILOT))
     # engraved on the top face: key-field frame, PIXEL badge (+ the three LED marks in v1)
@@ -807,6 +819,22 @@ def build_fit_test():
     return single(U([ext_xy(lipf, 0, 2.0), ext_xy(frame, 2.0 - OVER, 6.0)]), "ScreenFitTest")
 
 
+def build_sd_fit_test():
+    """Stream Deck fit test, in the keyboard's local frame (w = 0 is the top plate's underside): the keyboard top's
+    plate cropped to the module pocket, with the same 15 key windows, on a rim of the base's module pocket down to
+    the ledge. Pressed onto the bare module, the keys must pass freely and the module must drop in to the rim's edge."""
+    u0, u1, v0, v1 = mod_pocket()
+    pocket = box(u0, v0, u1, v1)
+    outer = rrect(u1 - u0 + 2 * SDTEST_RIM, v1 - v0 + 2 * SDTEST_RIM, SDTEST_RIM + 1.0, (u0 + u1) / 2, (v0 + v1) / 2)
+    plate = ext_xy(outer, 0, KB_TOP_T)
+    rim = ext_xy(outer.difference(pocket), -MOD_DEPTH, OVER)
+    cuts = [ext_xy(w, -1, KB_TOP_T + 1) for w in kb_key_windows()]
+    v_win = max(w.bounds[3] for w in kb_key_windows())           # label in the free band behind the top key row
+    size = min(4.0, (v1 + SDTEST_RIM - v_win) - 2.5)
+    cuts += engrave_top(text_centred("SD TEST", size, 0, (v_win + v1 + SDTEST_RIM) / 2), KB_TOP_T, 0.6)
+    return single(D(U([plate, rim]), *cuts), "StreamDeckFitTest")
+
+
 # ------------------------------------------------------------------ print poses
 def pose_matrix(m, kind):
     rot = {"upright": None, "top_down": (np.pi, [1, 0, 0]), "face_down": (np.pi / 2, [1, 0, 0]),
@@ -838,6 +866,7 @@ def build_all():
         "PixelScreenPowerAdapter": pose(adapter_local, "upright"),
         "PixelStreamDeckTray": pose(tray, "upright"),
         "ScreenFitTest": build_fit_test(),
+        "StreamDeckFitTest": pose(build_sd_fit_test(), "top_down"),
     }
     if V2_PANEL:
         assembled["PixelKeyboardLeds"] = kb_leds

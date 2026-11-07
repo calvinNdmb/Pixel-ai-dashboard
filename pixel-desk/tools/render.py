@@ -1,7 +1,7 @@
 """Pictures for the README, from the same model as the STL files.
 
     python3 tools/render.py                    # all pictures into pixel-desk/
-    python3 tools/render.py --only adapter     # one picture: preview, inside, print, adapter, v2
+    python3 tools/render.py --only adapter     # one picture: preview, inside, print, adapter, sdtest, v2
     python3 tools/render.py --ui DIR           # app screenshots (800 x 480 PNG) to show on the screen
 
 The screen shows real screenshots of the Pixel app (tools/ui/, taken from pixel-app/).
@@ -263,6 +263,22 @@ def do_adapter(out_dir):
     sheet(out_dir / "preview-adapter.png", [im1, im2], ["Le « faux Pi » au dos de l'écran", "En coupe : les ressorts de l'écran touchent les broches"], 1100)
 
 
+def do_sdtest(out_dir):
+    """The Stream Deck fit test: as printed, and pressed onto the bare module (keys through the windows)."""
+    _, prn, *_ = scene()
+    im1, _ = render([(prn["StreamDeckFitTest"], (0.8, 0.8, 0.84))], (0.35, 0.60, -0.72), (1100, 900), light=(0.3, -0.5, 0.8), pad=80)
+    body, mkeys, _, _ = mocks.sd_module()
+    test = g.kb_local(g.build_sd_fit_test())
+    on = [(test, (0.8, 0.8, 0.84)), (body, (0.12, 0.13, 0.15))] + [(k, KEYS[i % 5]) for i, k in enumerate(mkeys)]
+    im2, p2 = render(on, (0.45, 0.80, -0.40), (1100, 900), light=(0.35, -0.65, 0.70), pad=80)
+    u0, u1, v0, v1 = g.mod_pocket()
+    label(im2, p2, tuple(g.kb_world(u0 - g.SDTEST_RIM / 2, (v0 + v1) / 2, -g.MOD_DEPTH / 2)), "Bord du logement\n(comme le socle)",
+          40, 230, (60, 60, 60))
+    u, v = g.module_uv(g.MOD_KEY_X[-1], g.MOD_KEY_Y[0])
+    label(im2, p2, tuple(g.kb_world(u, v, 3.0)), "15 touches dans\nles vraies fenêtres", 60, -170, (180, 90, 40))
+    sheet(out_dir / "preview-sdtest.png", [im1, im2], ["StreamDeckFitTest, à plat comme imprimé", "Posé sur le module du Stream Deck"], 1100)
+
+
 def do_v2(out_dir):
     old = g.V2_PANEL
     g.V2_PANEL = True
@@ -284,11 +300,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ui", type=Path, default=HERE / "ui", help="folder with the app screenshots")
     ap.add_argument("--out", type=Path, default=HERE.parent, help="where to write the PNG files")
-    ap.add_argument("--only", choices=["preview", "inside", "print", "adapter", "v2"])
+    ap.add_argument("--only", choices=["preview", "inside", "print", "adapter", "sdtest", "v2"])
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
     jobs = {"preview": lambda: do_preview(a.out, a.ui), "inside": lambda: do_inside(a.out, a.ui), "print": lambda: do_print(a.out),
-            "adapter": lambda: do_adapter(a.out), "v2": lambda: do_v2(a.out)}
+            "adapter": lambda: do_adapter(a.out), "sdtest": lambda: do_sdtest(a.out), "v2": lambda: do_v2(a.out)}
     for k, job in jobs.items():
         if a.only in (None, k):
             job()
