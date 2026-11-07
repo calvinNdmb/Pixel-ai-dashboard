@@ -1304,6 +1304,8 @@ function pkVector(x, y, w, h, st, theme, post) {
 }
 const PK_RETRO = [null, R.fg, R.hi, R.pink, R.accent, R.hi, R.dim, '#2c6e46'].map(c => c && rgb(c));
 const PK_LCD = [null, S3, S1, S2, S3, S2, S2, S1].map(c => c && rgb(c)), PK_LCD_SH = [null, 1, 1, 1, 1, 1, 1, 1].map(c => c && [32, 44, 24]);
+/* frame rates (screens.js): the pixel faces change about 20 times a second; Néon and Moderne have a moving background */
+retro.faceFps = lcd.faceFps = 24; neon.calmFps = moderne.calmFps = 20;
 retro.packFace = (x, y, w, h, st) => pkPixels(x, y, w, h, st, { pal: PK_RETRO, glow: 0.42, grid: R.bg });
 lcd.packFace = (x, y, w, h, st) => {
   const s = Math.max(2, Math.round(w / 45)), head = lcdHead(s, 0);   // the creature's head and antenna around the pack's face

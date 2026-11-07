@@ -202,6 +202,22 @@ Le labo d'essai : chaque thème, chaque humeur, les 10 écrans et tous les évé
 
 Tout est expliqué dans [web/lab/README.md](web/lab/README.md).
 
+## Économie d'images
+
+Pixel ne redessine son écran 60 fois par seconde que quand ça bouge vite : quand tu le touches (et 2,5 secondes après), quand l'écran ou le thème change, pendant un bandeau et pendant les animations rapides. Le reste du temps :
+
+| Quoi | Images par seconde |
+| --- | --- |
+| Visage en Moderne, Manga, Néon, Croquis : animations d'attente | 30 |
+| Visage en Rétro et LCD (ton pack y est dessiné à 20 images par seconde) | 24 |
+| Météo, Claude au repos, Codex au travail, minuteur lancé | 20 à 30 |
+| Veille | 15 |
+| Écrans immobiles : Agenda, Réglages, Système, Lumières… (20 en Néon et Moderne, dont le décor bouge) | 10 |
+
+Une nouvelle info du serveur s'affiche tout de suite. Mesuré dans Chromium, sur un PC : le processeur utilisé pour l'affichage baisse de 40 à 70 % selon l'écran. Sur le Pi, il chauffe moins et laisse plus de place à Claude et Codex.
+
+Pour tout repasser à 60 images par seconde, ajoute `&fps=full` à l'adresse de l'écran (`http://localhost:8080/?kiosk=1&fps=full` dans `deploy/kiosk.sh`). Dans Pixel Lab, c'est le bouton **Économie d'images**.
+
 ## Installer sur le Raspberry Pi
 
 Il faut Raspberry Pi OS avec le bureau (Bookworm ou plus récent), et ce dépôt copié dans ton dossier personnel.

@@ -107,9 +107,10 @@ function drawSpeed() {
   X.clearRect(0, 0, W, H);
   const C = window.PixelClock, st = C ? C.stats() : { fps: 0, drawMs: 0, frames: [] }, i = info() || {};
   panel(16, 16, 336, 190);
-  txt(String(Math.round(st.fps)), 32, 26, 44, st.fps >= 55 ? GREEN : st.fps >= 30 ? AMBER : RED, 'left', 700);
+  const SL = typeof Screens !== 'undefined' ? Screens.local : null, want = SL ? (SL.full ? 60 : SL.fpsWant || 60) : 60;   // the rate screens.js asks for right now
+  txt(String(Math.round(st.fps)), 32, 26, 44, st.fps >= want * 0.9 ? GREEN : st.fps >= want * 0.5 ? AMBER : RED, 'left', 700);
   X.font = '700 44px "DejaVu Sans", system-ui, sans-serif'; txt('images/s', 40 + X.measureText(String(Math.round(st.fps))).width, 46, 18, INK, 'left', 600);
-  txt(`Dessin : ${fr(st.drawMs)} ms par image`, 32, 80, 16, INK);
+  txt(`Dessin : ${fr(st.drawMs)} ms par image · voulu : ${want} im/s`, 32, 80, 16, INK);
   txt([i.theme, i.screen, i.speed].filter(Boolean).join(' · '), 32, 102, 14, DIM);
   if (C && C.paused) txt("En pause : l'image ne bouge pas", 32, 122, 14, AMBER, 'left', 600);
   const gx = 32, gy = 192, gh = 60, k = gh / 33.4;                  // 0..33,4 ms -> 0..60 px

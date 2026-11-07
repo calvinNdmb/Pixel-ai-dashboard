@@ -63,6 +63,8 @@ Le labo retient ton dernier thème, ton écran et ta vitesse.
 
 ## Le test de l'écran
 
+**Économie d'images** (dans Test de l'écran) : comme sur le Pi, Pixel ne dessine 60 images par seconde que quand ça bouge vite. Éteins-le pour tout voir à 60. **Comparer les thèmes** mesure toujours à 60 images par seconde. La page « Images par seconde » affiche aussi la cadence voulue.
+
 Pour vérifier le vrai écran 7 pouces dans son boîtier. Lance-le sur le Pi, en plein écran : là, 1 pixel de la mire = 1 pixel de l'écran.
 
 - **Couleurs :** barres de couleurs, dégradés, gris. Tu dois voir chaque case sombre et chaque case claire.

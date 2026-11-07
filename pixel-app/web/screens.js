@@ -5,7 +5,7 @@ const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rnd = Math.random, clamp = (v, a, b) => Math.max(a, Math.min(b, v)), ease = (a, b, k) => a + (b - a) * k;
 const pad = n => String(Math.floor(n)).padStart(2, '0');
 let now = performance.now(), hits = [], P = null, send = () => {}, offset = 0, first = true, S = 2;
-const L = { scr: 'visage', ptr: null, blink: { t: -1e9, next: 2500 }, local: null, petted: false,
+const L = { inputAt: 0, changeAt: 0, scr: 'visage', ptr: null, blink: { t: -1e9, next: 2500 }, local: null, petted: false,
   lastInput: now, sleepy: false, banner: null, lastToast: 0, boot: -1, lastBootAt: 0, lightV: {}, kiosk: false, theme: 'retro' };
 const srv = () => Date.now() + offset;
 let T, G, D, DK, B, AM, PK, WH;
@@ -145,7 +145,8 @@ function drawLights() {
   if (!rooms.length) { para(`Lampes Hue : ${P.lights.status}. Ouvre Réglages et touche ASSOCIER HUE, puis appuie sur le bouton du pont.`, 24, 80, 752, 32, G); return; }
   const rh = rooms.length > 4 ? 58 : 70;
   rooms.forEach((r, i) => {
-    const y = 62 + i * rh, v = L.lightV[r.id] = ease(L.lightV[r.id] ?? (r.on ? r.bri : 0), r.on ? r.bri : 0, 0.12);
+    const goal = r.on ? r.bri : 0, e = ease(L.lightV[r.id] ?? goal, goal, 0.12), y = 62 + i * rh;
+    const v = L.lightV[r.id] = Math.abs(e - goal) < 0.5 ? goal : (fast(), e);
     T.bulb(48, y + 22, r.on, i);
     txt(fit(r.name, 180, 36), 84, y + 6, 36, r.on ? G : D);
     bar(272, y + 10, 10, v / 10, 30, 28, 6, r.on ? G : D);
@@ -283,12 +284,19 @@ function drawSys() {
 }
 
 /* ---------- Réglages ---------- */
+let qrC = null;
+function qrImage(q, m, qs) {          // the QR code drawn once (about 420 squares), again only if it, the theme or the scale changes
+  const key = q.join('') + T.qr.join() + m + 'x' + S;
+  if (qrC && qrC.key === key) return qrC;
+  const c = qrC = document.createElement('canvas'), g = c.getContext('2d'); c.key = key; c.width = c.height = qs * S;
+  g.scale(S, S); g.fillStyle = T.qr[0]; g.fillRect(0, 0, qs, qs); g.fillStyle = T.qr[1];
+  q.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === '1') g.fillRect((i + 4) * m, (j + 4) * m, m, m); });
+  return c;
+}
 function drawSettings() {
   header('Réglages');
   const st = P.settings, q = st.qr || [], n = q.length || 21, m = Math.floor(220 / (n + 8)), qs = m * (n + 8), qx = 24, qy = 64;
-  X.shadowBlur = 0; X.fillStyle = T.qr[0]; X.fillRect(qx, qy, qs, qs); X.fillStyle = T.qr[1];
-  q.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === '1') X.fillRect(qx + (i + 4) * m, qy + (j + 4) * m, m, m); });
-  glow();
+  X.shadowBlur = 0; X.drawImage(qrImage(q, m, qs), qx, qy, qs, qs); glow();
   const short = u => (u || '').replace(/\?.*$/, '');
   txt(fit('SUR TON TÉLÉPHONE OU TON PC', 500, 24), 274, 62, 24, D); txt(fit(short(st.url), 500, 32), 274, 88, 32, WH); txt(fit('ou ' + short(st.ip_url), 500, 26), 274, 124, 26, G);
   para("Scanne le code : il ouvre l'appli avec ton code d'accès. Ensuite : « Ajouter à l'écran d'accueil ».", 274, 158, 500, 24, D, 26);
@@ -360,20 +368,53 @@ function drawBanner() {
 const DRAW = { visage: drawVisage, lumieres: drawLights, claude: drawClaude, codex: drawCodex, meteo: drawMeteo, minuteur: drawTimer,
   agenda: drawAgenda, systeme: drawSys, reglages: drawSettings, veille: drawVeille };
 let last = performance.now(), fitAt = 0, fdt = 16;
+/* ---------- frame rate: full speed only while something moves fast ----------
+   Most screens are still between two clock ticks, and the Rétro and LCD faces change about 20 times a second:
+   drawing them 60 times a second costs the Pi's processor (and heat) for nothing. 60 im/s while a finger is on the
+   screen, for 2.5 s after any input, after a change of screen or theme, during a banner and for the quick
+   animations; less the rest of the time. A new state from the server is drawn at once. ?fps=full: 60 everywhere. */
+const realNow = () => (window.PixelClock ? window.PixelClock.real() : performance.now());   // the lab's slow motion must stay smooth
+Object.assign(L, { full: typeof location !== "undefined" && /[?&]fps=full\b/.test(location.search), fastUntil: 0, dirty: true, fpsWant: 60 });
+function fast(ms = 150) { L.fastUntil = Math.max(L.fastUntil, realNow() + ms); }
+function wantFps() {
+  const r = realNow();
+  if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
+  const calm = T.calmFps || 10;                       // still screens: the clock, a blinking cursor
+  switch (L.scr) {
+    case 'visage': {
+      if (!packMode()) return mood() === 'neutre' ? 30 : 60;            // the living face: its idle is slow
+      const w = packWant();
+      return w && !w.startsWith('idle-') ? (T.faceFps || 60) : Math.min(T.faceFps || 30, 30);   // the idles breathe and blink slowly
+    }
+    case 'veille': return 15;
+    case 'claude': return P.chat.phase !== 'idle' ? 60 : Math.max(calm, 20);
+    case 'codex': return P.codex.running ? 30 : calm;
+    case 'meteo': return 30;
+    case 'minuteur': return P.timer.running ? 20 : calm;
+    default: return calm;
+  }
+}
+let drawnAt = -1e9, seenScr = '', seenTheme = '';
 function update() {
   if (now > L.blink.next) { L.blink.t = now; L.blink.next = now + 2000 + rnd() * 4000; }   // for faces drawn without a life state
   if (L.kiosk && P && L.scr === 'visage' && !L.sleepy && now - L.lastInput > (P.settings.sleep_min || 10) * 60000) L.sleepy = true;
   if (now > fitAt) { fitAt = now + 1000; fitCanvas(); }
 }
 function frame(t) {
-  const dt = Math.min(60, t - last); last = t; now = t; fdt = dt; update(); hits = [];
+  requestAnimationFrame(frame);
+  now = t;
+  const r = realNow();
+  if (L.scr !== seenScr || T.id !== seenTheme) { seenScr = L.scr; seenTheme = T.id; L.changeAt = r; }
+  L.fpsWant = wantFps();
+  if (!L.dirty && r - drawnAt < 1000 / L.fpsWant - 3) return false;   // skipped: the lab's clock does not count it
+  L.dirty = false; drawnAt = r;
+  const dt = Math.min(120, t - last); last = t; fdt = dt; update(); hits = [];
   X.setTransform(S, 0, 0, S, 0, 0); X.globalAlpha = 1; X.shadowBlur = 0; T.bg(dt); glow();
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
   else (DRAW[L.scr] || drawVisage)(dt);
   drawBanner();
   if (T.fg) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }
-  requestAnimationFrame(frame);
 }
 function toCanvas(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; }
 addEventListener('resize', () => { fitAt = 0; });
@@ -397,9 +438,9 @@ return {
     if (P && P.screen === 'veille' && p.screen === 'visage') L.pack = { id: 'reveil', until: now + 5000 };
     if (p.anim && p.anim.t0 !== (P && P.anim && P.anim.t0)) { L.pack = null; L.local = null; }   // a new animation asked for takes over at once
     if (p.boot_at > L.lastBootAt) { L.lastBootAt = p.boot_at; L.boot = now; }
-    P = p;
+    P = p; L.dirty = true;
   },
-  input() { L.lastInput = now; if (L.sleepy) { L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; return true; } return false; },
+  input() { L.lastInput = now; L.inputAt = realNow(); if (L.sleepy) { L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; return true; } return false; },
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

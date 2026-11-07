@@ -12,7 +12,8 @@ const ring = [];                                   // last Pixel frames: real st
 try { Object.defineProperty(perf, 'now', { value: now, configurable: true, writable: true }); } catch { perf.now = now; }
 window.requestAnimationFrame = cb => realRAF(t => {
   const v = virt(t), t0 = realNow();
-  try { cb(v); } finally { ring.push({ t, d: realNow() - t0 }); if (ring.length > 240) ring.splice(0, ring.length - 240); }
+  let drawn = true;
+  try { drawn = cb(v) !== false; } finally { if (drawn) { ring.push({ t, d: realNow() - t0 }); if (ring.length > 240) ring.splice(0, ring.length - 240); } }   // a frame screens.js skips is not counted
 });
 window.PixelClock = {
   now, real: realNow, raf: realRAF,

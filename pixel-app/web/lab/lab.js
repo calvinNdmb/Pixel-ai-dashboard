@@ -62,7 +62,7 @@ const curMood = () => {                          // same rule as screens.js mood
   const m = P && P.mood; if (m && (!m.until || Date.now() < m.until)) return m.name;
   return L.sleepy ? 'endormi' : 'neutre';
 };
-const touch = () => { L.lastInput = performance.now(); };   // panel use counts as activity, but does not wake Pixel
+const touch = () => { L.lastInput = performance.now(); L.inputAt = C.real(); };   // panel use counts as activity, but does not wake Pixel
 
 /* ---------- pickers ---------- */
 function chip(label, on, cls = 'chip') { const b = el('button', cls, label); b.type = 'button'; b.addEventListener('click', on); return b; }
@@ -272,6 +272,7 @@ async function bench() {
   if (benching) return; benching = true; stopTour();
   const btn = $('benchBtn'), out = $('benchOut'), keep = hub.S.view.theme, rows = [];
   btn.disabled = true; out.hidden = false;
+  const keepFull = L.full; L.full = true;              // measure what the device can do: 60 im/s on every theme
   const draw = () => {
     const top = Math.max(1, ...rows.map(r => r.ms));
     out.replaceChildren(...rows.flatMap(r => { const cell = el('span'), bar = el('i', 'bar'); bar.style.width = Math.max(2, r.ms / top * 100) + '%'; cell.append(bar); return [el('span', null, r.name), cell, el('span', 'ms', `${frNum(r.ms, 1)} ms · ${Math.round(r.fps)} im/s`)]; }));
@@ -281,11 +282,13 @@ async function bench() {
     hub.dispatch('lab.theme', { name: t.id }); await wait(700);
     await wait(1100); const st = C.stats(); rows.push({ name: t.name, ms: st.drawMs, fps: st.fps }); draw();
   }
-  hub.dispatch('lab.theme', { name: keep });
+  hub.dispatch('lab.theme', { name: keep }); L.full = keepFull; syncStatic();
   setT(btn, 'Comparer les thèmes'); btn.disabled = false; benching = false;
   flash(`Mesuré sur l'écran ${hub.NAMES[hub.S.screen]}, sur cet appareil. Sur le Pi, regarde surtout les images/s.`);
 }
 $('benchBtn').addEventListener('click', bench);
+if (saved.eco === false) L.full = true;
+$('ecoBtn').addEventListener('click', () => { L.full = !L.full; remember('eco', !L.full); syncStatic(); });
 
 /* ---------- kiosk menu (long press or a corner, on the 800x480 screen) ---------- */
 const kmT = [], kmM = [], kmS = [];
@@ -340,6 +343,7 @@ function syncStatic() {
   document.querySelectorAll('#moodDur button').forEach(b => press(b, Number(b.dataset.dur) === (Number(saved.moodDur) || 0)));
   press($('tourBtn'), !!tour); setT($('tourBtn'), tour ? 'Arrêter la démo' : 'Lancer la démo'); press($('kmTour'), !!tour);
   setT($('tourNote'), tour ? `Étape ${tour.i + 1} sur ${tour.steps.length} : ${tour.steps[tour.i].label}` : 'Toutes les humeurs, des animations, puis tous les écrans, puis le thème suivant. En boucle.');
+  press($('ecoBtn'), !L.full);
   press($('idleBtn'), L.packIdle !== false); press($('allBtn'), !!showAll);
   setT($('allBtn'), showAll ? 'Arrêter' : 'Tout voir');
   testChips.forEach(b => press(b, b.dataset.id === TC.page));
@@ -355,7 +359,7 @@ function refresh() {                                  // things that change with
   if (showAll) { const a = hub.ANIMS[showAll.i]; setT($('animNote'), `Tout voir : ${showAll.i + 1} sur ${hub.ANIMS.length}, ${a.label}.`); }
   else { const a = hub.ANIMS.find(x => x.id === pa); setT($('animNote'), a ? `${a.label} (${a.group}). Touche une animation pour la jouer.` : 'Les 52 animations de ton pack. Touche-en une pour la jouer.'); }
   const st = C.stats(), fps = Math.round(st.fps);
-  const info = `${hub.themeName(P.view.theme)} · ${hub.NAMES[P.screen]} · ${hub.moodName(md)} · ${speedLabel()}${C.paused ? ' · en pause' : ''} · ${fps} im/s`;
+  const info = `${hub.themeName(P.view.theme)} · ${hub.NAMES[P.screen]} · ${hub.moodName(md)} · ${speedLabel()}${C.paused ? ' · en pause' : ''} · ${fps} im/s${L.full ? '' : ` (voulu ${L.fpsWant})`}`;
   setT($('readout'), info); setT($('kmInfo'), info);
 }
 setInterval(refresh, 250);

@@ -94,7 +94,7 @@ document.addEventListener('keydown', e => {
 
 /* ---------- touch / mouse on the screen ---------- */
 const cv = $('crt'); let down = null;
-cv.addEventListener('pointermove', e => { L.ptr = Screens.toCanvas(e); if (e.pointerType === 'mouse') L.lastInput = performance.now(); });
+cv.addEventListener('pointermove', e => { L.ptr = Screens.toCanvas(e); if (e.pointerType === 'mouse') L.lastInput = L.inputAt = performance.now(); });
 cv.addEventListener('pointerleave', () => { L.ptr = null; });
 cv.addEventListener('pointerdown', e => { down = { ...Screens.toCanvas(e), t: performance.now() }; });
 cv.addEventListener('pointerup', e => {
