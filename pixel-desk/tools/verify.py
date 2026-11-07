@@ -6,7 +6,7 @@
 Checks: collisions between the printed parts and with the bought parts (screen and everything on its back,
 faux Pi + header + Dupont plugs, Pi 4 with its plugs, Stream Deck module / keys / USB-C plug, option tray,
 v2 front-panel parts and LED strip), monitor fit (glass pocket, window, posts, back opening), ribbon slot,
-print checks (build volume, mesh health, overhangs, thin walls), filament, stability.
+Stream Deck fit test (same windows, margins and pocket as the real keyboard), print checks (build volume, mesh health, overhangs, thin walls), filament, stability.
 Exit code 0 when every check passes.
 """
 import argparse
@@ -15,6 +15,7 @@ import time
 import warnings
 
 import numpy as np
+import shapely
 
 import checks
 import mocks
@@ -55,6 +56,60 @@ def no_overlap(group_a, group_b, label, skip=()):
                 bad.append(f"{ka} x {kb}: {v} mm3")
     check(not bad, label, "; ".join(bad[:6]))
     return bad
+
+
+def print_minutes(m, flow=10.0, layer=0.2, per_layer=4.0, start=4.0):
+    """Rough print time on a Bambu Lab P2S (minutes): the extruded volume at a modest average flow (mm3/s, small
+    parts are mostly walls), a few seconds per layer change, and the start sequence (heating, levelling)."""
+    v = g.filament_g(m) / 1.24 * 1000.0
+    return v / flow / 60.0 + m.extents[2] / layer * per_layer / 60.0 + start
+
+
+def section(m, w):
+    """Material of a mesh at height w (a Z section), as one shapely geometry."""
+    from shapely.ops import unary_union
+    return unary_union(checks._section_polys(m, np.array([0.0, 0.0, w]), np.array([0.0, 0.0, 1.0]))[0])
+
+
+def sd_fit_test(asm, prn):
+    """StreamDeckFitTest against the real keyboard, all in the keyboard's local frame (w = 0 under the top plate)."""
+    to_local = np.linalg.inv(g.kb_frame())
+    loc = lambda m: m.copy().apply_transform(to_local)                                    # noqa: E731
+    test = g.build_sd_fit_test()
+    top, base = loc(asm["PixelKeyboardTop"]), loc(asm["PixelKeyboardBase"])
+    body, keys, _, _ = mocks.sd_module()
+    body, keys = loc(body), [loc(k) for k in keys]
+    check(ov(body, test) + sum(ov(k, test) for k in keys) < 0.01, "Stream Deck fit test vs module body and 15 keys")
+    # key windows: same outline as the real top inside the test's footprint, so the same margins around each key
+    w = g.KB_TOP_T / 2
+    t_sec, r_sec = section(test, w), section(top, w)
+    foot = shapely.geometry.Polygon(max(t_sec.geoms, key=lambda q: q.area).exterior) if hasattr(t_sec, "geoms") \
+        else shapely.geometry.Polygon(t_sec.exterior)
+    diff = t_sec.symmetric_difference(r_sec.intersection(foot)).area
+    k_secs = [section(k, w) for k in keys]
+    m_test = [ks.distance(t_sec) for ks in k_secs]
+    m_real = [ks.distance(r_sec) for ks in k_secs]
+    check(diff < 0.5 and max(abs(a - b) for a, b in zip(m_test, m_real)) < 0.01 and min(m_test) > 0.2,
+          "fit test: the 15 key windows are the real keyboard top's, with the same margins around the keys",
+          f"{len(g.kb_key_windows())} windows, outline difference {diff:.2f} mm2, key margin {min(m_test):.3f} mm "
+          f"(real top {min(m_real):.3f} mm, KEY_CUT {g.KEY_CUT} mm), keys stick out {max(k.bounds[1][2] for k in keys) - g.KB_TOP_T:.1f} mm")
+    # module pocket: same side clearance as the base, rim down to the base's ledge
+    wm = -g.MOD_T / 2
+    b_sec, bt_sec = section(body, wm), section(test, wm)
+    c_test, c_base = b_sec.distance(bt_sec), b_sec.distance(section(base, wm))
+    u0, u1, v0, v1 = g.mod_pocket()
+    vm = (v0 + v1) / 2
+    ledge = g.slab(u0 + 0.5, u0 + g.MOD_LEDGE - 0.5, vm - 5, vm + 5, -g.MOD_DEPTH - 0.5, -g.MOD_DEPTH - 0.1)
+    above = g.slab(u0 + 0.5, u0 + g.MOD_LEDGE - 0.5, vm - 5, vm + 5, -g.MOD_DEPTH + 0.1, -g.MOD_DEPTH + 0.5)
+    ledge_ok = ov(ledge, base) / ledge.volume > 0.95 and ov(above, base) < 0.01
+    check(abs(c_test - c_base) < 0.01 and abs(test.bounds[0][2] + g.MOD_DEPTH) < 0.01 and ledge_ok,
+          "fit test: module pocket like the base's, rim down to the ledge",
+          f"side clearance {c_test:.2f} mm (base {c_base:.2f} mm, MOD_CLR), rim {g.MOD_DEPTH:.1f} mm deep (MOD_DEPTH): "
+          f"the module's back sits {g.MOD_DEPTH - g.MOD_T:.1f} mm inside its edge, the foam's room")
+    m = prn["StreamDeckFitTest"]
+    grams, mins = g.filament_g(m), print_minutes(m)
+    check(grams < 25.0 and mins < 60.0 and m.extents[2] < 15.0, "fit test is a quick print",
+          f"{m.extents[0]:.1f} x {m.extents[1]:.1f} x {m.extents[2]:.1f} mm, ~{grams:.0f} g, about {mins:.0f} min on the P2S")
 
 
 def run(v2):
@@ -120,6 +175,7 @@ def run(v2):
     check(sum(ov(k, base) + ov(k, top) for k in keys) < 0.01, "15 keys vs keyboard base / top")
     check(ov(conn, base) + ov(plug, base) < 0.01, "module USB-C connector + 90 deg plug vs keyboard base")
     check(plug.bounds[0][2] > 0.5, "90 deg plug stays above the desk", f"lowest point {plug.bounds[0][2]:.1f} mm")
+    sd_fit_test(asm, prn)
     deck_body, deck_plug, _ = mocks.deck()
     tray = g.build_tray()
     check(ov(deck_body, tray) + ov(deck_plug, tray) < 0.01, "option tray vs whole Stream Deck + 90 deg plug")

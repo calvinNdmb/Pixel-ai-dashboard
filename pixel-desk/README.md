@@ -23,6 +23,7 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 | Fichier | Taille (mm) | Sens d'impression | Filament |
 | --- | --- | --- | --- |
 | `ScreenFitTest.stl` | 200 × 118 × 6 | **à imprimer en premier** (voir plus bas) | 31 g |
+| `StreamDeckFitTest.stl` | 112 × 75 × 11 | test des touches du Stream Deck, à plat, environ 35 min. **Avant le clavier** (voir plus bas) | 19 g |
 | `PixelScreenPowerAdapter.stl` | 65 × 65 × 4 | « faux Pi », à plat. **À imprimer en premier aussi** | 10 g |
 | `PixelMonitorFront.stl` | 205 × 139 × 22 | face avant sur le plateau | 101 g |
 | `PixelMonitorBack.stl` | 201 × 135 × 128 | dos sur le plateau | 310 g |
@@ -35,7 +36,7 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 
 - **Imprimante :** tout tient sur une Bambu Lab P2S (256 × 256 × 256 mm), une grosse pièce par plateau. La plus haute est l'arrière du moniteur : 128 mm. Ses 4 tiges sont hautes : si elles bougent pendant l'impression, ralentis les parois extérieures.
 - **Réglages :** buse 0,4 mm, couches de 0,2 mm, 3 parois, 15 % de remplissage. Supports désactivés.
-- **Filament :** environ **920 g** de beige (estimation : 3 parois de 0,42 mm sur toute la surface, 15 % de remplissage dedans). Prévois plus d'une bobine de 1 kg.
+- **Filament :** environ **940 g** de beige (estimation : 3 parois de 0,42 mm sur toute la surface, 15 % de remplissage dedans). Prévois plus d'une bobine de 1 kg.
 - **Surplombs :** il ne reste que des petits ponts (fentes d'aération, tunnels de câbles). Le plus long fait 14 mm : ça s'imprime sans support.
 - **Détails gravés :** les lecteurs CD et disquette, le bouton d'allumage, le Turbo, les voyants, les boutons du moniteur et les badges « PIXEL ». Tu peux colorier les voyants au feutre si tu veux.
 
@@ -56,10 +57,28 @@ C'est la pièce la plus importante de la v1. Teste-la dès que l'écran arrive, 
 2. Branche les 2 fils sur le Pi, et l'écran au Pi avec une des nappes livrées par Freenove.
 3. Allume le Pi : si l'écran s'allume, c'est gagné.
 
+### Avant le clavier : le test du Stream Deck
+
+`StreamDeckFitTest.stl`, c'est le vrai dessus du clavier, coupé autour des touches. Mêmes 15 fenêtres, même pas, mêmes découpes. Dessous, un bord de 9,3 mm : c'est le logement du module dans le socle, avec le même jeu. Ça s'imprime à plat, sans support, en 35 min environ (19 g).
+
+![Le test du Stream Deck](preview-sdtest.png)
+
+1. Imprime `StreamDeckFitTest.stl`. Le texte « SD TEST » est côté haut du module (là où il y a le plus de marge au-dessus des touches).
+2. Pose le module à plat, touches vers le haut. Pose le test dessus et appuie doucement.
+3. Les 15 touches doivent passer sans frotter et dépasser d'environ 1 mm. Appuie sur chaque touche : elle doit cliquer et remonter toute seule.
+4. Le module doit entrer dans le bord sans forcer, sans jouer de plus d'un demi-millimètre. Retourne le tout : le dos du module doit arriver juste sous le bord (0,3 mm, la place de la mousse).
+
+Si ça frotte, change les cotes en haut de `generate.py`, puis relance `python3 generate.py` et `python3 tools/verify.py`. Le test, le dessus et le socle suivent ensemble :
+- **une touche frotte d'un côté, toutes les touches du même côté :** la grille est décalée. Change `MOD_KEY_X` (gauche-droite) ou `MOD_KEY_Y` (haut-bas) ;
+- **ça frotte de plus en plus vers un bout :** c'est le pas. Change le `19.26` de `MOD_KEY_X` (ou l'écart de `MOD_KEY_Y`) ;
+- **toutes les touches frottent un peu :** agrandis les fenêtres avec `KEY_CUT` (17), ou arrondis plus leurs coins avec `KEY_R` (3,5) ;
+- **le module n'entre pas, ou il flotte :** mesure-le → `MOD_W`, `MOD_H` (107 et 70). Le jeu tout autour, c'est `MOD_CLR` (0,25) ;
+- **le dos du module dépasse du bord, ou reste loin dedans :** son épaisseur → `MOD_T` (9). La profondeur du logement suit (`MOD_DEPTH`).
+
 ### Tôt : le dessus du clavier
 
 Les cotes du module du Stream Deck viennent du plan publié par le projet [Stream Deck Module](https://github.com/stagehacks/Stream-Deck-Module) : 107 × 70 × 9 mm, touches espacées de 19,26 mm, découpes de 17 mm.
-1. Imprime `PixelKeyboardTop.stl` (environ 25 g) et pose-le sur le module.
+1. Quand le test du Stream Deck passe, imprime `PixelKeyboardTop.stl` (environ 25 g) et pose-le sur le module.
 2. Les 15 touches doivent passer sans frotter et dépasser d'environ 1 mm.
 
 ## Matériel (v1)
@@ -172,6 +191,7 @@ Si une vérification échoue, la ligne dit ce qui touche quoi. Le moniteur suit 
 - **Le faux Pi :** trous à 58 × 49 mm, comme le Pi 4. La barrette est placée d'après le plan officiel du Raspberry Pi 4 (datasheets.raspberrypi.com) : broche 1 à 8,37 mm du bord côté carte SD. Les bouts courts dépassent de 1,6 mm et arrivent sur les ressorts des broches 4 et 6.
 - **Les 4 tiges :** elles appuient sur le métal, à travers 1 mm de mousse, à 4,8 mm de son bord. Elles restent à 10,9 mm des pattes M3 et de la nappe, et à 32,8 mm du faux Pi.
 - **La fenêtre :** elle montre toute l'image, avec 2,9 mm de marge sur les côtés et 4 mm en haut et en bas. Le cadre tient la vitre par son bord noir (17 mm sur les côtés, 9 mm en haut et en bas).
+- **Le test du Stream Deck :** mêmes 15 fenêtres que le vrai dessus (0,375 mm de jeu autour de chaque touche), même jeu de 0,25 mm autour du module que le socle, bord à la hauteur du rebord. Moins de 25 g, moins d'une heure.
 - **Le trou du pied** (20 × 11 mm) laisse passer la nappe de 16 mm et les 2 prises Dupont, à travers le moniteur, le pied et le boîtier.
 - **Les longueurs :** la nappe fait environ 250 mm de chemin, donc 300 mm suffisent. Les fils font environ 170 mm de chemin.
 - **L'impression :** chaque pièce tient sur la P2S. Chaque fichier est un seul objet fermé, propre. Aucun surplomb n'a besoin de support. Aucune paroi ni aucun fond ne fait moins de 1,2 mm. Les seules exceptions : de fines arêtes au bord de parties épaisses (entre deux gravures, ou là où deux formes se rejoignent), sans importance, et la barre translucide de la v2, fine exprès.
@@ -241,7 +261,7 @@ python3 tools/render.py        # refait les images du README (environ 30 s)
 ```
 
 Dans `tools/` :
-- `verify.py` : collisions, écran, nappe, impression, filament, stabilité ;
+- `verify.py` : collisions, écran, nappe, test du Stream Deck, impression, filament, stabilité ;
 - `mocks.py` : les pièces achetées, en volumes simples (écran, Pi, Stream Deck…) ;
 - `checks.py` : les tests d'impression (surplombs, parois fines, maillage) ;
 - `render.py` et `scenelib.py` : les images ; `ui/` : les captures de l'appli affichées sur l'écran.
