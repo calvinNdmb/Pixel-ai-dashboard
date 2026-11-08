@@ -4,7 +4,9 @@
 // - taps: calm, then annoyed, angry, sulking (taps keep him sulking), forgiving; petting calms him; zones of the face;
 // - coming back: "te revoilà", "tu m'as manqué", "bonjour" / "bonsoir" by the hour, waking from his nap;
 // - alone: moments of life only when nothing else needs his face, never the same twice in a row, rain only when it rains,
-//   quiet ones at night; the lights going off and on; a scene asked by the server; the frame rate while he moves.
+//   quiet ones at night; the lights going off and on; a scene asked by the server; the frame rate while he moves;
+// - the agenda (10 min before, then after), the Pi too hot, the Wi-Fi gone and back; Christmas (the snow in December only,
+//   the countdown, the hat in every theme, the greetings once a day), New Year; his voice (son.js, with a fake WebAudio).
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const WEB = path.join(__dirname, '..', 'web');
 let fails = 0;
@@ -27,6 +29,8 @@ const sb = {
   addEventListener() {}, devicePixelRatio: 1, DOMMatrix: function () {}, console, Math: Object.create(Math, { random: { value: random } }),
   Date: FDate, Uint8Array, Uint8ClampedArray, Object, JSON, Number, String, Array, Set, Map,
 };
+const sounds = [];                                  // his voice (son.js), as screens.js calls it
+sb.PixelSon = { on: true, volume: 0.6, scene: id => sounds.push('scene:' + id), say: t => sounds.push('say:' + t), play: n => sounds.push('play:' + n), setVolume() {} };
 sb.window = sb; vm.createContext(sb);
 for (const f of ['pack52/pixel52.js', 'pack52/pixel52-themes.js', 'themes.js', 'persona.js', 'screens.js']) vm.runInContext(fs.readFileSync(path.join(WEB, f), 'utf8'), sb, { filename: f });
 const Screens = vm.runInContext('Screens', sb), L = Screens.local, PER = Screens.persona;
@@ -165,6 +169,88 @@ check('a scene asked by the server ("fais la toupie") plays on the face', cur() 
 run(300); check('while he moves the screen draws at 60 frames a second', L.fpsWant === 60, L.fpsWant);
 PER.stop(); L.lastInput = clock - 10000; L.inputAt = -1e9; tick(16); run(300); const calm = L.fpsWant;
 check('when he is still again the frame rate goes back down', calm < 60, calm);
+
+// ---- the agenda ----
+const ev = (s, e, title) => ({ day: 0, start: s, end: e, title, allday: false, cal: 'x', color: '#fff' });
+at('2026-11-08T13:50:10'); fresh(); set({ agenda: { status: 'ok', events: [ev(14, 15, 'Réunion d’équipe')] } }); tick(16); tick(16);
+const rdv = cur(); run(1200); const rdv1 = PER.state.say; run(2400); const rdv2 = PER.state.say;
+check('10 min before a meeting he taps his watch: "Hé ! Dans 10 min…", "…Réunion d’équipe !"', rdv === 'rdv' && rdv1 === 'Hé ! Dans 10 min…' && rdv2 === '…Réunion d’équipe !', `${rdv} ${rdv1} ${rdv2}`);
+PER.stop(); run(2000);
+check('…only once for that meeting', cur() !== 'rdv', cur());
+at('2026-11-08T15:05:00'); fresh(); run(200);                 // no new state: the still screen draws only every ~50 ms
+check('a few minutes after it, he asks how it went', cur() === 'rdv-fin', cur());
+set({ agenda: { status: 'ok', events: [] } }); at('2026-11-08T14:20:00');   // not on the hour: no cuckoo
+
+// ---- the Pi: too hot, the Wi-Fi ----
+fresh(); set({ sys: { ...S.sys, temp: 72 } }); tick(16); tick(16);
+const hot = cur(); run(1500); const hotSaid = PER.state.say;
+check('the Pi at 72 °C: "Pfiou, 72 °C… j’ai chaud !"', hot === 'chaud' && hotSaid === 'Pfiou, 72 °C… j’ai chaud !', `${hot} ${hotSaid}`);
+PER.stop(); run(2000);
+check('…not again a moment later', cur() !== 'chaud', cur());
+set({ sys: { ...S.sys, temp: 60 } }); tick(16); set({ sys: { ...S.sys, temp: 71 } }); tick(16); tick(16);
+check('…but again once the Pi has cooled down and heats up again', cur() === 'chaud', cur());
+PER.stop(); set({ sys: { ...S.sys, temp: 50 } });
+fresh(); set({ sys: { ...S.sys, wifi: null } }); tick(16); tick(16); set({ sys: { ...S.sys, wifi: -55 } }); tick(16); tick(16);
+check('the Wi-Fi seen for the first time: nothing to say', !cur(), cur());
+set({ sys: { ...S.sys, wifi: null } }); tick(16); tick(16); const lost = cur(); run(6000);
+set({ sys: { ...S.sys, wifi: -52 } }); tick(16); tick(16);
+check('the Wi-Fi drops: "le Wi-Fi est parti !"; it comes back: "il est revenu !"', lost === 'wifi' && cur() === 'wifi-ok', `${lost} ${cur()}`);
+{ const { wifi, ...sys0 } = S.sys; set({ sys: sys0 }); } PER.stop();
+
+// ---- Christmas, New Year ----
+const dec = life({ at: '2026-12-10T15:10:00' }, 30);
+check('in December he can watch the snow fall', dec.includes('neige'), dec.join());
+check('no snow in November', !day.includes('neige'), day.join());
+at('2026-12-08T10:00:00'); fresh(); PER.play('neige'); run(3200);
+check('"Plus que 17 dodos avant Noël !" on 8 December', PER.state.say === 'Plus que 17 dodos avant Noël !', PER.state.say);
+PER.stop(); at('2026-12-10T15:00:00'); fresh();
+check('his Santa hat all December', PER.state.hat === true);
+errs = [];
+for (const th of themes) for (const face of ['pack', 'vivant']) { set({ view: { ...S.view, theme: th, face } }); run(300, 100); PER.play('neige'); run(600, 100); PER.stop(); }
+check('the hat and the snow draw in every theme, with both faces', errs.length === 0, errs.slice(0, 2).join(' | '));
+set({ view: { ...S.view, theme: 'retro', face: 'pack' } }); at('2026-11-08T14:20:00'); tick(16);
+check('…and no hat in November', PER.state.hat === false);
+fresh(); at('2026-12-25T09:00:00'); PER.away(9 * 3600e3); Screens.input(); tick(16); const x1 = cur(); run(6000);
+at('2026-12-25T11:00:00'); PER.away(40 * 60e3); Screens.input(); tick(16); const x2 = cur();
+check('back on Christmas morning: "Joyeux Noël !", only for the first hello of the day', x1 === 'joyeux-noel' && x2 === 'retour', `${x1} ${x2}`);
+check('back on New Year’s Day: "Bonne année !"', back2('2027-01-01T10:00:00', 10 * 3600e3) === 'bonne-annee');
+at('2026-11-08T14:20:00');
+
+// ---- the little Pixel of the Minuteur screen ----
+errs = []; L.scr = 'minuteur'; const acts = new Set(), xs = new Set();
+for (const th of themes) { set({ view: { ...S.view, theme: th } }); for (let i = 0; i < 50; i++) { run(500, 100); acts.add(Screens.buddy.act); xs.add(Math.round(Screens.buddy.x)); } }
+check(`Minuteur: the little Pixel draws in every theme and lives his life (${[...acts].join(', ')})`, errs.length === 0 && acts.has('walk') && acts.has('idle') && xs.size > 5, errs.slice(0, 2).join(' | '));
+set({ view: { ...S.view, theme: 'retro' } });
+for (let i = 0; i < 200 && (Screens.buddy.act === 'away' || Screens.buddy.x > 755); i++) run(100, 100);   // wait until he is in view
+const bx = Screens.buddy.x; run(100, 100); Screens.hit(Screens.buddy.x, 440); run(100, 100);
+check('touch him: he jumps, surprised', Screens.buddy.act === 'surpris', `${bx} ${Screens.buddy.act}`);
+set({ timer: { ...S.timer, running: false, left: 0, ends_at: 0 } }); run(300, 100);
+check('time is up: he jumps for joy', Screens.buddy.act === 'cheer', Screens.buddy.act);
+set({ timer: snap().timer }); L.scr = 'visage'; run(200, 100);
+
+// ---- his voice (son.js) ----
+check('screens.js gives his voice the scenes and the lines he says', sounds.includes('scene:joyeux-noel') && sounds.includes('scene:rdv') && sounds.some(s => s.startsWith('say:Hé ! Dans')), sounds.slice(-3).join());
+const made = [], param = () => ({ value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} });
+class FakeAC {
+  constructor() { this.state = 'running'; this.currentTime = 0; this.sampleRate = 8000; this.destination = {}; }
+  createGain() { return { gain: param(), connect: x => x }; }
+  createOscillator() { const o = { type: '', frequency: param(), connect: x => x, start() { made.push(o.type); }, stop() {} }; return o; }
+  createBuffer(c, len) { return { getChannelData: () => new Float32Array(len) }; }
+  createBufferSource() { return { connect: x => x, start() { made.push('noise'); } }; }
+}
+const sv = { location: { search: '?kiosk=1' }, AudioContext: FakeAC, addEventListener() {}, localStorage: { getItem: () => null, setItem() {} }, Math, Float32Array, Object, String, Number, Array };
+sv.window = sv; vm.createContext(sv); vm.runInContext(fs.readFileSync(path.join(WEB, 'son.js'), 'utf8'), sv, { filename: 'son.js' });
+const Son = vm.runInContext('PixelSon', sv);
+made.length = 0; Son.scene('neige'); const bells = made.length;
+const mute = ['coucou', 'chatouilles', 'colere', 'boude', 'caresse', 'poisson', 'atchoum', 'heure', 'rdv', 'chaud', 'wifi', 'joyeux-noel'].filter(id => { made.length = 0; Son.scene(id); return !made.length; });
+made.length = 0; Son.say('Coucou, ça va ?'); const babble = made.length;
+Son.setVolume(0); made.length = 0; Son.scene('poisson'); const off = made.length;
+check(`his voice: Jingle Bells for the snow (${bells} notes), a sound for each kind of scene, a babble when he speaks, silence at 0 %`,
+  bells === 11 && mute.length === 0 && babble >= 2 && off === 0, `${bells} [${mute}] ${babble} ${off}`);
+const sp = { location: { search: '' }, AudioContext: FakeAC, addEventListener() {}, localStorage: { getItem: () => null, setItem() {} }, Math, Float32Array, Object, String, Number, Array };
+sp.window = sp; vm.createContext(sp); vm.runInContext(fs.readFileSync(path.join(WEB, 'son.js'), 'utf8'), sp, { filename: 'son.js' });
+made.length = 0; vm.runInContext('PixelSon', sp).scene('poisson');
+check('no sound on a phone (only the Pi’s own screen plays it)', made.length === 0 && !vm.runInContext('PixelSon', sp).on);
 
 console.log(`\n${fails} failure(s)`);
 process.exit(fails ? 1 : 0);

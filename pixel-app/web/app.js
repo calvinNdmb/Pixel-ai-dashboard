@@ -11,6 +11,9 @@ const L = Screens.local; L.kiosk = kiosk;
 let P = null, ws = null, retry = 500, opened = false, follow = store.get('pixel_follow') !== '0', oskLocal = false;
 const NAV = ['visage', 'lumieres', 'claude', 'codex', 'meteo', 'minuteur', 'agenda', 'systeme', 'reglages', 'veille'];
 
+/* inside the Pixel phone app (pixel-mobile, a WebView): a word to the app */
+const toApp = m => { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(m)); };
+
 /* ---------- connection ---------- */
 function connect() {
   ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws${token ? '?t=' + encodeURIComponent(token) : ''}`);
@@ -18,7 +21,7 @@ function connect() {
   ws.onmessage = e => { const m = JSON.parse(e.data); if (m.type !== 'state') return; P = m.data; Screens.setState(P); if (kiosk || follow) L.scr = P.screen; render(); };
   ws.onclose = () => {
     $('conn').textContent = 'déconnecté'; $('conn').classList.remove('ok');
-    if (!opened && !kiosk) L.error = "Pas d'accès : scanne le QR code dans Réglages, sur l'écran de Pixel.";
+    if (!opened && !kiosk) { L.error = "Pas d'accès : scanne le QR code dans Réglages, sur l'écran de Pixel."; toApp({ access: false }); }
     setTimeout(connect, retry = Math.min(retry * 2, 8000));
   };
 }
@@ -46,6 +49,23 @@ function press(i) {
   if (k.action === 'view.toggle' && k.args.key === 'osk') { $('cmd').focus(); return; }
   if (k.action === 'screen.show') return show(k.args.screen);
   send(k.action, k.args);
+}
+/* ---------- modes (phone / computer): Pixel (his screen), Clavier (the keys and the command bar), Les deux ---------- */
+const MODES = ['pixel', 'clavier', 'both'];
+function setMode(m) {
+  store.set('pixel_mode', m); document.body.dataset.mode = m;
+  if (m === 'clavier') $('keys').before($('cmdForm')); else document.querySelector('.recess').after($('cmdForm'));   // the command bar goes with the keys
+  document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  dispatchEvent(new Event('resize'));                 // his screen takes its new size
+  toApp({ mode: m });                                 // the phone app keeps the screen on in Pixel mode
+  render();
+}
+if (!kiosk) {
+  document.querySelectorAll('#modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  setMode(MODES.includes(qs.get('mode')) ? qs.get('mode') : MODES.includes(store.get('pixel_mode')) ? store.get('pixel_mode') : 'both');   // ?mode=: the app's shortcuts
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});   // so that it installs as an app (on a secure address)
+  if (/Android/i.test(navigator.userAgent) && !window.ReactNativeWebView)                       // in Chrome on Android: the link to the real app, if Pixel has it
+    fetch('/pixel.apk', { method: 'HEAD' }).then(r => { if (r.ok) $('apk').hidden = false; }, () => {});
 }
 const setT = (el, t) => { if (el.textContent !== t) el.textContent = t; };
 function render() {
@@ -98,10 +118,17 @@ cv.addEventListener('pointermove', e => { L.ptr = Screens.toCanvas(e); if (e.poi
 cv.addEventListener('pointerleave', () => { L.ptr = null; });
 cv.addEventListener('pointerdown', e => { down = { ...Screens.toCanvas(e), t: performance.now() }; });
 cv.addEventListener('pointerup', e => {
-  if (!down) return; const p = Screens.toCanvas(e), dx = p.x - down.x, dy = p.y - down.y; down = null;
+  if (!down) return; const p = Screens.toCanvas(e), dx = p.x - down.x, dy = p.y - down.y, down0y = down.y; down = null;
   if (Screens.input()) return;
-  // a swipe changes screen (not while petting Pixel)
-  if (!L.petted && Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy)) { const i = NAV.indexOf(L.scr); show(NAV[(i + (dx < 0 ? 1 : NAV.length - 1)) % NAV.length]); return; }
+  // swipe down opens the quick menu (from the top edge even while petting Pixel), swipe up closes it
+  const vertical = Math.abs(dy) > 90 && Math.abs(dy) > 1.5 * Math.abs(dx), across = Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy);
+  if (Screens.menuOpen) { if ((vertical && dy < 0) || (across && dx > 0)) Screens.menu(false); else if (!vertical && Math.abs(dx) < 20 && Math.abs(dy) < 20) Screens.hit(p.x, p.y); return; }
+  if (vertical && dy > 0 && (!L.petted || down0y < 120)) { L.petted = false; Screens.menu(true); return; }
+  // a swipe changes screen (not while petting Pixel); on the Pi's screen, a swipe left on his face shows the QR code to install the app
+  if (!L.petted && across) {
+    if (kiosk && L.scr === 'visage' && dx < 0) { Screens.menu(true, 'phone'); return; }
+    const i = NAV.indexOf(L.scr); show(NAV[(i + (dx < 0 ? 1 : NAV.length - 1)) % NAV.length]); return;
+  }
   Screens.hit(p.x, p.y);
 });
 

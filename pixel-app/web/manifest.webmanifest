@@ -1,2 +1,8 @@
-{"name":"Pixel","short_name":"Pixel","start_url":"/","display":"standalone","background_color":"#141713","theme_color":"#d9d2bd",
- "icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml"},{"src":"icon-180.png","sizes":"180x180","type":"image/png"}]}
+{"id":"/","name":"Pixel","short_name":"Pixel","description":"Ton compagnon de bureau : son écran, ses touches et sa barre de commande.",
+ "start_url":"/","scope":"/","display":"standalone","orientation":"any","background_color":"#141713","theme_color":"#d9d2bd",
+ "icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png"},
+          {"src":"icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"},{"src":"icon.svg","sizes":"any","type":"image/svg+xml"},
+          {"src":"icon-180.png","sizes":"180x180","type":"image/png"}],
+ "shortcuts":[{"name":"Pixel","short_name":"Pixel","description":"Son écran, en grand","url":"/?mode=pixel","icons":[{"src":"icon-192.png","sizes":"192x192"}]},
+              {"name":"Clavier","short_name":"Clavier","description":"Ses touches et la barre de commande","url":"/?mode=clavier","icons":[{"src":"icon-192.png","sizes":"192x192"}]},
+              {"name":"Les deux","short_name":"Les deux","url":"/?mode=both","icons":[{"src":"icon-192.png","sizes":"192x192"}]}]}

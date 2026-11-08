@@ -16,6 +16,9 @@ ics = []
 [claude]
 model = "claude-opus-5-5"
 effort = "low"              # low = réponses rapides ; medium ou high pour qu'il réfléchisse plus
+# Avec ton abonnement Claude au lieu d'une clé API (CLAUDE_CODE_OAUTH_TOKEN dans /etc/pixel.env, voir le README) :
+# backend = "abonnement"    # ou "api". Sans cette ligne : l'abonnement s'il y a un jeton et pas de clé API.
+# abonnement_model = "claude-sonnet-5-5"   # plus léger qu'Opus : ton quota dure plus longtemps
 
 [codex]
 # La tâche tapée est ajoutée à la fin de la commande.

@@ -37,6 +37,8 @@ SCENES = [
     ("bonjour", "Bonjour", "retour"),
     ("bonsoir", "Bonsoir", "retour"),
     ("reveille", "Je dormais pas", "retour"),
+    ("joyeux-noel", "Joyeux Noël", "retour"),
+    ("bonne-annee", "Bonne année", "retour"),
     ("poisson", "Le poisson", "vie"),
     ("balade", "La balade", "vie"),
     ("cache", "Coucou caché", "vie"),
@@ -60,9 +62,15 @@ SCENES = [
     ("soleil", "Bronzette", "vie"),
     ("faim", "La faim", "vie"),
     ("nuit", "Bâillements de nuit", "vie"),
+    ("neige", "La neige", "vie"),
     ("noir", "Dans le noir", "evt"),
     ("lumiere", "La lumière revient", "evt"),
     ("heure", "Le coucou de l’heure", "evt"),
+    ("rdv", "Le rendez-vous", "evt"),
+    ("rdv-fin", "Ça s’est bien passé ?", "evt"),
+    ("chaud", "Il a chaud", "evt"),
+    ("wifi", "Plus de Wi-Fi", "evt"),
+    ("wifi-ok", "Le Wi-Fi revient", "evt"),
 ]
 BY_ID = {i: (label, group) for i, label, group in SCENES}
 IDS = [i for i, _, _ in SCENES]

@@ -7,6 +7,7 @@ import re
 
 from .commands import norm
 from . import anims, scenes
+from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
 
 log = logging.getLogger("pixel.claude")
@@ -96,14 +97,21 @@ class Claude:
         self.model = cfg.get("model", "claude-opus-5-5")
         self.effort = cfg.get("effort", "low")
         self.history, self.busy, self.client, self.end_mood = [], False, None, "content"
-        if not hub.demo:
+        self.sub, demo_why = None, "démo (pas de clé API)"   # sub: Claude through the owner's Claude subscription (abonnement.py)
+        if not hub.demo and wanted(cfg):
+            try:
+                self.sub = Abonnement(self, cfg)
+            except ImportError as e:        # the Agent SDK is missing: install.sh adds it once the token is in /etc/pixel.env
+                log.warning("Claude subscription unavailable: %s", e)
+                demo_why = "démo (relance deploy/install.sh)"
+        elif not hub.demo:
             try:
                 import anthropic
                 self.anthropic = anthropic
                 self.client = anthropic.AsyncAnthropic()
             except Exception as e:          # no credentials, or the package is missing
                 log.warning("Claude unavailable: %s", e)
-        self.C["status"] = "prêt" if self.client else "démo (pas de clé API)"
+        self.C["status"] = "prêt (abonnement Claude)" if self.sub else "prêt" if self.client else demo_why
 
         @hub.action("chat.send")
         async def send(text):
@@ -118,6 +126,8 @@ class Claude:
         async def clear():
             if not self.busy:
                 self.history, self.C["messages"] = [], []
+                if self.sub:
+                    await self.sub.reset()                 # Claude forgets too
 
     # ---- tools ----
     def status(self):
@@ -183,7 +193,7 @@ class Claude:
         self.end_mood = "content"
         self.hub.mood("reflechit", 60000)
         try:
-            await (self._real(text) if self.client else self._demo(text))
+            await (self.sub.ask(text) if self.sub else self._real(text) if self.client else self._demo(text))
         finally:
             self.busy = False
             self.C["phase"] = "idle"

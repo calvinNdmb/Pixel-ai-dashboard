@@ -1,10 +1,14 @@
 """Raspberry Pi health: temperature, CPU, memory, Wi-Fi, uptime, screen brightness."""
+import asyncio
 import glob
+import logging
 import socket
 import time
 from pathlib import Path
 
 import psutil
+
+log = logging.getLogger("pixel")
 
 
 def read(path, default=None):
@@ -57,6 +61,23 @@ class System:
         @hub.action("sys.boot")
         async def boot():
             hub.s["boot_at"] = time.time() * 1000
+
+        @hub.action("sys.power")
+        async def power(what="poweroff"):
+            """Powers the Pi off or restarts it (quick menu). Needs the sudoers rule that install.sh adds; not in --demo."""
+            if what not in ("poweroff", "reboot"):
+                return
+            hub.toast("EXTINCTION… À BIENTÔT" if what == "poweroff" else "REDÉMARRAGE…", 6000)
+            if hub.demo:
+                return
+            hub.mark()
+            await asyncio.sleep(1.5)                # the screens get the toast first
+            proc = await asyncio.create_subprocess_exec("sudo", "-n", "/usr/bin/systemctl", what,
+                                                        stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
+            _, err = await proc.communicate()
+            if proc.returncode:
+                log.warning("sys.power %s failed: %s", what, err.decode(errors="replace").strip())
+                hub.toast("IMPOSSIBLE : " + ("ÉTEINDRE" if what == "poweroff" else "REDÉMARRER") + " (relance sh deploy/install.sh)", 8000)
 
     def _write_backlight(self, v):
         if not self.backlight:

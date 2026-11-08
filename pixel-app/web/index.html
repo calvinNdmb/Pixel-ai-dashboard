@@ -15,6 +15,9 @@
 </head>
 <body>
 <main class="device">
+  <nav class="modes" id="modes" aria-label="Ce que l'appli montre">
+    <button type="button" data-mode="pixel">Pixel</button><button type="button" data-mode="clavier">Clavier</button><button type="button" data-mode="both">Les deux</button>
+  </nav>
   <div class="monitor">
     <div class="recess"><div class="screen" id="screen">
       <canvas id="crt" width="1600" height="960" aria-label="Écran de Pixel"></canvas>
@@ -29,7 +32,7 @@
   <div class="kb">
     <div class="keys" id="keys"></div>
     <div class="kfoot">
-      <span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="follow" id="follow" aria-pressed="true">Miroir de Pixel</button><a class="follow" href="app/reglages.html" style="text-decoration:none">Agendas</a></span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="follow" id="follow" aria-pressed="true">Miroir de Pixel</button><a class="follow" href="app/reglages.html" style="text-decoration:none">Agendas</a><a class="follow" id="apk" href="/pixel.apk" style="text-decoration:none" hidden>Appli Android</a></span>
       <span class="hint">Tape <b>aide</b> pour la liste des commandes</span>
     </div>
   </div>
@@ -38,6 +41,7 @@
 <script src="app/pack52/pixel52-themes.js"></script>
 <script src="app/themes.js"></script>
 <script src="app/persona.js"></script>
+<script src="app/son.js"></script>
 <script src="app/screens.js"></script>
 <script src="app/app.js"></script>
 </body>

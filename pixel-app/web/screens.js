@@ -45,7 +45,9 @@ const THEMES = PixelThemes({ X, RM, get now() { return now; }, get S() { return 
   blinkP: () => (now - L.blink.t) / 180, txt, wrap, fit });
 const IDS = Object.keys(THEMES);
 /* Pixel's personality (persona.js): reactions to touch, moods that last, moments of life when nobody looks */
-const PER = window.PixelPersona ? window.PixelPersona({ X, rnd, rm: RM, now: () => now, theme: () => T, txt, fit, wrap }) : null;
+const SON = () => window.PixelSon;                    // his voice (son.js), on the Pi's own screen only
+const PER = window.PixelPersona ? window.PixelPersona({ X, rnd, rm: RM, now: () => now, theme: () => T, txt, fit, wrap,
+  onScene: id => { if (SON()) SON().scene(id); }, onSay: line => { if (SON()) SON().say(line); } }) : null;
 let PV = { id: '', group: '', anim: null, mood: null, m: { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 } };   // what it asks this frame
 const fontsAsked = new Set();
 function loadFonts(t) { for (const f of (t && t.fonts) || []) if (!fontsAsked.has(f)) { fontsAsked.add(f); document.fonts?.load(f).catch(() => {}); } }   // a theme's fonts, once
@@ -136,6 +138,7 @@ function drawVisage() {
     X.globalAlpha = 1 - (1 - (T.sleepA ?? 0.6)) * clamp(nap, 0, 1);
     face(400, 236, 16, a.mood, a.lx, a.ly, a); X.globalAlpha = 1; X.restore();
   }
+  if (PER && PER.decor) { X.shadowBlur = 0; PER.decor(PBOX, pm || PV.m); glow(); }   // what he wears (his Santa hat in December)
   if (PER && PV.id) { X.shadowBlur = 0; PER.drawOver(PBOX, pm || PV.m); glow(); }
   const parts = [], r = P.lights.rooms[0], w = P.weather, e = nextEvent();
   if (r) parts.push(`${r.name} ${r.on ? r.bri + ' %' : 'éteint'}`);
@@ -153,7 +156,7 @@ function drawVisage() {
 }
 /* touch: squash under the finger, petting makes him fall in love (taps are handled by the hit above) */
 let rubAt = null;
-const onFace = p => L.scr === 'visage' && L.boot < 0 && P && Math.abs(p.x - 400) < 330 && p.y > 40 && p.y < 430;
+const onFace = p => L.scr === 'visage' && L.boot < 0 && P && !L.menu &&Math.abs(p.x - 400) < 330 && p.y > 40 && p.y < 430;
 // every new touch clears "petted", so a swipe on another screen still changes screen
 cv.addEventListener('pointerdown', e => { const p = toCanvas(e); L.petted = false; if (onFace(p)) { LIFE.face.press(true); rubAt = p; } });
 cv.addEventListener('pointermove', e => {
@@ -266,6 +269,70 @@ function drawTimer() {
   txt("SÉANCES AUJOURD'HUI", 24, 362, 26, D); for (let i = 0; i < 8; i++) bar(280 + i * 32, 362, 1, i < t.done ? 1 : 0, 24, 24, 0, AM);
   txt('Tape « minuteur 10 » pour 10 minutes', 24, 412, 26, D);
   hit(0, 48, W, 300, () => send('timer.toggle'));
+  buddy(t.running, done);
+}
+/* the little Pixel of the Minuteur screen. His big face is not on this screen, so a small Pixel lives in the free corner,
+   bottom right: he walks about (seen from the side, legs going), stops, blinks, looks at the timer or around, leaves by
+   the edge and comes back, dozes when nothing happens, and jumps for joy when the time is up. Touch him: he jumps.
+   Drawn in whole 5 px pixels with the theme's colours. */
+const BUD = { x: 700, dir: -1, act: 'idle', until: 0, to: 700, back: false, cheered: false, jumpAt: -1e9 };
+function buddy(running, done) {
+  const x0 = 575, x1 = 755, p = 5, step = 46 * fdt / 1000;                    // p: his pixel, in screen pixels
+  if (!done) BUD.cheered = false;
+  if (done && !BUD.cheered && BUD.act !== 'cheer') { BUD.act = 'cheer'; BUD.until = now + 6000; BUD.x = Math.min(BUD.x, x1); }   // time is up!
+  if (BUD.act !== 'walk' && now >= BUD.until) {
+    const r = rnd(), quiet = !running && now - L.lastInput > 90000;
+    if (BUD.act === 'cheer') { BUD.cheered = true; BUD.act = 'idle'; BUD.until = now + 2000; }   // once per alarm
+    else if (BUD.act === 'away') { BUD.act = 'walk'; BUD.to = x1 - 20 - rnd() * 80; }           // back from beyond the edge
+    else if (quiet && r < 0.6) { BUD.act = 'nap'; BUD.until = now + 9000 + rnd() * 9000; }
+    else if (r < 0.42) { BUD.act = 'walk'; BUD.to = x0 + rnd() * (x1 - x0); }
+    else if (r < 0.58) { BUD.act = 'look'; BUD.until = now + 2200 + rnd() * 2000; }             // at the timer
+    else if (r < 0.68) { BUD.act = 'walk'; BUD.to = W + 60; BUD.back = true; }                   // off the screen for a moment
+    else { BUD.act = 'idle'; BUD.until = now + 1800 + rnd() * 3000; }
+  }
+  if (BUD.act === 'walk') {
+    const d = BUD.to - BUD.x; BUD.dir = d < 0 ? -1 : 1;
+    if (Math.abs(d) > step) BUD.x += Math.sign(d) * step;
+    else { BUD.x = BUD.to; BUD.act = BUD.back ? 'away' : 'idle'; BUD.until = now + (BUD.back ? 2000 + rnd() * 2500 : 1200 + rnd() * 2500); BUD.back = false; }
+  }
+  if (BUD.act === 'away') return;                                                                 // behind the edge of the screen
+  const hop = BUD.act === 'cheer' ? Math.abs(Math.sin((now - BUD.until) / 170)) * 22 : now - BUD.jumpAt < 500 ? Math.sin((now - BUD.jumpAt) / 500 * Math.PI) * 26 : 0;
+  const cx = Math.round(BUD.x / p) * p, gy = Math.round((466 - hop) / p) * p;
+  drawBud(cx, gy, p);
+  hit(cx - 9 * p, gy - 17 * p, 18 * p, 17 * p, () => {
+    BUD.jumpAt = now; if (BUD.act !== 'cheer') { BUD.act = 'surpris'; BUD.until = now + 1100; }
+    fast(900); if (SON() && SON().play) SON().play('bip');
+  });
+}
+function drawBud(cx, gy, p) {
+  const a = BUD.act, f = BUD.dir, blink = a !== 'nap' && now % 3700 < 140;
+  const R = (x, y, w, h, c) => { X.fillStyle = c; X.shadowColor = c; X.fillRect(cx + x * p, gy + y * p, w * p, h * p); };   // in his pixels, from his feet
+  const S = (x, y, w, h, c) => R(f > 0 ? x : -x - w, y, w, h, c);                                // drawn facing right, mirrored to the left
+  if (a === 'walk') {                                                                              // three-quarter view, legs going
+    const s = Math.floor(now / 150) % 2;
+    S(s, -3, 1, 3, G); S(3 - s, -3, 1, 3, G); S(-1, -4, 6, 1, D);                                 // legs, stand
+    S(-7, -14, 4, 9, G); S(-6, -13, 3, 7, DK);                                                    // the back of his case, in perspective
+    S(-3, -15, 10, 11, G); S(-2, -14, 8, 9, B); S(-1, -13, 6, 7, DK);                             // his front, his screen
+    if (blink) { S(1, -11, 1, 1, G); S(4, -11, 1, 1, G); } else { S(1, -12, 1, 2, WH); S(4, -12, 1, 2, WH); }
+    S(2, -8, 3, 1, G);
+    return;
+  }
+  R(-3, -3, 1, 3, G); R(2, -3, 1, 3, G); R(-3, -4, 6, 1, D);                                      // legs, stand
+  R(-7, -15, 14, 11, G); R(-6, -14, 12, 9, B); R(-5, -13, 10, 7, DK);                             // his case, his screen
+  if (a === 'nap') {
+    R(-4, -11, 2, 1, G); R(2, -11, 2, 1, G); R(-1, -8, 2, 1, G);
+    for (let i = 0; i < 3; i++) { const q = ((now / 2400) + i / 3) % 1; X.globalAlpha = 1 - q; txt('z', cx + 32 + q * 22, gy - 64 - q * 34, Math.round(18 + q * 10), D); }
+    X.globalAlpha = 1; return;
+  }
+  const [lx, ly] = a === 'look' ? [-1, -1] : a === 'idle' ? [[0, 0], [-1, 0], [0, 0], [1, 0]][Math.floor(now / 1300) % 4] : [0, 0];   // at the timer, or around
+  if (a === 'cheer') { for (const e of [-5, 1]) { R(e, -11, 1, 1, WH); R(e + 1, -12, 2, 1, WH); R(e + 3, -11, 1, 1, WH); } }   // ^ ^
+  else if (a === 'surpris') { R(-4, -13, 2, 3, WH); R(2, -13, 2, 3, WH); }
+  else if (blink) { R(-4, -11, 2, 1, G); R(2, -11, 2, 1, G); }
+  else { R(-4 + lx, -12 + ly, 2, 2, WH); R(2 + lx, -12 + ly, 2, 2, WH); }
+  if (a === 'surpris') R(-1, -9, 2, 2, G);
+  else if (a === 'cheer') { R(-3, -8, 6, 1, G); R(-4, -9, 1, 1, G); R(3, -9, 1, 1, G); }
+  else { R(-2, -8, 4, 1, G); R(-3, -9, 1, 1, G); R(2, -9, 1, 1, G); }
+  if (a === 'cheer') for (let i = 0; i < 3; i++) { const an = now / 600 + i * 2.1; T.star(cx + Math.cos(an) * 46, gy - 40 + Math.sin(an) * 22, 3, false); }
 }
 
 /* ---------- Agenda ---------- */
@@ -391,6 +458,69 @@ function drawBanner() {
   box(50, y, 700, h, AM, B); ls.forEach((l, i) => txt(l, 400, y + 12 + i * lh, fs, AM, 'center'));
 }
 
+/* ---------- quick menu: swipe down to open, swipe up (or touch outside) to close ----------
+   Theme, brightness, restart and power off. Restart and power off need a second touch within 4 s. */
+const MENU = { x: 40, w: 720, h: 460, y: 16 };        // h: with its three rows (theme, brightness, sound)
+function menuBtn(x, y, w, h, label, fn, warn) {
+  const c = warn ? AM : G;
+  box(x, y, w, h, c, null); txt(fit(T.upper ? label.toUpperCase() : label, w - 12, 26), x + w / 2, y + (h - 26) / 2 + 1, 26, c, 'center');
+  hit(x, y, w, h, () => { L.dirty = true; fn(); });
+}
+function drawMenuPhone(x, y, MH) {       // the menu's "Téléphone" page: the QR code of Réglages, bigger, to open the app on a phone
+  const st = P.settings, q = st.qr || [], n = q.length || 21, m = Math.floor(296 / (n + 8)), qs = m * (n + 8), qx = x + 24, qy = y + 68;
+  X.shadowBlur = 0; X.drawImage(qrImage(q, m, qs), qx, qy, qs, qs); glow();
+  const short = u => (u || '').replace(/\?.*$/, ''), tx = qx + qs + 24, tw = x + MENU.w - 24 - tx;
+  const lines = (t, yy, size, c, lh) => { para(t, tx, yy, tw, size, c, lh); return yy + wrap(t, tw, size).length * lh; };
+  const ty = lines("Scanne-le avec l'appareil photo du téléphone, sur le même Wi-Fi que Pixel.", y + 70, 24, D, 28) + 14;
+  txt(fit(short(st.url), tw, 28), tx, ty, 28, WH); txt(fit('ou ' + short(st.ip_url), tw, 24), tx, ty + 36, 24, G);
+  lines("Puis, dans le navigateur : « Ajouter à l'écran d'accueil ».", ty + 82, 24, D, 28);
+  if (L.menu.direct) { X.globalAlpha = 0.8; txt('Glisse vers la droite pour revenir', x + MENU.w / 2, y + MH - 40, 22, D, 'center'); X.globalAlpha = 1; }
+  else menuBtn(x + MENU.w - 224, y + MH - 78, 200, 54, 'Retour', () => { L.menu.view = null; });
+}
+function drawMenu() {
+  // the rows: the theme only when Pixel offers more than one ([ui] themes in config.toml, sent as settings.themes),
+  // the sound only on the screen that plays it (son.js: the Pi's own screen)
+  const on = ((P.settings && P.settings.themes) || IDS).filter(id => THEMES[id]), themes = on.length > 1, son = !!(SON() && SON().on);
+  const sh = 120 - 60 * ((themes ? 1 : 0) + (son ? 1 : 0));    // how much shorter than with the three rows
+  const m = L.menu, phone = m.view === 'phone', MH = phone ? 448 : MENU.h - sh;
+  const e = now - m.t, k = RM ? 1 : clamp(e / 220, 0, 1), q = 1 - (1 - k) ** 3;
+  const y = m.direct ? MENU.y : ease(-MH - 8, MENU.y, q), x = m.direct ? ease(W + 8, MENU.x, q) : MENU.x;   // from the top, or from the right
+  if (k < 1) L.dirty = true;
+  if (m.confirm && now > m.confirm.until) m.confirm = null;
+  X.globalAlpha = 0.55 * k; X.fillStyle = B; X.fillRect(0, 0, W, H); X.globalAlpha = 1;
+  hit(0, 0, W, H, () => { L.menu = null; L.dirty = true; });                 // touching outside the panel closes it
+  hit(x, y, MENU.w, MH, () => {});                                            // the panel itself swallows touches
+  box(x, y, MENU.w, MH, G, B);
+  txt(phone ? 'TÉLÉPHONE' : 'MENU', x + 24, y + 16, 30, WH, 'left', 'title');
+  menuBtn(x + MENU.w - 164, y + 12, 140, 40, 'Fermer', () => { L.menu = null; });
+  if (m.off) {
+    para(m.off === 'poweroff' ? 'Pixel s\'éteint. Attends que la petite lumière verte du Pi s\'arrête avant de le débrancher.' : 'Pixel redémarre…', x + 24, y + 110, MENU.w - 48, 30, AM, 36);
+    return;
+  }
+  if (phone) { drawMenuPhone(x, y, MH); return; }
+  const row = (yy, label, minus, value, plus) => {
+    txt(label, x + 24, yy + 10, 24, D);
+    menuBtn(x + 220, yy, 70, 44, '<', minus);
+    txt(fit(value, 230, 28), x + 220 + 70 + 125, yy + 8, 28, WH, 'center');
+    menuBtn(x + 550, yy, 70, 44, '>', plus);
+  };
+  let yy = y + 70;
+  if (themes) { row(yy, 'THÈME', () => send('theme.step', { d: -1 }), T.name, () => send('theme.step', { d: 1 })); yy += 60; }   // steps through the themes that are on
+  row(yy, 'LUMINOSITÉ', () => send('sys.bright', { d: -0.1 }), Math.round((P.sys.bright || 1) * 100) + ' %', () => send('sys.bright', { d: 0.1 })); yy += 60;
+  if (son) { const v = SON().volume; row(yy, 'SON', () => SON().setVolume(v - 0.2), v > 0 ? Math.round(v * 100) + ' %' : 'coupé', () => SON().setVolume(v + 0.2)); yy += 60; }
+  const ask = what => () => {
+    if (m.confirm && m.confirm.what === what) { m.off = what; m.confirm = null; send('sys.power', { what }); return; }
+    m.confirm = { what, until: now + 4000 };
+  };
+  const sure = what => m.confirm && m.confirm.what === what;
+  // the phone app (its QR code) and Pixel's fish; the power buttons stay last
+  menuBtn(x + 24, yy + 10, 324, 54, 'Téléphone', () => { m.view = 'phone'; m.confirm = null; });
+  menuBtn(x + 372, yy + 10, 324, 54, 'Poisson', () => { L.menu = null; send('scene.play', { id: 'poisson' }); });
+  menuBtn(x + 24, yy + 80, 324, 54, sure('reboot') ? 'Sûr ? Touche encore' : 'Redémarrer', ask('reboot'), sure('reboot'));
+  menuBtn(x + 372, yy + 80, 324, 54, sure('poweroff') ? 'Sûr ? Touche encore' : 'Éteindre', ask('poweroff'), true);
+  X.globalAlpha = 0.8; txt('Glisse vers le haut pour fermer', x + MENU.w / 2, yy + 162, 22, D, 'center'); X.globalAlpha = 1;
+}
+
 /* ---------- loop and API ---------- */
 const DRAW = { visage: drawVisage, lumieres: drawLights, claude: drawClaude, codex: drawCodex, meteo: drawMeteo, minuteur: drawTimer,
   agenda: drawAgenda, systeme: drawSys, reglages: drawSettings, veille: drawVeille };
@@ -417,7 +547,7 @@ function wantFps() {
     case 'claude': return P.chat.phase !== 'idle' ? 60 : Math.max(calm, 20);
     case 'codex': return P.codex.running ? 30 : calm;
     case 'meteo': return 30;
-    case 'minuteur': return P.timer.running ? 20 : calm;
+    case 'minuteur': return 20;                       // the little Pixel walks about
     default: return calm;
   }
 }
@@ -427,12 +557,15 @@ function personaCtx() {               // what the personality needs to know abou
   const free = vis && !L.sleepy && mood() === 'neutre' && !serverAnim() && P.chat.phase === 'idle' && !(P.codex && P.codex.running) && !L.banner
     && !(L.packEv && now < L.packEv.until) && !(L.kiosk && (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) < 20000);
   return { visage: vis, canLive: free, idle: now - L.lastInput, weather: P.weather && P.weather.now ? P.weather.now.kind : '',
-    lightsOn: rooms.length ? rooms.some(r => r.on) : null, night: h >= 23 || h < 6, rm: RM };
+    lightsOn: rooms.length ? rooms.some(r => r.on) : null, night: h >= 23 || h < 6, rm: RM,
+    events: ((P.agenda && P.agenda.events) || []).filter(e => e.day === 0 && !e.allday),           // today's, for his reminders
+    temp: P.sys && P.sys.temp != null ? P.sys.temp : null, wifi: P.sys && 'wifi' in P.sys ? P.sys.wifi : undefined };
 }
 function update() {
   if (now > L.blink.next) { L.blink.t = now; L.blink.next = now + 2000 + rnd() * 4000; }   // for faces drawn without a life state
   if (L.kiosk && P && L.scr === 'visage' && !L.sleepy && now - L.lastInput > (P.settings.sleep_min || 10) * 60000) L.sleepy = true;
   if (now > fitAt) { fitAt = now + 1000; fitCanvas(); }
+  if (L.menu && !L.menu.off && realNow() - L.inputAt > (L.menu.view === 'phone' ? 90000 : 20000)) L.menu = null;   // closes itself after 20 s untouched (90 s on the QR code: time to scan it)
 }
 function frame(t) {
   requestAnimationFrame(frame);
@@ -447,6 +580,7 @@ function frame(t) {
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
   else { if (PER) PV = PER.update(dt, personaCtx()); (DRAW[L.scr] || drawVisage)(dt); }
+  if (P && L.menu && L.boot < 0) drawMenu();
   drawBanner();
   if (T.fg) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }
 }
@@ -482,6 +616,12 @@ return {
     return false;
   },
   persona: PER,
+  menu(open, view) {              // view 'phone': straight to the QR code page, sliding in from the right (swipe left on his face)
+    if (open === !!L.menu && !view) return;
+    L.menu = open ? { t: now, confirm: null, off: null, view: view || null, direct: !!view } : null; fast(300); L.dirty = true;
+  },
+  get menuOpen() { return !!L.menu; },
+  get buddy() { return { x: BUD.x, act: BUD.act, dir: BUD.dir }; },   // the little Pixel of the Minuteur screen (tests, lab)
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

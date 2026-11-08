@@ -6,6 +6,7 @@ Wi-Fi, drives the Stream Deck, and talks to Hue, Claude, Codex, the weather and 
 """
 import argparse
 import asyncio
+import ipaddress
 import json
 import logging
 import os
@@ -15,6 +16,7 @@ import time
 import tomllib
 from pathlib import Path
 
+import psutil
 import segno
 from aiohttp import WSMsgType, web
 
@@ -32,6 +34,34 @@ from pixel.weather import Weather
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
 LOCAL = {"127.0.0.1", "::1"}
+
+
+def home_networks():
+    """The networks of the Pi's own addresses, IPv4 and IPv6 (its Wi-Fi's /24, its /64...)."""
+    nets = []
+    for addrs in psutil.net_if_addrs().values():
+        for a in addrs:
+            if a.family in (socket.AF_INET, socket.AF_INET6) and a.netmask:
+                try:
+                    bits = bin(int(ipaddress.ip_address(a.netmask.split("/")[0]))).count("1")
+                    nets.append(ipaddress.ip_network(f"{a.address.split('%')[0]}/{bits}", strict=False))
+                except ValueError:
+                    pass
+    return nets
+
+
+@web.middleware
+async def home_only(request, handler):
+    """Pixel answers its home network only. It listens on IPv6 too (a phone often finds pixel.local by its IPv6
+    address), and there the Pi has a public address that a box does not always filter."""
+    try:
+        ip = ipaddress.ip_address((request.remote or "").split("%")[0])
+        ip = getattr(ip, "ipv4_mapped", None) or ip
+    except ValueError:
+        ip = None
+    if ip and (ip.is_loopback or ip.is_private or ip.is_link_local or any(ip in n for n in home_networks())):
+        return await handler(request)
+    raise web.HTTPForbidden(text="Pixel ne répond qu'aux appareils de la maison.")
 
 
 def core_actions(hub, datadir):
@@ -189,9 +219,23 @@ async def serve(args, cfg, datadir, token):
         if request.path.startswith("/app/"):
             response.headers["Cache-Control"] = "no-cache"
 
-    app = web.Application()
+    async def worker(request):
+        """The app's service worker, at the root so that it covers the whole app: what lets a phone install it."""
+        return web.FileResponse(HERE / "web" / "sw.js", headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+
+    async def apk(request):
+        """The Android app (pixel-mobile), once it is in the data folder as pixel.apk: the phone downloads it from Pixel."""
+        f = datadir / "pixel.apk"
+        if not f.exists():
+            raise web.HTTPNotFound(text="Pas encore d'appli Android sur ce Pixel.")
+        return web.FileResponse(f, headers={"Content-Type": "application/vnd.android.package-archive",
+                                            "Content-Disposition": 'attachment; filename="Pixel.apk"', "Cache-Control": "no-cache"})
+
+    app = web.Application(middlewares=[home_only])
     app.on_response_prepare.append(revalidate)
     app.router.add_get("/", index)
+    app.router.add_get("/sw.js", worker)
+    app.router.add_get("/pixel.apk", apk)
     app.router.add_get("/ws", ws_handler)
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
         app.router.add_get(path, lab)
@@ -212,7 +256,7 @@ def main():
     ap = argparse.ArgumentParser(description="Serveur de Pixel")
     ap.add_argument("--config", default=os.environ.get("PIXEL_CONFIG", str(HERE / "config.toml")))
     ap.add_argument("--demo", action="store_true", help="fausses lampes, météo et agenda ; Claude en mode démo")
-    ap.add_argument("--host", default="0.0.0.0")
+    ap.add_argument("--host", default=None, help="par défaut : toutes les adresses, IPv4 et IPv6")
     ap.add_argument("--port", type=int, default=8080)
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")

@@ -28,6 +28,11 @@ const A = { el: [34, 23], er: [66, 23], mouth: [48, 37], top: [48, 13], c: [48, 
 const SC = [], BY = {};
 function S(id, label, group, o) { const s = { id, label, group, w: 1, ...o }; SC.push(s); BY[id] = s; return s; }
 const L = (...lines) => lines;                                                          // lines to pick from
+// a line can also be a function of the scene's data (o): « Dans 10 min… », « Plus que 17 dodos avant Noël ! »
+function xmasLine() {
+  const d = new Date(), t = new Date(d.getFullYear(), d.getMonth(), d.getDate()), n = Math.round((new Date(d.getFullYear(), 11, 25) - t) / 864e5);
+  return n > 1 ? `Plus que ${n} dodos avant Noël !` : n === 1 ? 'Noël, c’est demain !' : n === 0 ? 'Joyeux Noël !' : 'Bonnes fêtes !';
+}
 
 // --- a touch (calm) ---
 S('coucou', 'Coucou', 'tap', { dur: 2200, anim: [[0, 'salut']], mood: 'content', say: [[150, 1900, L('Coucou !', 'Salut toi !', 'Oh, bonjour !', 'Hé, salut !')]],
@@ -105,6 +110,13 @@ S('bonsoir', 'Bonsoir', 'retour', { dur: 4200, anim: [[0, 'salut'], [2000, 'cont
   move: e => ({ y: jumps(Math.min(e, 900), 450, 26) }) });
 S('reveille', 'Je dormais pas', 'retour', { dur: 3100, anim: [[0, 'reveil'], [900, 'surpris']], mood: 'surpris', say: [[700, 2900, L('Hein ? Je dormais pas !', 'Quoi ? J’étais réveillé !', 'Je… je réfléchissais.')]],
   move: e => ({ y: -30 * bump(seg(e, 800, 1300)) }) });
+// the first time you come back on Christmas Eve, Christmas Day or New Year's Day
+S('joyeux-noel', 'Joyeux Noël', 'retour', { dur: 5400, side: true, anim: [[0, 'salut'], [2500, 'etoiles']], mood: 'excite',
+  say: [[200, 2400, L('Joyeux Noël !', 'Ho ho ho ! Joyeux Noël !')], [2600, 5200, L('Le Père Noël est passé ?', 'Tu as eu des cadeaux ?', 'Vive le vent d’hiver !')]],
+  move: e => ({ y: e < 4400 ? jumps(e, 600, 30) : 0 }), props: (D, e) => { D.snow(e, 1 - seg(e, 4800, 5400)); if (e > 2500) D.stars(e - 2500); } });
+S('bonne-annee', 'Bonne année', 'retour', { dur: 5000, side: true, anim: [[0, 'etoiles'], [2600, 'rire']], mood: 'excite',
+  say: [[200, 2400, () => `Bonne année ${new Date().getFullYear()} !`], [2600, 4800, L('Plein de bonnes choses !', 'Que des pixels heureux !', 'Et une bonne santé !')]],
+  move: e => ({ y: e < 3800 ? jumps(e, 500, 34) : 0 }), props: (D, e) => D.stars(e) });
 
 // --- alone: moments of life ---
 S('poisson', 'Le poisson', 'vie', { dur: 10500, w: 3, anim: [[0, 'bisou']], mood: 'content', say: [[1500, 3200, L('Blou… blou…', 'Glou glou…')]],
@@ -209,6 +221,10 @@ S('faim', 'La faim', 'vie', { dur: 7400, w: 4, side: true, when: c => c.meal, an
   props: (D, e) => { if (e < 7000) D.thought('pizza', seg(e, 0, 600) * (1 - seg(e, 6500, 7000))); } });
 S('nuit', 'Bâillements de nuit', 'vie', { dur: 7200, w: 6, when: c => c.night, anim: [[0, 'baille'], [3600, 'fatigue']], mood: 'baille', say: [[500, 3200, L('Il est tard…', 'Au lit, tout le monde…', 'Mmmh, dodo…')]],
   move: e => ({ y: 16 * sm(seg(e, 0, 4000)) * (1 - sm(seg(e, 6400, 7200))) }), props: (D, e) => { if (e > 3000) D.zzz(e - 3000, 0.7); } });
+S('neige', 'La neige', 'vie', { dur: 9000, w: 4, side: true, when: c => c.xmas && !c.night, anim: [[0, 'curieux'], [2000, 'etoiles'], [6600, 'content']], mood: 'excite',
+  say: [[400, 2000, L('Oh ! Il neige !', 'De la neige !', 'Regarde, il neige !')], [2300, 6400, () => xmasLine()], [6700, 8700, L('J’adore Noël !', 'Vivement les cadeaux !', 'Ho ho ho !')]],
+  move: e => ({ y: e > 2000 && e < 6400 ? jumps(e - 2000, 700, 18) : 0, r: 0.05 * Math.sin(e / 700) * (1 - seg(e, 8000, 9000)) }),
+  props: (D, e) => D.snow(e, seg(e, 0, 900) * (1 - seg(e, 8200, 9000))) });
 
 // --- events ---
 S('noir', 'Dans le noir', 'evt', { dur: 4800, anim: [[0, 'panique'], [2600, 'timide']], mood: 'surpris',
@@ -218,6 +234,25 @@ S('lumiere', 'La lumière revient', 'evt', { dur: 2600, anim: [[0, 'etoiles']], 
   move: e => ({ y: -24 * bump(e / 600) }) });
 S('heure', 'Le coucou de l’heure', 'evt', { dur: 3400, anim: [[0, 'salut'], [1800, 'content']], mood: 'content', say: [[300, 3200, null]],
   move: e => ({ s: 1 + 0.1 * bump(seg(e, 200, 700)) + 0.1 * bump(seg(e, 900, 1400)), y: -10 * bump(seg(e, 200, 1400)) }) });
+// the agenda: 10 min before an event (o: { min, title }), then a few minutes after it
+S('rdv', 'Le rendez-vous', 'evt', { dur: 5400, anim: [[0, 'surpris'], [1600, 'idee']], mood: 'surpris',
+  say: [[200, 2600, o => `Hé ! Dans ${o.min || 10} min…`], [2700, 5200, o => `…${o.title || 'ton rendez-vous'} !`]],
+  move: e => ({ y: -16 * bump(seg(e, 0, 500)), x: 5 * Math.sin(e / 40) * (1 - seg(e, 0, 700)) }),
+  props: (D, e) => D.watch(e, seg(e, 0, 400) * (1 - seg(e, 5000, 5400))) });
+S('rdv-fin', 'Ça s’est bien passé ?', 'evt', { dur: 4400, anim: [[0, 'curieux'], [2400, 'content']], mood: 'ecoute',
+  say: [[300, 2300, o => `${o.title || 'Ton rendez-vous'} : terminé !`], [2400, 4200, L('Ça s’est bien passé ?', 'Alors, c’était bien ?', 'Raconte-moi !')]],
+  move: e => ({ r: 0.06 * sm(seg(e, 0, 600)) * (1 - sm(seg(e, 3600, 4400))) }) });
+// the Pi itself: too hot (o: { temp }), the Wi-Fi gone, the Wi-Fi back
+S('chaud', 'Il a chaud', 'evt', { dur: 6400, anim: [[0, 'fatigue'], [3600, 'idee']], mood: 'baille',
+  say: [[300, 3400, o => `Pfiou, ${o.temp || 70} °C… j’ai chaud !`], [3600, 6200, L('Un peu d’air, s’il te plaît !', 'On ouvre une fenêtre ?', 'Je fonds…')]],
+  move: e => ({ y: 8 * sm(seg(e, 0, 800)) * (1 - sm(seg(e, 5600, 6400))), sy: 1 - 0.05 * Math.sin(e / 300) * (1 - seg(e, 5600, 6400)) }),
+  props: (D, e) => { D.sweat(e); D.heat(e, seg(e, 0, 500) * (1 - seg(e, 5800, 6400))); } });
+S('wifi', 'Plus de Wi-Fi', 'evt', { dur: 5600, anim: [[0, 'surpris'], [1800, 'confus']], mood: 'confus',
+  say: [[200, 2600, L('Hé, le Wi-Fi est parti !', 'Allô ? Internet ?', 'Plus de réseau !')], [2800, 5400, L('Je ne capte plus rien…', 'Je suis tout seul…')]],
+  move: e => ({ r: 0.08 * Math.sin(e / 420) * seg(e, 1200, 1800) * (1 - seg(e, 4800, 5600)), y: 6 * Math.sin(e / 300) * (1 - seg(e, 4800, 5600)) }),
+  props: (D, e) => D.antenna(e, false, seg(e, 0, 400) * (1 - seg(e, 5200, 5600))) });
+S('wifi-ok', 'Le Wi-Fi revient', 'evt', { dur: 3000, anim: [[0, 'etoiles']], mood: 'excite', say: [[150, 2800, L('Ah, le Wi-Fi est revenu !', 'Ouf, je capte à nouveau !')]],
+  move: e => ({ y: -20 * bump(seg(e, 0, 600)) }), props: (D, e) => D.antenna(e, true, seg(e, 0, 300) * (1 - seg(e, 2600, 3000))) });
 
 const LIFE = SC.filter(s => s.group === 'vie');
 const TAP = { calm: ['coucou', 'content', 'saut', 'pirouette', 'timide', 'bisou', 'idee'], zone: { bouche: 'chatouilles', oeil: 'oeil', tete: 'bonk', cote: 'pousse', ailleurs: 'ou' },
@@ -225,18 +260,20 @@ const TAP = { calm: ['coucou', 'content', 'saut', 'pirouette', 'timide', 'bisou'
 const MOOD = id => (BY[id] && BY[id].mood) || 'neutre';
 
 /* ---------- state ---------- */
-const st = { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], life: true, every: [45000, 150000], lights: null, darkAt: 0, hour: -1, seen: 0 };
+const st = { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], life: true, every: [45000, 150000], lights: null, darkAt: 0, hour: -1, seen: 0,
+  told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '' };   // told: the agenda events he already spoke about
 try { const s = JSON.parse(localStorage.getItem('pixel.persona') || '{}'); st.seen = Number(s.seen) || 0; } catch { st.seen = 0; }
 let savedAt = 0;
 function seen(now) { st.seen = Date.now(); if (now - savedAt > 20000) { savedAt = now; try { localStorage.setItem('pixel.persona', JSON.stringify({ seen: st.seen })); } catch {} } }
 
 function start(id, opts = {}) {
   const sc = BY[id]; if (!sc) return false;
-  const o = { side: opts.side || 1, tx: opts.tx || 0, ty: opts.ty || 0 };
+  const o = { side: opts.side || 1, tx: opts.tx || 0, ty: opts.ty || 0, ...(opts.data || {}) };
   if (sc.init) sc.init(o);
-  const lines = (sc.say || []).map(([a, b, ls]) => [a, b, ls ? pick(ls) : (id === 'heure' ? `Coucou ! Il est ${new Date().getHours()} h.` : '')]);
+  const lines = (sc.say || []).map(([a, b, ls]) => [a, b, typeof ls === 'function' ? ls(o) : ls ? pick(ls) : (id === 'heure' ? `Coucou ! Il est ${new Date().getHours()} h.` : '')]);
   st.cur = { sc, t0: H.now(), o, lines, extra: null, forced: !!opts.forced };   // forced: asked for (lab, command), not cut short by the world
   if (sc.group === 'vie') { st.hist.push(id); if (st.hist.length > 5) st.hist.shift(); }
+  if (H.onScene) try { H.onScene(id, sc.group); } catch (e) { /* his voice (son.js) must never stop him */ }
   return true;
 }
 function stop() { st.cur = null; }
@@ -309,6 +346,9 @@ function input(info = {}) {
   else if (gap >= 2 * 3600e3) id = 'manque';
   else if (gap >= 20 * 60e3) id = 'retour';
   else if (info.wake) id = 'reveille';
+  // the first hello of Christmas Eve, Christmas Day and New Year's Day is a special one
+  const d = new Date(), day = d.toDateString(), fete = d.getMonth() === 11 && (d.getDate() === 24 || d.getDate() === 25) ? 'joyeux-noel' : d.getMonth() === 0 && d.getDate() === 1 ? 'bonne-annee' : '';
+  if (id && id !== 'reveille' && fete && st.feteDay !== day) { st.feteDay = day; id = fete; }
   if (id && !(st.cur && st.cur.sc.group === 'retour')) { start(id); st.annoy = 0; }
   return id;
 }
@@ -329,6 +369,28 @@ function update(dt, ctx = {}) {
   const d = new Date(), hr = d.getHours();
   if (st.hour === -1) st.hour = hr;
   if (hr !== st.hour) { st.hour = hr; if (d.getMinutes() === 0 && hr >= 8 && hr <= 22 && ctx.canLive && !st.cur) start('heure'); }
+  // the agenda (ctx.events: today's, with start and end in hours): 10 min before, he taps his watch; a few minutes after, he asks how it went
+  const free = !st.cur || st.cur.sc.group === 'vie';
+  if (ctx.visage && ctx.events && free) {
+    const hNow = hr + d.getMinutes() / 60 + d.getSeconds() / 3600, day = d.toDateString();
+    for (const ev of ctx.events) {
+      const key = `${day} ${ev.start} ${ev.title}`, before = (ev.start - hNow) * 60, after = (hNow - ev.end) * 60;
+      if (before > 0 && before <= 10 && !st.told.has('r' + key)) { st.told.add('r' + key); start('rdv', { data: { min: Math.max(1, Math.round(before)), title: ev.title } }); break; }
+      if (after >= 2 && after < 20 && ev.end - ev.start <= 4 && hr >= 8 && hr < 22 && ctx.canLive && !st.cur && !st.told.has('f' + key)) { st.told.add('f' + key); start('rdv-fin', { data: { title: ev.title } }); break; }
+    }
+  }
+  // the Pi: too hot (again every 15 min while it stays hot), the Wi-Fi gone and back (not just an Ethernet cable)
+  if (ctx.temp != null) {
+    if (ctx.temp < 65) st.hot = false;
+    else if (ctx.temp >= 70 && (!st.hot || now - st.hotAt > 900000) && ctx.visage && (!st.cur || st.cur.sc.group === 'vie')) { st.hot = true; st.hotAt = now; start('chaud', { data: { temp: Math.round(ctx.temp) } }); }
+  }
+  if (ctx.wifi !== undefined) {
+    const on = ctx.wifi !== null && ctx.wifi < 0 && ctx.wifi > -100;
+    const ok = ctx.visage && (!st.cur || st.cur.sc.group === 'vie');
+    if (st.wifi === true && !on) { st.wifiGone = now; if (ok) start('wifi'); }
+    else if (st.wifi === false && on && st.wifiGone && now - st.wifiGone < 3600e3) { st.wifiGone = 0; if (ok) start('wifi-ok'); }
+    st.wifi = on;
+  }
   if (st.cur && now - st.cur.t0 >= st.cur.sc.dur) {
     const was = st.cur.sc; st.cur = null;
     if (was.sulk) { st.annoy = 0; start('pardon'); }
@@ -336,7 +398,7 @@ function update(dt, ctx = {}) {
   }
   if (st.cur && st.cur.sc.group === 'vie' && ctx.canLive === false && !st.cur.forced) st.cur = null;   // something else needs his face
   if (!st.cur && st.life && !ctx.rm && ctx.canLive && ctx.idle > Math.min(75000, st.every[0]) && now >= st.nextLife) {
-    const c = { wet: /pluie|orage|neige/.test(ctx.weather || ''), sunny: ctx.weather === 'soleil', day: hr >= 9 && hr < 19, night: hr >= 23 || hr < 6,
+    const c = { wet: /pluie|orage|neige/.test(ctx.weather || ''), sunny: ctx.weather === 'soleil', day: hr >= 9 && hr < 19, night: hr >= 23 || hr < 6, xmas: d.getMonth() === 11,
       meal: (hr === 12 || (hr === 19 && d.getMinutes() >= 30) || (hr === 13 && d.getMinutes() < 30)) };
     const ok = LIFE.filter(s => (!s.when || s.when(c)) && !st.hist.includes(s.id) && (!c.night || s.when || ['sieste', 'zen', 'reverie', 'etirement'].includes(s.id)));
     const tot = ok.reduce((a, s) => a + s.w, 0); let r = rnd() * tot;
@@ -360,37 +422,42 @@ function current() {
    Props are drawn in screen pixels. In the pixel themes (Rétro, LCD) they are drawn on a small canvas whose pixel is
    the size of the pack's pixel, then blown up without smoothing: they look like the rest of the face. */
 let off = null;
+function paint(box, m, fn) {                         // fn(D): props drawn with the drawing kit, in the theme's colours
+  const X = H.X, T = H.theme(), c = T.c, pix = !!T.faceFps, U = box.w / 96 * m.s;
+  let g = X, k = 1;
+  if (pix) {
+    k = Math.max(2, Math.round(U));
+    const w = Math.ceil(W / k), h = Math.ceil(HT / k);
+    if (!off) off = document.createElement('canvas');
+    if (off.width !== w || off.height !== h) { off.width = w; off.height = h; }
+    g = off.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); g.setTransform(1 / k, 0, 0, 1 / k, 0, 0);
+  }
+  g.save();
+  if (!pix && T.glow) { g.shadowColor = c.fg; g.shadowBlur = Math.min(12, T.glow * 0.8); }
+  const crisp = [], D = drawKit(g, box, m, c, U, T, pix, k, crisp);
+  try { fn(D); } finally { g.restore(); }
+  if (pix) {
+    const im = g.getImageData(0, 0, off.width, off.height), d = im.data;
+    for (let i = 3; i < d.length; i += 4) d[i] = d[i] > 70 ? 255 : 0;
+    g.putImageData(im, 0, 0);
+    X.save(); X.imageSmoothingEnabled = false;
+    if (T.glow) { X.shadowColor = c.fg; X.shadowBlur = Math.min(14, T.glow); }
+    X.drawImage(off, 0, 0, off.width * k, off.height * k); X.restore();
+  }
+  for (const f of crisp) { X.save(); try { f(X); } finally { X.restore(); } }       // text and signs: always sharp
+}
+/* what he wears, drawn after his face, scene or not: his Santa hat all December, and in the Christmas scenes */
+const hatOn = () => new Date().getMonth() === 11 || (!!st.cur && ['neige', 'joyeux-noel'].includes(st.cur.sc.id));
+function decor(box, m) { if (hatOn()) paint(box, m, D => D.santa()); }
 function drawOver(box, m) {
   const cur = st.cur; if (!cur) return;
-  const X = H.X, T = H.theme(), c = T.c, e = H.now() - cur.t0, sc = cur.sc, p = clamp(e / sc.dur, 0, 1);
-  const pix = !!T.faceFps, U = box.w / 96 * m.s;
-  let g = X, k = 1;
-  if (sc.props) {
-    if (pix) {
-      k = Math.max(2, Math.round(U));
-      const w = Math.ceil(W / k), h = Math.ceil(HT / k);
-      if (!off) off = document.createElement('canvas');
-      if (off.width !== w || off.height !== h) { off.width = w; off.height = h; }
-      g = off.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); g.setTransform(1 / k, 0, 0, 1 / k, 0, 0);
-    }
-    g.save();
-    if (!pix && T.glow) { g.shadowColor = c.fg; g.shadowBlur = Math.min(12, T.glow * 0.8); }
-    const crisp = [], D = drawKit(g, box, m, c, U, T, pix, k, crisp);
-    try { sc.props(D, e, p, cur.o); } finally { g.restore(); }
-    if (pix) {
-      const im = g.getImageData(0, 0, off.width, off.height), d = im.data;
-      for (let i = 3; i < d.length; i += 4) d[i] = d[i] > 70 ? 255 : 0;
-      g.putImageData(im, 0, 0);
-      X.save(); X.imageSmoothingEnabled = false;
-      if (T.glow) { X.shadowColor = c.fg; X.shadowBlur = Math.min(14, T.glow); }
-      X.drawImage(off, 0, 0, off.width * k, off.height * k); X.restore();
-    }
-    for (const f of crisp) { X.save(); try { f(X); } finally { X.restore(); } }       // text and signs: always sharp
-  }
+  const T = H.theme(), e = H.now() - cur.t0, sc = cur.sc, p = clamp(e / sc.dur, 0, 1);
+  if (sc.props) paint(box, m, D => sc.props(D, e, p, cur.o));
   // speech bubble: the line of the moment, or a retort while sulking
   let line = null;
   for (const [a, b, s] of cur.lines) if (e >= a && e < b && s) line = s;
   if (cur.extra && e - cur.extra.t < 1800) line = cur.extra.line;
+  if (line && line !== cur.spoke) { cur.spoke = line; if (H.onSay) try { H.onSay(line, sc.id); } catch (err) { /* his voice must never stop him */ } }
   if (line) bubble(line, box, m, T, sc.side);
 }
 function bubble(text, box, m, T, side) {
@@ -484,6 +551,52 @@ function drawKit(g, box, m, c, U, T, pix, k = 1, crisp = []) {
       else star(bx, by, 4 * s, col.acc);
       g.globalAlpha = 1;
     },
+    watch(e, q) {                                   // a little clock by his side, its hands racing: hurry!
+      const p0 = project(box, m, 86, 30), o = { x: Math.min(p0.x + 4 * U, W - 12 - 6 * U), y: Math.max(p0.y, 56 + 6 * U) };
+      g.globalAlpha = q; g.fillStyle = col.bg; g.strokeStyle = col.fg; g.lineWidth = lw(0.8 * U); g.lineCap = 'round';
+      g.beginPath(); g.arc(o.x, o.y, 5 * U, 0, TAU); g.fill(); g.stroke();
+      for (const [len, every, w] of [[3.6, 350, 0.6], [2.4, 4200, 0.9]]) {
+        const a = e / every * TAU - Math.PI / 2; g.lineWidth = lw(w * U); g.beginPath(); g.moveTo(o.x, o.y); g.lineTo(o.x + Math.cos(a) * len * U, o.y + Math.sin(a) * len * U); g.stroke();
+      }
+      g.fillStyle = col.acc; g.fillRect(o.x - 1.2 * U, o.y - 7.2 * U, 2.4 * U, 1.6 * U);       // the button on top
+      if ((e % 700) < 350) { g.strokeStyle = col.acc; g.lineWidth = lw(0.5 * U); for (const sd of [-1, 1]) { g.beginPath(); g.arc(o.x, o.y, 7 * U, -Math.PI / 2 + sd * 0.5, -Math.PI / 2 + sd * 0.9, sd < 0); g.stroke(); } }
+      g.globalAlpha = 1;
+    },
+    heat(e, q) {                                    // hot air rising on both sides of his head (his speech bubble takes the top)
+      g.globalAlpha = q * 0.9; g.strokeStyle = col.acc; g.lineWidth = lw(0.6 * U); g.lineCap = 'round';
+      for (const u of [10, 17, 79, 86]) {
+        const o = project(box, m, u, 12); g.beginPath();
+        for (let j = 0; j <= 7; j++) { const y = o.y - (2 + j * 1.5) * U, x = o.x + Math.sin(j * 0.9 + e / 180 + u) * 1.2 * U; if (j) g.lineTo(x, y); else g.moveTo(x, y); }
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+    },
+    antenna(e, ok, q) {                             // a Wi-Fi sign by his head (his speech bubble takes the top): arcs lighting up one by one, or a cross
+      const p0 = project(box, m, 86, 12), o = { x: Math.min(p0.x, W - 12 - 9 * U), y: Math.max(p0.y, 56 + 8 * U) };
+      const lit = ok ? Math.floor(e / 250) % 4 : (Math.floor(e / 450) % 2 ? 0 : 1);
+      g.globalAlpha = q; g.lineCap = 'round'; g.fillStyle = col.fg; g.beginPath(); g.arc(o.x, o.y, 1 * U, 0, TAU); g.fill();
+      for (let i = 1; i <= 3; i++) { g.strokeStyle = i <= lit ? col.hi : col.dim; g.lineWidth = lw(0.8 * U); g.beginPath(); g.arc(o.x, o.y, 2.2 * i * U, -Math.PI * 0.75, -Math.PI * 0.25); g.stroke(); }
+      if (!ok) {
+        const x = o.x + 6 * U, y = o.y - 7 * U, s = 1.6 * U; g.strokeStyle = col.acc; g.lineWidth = lw(0.8 * U);
+        g.beginPath(); g.moveTo(x - s, y - s); g.lineTo(x + s, y + s); g.moveTo(x + s, y - s); g.lineTo(x - s, y + s); g.stroke();
+      }
+      g.globalAlpha = 1;
+    },
+    snow(e, q = 1) {                                // snowflakes falling all over the screen
+      g.globalAlpha = q; g.fillStyle = col.hi;
+      for (let i = 0; i < 18; i++) {
+        const speed = 34 + (i * 37 % 10) * 4, y = 44 + ((e / 1000) * speed + i * 53) % 440, x = (i * 97 + 31) % 780 + 10 + Math.sin(e / 700 + i) * 12;
+        g.beginPath(); g.arc(x, y, Math.max(1.5, (0.5 + (i % 3) * 0.25) * U), 0, TAU); g.fill();
+      }
+      g.globalAlpha = 1;
+    },
+    santa() {                                       // a Santa hat on his head, its tip flopping to the side
+      const P = (u, v) => project(box, m, u, v), a = P(34, 13.5), b = P(62, 13.5), tip = P(71, 1), c1 = P(41, -1), c2 = P(60, 3);
+      g.fillStyle = col.acc; g.beginPath(); g.moveTo(a.x, a.y); g.quadraticCurveTo(c1.x, c1.y, tip.x, tip.y); g.quadraticCurveTo(c2.x, c2.y, b.x, b.y); g.closePath(); g.fill();
+      const l = P(32, 12), r = P(64, 12), r2 = P(64, 16), l2 = P(32, 16);       // the white band, just above his eyes, then the pompom
+      g.fillStyle = col.hi; g.beginPath(); g.moveTo(l.x, l.y); g.lineTo(r.x, r.y); g.lineTo(r2.x, r2.y); g.lineTo(l2.x, l2.y); g.closePath(); g.fill();
+      g.beginPath(); g.arc(tip.x, tip.y, 2.8 * U, 0, TAU); g.fill();
+    },
     sign(l1, l2, q) {                               // a little sign on a stick, always drawn sharp
       const o = project(box, m, 84, 6), w = 128, h = 56, x = clamp(o.x - 10, 8, W - 8 - w), y = clamp(o.y - h - 28, 50, HT - h - 80) + (1 - out(q)) * 20;
       crisp.push(q2 => {
@@ -497,11 +610,12 @@ function drawKit(g, box, m, c, U, T, pix, k = 1, crisp = []) {
 
 return {
   scenes: SC.map(s => ({ id: s.id, label: s.label, group: s.group, dur: s.dur })),
-  get state() { return { annoy: st.annoy, love: st.love, seen: st.seen, life: st.life, cur: st.cur ? st.cur.sc.id : '', next: st.nextLife }; },
+  get state() { return { annoy: st.annoy, love: st.love, seen: st.seen, life: st.life, cur: st.cur ? st.cur.sc.id : '', next: st.nextLife, say: st.cur && st.cur.spoke || '', hat: hatOn() }; },
   setLife(on) { st.life = !!on; if (!on && st.cur && st.cur.sc.group === 'vie') st.cur = null; },
   setEvery(min, max) { st.every = [min, max]; st.nextLife = Math.min(st.nextLife, H.now() + min); },
   away(ms) { st.seen = Date.now() - ms; },        // the lab: pretend you were away
-  reset() { Object.assign(st, { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], lights: null, darkAt: 0 }); },   // tests
-  tap, pet, input, update, current, drawOver, play: id => start(id, { forced: true }), stop, busy, project, unproject, zoneOf,
+  reset() { Object.assign(st, { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], lights: null, darkAt: 0,
+    told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '' }); },   // tests
+  tap, pet, input, update, current, drawOver, decor, play: id => start(id, { forced: true }), stop, busy, project, unproject, zoneOf,
 };
 };

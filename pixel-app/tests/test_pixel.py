@@ -95,6 +95,32 @@ def static_checks():
         (web / f).read_text().index("themes.js\"") < (web / f).read_text().index("persona.js") < (web / f).read_text().index("screens.js") for f in ("index.html", "lab/index.html")))
 
 
+async def home_only_checks():
+    """Pixel answers its home network only: the Pi itself and the LAN, IPv4 and IPv6 (link-local too), never the Internet."""
+    import server
+    from aiohttp import web
+
+    class Req:
+        def __init__(self, remote):
+            self.remote = remote
+
+    async def handler(request):
+        return "ok"
+
+    async def answered(remote):
+        try:
+            return await server.home_only(Req(remote), handler) == "ok"
+        except web.HTTPForbidden:
+            return False
+
+    own = [n for n in server.home_networks() if not n.is_loopback]
+    yes = ["127.0.0.1", "::1", "192.168.1.42", "10.0.0.7", "fe80::1%wlan0", "fd00::5", "::ffff:192.168.1.42"] + [str(next(n.hosts(), n.network_address)) for n in own]
+    no = ["8.8.8.8", "2a00:1450:4007:80b::200e", "", None]
+    refused = [r for r in yes if not await answered(r)]
+    let_in = [r for r in no if await answered(r)]
+    check("home network only: the Pi, the LAN (IPv4, IPv6, link-local) yes; the Internet no", not refused and not let_in, f"refused {refused}, answered {let_in}")
+
+
 async def retro_only():
     """Without [ui] themes in config.toml (the Pi's config), Pixel offers Rétro only: nowhere to pick another theme."""
     import server
@@ -164,6 +190,17 @@ async def main(args):
 
             await pump(0.5)
             check("state has 10 nav keys", len(state["keys"]["nav"]) == 10)
+            # what makes the page an installable app on a phone
+            async with http.get(f"http://127.0.0.1:{args.port}/sw.js") as r:
+                check("app: the service worker is served at the root, allowed to cover the whole app",
+                      r.status == 200 and r.headers.get("Service-Worker-Allowed") == "/" and "javascript" in r.headers.get("Content-Type", ""), str(r.status))
+            async with http.get(f"http://127.0.0.1:{args.port}/pixel.apk") as r:
+                check("app: no Android app in the data folder, /pixel.apk says so (404)", r.status == 404, str(r.status))
+            man = json.loads((APP / "web" / "manifest.webmanifest").read_text())
+            sizes = {i["sizes"] for i in man["icons"] if (APP / "web" / i["src"]).exists()}
+            check("app: manifest with 192 and 512 px icons that exist, standalone, a shortcut to each mode",
+                  {"192x192", "512x512"} <= sizes and man["display"] == "standalone" and man["start_url"] == "/"
+                  and [s["url"] for s in man["shortcuts"]] == ["/?mode=pixel", "/?mode=clavier", "/?mode=both"], str(sizes))
             check("demo rooms loaded", [r["name"] for r in state["lights"]["rooms"]] == ["Salon", "Bureau", "Chambre", "Cuisine"])
             await cmd("salon 40")
             check("'salon 40' sets the living room to 40 %", state["lights"]["rooms"][0]["bri"] == 40 and state["lights"]["rooms"][0]["on"])
@@ -214,6 +251,10 @@ async def main(args):
             check("deck action view.step works", state["view"]["meteo_day"] == 1)
             check("row 3 keys for minuteur exist", state["keys"]["row3"]["minuteur"][0]["label"] in ("Démarrer", "Pause"))
             check("settings carry a QR code", len(state["settings"]["qr"]) >= 21)
+            await act("sys.power", what="poweroff")
+            check("quick menu 'Éteindre' only shows a toast in demo mode", state["toast"]["msg"].startswith("EXTINCTION"), state["toast"]["msg"])
+            await act("sys.power", what="reboot")
+            check("quick menu 'Redémarrer' only shows a toast in demo mode", state["toast"]["msg"].startswith("REDÉMARRAGE"), state["toast"]["msg"])
 
             # ---- themes ----
             ids = list(THEMES)
@@ -375,5 +416,6 @@ if __name__ == "__main__":
                 srv.terminate()
                 srv.wait()
     asyncio.run(retro_only())
+    asyncio.run(home_only_checks())
     print("\n%d failure(s)" % len(fails))
     sys.exit(1 if fails else 0)

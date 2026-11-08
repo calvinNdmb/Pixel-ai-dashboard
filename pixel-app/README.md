@@ -126,11 +126,12 @@ Pixel réagit à ce que tu lui fais, s'en souvient un moment, et vit sa vie quan
 - après 20 minutes : « Ah, te revoilà ! » ;
 - après 2 heures : il est triste (« Tu m'as manqué… »), puis il saute de joie ;
 - le matin, après la nuit : « Bonjour ! Prêt pour la journée ? » ; le soir : « Bonsoir ! » ;
-- réveillé de sa sieste : « Hein ? Je dormais pas ! »
+- réveillé de sa sieste : « Hein ? Je dormais pas ! » ;
+- le 24 et le 25 décembre, le premier bonjour de la journée est « Joyeux Noël ! » ; le 1er janvier, « Bonne année 2027 ! ».
 
 Il s'en souvient même si Pixel a redémarré.
 
-**Quand personne ne le regarde**, toutes les 1 à 2 minutes et demie, il fait un des 23 moments de vie, jamais deux fois le même de suite :
+**Quand personne ne le regarde**, toutes les 1 à 2 minutes et demie, il fait un des 24 moments de vie, jamais deux fois le même de suite :
 - **Le poisson :** il nage en rond en faisant des bulles.
 - **La balade :** il sort de l'écran d'un côté et revient de l'autre.
 - **Coucou caché :** il se cache en bas, ressort les yeux, puis « Bouh ! ».
@@ -140,14 +141,18 @@ Il s'en souvient même si Pixel a redémarré.
 - **Le hoquet, l'éternuement, il sifflote, la danse en cachette :** si tu le surprends en train de danser, il répond « Euh… t'as rien vu ! ».
 - **Toc toc :** il tape à la vitre de l'écran, de l'intérieur.
 - **L'ennui, la sieste, le grand étirement, la rêverie, la méditation, la joie, la gym, « Psst ! » :** des petits moments calmes.
-- **Selon le moment :** sous la pluie, il a un petit nuage au-dessus de la tête. Au soleil, il bronze. À l'heure des repas, il pense à une pizza. La nuit, il ne fait que des moments calmes et bâille.
+- **Selon le moment :** sous la pluie, il a un petit nuage au-dessus de la tête. Au soleil, il bronze. À l'heure des repas, il pense à une pizza. En décembre, il regarde tomber la neige et compte les dodos avant Noël. La nuit, il ne fait que des moments calmes et bâille.
 
 Ils ne passent pas quand quelque chose d'autre a besoin de son visage : une humeur, une animation, Claude, Codex, un bandeau, ou juste avant qu'il s'endorme.
 
 **Autour de lui :**
 - quand tu éteins toutes les lumières, il a peur du noir : « Qui a éteint ?! » ;
 - quand tu les rallumes : « Ah, la lumière ! » ;
-- à chaque heure pile, dans la journée, il fait le coucou de l'heure : « Coucou ! Il est 15 h. »
+- à chaque heure pile, dans la journée, il fait le coucou de l'heure : « Coucou ! Il est 15 h. » ;
+- 10 minutes avant un rendez-vous de ton agenda, une petite horloge sonne à côté de lui : « Hé ! Dans 10 min… Réunion d'équipe ! ». Peu après la fin, il demande : « Ça s'est bien passé ? » ;
+- quand le Pi dépasse 70 °C, il a chaud : il transpire, et de l'air chaud monte autour de sa tête. Il le redit toutes les 15 minutes tant que le Pi ne refroidit pas ;
+- quand le Wi-Fi tombe : « Hé, le Wi-Fi est parti ! ». Quand il revient : « Ouf, je capte à nouveau ! » ;
+- tout le mois de décembre, il porte un bonnet de Noël.
 
 **Pour en voir un :**
 - tape `fais le poisson`, `fais la sieste`, `joue la toupie`, `fais l'économiseur d'écran`… ;
@@ -156,6 +161,22 @@ Ils ne passent pas quand quelque chose d'autre a besoin de son visage : une hume
 - demande à Claude « fais le poisson ! ».
 
 Chaque écran a son propre Pixel : ton téléphone et l'écran de Pixel réagissent chacun à leur toucher. Une scène demandée par une commande ou par Claude passe sur tous les écrans.
+
+**Sa voix :** sur l'écran du Pi, Pixel fait des bips de petit robot :
+- une petite musique par scène (des bulles pour le poisson, Jingle Bells pour la neige, une alarme pour un rendez-vous) ;
+- un babillage quand il parle.
+
+Les sons sont fabriqués par la page, sans fichier. Branche un petit haut-parleur sur la prise casque du Pi. Le volume se règle dans le menu rapide (ligne SON). Ton téléphone reste muet.
+
+**Le menu rapide :** sur l'écran du Pi, glisse vers le bas. Il contient :
+- le thème (s'il y en a plusieurs), la luminosité et le son ;
+- **Téléphone**, qui affiche le QR code en grand pour ouvrir l'appli ;
+- **Poisson** ;
+- **Redémarrer** et **Éteindre**, qui demandent une deuxième touche pour confirmer.
+
+Glisse vers le haut pour le fermer.
+
+**Installer l'appli sur ton téléphone :** sur l'écran du Pi, glisse vers la gauche sur son visage. Le QR code arrive en grand. Glisse vers la droite pour revenir.
 
 ## Les humeurs
 
@@ -225,13 +246,17 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 
 ## Sur ton téléphone
 
-1. Sur Pixel, ouvre **Réglages** et scanne le QR code. Il contient le code d'accès.
+1. Sur l'écran de Pixel, glisse vers la gauche sur son visage (ou ouvre **Réglages**), puis scanne le QR code. Il contient le code d'accès.
 2. Dans le navigateur, choisis **Ajouter à l'écran d'accueil**. Pixel s'ouvre alors comme une appli.
 3. Le bouton **Miroir de Pixel** :
    - allumé, ton téléphone montre et change l'écran de Pixel ;
    - éteint, tu navigues de ton côté sans changer l'écran de Pixel.
 
-L'appli marche sur ton Wi-Fi. Sans le code d'accès, un autre appareil du réseau voit la page mais ne peut rien faire.
+**L'appli Android** (projet Expo `pixel-mobile`) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
+- Pose l'APK dans le dossier de données de Pixel, sous le nom `~/.config/pixel/pixel.apk`. Dans Chrome sur Android, un lien **Appli Android** apparaît alors sous le clavier.
+- Au premier lancement, l'appli scanne le QR code de Pixel, puis s'en souvient.
+
+L'appli marche sur ton Wi-Fi, en IPv4 comme en IPv6 : un téléphone trouve souvent `pixel.local` par son adresse IPv6. Pixel ne répond qu'aux appareils de la maison, même si ta box laisse passer l'IPv6 depuis Internet. Sans le code d'accès, un autre appareil du réseau voit la page mais ne peut rien faire.
 
 ![Sur un téléphone](preview-phone.png)
 
@@ -306,6 +331,15 @@ Le script fait 5 choses :
    sudo nano /etc/pixel.env       # ANTHROPIC_API_KEY=sk-ant-...
    ```
    Sans clé, Claude reste en mode démo.
+
+   **Ou ton abonnement Claude** (Pro ou Max), sans clé API :
+   1. Sur n'importe quel ordinateur où Claude Code est installé (sur le Pi : `curl -fsSL https://claude.ai/install.sh | bash`), lance `claude setup-token`. Connecte-toi dans le navigateur. Il affiche un jeton valable un an.
+   2. Écris-le dans `/etc/pixel.env` sur une ligne `CLAUDE_CODE_OAUTH_TOKEN=...`, sans espace : un jeton affiché sur plusieurs lignes se copie parfois avec des espaces.
+   3. Relance `sh deploy/install.sh`. Le script ajoute le SDK Claude Agent, environ 400 Mo.
+
+   Pixel prend l'abonnement quand il trouve ce jeton et pas de clé API. Pour choisir toi-même, mets `backend = "abonnement"` ou `backend = "api"` dans `[claude]` de `config.toml`.
+
+   Avec l'abonnement, ses réponses comptent dans les mêmes limites que claude.ai et Claude Code. Pixel bâille quand le quota est épuisé et te dit à quelle heure il revient. Garde son code d'accès pour toi : si quelqu'un d'autre lui parle, c'est ton abonnement qui répond.
 2. **Tes réglages :** ouvre `config.toml` pour indiquer ta ville et le dossier de projet de Codex. Tes agendas s'ajoutent depuis ton téléphone (voir « Tes agendas »).
 3. **Codex :** installe-le (`npm i -g @openai/codex`), puis connecte-toi une fois (`codex login`). Ou mets `OPENAI_API_KEY=...` dans `/etc/pixel.env`. La commande lancée se règle dans `[codex] command` de `config.toml`. Tu peux y mettre Claude Code à la place.
 4. **Hue :** sur Pixel, ouvre **Réglages**, touche **Associer Hue**, puis appuie sur le bouton du pont dans les 30 secondes.
@@ -315,6 +349,8 @@ Le script fait 5 choses :
 
 L'appli est gratuite. Les réponses de Claude sont facturées à l'usage sur ton compte API Anthropic. Le modèle est Claude Opus 5.5 avec un effort bas (`effort = "low"`), pour des réponses rapides et courtes. Si Claude refuse une demande pour raison de sécurité, l'API réessaie toute seule avec un autre modèle.
 
+Avec ton abonnement Claude, rien n'est facturé en plus : les réponses comptent dans ton quota. Le modèle est alors Claude Sonnet 5.5 (`abonnement_model`), plus léger qu'Opus, pour que ton quota dure plus longtemps. Pixel envoie sa consigne courte et ses propres outils seulement, soit environ 400 jetons par message.
+
 ## Vérifications faites
 
 Testé sur ordinateur, avec les tests du dossier `tests/` :
@@ -323,9 +359,19 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Agendas** (`test_agenda.py`) : un agenda Google (heure de Paris, événement répété, vacances sur plusieurs jours, soirée après minuit, événement annulé), un fichier Samsung .vcs importé puis réimporté, un rendez-vous présent dans deux agendas affiché une seule fois, les erreurs (404, page web, pas d'internet), le fichier privé, et l'adresse secrète qui n'arrive jamais sur les écrans.
 - **Pixel Lab** : 140 vérifications dans Chromium, sur ordinateur, téléphone et en plein écran 800 × 480.
 - **Claude** (`test_claude_loop.py`) : la boucle a tourné face à un faux serveur d'API. Claude règle le salon, change de thème et d'humeur, et un thème inconnu est refusé.
+- **Claude avec l'abonnement** (`test_abonnement.py`) : face à un faux SDK Claude Agent. Le test vérifie :
+  - le choix entre clé API et abonnement, et le démarrage seulement au premier message ;
+  - la consigne de Pixel, aucun outil de Claude Code, les outils de Pixel autorisés (une entrée fausse est refusée) ;
+  - la réponse affichée une seule fois, la conversation gardée puis effacée ;
+  - l'alerte de quota, le quota épuisé (« je reviens demain à 9 h 00 », sans redemander à Claude), le jeton refusé, et Claude Code qui s'arrête.
+
+  Sur le vrai Pi, avec un vrai abonnement, le premier message a pris 8,5 s : démarrage du SDK, puis l'outil `play_scene` pour faire le poisson. Les messages suivants prennent environ 3 s. Claude Code occupe environ 200 Mo de mémoire.
 - **Visage vivant** (`test_life.js`) : clignements, regards, bâillements, étirements, réactions au toucher, et chaque thème dessine chaque humeur et chaque passage d'une humeur à l'autre sans erreur.
 - **Animations** (`test_pack.js`) : chaque thème dessine les 52 animations à plusieurs moments, avec les deux visages et les passages de l'une à l'autre. Les humeurs, l'attente tirée au sort, le toucher et les événements jouent les bonnes animations. `test_pixel.py` vérifie aussi `anim.play`, les commandes `anim …`, la touche *Anim +* et le choix du visage après un redémarrage.
-- **Personnalité** (`test_persona.js`) : les 55 scènes se dessinent dans les 6 thèmes avec les deux visages, et Pixel finit chaque scène à sa place. Le test vérifie aussi :
+- **Personnalité** (`test_persona.js`) : les 63 scènes se dessinent dans les 6 thèmes avec les deux visages, et Pixel finit chaque scène à sa place. Le test vérifie aussi :
+  - le rappel 10 min avant un rendez-vous (une seule fois) et la question après ; le Pi trop chaud (pas en boucle) ; le Wi-Fi perdu puis retrouvé ;
+  - la neige seulement en décembre, « Plus que 17 dodos avant Noël ! », le bonnet dans chaque thème, « Joyeux Noël » une fois par jour, « Bonne année » ;
+  - sa voix (`son.js`, avec un faux WebAudio) : une musique pour chaque sorte de scène, un babillage quand il parle, rien à 0 % ni sur un téléphone ;
   - les endroits du visage, et la colère qui monte, la bouderie, le pardon, les câlins ;
   - les retours (20 min, 2 h, le matin, le soir, la sieste) ;
   - les moments de vie : jamais quand le visage est occupé, jamais deux fois de suite, la pluie seulement quand il pleut, le calme la nuit ;
@@ -340,6 +386,7 @@ Pour les relancer :
 python3 tests/test_pixel.py          # lance son propre serveur de démo sur le port 8102
 python3 tests/test_real.py
 python3 tests/test_claude_loop.py
+python3 tests/test_abonnement.py
 python3 tests/test_agenda.py
 node tests/test_life.js
 node tests/test_pack.js
@@ -360,8 +407,8 @@ Pas encore testé avec le vrai matériel :
 | Fichier | Rôle |
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
-| `pixel/` | un module par service : `hue`, `claude`, `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
-| `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
+| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
+| `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |

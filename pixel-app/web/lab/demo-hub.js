@@ -256,6 +256,7 @@ const A = {
   'agenda.refresh': () => toast('AGENDA À JOUR'),
   'sys.bright': ({ d = 0.1 } = {}) => { S.sys.bright = Math.round(Math.min(1, Math.max(0.3, S.sys.bright + num(d, 0))) * 10) / 10; S.sys.hw_bright = false; },
   'sys.boot': () => { S.boot_at = Date.now(); },
+  'sys.power': ({ what = 'poweroff' } = {}) => { toast(what === 'reboot' ? 'REDÉMARRAGE… (démo : rien ne se passe)' : 'EXTINCTION… (démo : rien ne s\'éteint)', 4000); },
   cmd: ({ text }) => command(String(text).slice(0, 2000)),
 
   /* lab-only actions */
