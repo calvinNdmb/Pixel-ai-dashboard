@@ -1,7 +1,7 @@
 """Pictures for the README, from the same model as the STL files.
 
     python3 tools/render.py                    # all pictures into pixel-desk/
-    python3 tools/render.py --only adapter     # one picture: preview, inside, print, adapter, sdtest, v2
+    python3 tools/render.py --only mount       # one picture: preview, inside, print, mount, sdtest, v2
     python3 tools/render.py --ui DIR           # app screenshots (800 x 480 PNG) to show on the screen
 
 The screen shows real screenshots of the Pixel app (tools/ui/, taken from pixel-app/).
@@ -22,7 +22,8 @@ from scenelib import BOLD, label, render, tube  # noqa: E402
 g = mocks.g
 BEIGE = (0.90, 0.87, 0.78); BEIGE2 = (0.85, 0.82, 0.72); DARK = (0.05, 0.07, 0.06)
 KEYS = [(0.86, 0.83, 0.73), (0.55, 0.62, 0.60), (0.92, 0.60, 0.33), (0.62, 0.70, 0.78), (0.78, 0.44, 0.40)]
-METAL = (0.78, 0.79, 0.82); BRASS = (0.83, 0.68, 0.30); GREEN_PCB = (0.15, 0.55, 0.30); LCD_GREY = (0.70, 0.72, 0.74)
+METAL = (0.78, 0.79, 0.82); BRASS = (0.83, 0.68, 0.30); GREEN_PCB = (0.15, 0.55, 0.30); BLUE_PCB = (0.12, 0.30, 0.62)
+WHITE_PART = (0.95, 0.95, 0.92); TEST_GREY = (0.8, 0.8, 0.84)
 RED, BLACK_WIRE, RIBBON = (0.85, 0.18, 0.15), (0.12, 0.12, 0.13), (0.93, 0.92, 0.88)
 PI_COL = {"board": GREEN_PCB, "heatsink": (0.55, 0.57, 0.62), "sdcard": (0.2, 0.2, 0.25)}
 S = (1300, 1200)
@@ -42,7 +43,7 @@ def persp(src, dst):
 
 def put_ui(img, proj, ui, dy=0.0, dz=0.0):
     """Paste an app screenshot on the picture area of the screen (seen through the window)."""
-    vx, vz = g.view_centre(); aw, ah = g.OLD_ACTIVE_W / 2, g.OLD_ACTIVE_H / 2; yf = g.y_glass() - 0.05 + dy; vz += dz
+    vx, vz = g.view_centre(); aw, ah = g.PIC_W / 2, g.PIC_H / 2; yf = g.y_glass() - 0.05 + dy; vz += dz
     dst = [proj(p) for p in [(vx - aw, yf, vz + ah), (vx + aw, yf, vz + ah), (vx + aw, yf, vz - ah), (vx - aw, yf, vz - ah)]]
     warped = ui.transform(img.size, Image.Transform.PERSPECTIVE, persp([(0, 0), (ui.width, 0), (ui.width, ui.height), (0, ui.height)], dst),
                           Image.Resampling.BICUBIC)
@@ -63,8 +64,7 @@ def scene():
     asm, prn = g.build_all()
     body, mkeys, conn, plug = mocks.sd_module()
     keys = [(k, KEYS[i % 5]) for i, k in enumerate(mkeys)]
-    scr = mocks.screen_parts()
-    adp = mocks.adapter_parts()
+    scr = mocks.monitor_screen()
     parts = [(asm["PixelKeyboardBase"], BEIGE2), (asm["PixelKeyboardTop"], BEIGE), (body, (0.12, 0.13, 0.15)),
              (asm["PixelCase"], BEIGE), (asm["PixelCaseBottom"], BEIGE2), (asm["PixelStand"], BEIGE2),
              (asm["PixelMonitorFront"], BEIGE), (asm["PixelMonitorBack"], BEIGE), (scr["glass"], DARK), *keys]
@@ -80,47 +80,49 @@ def scene():
         extra.append((g.cyl_y(*g.LED5_XZ, y0c - 5.0, y0c - 1.9, 5.0), (0.3, 0.85, 1.0)))
         extra += [(g.kb_box(g.KB_LED_U[k] - 2.2, g.KB_LED_U[k] + 2.2, g.KB_LED_V - 0.9, g.KB_LED_V + 0.9, g.KB_TOP_T - 0.3, g.KB_TOP_T + 0.03),
                    [(0.2, 0.95, 0.35), (1.0, 0.62, 0.15), (0.2, 0.95, 0.35)][k]) for k in range(3)]
-    return asm, prn, scr, adp, parts + extra, (body, keys)
+    return asm, prn, scr, parts + extra, (body, keys)
 
 
-def screen_back(scr, adp, asm):
-    """Everything on the back of the screen, coloured."""
-    col = {"lcd": LCD_GREY, "driver_board": GREEN_PCB, "drv_feet": LCD_GREY, "standoffs": BRASS, "pogo_pins": BRASS,
-           "dsi_connector": (0.93, 0.93, 0.90), "power_jst": (0.95, 0.95, 0.92), "ribbon_exit": RIBBON, "ribbon_down": RIBBON,
-           "touch_fpc": (0.90, 0.55, 0.15)}
-    out = [(m, col.get(k, LCD_GREY)) for k, m in scr.items() if k != "glass"]
-    out += [(adp["header_body"], (0.10, 0.10, 0.11)), (adp["header_pins"], (0.85, 0.75, 0.40))]
-    pins = list(g.POGO_PINS)
-    for p, c in zip(pins, (RED, BLACK_WIRE)):
-        x, y = g.gpio_xy(p)
-        s = 2.5
-        top = g.HDR_TAIL - g.PIN_BELOW + g.HDR_BODY_H
-        out.append((mocks.pi_box(x - s / 2, x + s / 2, y - s / 2, y + s / 2, top + 0.01, top + g.DUPONT[1]), (0.08, 0.08, 0.09)))
-        out.append((mocks.pi_cyl(x, y, top + g.DUPONT[1], top + g.DUPONT[1] + 4.0, 1.6), c))
-    out.append((asm["PixelScreenPowerAdapter"], BEIGE))
-    return out
+SCR_COL = {"pcb": BLUE_PCB, "rings": BRASS, "dsi_connector": (0.85, 0.80, 0.70), "power_connector": WHITE_PART,
+           "backlight_switch": WHITE_PART, "pi_standoffs": BRASS, "ribbon_fold": RIBBON, "power_wires": RED}
 
 
-def wires():
-    """Paths of the DSI ribbon and the two power wires, from the screen to the Pi."""
-    cx, cz = g.screen_box(); z0 = g.MON_Z0
+def screen_back(scr, brackets):
+    """Everything on the back of the screen (PCB, rings, connectors...), and the 2 brackets, coloured."""
+    out = [(m, SCR_COL.get(k, BLUE_PCB)) for k, m in scr.items() if k != "glass"]
+    return out + [(b, BEIGE2) for b in brackets]
+
+
+def wires(cx=None, cz=None, yg=None, to_pi=True):
+    """Paths of the DSI ribbon and the two power wires, from the screen (to the Pi in the case)."""
+    if cx is None:
+        (cx, cz), yg = g.screen_box(), g.y_glass()
+    z0 = g.MON_Z0
+    yb = yg + g.SCR_T
+    sp = mocks.scr_spots()
     x0s, x1s, y0s, y1s = g.RIBBON_SLOT; ys = (y0s + y1s) / 2
-    p_fold = g.pi_world(-14.0, 27.6, -g.STANDOFF_H + 1.0)
-    low = cz - g.OLD_SCR_H / 2 + 2.0
+    dx, dz, dw = sp["dsi"][:3]
+    a = np.array([cx + dx - dw / 2 - 12.0, yb + 11.0, cz + dz])
+    pts = [a, (a[0] + 4, a[1] + 10, a[2] - 20)]
     pi_dsi = np.array([*g.pi_xy(3.1, 27.5), g.PLATE_T + g.PI_STANDOFF + 1.4 + 5.0])
-    ffc = tube([p_fold, (p_fold[0], p_fold[1] + 1, low + 6), (p_fold[0] + 8, g.MON_F + g.BEZ_D + 4, low),
-                (-30, g.MON_F + g.BEZ_D + 14, z0 + 13), (-3, ys - 3, z0 + 12), (-3, ys - 3, g.CASE_H - 6),
-                (30, ys + 25, 32), (pi_dsi[0] - 6, pi_dsi[1], pi_dsi[2] + 10), pi_dsi], 1.2)
-    out = [(ffc, (0.95, 0.70, 0.25))]
-    for k, (p, c) in enumerate(zip(g.POGO_PINS, (RED, BLACK_WIRE))):
-        top = g.HDR_TAIL - g.PIN_BELOW + g.HDR_BODY_H + g.DUPONT[1] + 3.0
-        a = g.pi_world(*g.gpio_xy(p), top)
+    if to_pi:
+        pts += [(-20, ys - 8, z0 + 16), (-3, ys - 3, z0 + 12), (-3, ys - 3, g.CASE_H - 6), (30, ys + 25, 32),
+                (pi_dsi[0] - 6, pi_dsi[1], pi_dsi[2] + 10), pi_dsi]
+    else:
+        pts += [(a[0] + 8, a[1] + 16, a[2] - 45)]
+    out = [(tube(pts, 1.2), RIBBON)]
+    px_, pz_ = sp["pwr"][:2]
+    for k, (p, c) in enumerate(zip(g.SCR_PWR_PINS, (RED, BLACK_WIRE))):
+        w0 = np.array([cx + px_ - 1.0 + 2.0 * k, yb + 3.0, cz - g.SCR_H / 2 + 1.0])
         hx, hy = g.gpio_xy(p)
         b = np.array([*g.pi_xy(hx, hy), g.PLATE_T + g.PI_STANDOFF + 1.4 + 2.5 + g.DUPONT[1] + 2.0])
-        dx = 2.0 * k
-        w = tube([a, (a[0], a[1] + 14, a[2] - 6), (a[0] + 10, a[1] + 24, z0 + 16), (dx - 1, ys + 2, z0 + 11),
-                  (dx - 1, ys + 2, g.CASE_H - 6), (b[0] - 20, b[1] - 10, 36), (b[0], b[1], b[2] + 12), b], 0.75)
-        out.append((w, c))
+        pts = [w0, (w0[0], w0[1] + 8, w0[2] - 3)]
+        if to_pi:
+            pts += [(2.0 * k - 1, ys + 2, z0 + 11), (2.0 * k - 1, ys + 2, g.CASE_H - 6), (b[0] - 20, b[1] - 10, 36),
+                    (b[0], b[1], b[2] + 12), b]
+        else:
+            pts += [(w0[0] + 3, w0[1] + 14, w0[2] - 25)]
+        out.append((tube(pts, 0.75), c))
     return out
 
 
@@ -160,7 +162,7 @@ def cut(meshes, x_min):
 
 
 def do_preview(out_dir, ui_dir):
-    asm, prn, scr, adp, parts, _ = scene()
+    asm, prn, scr, parts, _ = scene()
     im1, p1 = render(parts, (0.52, 0.78, -0.34), S, light=(0.35, -0.65, 0.70))
     put_ui(im1, p1, Image.open(ui_dir / "moderne-mood-neutre.png").convert("RGB"))
     im2, p2 = render(parts, (-0.50, 0.80, -0.33), S, light=(-0.35, -0.65, 0.70))
@@ -169,12 +171,13 @@ def do_preview(out_dir, ui_dir):
 
 
 def do_inside(out_dir, ui_dir):
-    asm, prn, scr, adp, parts, (body, keys) = scene()
-    back = screen_back(scr, adp, asm)
+    asm, prn, scr, parts, (body, keys) = scene()
+    brk = [asm["PixelScreenBracket"], asm["PixelScreenBracketRight"]]
+    back = screen_back(scr, brk)
     ex = [(mv(asm["PixelCaseBottom"], dz=-30), BEIGE2), (asm["PixelCase"], BEIGE), (mv(asm["PixelStand"], dz=22), BEIGE2),
           (mv(asm["PixelMonitorFront"], dy=-34, dz=45), BEIGE), (mv(scr["glass"], dy=-14, dz=45), DARK),
-          *[(mv(m, dy=-14, dz=45), c) for m, c in back if m is not asm["PixelScreenPowerAdapter"]],
-          (mv(asm["PixelScreenPowerAdapter"], dy=10, dz=45), BEIGE), (mv(asm["PixelMonitorBack"], dy=55, dz=45), BEIGE),
+          *[(mv(m, dy=-14, dz=45), c) for m, c in back if not any(m is b for b in brk)],
+          *[(mv(b, dy=10, dz=45), BEIGE2) for b in brk], (mv(asm["PixelMonitorBack"], dy=55, dz=45), BEIGE),
           (mv(asm["PixelKeyboardBase"], dy=-30), BEIGE2), (mv(body, dy=-30, dz=22), (0.12, 0.13, 0.15)),
           *[(mv(k, dy=-30, dz=22), c) for k, c in keys], (mv(asm["PixelKeyboardTop"], dy=-30, dz=48), BEIGE)]
     ex += [(mv(m, dz=-30), c) for m, c in pi_parts()]
@@ -182,85 +185,62 @@ def do_inside(out_dir, ui_dir):
 
     solids = [p for p in parts if p[0] is not scr["glass"]] + [(scr["glass"], DARK)] + back
     inside = pi_parts() + wires()
-    xc = -30.0
+    xc = -60.0
     im4, p4 = render(cut(solids, xc) + cut([(m, c) for m, c in inside], xc), (0.88, 0.33, -0.34), S, light=(0.7, -0.3, 0.65))
     cx, cz = g.screen_box()
     x0s, x1s, y0s, y1s = g.RIBBON_SLOT
     label(im4, p4, (60, 225, 20), "Raspberry Pi 4", 120, 150, (30, 130, 60))
     label(im4, p4, (2, (y0s + y1s) / 2, g.CASE_H + 4), "Nappe de l'écran\n+ 2 fils 5 V et GND\ndans le pied", 160, -150, (200, 140, 30))
-    label(im4, p4, (xc, g.y_glass() + 1, cz + 35), "Écran 7\" Freenove", -60, -120, (40, 40, 40))
-    label(im4, p4, tuple(g.pi_world(40, 10, g.ADP_T)), "Plaque « faux Pi »", -260, 40, (150, 120, 40))
-    label(im4, p4, tuple(g.pi_world(*g.gpio_xy(g.POGO_PINS[0]), g.ADP_T + 8)), "Fils 5 V et GND\nsur ses broches", -260, 60, (200, 50, 50))
+    label(im4, p4, (xc, g.y_glass() + 1, cz + 35), "Écran 7\" Freenove\n(carte bleue)", -60, -120, (40, 40, 40))
+    sp = mocks.scr_spots()
+    label(im4, p4, (cx + sp["pwr"][0], g.y_pcb_back() + 6, cz + sp["pwr"][1]), "Prise blanche :\nfils 5 V et GND", -280, 80, (200, 50, 50))
     sheet(out_dir / "preview-inside.png", [im3, im4], ["Vue éclatée", "Vue en coupe : ce qu'il y a dedans"], S[0])
 
 
 def do_print(out_dir):
     asm, prn, *_ = scene()
-    layout = {"PixelCase": (0, 0), "PixelMonitorFront": (222, 0), "PixelScreenPowerAdapter": (442, 0), "PixelStand": (525, 0),
+    layout = {"PixelCase": (0, 0), "PixelMonitorFront": (222, 0), "PixelStand": (420, 0), "ScrewPilotTest": (505, 0),
               "PixelCaseBottom": (0, 175), "PixelKeyboardBase": (218, 175), "PixelKeyboardTop": (366, 175),
-              "ScreenFitTest": (515, 175), "PixelMonitorBack": (230, 330)}
+              "ScreenFitTest": (515, 175), "ScreenMountTest": (515, 300), "PixelMonitorBack": (230, 330)}
+    tests = ("ScreenFitTest", "ScreenMountTest", "ScrewPilotTest")
     plate = []
     for name, (x, y) in layout.items():
         m = prn[name].copy(); m.apply_translation([-m.bounds[0][0] + x, -m.bounds[0][1] + y, 0])
-        plate.append((m, (0.8, 0.8, 0.84) if name == "ScreenFitTest" else BEIGE))
+        plate.append((m, TEST_GREY if name in tests else BEIGE))
+    for k in range(2):
+        m = prn["PixelScreenBracket"].copy(); m.apply_translation([-m.bounds[0][0] + 600 + 14 * k, -m.bounds[0][1] + 20, 0])
+        plate.append((m, BEIGE))
     im5, _ = render(plate, (0.35, 0.60, -0.72), (1300, 1100), light=(0.3, -0.5, 0.8))
     im5.save(out_dir / "preview-print.png")
     print("saved", out_dir / "preview-print.png")
 
 
-def dupont_wires(length=45.0):
-    """The two Dupont wires leaving the faux Pi and going down the back of the screen."""
-    out = []
-    top = g.HDR_TAIL - g.PIN_BELOW + g.HDR_BODY_H + g.DUPONT[1]
-    for k, (p, c) in enumerate(zip(g.POGO_PINS, (RED, BLACK_WIRE))):
-        a = g.pi_world(*g.gpio_xy(p), top)
-        out.append((tube([a, (a[0], a[1] + 6, a[2] - 2), (a[0] + 2 * k, a[1] + 9, a[2] - 14),
-                          (a[0] + 2 * k + 4, a[1] + 10, a[2] - length)], 0.8), c))
-    return out
+def do_mount(out_dir):
+    """The screen mount: in ScreenMountTest (left) and in the real bezel (right), seen from behind."""
+    scr = mocks.blue_screen()
+    brk = g.build_brackets()
+    view = [(g.build_mount_test(), TEST_GREY), (scr["glass"], DARK)] + screen_back(scr, brk) + wires(0.0, 0.0, 0.0, to_pi=False)
+    im1, p1 = render(view, (-0.35, -0.90, -0.25), (1100, 900), light=(-0.3, 0.8, 0.6))
+    hx = g.SCR_W / 2 - g.SCR_HOLE_IN
+    seat = g.brk_seat(0.0)
+    (bx, bz), (tx, tz) = g.brk_screws()[1], g.scr_holes()[1]
+    label(im1, p1, (bx, seat + g.BRK_T, bz), "M2,5 × 8 dans le plastique", -430, -30, (130, 100, 30))
+    label(im1, p1, (tx, seat + g.BRK_T, tz), "M2,5 × 6 dans\nla bague en laiton", -430, 60, (130, 100, 30))
+    label(im1, p1, (hx, seat + g.BRK_T, 0.0), "Barrette\n(× 2)", 130, 90, (150, 120, 40))
+    sp = mocks.scr_spots()
+    label(im1, p1, (sp["dsi"][0], g.SCR_T + 3, sp["dsi"][1]), "Nappe DSI", -330, -40, (170, 130, 40))
+    label(im1, p1, (sp["pwr"][0], g.SCR_T + 7, sp["pwr"][1]), "Prise blanche :\nrouge 5 V, noir GND", -380, 110, (200, 50, 50))
+    label(im1, p1, (sp["switch"][0], g.SCR_T + 3, sp["switch"][1]), "Interrupteur\n« Backlight »", 200, 90, (60, 60, 60))
 
-
-def do_adapter(out_dir):
-    asm, prn, scr, adp, *_ = scene()
-    back = screen_back(scr, adp, asm)
-    view = [(scr["glass"], DARK)] + back + dupont_wires()
-    # left: the screen's back with the faux Pi and the two wires (seen from behind, top edge up)
-    im1, p1 = render(view, (-0.30, -0.93, -0.22), (1100, 900), light=(-0.3, 0.8, 0.6))
-    label(im1, p1, tuple(g.pi_world(45, 40, g.ADP_T)), "Plaque « faux Pi »\n(imprimée)", -260, -170, (150, 120, 40))
-    label(im1, p1, tuple(g.pi_world(61.5, 3.5, g.ADP_T)), "4 vis M2,5 × 6 dans\nles entretoises de l'écran", 150, -200, (130, 100, 30))
-    label(im1, p1, tuple(g.pi_world(14, 52.5, g.ADP_T + 4)), "Morceau de barrette\nmâle 2 × 5", -330, 150, (40, 40, 40))
-    w0 = dupont_wires()[0][0]
-    label(im1, p1, tuple(w0.vertices[len(w0.vertices) // 2]), "Fil rouge : 5 V\nFil noir : GND", -120, 210, (200, 50, 50))
-    rd = scr["ribbon_down"]
-    label(im1, p1, (rd.bounds[0][0] + 8, rd.bounds[0][1], rd.bounds[0][2] + 30), "Nappe vers le Pi", 20, 170, (170, 130, 40))
-
-    # right: profile cut along the board-edge row of pins (4 and 6): the screen's springs touch the short ends
-    x4, y4 = g.gpio_xy(g.POGO_PINS[0])
-    z_row = g.pi_world(x4, y4)[2]
-    hdr = g.header_box()
-    xa, xb = g.pi_world(hdr[0] - 7, y4)[0], g.pi_world(hdr[1] + 6, y4)[0]
-    y_lo, y_hi = g.y_lcd_back() - 1.5, g.y_pi() + g.ADP_T + g.DUPONT[1] + 6
-    keep = g.slab(min(xa, xb), max(xa, xb), y_lo, y_hi, z_row - 12, z_row)
-    sect = []
-    for m, c in back + dupont_wires(30.0):
-        if not (np.all(m.bounds[0] < keep.bounds[1]) and np.all(m.bounds[1] > keep.bounds[0])):
-            continue
-        try:
-            mm = m.intersection(keep, engine="manifold")
-        except Exception:  # noqa: BLE001
-            inside = np.all((m.triangles_center >= keep.bounds[0]) & (m.triangles_center <= keep.bounds[1]), axis=1)
-            mm = m.submesh([np.nonzero(inside)[0]], append=True) if inside.any() else None
-        if mm is not None and len(mm.faces):
-            sect.append((mm, c))
-    im2, p2 = render(sect, (0.10, 0.32, -0.94), (1100, 900), light=(0.3, 0.4, 0.86), pad=60)
-    wt = g.HDR_TAIL - g.PIN_BELOW
-    label(im2, p2, tuple(g.pi_world(x4, y4, -g.PIN_BELOW - 2.0)), "Ressort de l'écran (5 V)\nsous la broche 4", -200, 170, (150, 110, 20))
-    label(im2, p2, tuple(g.pi_world(gpio6 := g.gpio_xy(g.POGO_PINS[1])[0], y4, -g.PIN_BELOW - 2.0)), "Ressort GND\nsous la broche 6", 150, 190, (90, 90, 90))
-    label(im2, p2, tuple(g.pi_world(hdr[1] + 3.0, y4, g.ADP_T - 1.5)), "Plaque « faux Pi »", 140, 40, (150, 120, 40))
-    label(im2, p2, tuple(g.pi_world(x4, y4, g.ADP_T + 9)), "Prises Dupont\n(fils vers le Pi)", 160, -230, (40, 40, 40))
-    label(im2, p2, tuple(g.pi_world(hdr[0] + 1, y4, wt + 1.2)), "Corps de la barrette,\nenfoncé jusqu'au fond", -40, 170, (40, 40, 40))
-    label(im2, p2, tuple(g.pi_world(2.0, y4, -g.STANDOFF_H - g.DRV_T / 2)), "Carte de l'écran", -30, 150, (30, 120, 60))
-    label(im2, p2, tuple(g.pi_world(gpio6 + 6, y4, -g.PIN_BELOW / 2)), f"Les broches dépassent\nde {g.PIN_BELOW:.1f} mm dessous".replace(".", ","), 160, -150, (60, 60, 60))
-    sheet(out_dir / "preview-adapter.png", [im1, im2], ["Le « faux Pi » au dos de l'écran", "En coupe : les ressorts de l'écran touchent les broches"], 1100)
+    # right: the real bezel from behind, with the screen and its brackets
+    asm, _, mscr, *_ = scene()
+    mbrk = [asm["PixelScreenBracket"], asm["PixelScreenBracketRight"]]
+    view2 = [(asm["PixelMonitorFront"], BEIGE), (mscr["glass"], DARK)] + screen_back(mscr, mbrk) + wires(to_pi=False)
+    im2, p2 = render(view2, (-0.35, -0.90, -0.25), (1100, 900), light=(-0.3, 0.8, 0.6))
+    cx, cz = g.screen_box()
+    label(im2, p2, (cx - hx, g.brk_seat(g.y_glass()) + g.BRK_T, cz), "Barrettes dans leur logement,\nau ras de l'arrière du cadre",
+          -430, 200, (150, 120, 40))
+    sheet(out_dir / "preview-mount.png", [im1, im2], ["ScreenMountTest : l'écran et ses 2 barrettes", "Pareil dans le vrai cadre du moniteur"], 1100)
 
 
 def do_sdtest(out_dir):
@@ -283,7 +263,7 @@ def do_v2(out_dir):
     old = g.V2_PANEL
     g.V2_PANEL = True
     try:
-        asm, prn, scr, adp, parts, _ = scene()
+        asm, prn, scr, parts, _ = scene()
         near = clip(parts, g.slab(-60, 120, -10, 160, -1, g.CASE_H - 0.05))
         im, p = render(near, (-0.40, 0.84, -0.36), (1300, 900), light=(-0.35, -0.65, 0.70))
         label(im, p, (g.PWR_XZ[0], g.CASE_Y0 - 3, g.PWR_XZ[1] + 8), "Bouton d'allumage 16 mm", 20, -150, (40, 140, 60))
@@ -300,11 +280,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ui", type=Path, default=HERE / "ui", help="folder with the app screenshots")
     ap.add_argument("--out", type=Path, default=HERE.parent, help="where to write the PNG files")
-    ap.add_argument("--only", choices=["preview", "inside", "print", "adapter", "sdtest", "v2"])
+    ap.add_argument("--only", choices=["preview", "inside", "print", "mount", "sdtest", "v2"])
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
     jobs = {"preview": lambda: do_preview(a.out, a.ui), "inside": lambda: do_inside(a.out, a.ui), "print": lambda: do_print(a.out),
-            "adapter": lambda: do_adapter(a.out), "sdtest": lambda: do_sdtest(a.out), "v2": lambda: do_v2(a.out)}
+            "mount": lambda: do_mount(a.out), "sdtest": lambda: do_sdtest(a.out), "v2": lambda: do_v2(a.out)}
     for k, job in jobs.items():
         if a.only in (None, k):
             job()

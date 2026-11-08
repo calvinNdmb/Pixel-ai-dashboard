@@ -88,86 +88,14 @@ def scr_free_zone(cx=0.0, cz=0.0, yg=0.0):
     return g.D(zone, *strips)
 
 
-# ------------------------------------------------------------------ screen (Freenove FNK0078H)
 def box(x0, x1, y0, y1, z0, z1):
     """Box between two corners, in any order."""
     return g.slab(min(x0, x1), max(x0, x1), min(y0, y1), max(y0, y1), min(z0, z1), max(z0, z1))
 
 
-def pi_box(x0, x1, y0, y1, w0, w1):
-    """Box in the screen's Pi-board frame (see generate.pi_frame)."""
-    return g.pi_local(box(x0, x1, y0, y1, w0, w1))
-
-
-def pi_cyl(x, y, w0, w1, d, sections=24):
-    return g.pi_local(g.cyl(x, y, w0, w1, d, sections=sections))
-
-
-def screen_glass():
-    cx, cz = g.screen_box(); y = g.y_glass()
-    return g.ext_xz(g.rrect(g.OLD_SCR_W, g.OLD_SCR_H, 6.0, cx, cz), y, y + g.OLD_SCR_GLASS_T)
-
-
-def screen_parts():
-    """The screen and everything on its back, as it sits in the monitor (the faux Pi itself is a printed part).
-    Driver-board positions come from Freenove's back-view photo, in Pi-board coordinates."""
-    cx, cz = g.screen_box()
-    yg, yl = g.y_glass(), g.y_lcd_back()
-    sh = -g.STANDOFF_H                             # w of the driver board's top surface
-    parts = {"glass": screen_glass(),
-             "lcd": g.ext_xz(g.rrect(g.LCD_W, g.LCD_H, 2.0, cx + g.LCD_DX, cz + g.LCD_DZ), yg + g.OLD_SCR_GLASS_T - 0.01, yl)}
-    tw, th, tt = g.SCR_TAB
-    for i, (tx, tz) in enumerate(g.SCR_TABS):      # stamped tabs with M3 nuts (for Freenove's legs)
-        parts[f"tab{i}"] = g.slab(cx + tx - tw / 2, cx + tx + tw / 2, yl - 0.01, yl + tt, cz + tz - th / 2, cz + tz + th / 2)
-    parts["driver_board"] = pi_box(0.55, 64.8, 0.4, 55.3, sh - g.DRV_T, sh)
-    parts["drv_feet"] = g.U([pi_box(x - 3, x + 3, y - 3, y + 3, sh - g.DRV_T - g.DRV_Z0 + 0.01, sh - g.DRV_T + 0.01)
-                             for x, y in g.PI_HOLES])  # stamped bridges that carry the board
-    parts["standoffs"] = g.U([pi_cyl(x, y, sh, -0.01, g.STANDOFF_D, sections=6) for x, y in g.PI_HOLES])
-    parts["pogo_pins"] = g.U([pi_cyl(*g.gpio_xy(p), sh, -g.PIN_BELOW - 0.02, 1.6, 16) for p in g.POGO_PINS])
-    parts["dsi_connector"] = pi_box(1.3, 7.7, 16.9, 38.3, sh, sh + 2.5)
-    parts["power_jst"] = pi_box(16.1, 27.0, 46.7, 55.3, sh, sh + min(4.8, g.STANDOFF_H - g.PIN_BELOW - 0.3))
-    # DSI ribbon: leaves the connector towards the SD-card end, folds 90 deg, hangs down along the LCD to the
-    # bezel's bottom, turns back over it into the CRT back and drops to the floor (then it is free to bend)
-    w_r = sh + 0.8
-    parts["ribbon_exit"] = pi_box(-6.0, 1.3, 19.6, 35.6, w_r, w_r + 0.4)
-    p_end = g.pi_world(-6.0, 35.6, w_r)
-    x_out = g.pi_world(-6.0 - 16.0, 35.6, w_r)[0]
-    xa_, xb_ = min(p_end[0], x_out), max(p_end[0], x_out)
-    z_low = cz - (g.OLD_SCR_H / 2 + g.SCR_CLR) + 1.5                   # just above the bezel's inner bottom
-    y_drop = g.MON_F + g.BEZ_D + 4.0
-    parts["ribbon_down"] = g.U([box(xa_, xb_, p_end[1] - 0.2, p_end[1] + 0.6, z_low, max(p_end[2], z_low + 1.0)),
-                                box(xa_, xb_, p_end[1] - 0.2, y_drop + 0.6, z_low, z_low + 0.6),
-                                box(xa_, xb_, y_drop, y_drop + 0.6, g.MON_Z0 + g.WALL + 1.0, z_low + 0.6)])
-    # touch-panel flex: from the glass's bottom edge, over the board's edge, to its connector
-    xa, xb = 27.9, 53.5
-    lcd_bottom = cz + g.LCD_DZ - g.LCD_H / 2
-    inv = np.linalg.inv(g.pi_frame())
-    y_edge = (inv @ np.array([g.pi_world((xa + xb) / 2, 0)[0], 0, lcd_bottom, 1.0]))[1]
-    w_back = sh - g.DRV_T - g.DRV_Z0
-    if y_edge > 57.0:                              # (only drawn for the board orientation seen on the photos)
-        parts["touch_fpc"] = g.U([pi_box(xa, xb, 55.3, y_edge, w_back + 0.02, w_back + 0.32),
-                                  pi_box(xa, xb, 55.3, 55.8, w_back + 0.02, sh + 0.3),
-                                  pi_box(xa, xb, 40.0, 55.8, sh, sh + 0.3)])
-    return parts
-
-
-def adapter_parts():
-    """What goes on the faux Pi: the 2 x 5 header and the two Dupont plugs (on the spring-contact pins)."""
-    ledge, t = g.HDR_TAIL - g.PIN_BELOW, g.ADP_T
-    x0, x1, y0, y1 = g.header_box()
-    out = {"header_body": pi_box(x0, x1, y0, y1, ledge, ledge + g.HDR_BODY_H)}
-    pins = []
-    for p in range(1, g.HDR_PINS + 1):
-        x, y = g.gpio_xy(p)
-        pins.append(pi_box(x - 0.32, x + 0.32, y - 0.32, y + 0.32, ledge - g.HDR_TAIL, ledge + g.HDR_BODY_H + g.HDR_LONG))
-    out["header_pins"] = g.U(pins)
-    s, L = 2.5, g.DUPONT[1]
-    top = ledge + g.HDR_BODY_H
-    out["dupont"] = g.U([pi_box(x - s / 2, x + s / 2, y - s / 2, y + s / 2, top + 0.01, top + L)
-                         for x, y in (g.gpio_xy(p) for p in g.POGO_PINS)])
-    out["dupont_wires"] = g.U([pi_cyl(x, y, top + L, top + L + 10.0, 1.5) for x, y in (g.gpio_xy(p) for p in g.POGO_PINS)])
-    assert t >= top - 1e-6
-    return out
+def monitor_screen(flip=False):
+    """The screen as it sits in the monitor."""
+    return blue_screen(*g.screen_box(), g.y_glass(), flip)
 
 
 def ribbon_bundle():
@@ -197,7 +125,7 @@ def pi_blocks(with_plugs=True):
         parts["plug_mic"] = blk(87.1, 87.1 + 18.0, 3.0, 15.0, zt + 1.0, zt + 7.0)
         parts["plug_power"] = blk(7.5, 15.0, -26.0, -1.1, zt, zt + 3.4)
         # the screen's 5 V and GND wires on GPIO pins 4 and 6 (Dupont plugs + 10 mm of wire)
-        for p in g.POGO_PINS:
+        for p in g.SCR_PWR_PINS:
             hx, hy = g.gpio_xy(p)
             parts[f"plug_dupont{p}"] = blk(hx - 1.25, hx + 1.25, hy - 1.25, hy + 1.25, zt + 2.5, zt + 2.5 + g.DUPONT[1] + 10.0)
     return parts

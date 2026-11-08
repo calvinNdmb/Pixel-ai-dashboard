@@ -1,22 +1,20 @@
 """Pixel, retro edition: a beige 90s desktop PC that is really a Raspberry Pi 4.
 
-- The "CRT monitor" holds a 7" touch screen (Freenove FNK0078H, 800x480 IPS, DSI).
+- The "CRT monitor" holds a 7" touch screen (Freenove 7", blue-board version, 800x480, DSI).
 - The "desktop case" holds the Raspberry Pi 4 and the wiring. Its front panel shows engraved fake buttons
   and LEDs (v1) or holds real ones (v2, see V2_PANEL).
 - The "keyboard" is the inner module of a Stream Deck MK.2 in a printed retro keyboard.
-- The screen takes its 5 V from the Pi through a printed "faux Pi" plate: no soldering anywhere.
+- The screen takes its 5 V from the Pi's GPIO with 2 Dupont wires (pins 4 and 6): no soldering anywhere.
 No moving parts. One cable: the Pi's USB-C power.
 
 Parts (stl/), each exported in its print orientation, no supports needed:
-    PixelMonitorFront.stl        bezel that holds the screen (prints face-down)
-    PixelMonitorBack.stl         tapered CRT back with vents and the 4 posts that hold the screen (prints back-down)
+    PixelMonitorFront.stl        bezel that holds the screen, with the 2 bracket recesses (prints face-down)
+    PixelMonitorBack.stl         tapered CRT back with vents (prints back-down)
     PixelStand.stl               round swivel foot under the monitor (prints top-down)
     PixelCase.stl                desktop case shell (prints top-down)
     PixelCaseBottom.stl          bottom plate, the Pi is screwed on it (prints flat)
     PixelKeyboardBase.stl        retro keyboard that holds the Stream Deck MK.2's inner module (prints upright)
     PixelKeyboardTop.stl         beige keyboard top with the 15 key holes (prints top-down)
-    PixelScreenPowerAdapter.stl  "faux Pi": plate screwed on the screen's standoffs instead of the Pi, holding a
-                                 piece of pin header where the Pi's GPIO pins would be (prints flat)
     PixelStreamDeckTray.stl      option: low tray for a whole, unopened Stream Deck MK.2 (prints upright)
     ScreenFitTest.stl            thin frame to check the screen size before the big prints
     ScreenMountTest.stl          the bezel's glass zone cut short: window, glass pocket, rim as deep as glass + PCB,
@@ -29,11 +27,11 @@ Parts (stl/), each exported in its print orientation, no supports needed:
     PixelKeyboardLeds.stl        translucent bar for the 3 keyboard LED windows (same position as the top:
                                  load both as one object in the slicer to print it in translucent filament)
 
-    pip install trimesh manifold3d shapely mapbox_earcut numpy scipy matplotlib
+    pip install trimesh manifold3d shapely mapbox_earcut numpy scipy matplotlib pillow
     python3 generate.py            # then: python3 tools/verify.py
 
 Coordinates: X = left/right, Y = front (0) to back, Z = up. Units: mm.
-Values marked [measure] are estimates from Freenove's photos: check them on the real screen.
+Values marked [measure] are estimates (from the user's photo of the screen's back): check them on the real screen.
 """
 
 from math import cos, radians, sin, tan
@@ -92,28 +90,7 @@ SMT_WALL = 2.0                                  # rim around the glass pocket
 SMT_MARGIN = 0.4                                # the rim is this much deeper than glass + PCB
 PILOT_TEST = [2.0, 2.1, 2.2, 2.3, 2.4]          # ScrewPilotTest pilots
 
-# Freenove 7" touch screen FNK0078H (IPS, metal back). Freenove's packing list gives 19.3 x 11.1 cm for the
-# glass; the metal back of the LCD, the driver board and its standoffs are measured on Freenove's photos.
-# (The older blue-board FNK0078B/C is only about 165 x 100 mm: it would need other numbers here.)
-OLD_SCR_W, OLD_SCR_H = 193.0, 111.0                     # cover glass [measure]
-OLD_SCR_GLASS_T = 2.0                               # glass thickness at its black border [measure]
-OLD_SCR_T = 7.5                                     # glass front -> metal back of the LCD: the posts press there [measure]
-SCR_CLR = 0.75
-LCD_W, LCD_H = 168.0, 102.0                     # grey metal back of the LCD [measure]
-LCD_DX, LCD_DZ = 1.2, -2.1                      # its centre vs the glass centre, seen from the front [measure]
-OLD_VIEW_DX, OLD_VIEW_DZ = 0.0, 0.0                     # picture centre vs glass centre, seen from the front [measure]
-OLD_WIN_W, OLD_WIN_H, OLD_WIN_R = 160.0, 94.0, 2.0          # window: shows the whole picture even if it is 3 mm off-centre
-OLD_ACTIVE_W, OLD_ACTIVE_H = 154.2, 85.9                # picture size (previews and checks)
-SCR_TABS = [(-62.8, 34.3), (65.9, 34.3), (-62.8, -33.4), (65.9, -33.4)]   # stamped tabs with M3 nuts for the
-SCR_TAB = (15.0, 9.0, 3.0)                      # screen's legs (X, Z from the glass centre; size W, H, height)
-# The Freenove driver board on the metal back has the Pi 4 hole pattern on 4 brass standoffs; two spring contacts
-# press on the underside of the Pi's GPIO header to take 5 V and GND (pins 4 and 6 on Freenove's photos).
-PI_ON_SCR = (-4.7, -7.0)                        # centre of the 58 x 49 hole pattern vs the glass centre, seen from
-PI_ON_SCR_ROT = 0.0                             # the front [measure]; rotation in degrees, 0 = USB end to the right
-                                                # and GPIO header at the bottom (seen from the front)
-DRV_Z0, DRV_T = 3.5, 1.6                        # driver board: underside above the metal back, thickness [measure]
-STANDOFF_H, STANDOFF_D = 6.0, 5.0               # brass standoffs between the driver board and the Pi [measure]
-POGO_PINS = (4, 6)                              # GPIO pins the spring contacts touch: 5 V, then GND [check]
+SCR_PWR_PINS = (4, 6)                           # the screen's 5 V and GND Dupont wires go on these Pi pins
 
 PI_L, PI_W = 85.0, 56.0                         # Raspberry Pi 4 board
 PI_HOLES = [(3.5, 3.5), (61.5, 3.5), (3.5, 52.5), (61.5, 52.5)]
@@ -131,18 +108,7 @@ TURBO_XZ, TURBO_HOLE = (56.0, 51.0), 12.2       # 12 mm momentary button, the "T
 LED3_X, LED3_Z, LED3_HOLE = (24.0, 32.0), 51.0, 5.0   # two 3 mm LEDs in chrome holders: power, activity
 LED5_XZ, LED5_HOLE = (42.0, 51.0), 8.0          # 5 mm addressable RGB LED in a chrome holder: notifications
 
-# faux Pi (PixelScreenPowerAdapter): standard 2.54 mm double-row male header, cut by hand to 2 x 5 pins
-HDR_PINS = 10                                   # pins 1..10
-HDR_BODY_H = 2.5                                # plastic body height
-HDR_TAIL = 3.0                                  # short ends below the body [measure your header]
-HDR_LONG = 6.0                                  # long ends above the body
-PIN_BELOW = 1.6                                 # short ends stick out under the plate like a soldered Pi header
-HDR_SLOT_W = 5.1                                # press fit for the 5.08 mm wide body (prints a bit narrower)
-HDR_SLOT_CLR = 0.2                              # extra length at each end: the cut ends are rough
-HDR_HOLE = 1.2                                  # holes for the 0.64 mm square short ends
-ADP_T = HDR_TAIL - PIN_BELOW + HDR_BODY_H       # plate thickness: the body sits flush with the top. Fixed with
-                                                # 4 x M2.5 x 6 (the M2.5 x 4 that come with the screen are too short)
-DUPONT = (2.6, 14.0)                            # female Dupont housing: section, length
+DUPONT = (2.6, 14.0)                            # female Dupont housing on the Pi's pins: section, length
 
 # ------------------------------------------------------------------ layout
 WALL = 2.4
@@ -205,19 +171,20 @@ RIBBON_SLOT = (-10.0, 10.0, STAND_Y - 2.0, STAND_Y + 9.0)   # X0, X1, Y0, Y1: sc
 # monitor: everything follows the screen size
 MON_F = CASE_Y0 + 14.0                          # front face of the bezel
 MON_Z0 = CASE_H + STAND_H                       # bottom of the monitor
-SCR_BOTTOM = 18.0                               # glass bottom above the monitor's bottom (the "chin")
-BEZ_WALL, BEZ_TOP = 5.25, 9.0                   # bezel around the glass pocket: sides, top
-BEZ_D, BEZ_R, BEZ_CHAMFER = 22.0, 7.0, 1.5
-BEZ_W = OLD_SCR_W + 2 * SCR_CLR + 2 * BEZ_WALL
-BEZ_H = SCR_BOTTOM + OLD_SCR_H + SCR_CLR + BEZ_TOP
-FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth
+SCR_BOTTOM = 20.0                               # glass bottom above the monitor's bottom (the "chin")
+BEZ_WALL, BEZ_TOP = 9.0, 13.0                   # bezel around the glass pocket: sides, top (the top holds the
+                                                # bracket screws under the CRT back's rim)
+FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth (the lip in front of the glass)
+BEZ_D = FUNNEL + SCR_T + SCR_NUT_H - BRK_SQUEEZE + BRK_T   # its rear face is flush with the brackets
+BEZ_R, BEZ_CHAMFER = 7.0, 1.5
+BEZ_W = SCR_W + 2 * SCR_CLR + 2 * BEZ_WALL
+BEZ_H = SCR_BOTTOM + SCR_H + SCR_CLR + BEZ_TOP
+BRK_CLR = 0.4                                   # bracket recesses in the bezel's rear face: clearance all around
 BACK_STEP = 2.0                                 # the CRT back is this much smaller than the bezel (sides, top)
-BACK_TAPER_W, BACK_TAPER_H = 34.0, 24.0         # its rear end is this much narrower / lower than its front
+BACK_TAPER_W, BACK_TAPER_H = 30.0, 20.0         # its rear end is this much narrower / lower than its front
 BACK_FRONT_W, BACK_FRONT_H = BEZ_W - 2 * BACK_STEP, BEZ_H - 2 * BACK_STEP
-BACK_W, BACK_H, BACK_D, BACK_R = BACK_FRONT_W - BACK_TAPER_W, BACK_FRONT_H - BACK_TAPER_H, 120.0, 8.0
-TONGUE_X = 60.0                                 # the back hooks into the bezel with two tongues at the top
-POST_X, POST_DZ, POST_D = 74.0, 14.0, 8.0       # four posts press the LCD's metal back forward (from the glass
-FOAM_T = 1.0                                    # centre); 1 mm foam pads on their tips
+BACK_W, BACK_H, BACK_D, BACK_R = BACK_FRONT_W - BACK_TAPER_W, BACK_FRONT_H - BACK_TAPER_H, 105.0, 8.0
+TONGUE_X = 55.0                                 # the back hooks into the bezel with two tongues at the top
 
 
 # ------------------------------------------------------------------ helpers
@@ -651,114 +618,29 @@ def build_stand():
     return single(D(stand, *cuts), "PixelStand")
 
 
-# ------------------------------------------------------------------ screen stack and faux Pi
+# ------------------------------------------------------------------ screen in the monitor
 def screen_box():
     """Centre of the glass (X, Z)."""
-    return 0.0, MON_Z0 + SCR_BOTTOM + OLD_SCR_H / 2
+    return 0.0, MON_Z0 + SCR_BOTTOM + SCR_H / 2
 
 
 def view_centre():
     cx, cz = screen_box()
-    return cx + OLD_VIEW_DX, cz + OLD_VIEW_DZ
+    return cx + VIEW_DX, cz + VIEW_DZ
 
 
 def y_glass():
     return MON_F + FUNNEL                          # front face of the glass
 
 
-def y_lcd_back():
-    return y_glass() + OLD_SCR_T                       # metal back of the LCD
-
-
-def y_pi():
-    return y_lcd_back() + DRV_Z0 + DRV_T + STANDOFF_H   # top of the standoffs = underside of the (faux) Pi
-
-
-def pi_frame():
-    """Pi-board coordinates on the screen's back -> world. x from the SD-card edge, y from the USB-C edge (as on
-    the Raspberry Pi drawing), w = height above the underside of the Pi, towards the back of the monitor."""
-    a = radians(PI_ON_SCR_ROT)
-    c, s = cos(a), sin(a)
-    cx, cz = screen_box()
-    px, pz = cx + PI_ON_SCR[0], cz + PI_ON_SCR[1]
-    hx, hy = PI_HOLE_CENTRE
-    return np.array([[c, s, 0, px - c * hx - s * hy],
-                     [0, 0, 1, y_pi()],
-                     [s, -c, 0, pz - s * hx + c * hy],
-                     [0, 0, 0, 1]], float)
-
-
-def pi_local(mesh):
-    m = mesh.copy(); m.apply_transform(pi_frame()); return m
-
-
-def pi_world(x, y, w=0.0):
-    return (pi_frame() @ np.array([x, y, w, 1.0]))[:3]
+def y_pcb_back():
+    return y_glass() + SCR_T                       # back face of the blue PCB
 
 
 def gpio_xy(pin):
     """Centre of a GPIO pin (1..40) in Pi-board coordinates."""
     col = (pin - 1) // 2
     return GPIO_X1 + 2.54 * col, GPIO_Y + (1.27 if pin % 2 == 0 else -1.27)
-
-
-def header_box():
-    """Plastic body of the 2 x 5 header in Pi-board coordinates: x0, x1, y0, y1."""
-    xs = [gpio_xy(p)[0] for p in range(1, HDR_PINS + 1)]
-    return min(xs) - 1.27, max(xs) + 1.27, GPIO_Y - 2.54, GPIO_Y + 2.54
-
-
-def adapter_outline():
-    """Faux Pi plate: a HAT-size frame with the Pi 4 holes, and an island for the header and its labels."""
-    hx0, hx1, hy0, hy1 = header_box()
-    plate = rrect(65.0, PI_W, 3.0, 32.5, PI_W / 2).difference(rrect(45.0, 34.0, 3.0, 32.5, 27.0))
-    y_end = PI_W + 9.5
-    island = rrect(hx1 - hx0 + 6.5, y_end - (hy0 - 4.0), 1.5, (hx0 + hx1) / 2 + 0.3, (hy0 - 4.0 + y_end) / 2)
-    return unary_union([plate, island])
-
-
-def adapter_tie_slots():
-    """Two slots under the header for a small cable tie that holds the two wires (strain relief)."""
-    xs = [gpio_xy(p)[0] for p in POGO_PINS]
-    return [(min(xs) - 2.9, PI_W + 6.2), (max(xs) + 2.9, PI_W + 6.2)]
-
-
-def adapter_labels():
-    """'1' next to pin 1, '5V' and 'GND' next to the pins the spring contacts touch. They read upright when you
-    look at the back of the screen with its top edge up (Pi-board x points left there, y points down)."""
-    x1_, y1_ = gpio_xy(1)
-    labels = [text_centred("1", 2.6, x1_, header_box()[2] - 1.9, 180.0)]
-    for pin, txt in zip(POGO_PINS, ("5V", "GND")):
-        x, y = gpio_xy(pin)
-        if pin % 2 == 0:                                            # board-edge row: label further out
-            g = text_centred(txt, 2.3, x, 0, 90.0)
-            gy0, gy1 = g.bounds[1], g.bounds[3]
-            labels.append(affinity.translate(g, 0, header_box()[3] + 0.8 - gy0))
-        else:                                                       # inner row: label further in
-            g = text_centred(txt, 2.3, x, 0, 90.0)
-            labels.append(affinity.translate(g, 0, header_box()[2] - 0.8 - g.bounds[3]))
-    return labels
-
-
-def build_adapter():
-    """'Faux Pi' (PixelScreenPowerAdapter): screws on the screen's standoffs instead of the Pi and holds a 2 x 5
-    piece of male pin header exactly where the Pi's GPIO pins 1-10 are. The screen's spring contacts press on the
-    short ends, like on a soldered Pi header; female Dupont wires plug on the long ends.
-    Built in Pi-board coordinates; w = 0 is the side facing the screen, which prints on the bed."""
-    t, ledge = ADP_T, HDR_TAIL - PIN_BELOW
-    plate = ext_xy(adapter_outline(), 0, t)
-    cuts = []
-    for hx, hy in PI_HOLES:                                       # 4 x M2.5 x 6 into the screen's standoffs
-        cuts.append(cyl(hx, hy, -1, t + 1, CLEAR))
-    x0, x1, y0, y1 = header_box()                                 # press-fit pocket for the plastic body
-    cuts.append(ext_xy(rrect(x1 - x0 + 2 * HDR_SLOT_CLR, HDR_SLOT_W, 0.3, (x0 + x1) / 2, (y0 + y1) / 2), ledge, t + 1))
-    for pin in range(1, HDR_PINS + 1):                            # the short ends go through the ledge
-        cuts.append(cyl(*gpio_xy(pin), -1, ledge + 0.05, HDR_HOLE, sections=16))
-    for lb in adapter_labels():
-        cuts += engrave_top(lb, t, 0.5)
-    for x, y in adapter_tie_slots():
-        cuts.append(ext_xy(rrect(1.6, 3.2, 0.6, x, y), -1, t + 1))
-    return single(D(plate, *cuts), "PixelScreenPowerAdapter")
 
 
 # ------------------------------------------------------------------ monitor
@@ -777,11 +659,6 @@ def back_size(y):
     return (BACK_FRONT_W + (BACK_W - BACK_FRONT_W) * t) / 2, BACK_FRONT_H + (BACK_H - BACK_FRONT_H) * t
 
 
-def post_positions():
-    cx, cz = screen_box()
-    return [(cx + sx * POST_X, cz + sz * POST_DZ) for sx in (-1, 1) for sz in (-1, 1)]
-
-
 def tongue_z():
     return MON_Z0 + BACK_FRONT_H - 2.2
 
@@ -793,12 +670,19 @@ def build_monitor():
     # ---------- bezel (solid, printed face-down)
     front = hull(ext_xz(rrect(BEZ_W - 2 * BEZ_CHAMFER, BEZ_H - 2 * BEZ_CHAMFER, BEZ_R - BEZ_CHAMFER, 0, z0 + BEZ_H / 2), f, f + 0.01),
                  ext_xz(rrect(BEZ_W, BEZ_H, BEZ_R, 0, z0 + BEZ_H / 2), f + BEZ_CHAMFER, f + BEZ_D))
-    sw, sh = OLD_SCR_W + 2 * SCR_CLR, OLD_SCR_H + 2 * SCR_CLR
+    sw, sh = scr_pocket()
     cuts = [ext_xz(rrect(sw, sh, 0.5, cx, cz), f + FUNNEL, f + BEZ_D + 1)]                      # glass pocket
-    funnel = hull(ext_xz(rrect(OLD_WIN_W, OLD_WIN_H, OLD_WIN_R, vx, vz), f + FUNNEL, f + FUNNEL + 0.5),
-                  ext_xz(rrect(OLD_WIN_W + 2 * FUNNEL, OLD_WIN_H + 2 * FUNNEL, OLD_WIN_R + FUNNEL * 0.5, vx, vz), f - 0.01, f + 0.01))
+    funnel = hull(ext_xz(rrect(WIN_W, WIN_H, WIN_R, vx, vz), f + FUNNEL - 0.01, f + FUNNEL + 0.01),   # WIN at the glass
+                  ext_xz(rrect(WIN_W + 2 * FUNNEL, WIN_H + 2 * FUNNEL, WIN_R + FUNNEL * 0.5, vx, vz), f - 0.01, f + 0.01))
     cuts.append(funnel)
-    # tongue slots for the back, pilots for the stand screws
+    # the 2 screen brackets lie in recesses of the rear face, on 4 self-tapping pilots
+    seat = brk_seat(y_glass())
+    for s in (-1, 1):
+        x = cx + s * (SCR_W / 2 - SCR_HOLE_IN)
+        cuts.append(ext_xz(rrect(BRK_W + 2 * BRK_CLR, brk_len() + 2 * BRK_CLR, 2.0 + BRK_CLR, x, cz), seat, f + BEZ_D + 1))
+    for x, z in brk_screws(cx, cz):
+        cuts.append(cyl_y(x, z, seat - SCR_PILOT_DEPTH, seat + 1, SCR_PILOT))
+    # tongue slots for the back
     zt = tongue_z()
     for s in (-1, 1):
         cuts.append(slab(s * TONGUE_X - 5.2, s * TONGUE_X + 5.2, f + BEZ_D - 6.5, f + BEZ_D + 0.5, zt, zt + 2.0))
@@ -807,8 +691,8 @@ def build_monitor():
             cuts.append(cyl(dx, STAND_Y + dy, z0 - 1, z0 + 12, PILOT))
     # engraved controls under the screen: badge, knobs, LED, power button
     zc = z0 + 9.0
-    det = [text_poly("PIXEL", 7.0, -86.0, zc - 3.3), ring(46, zc, 4.6, 3.0), ring(54, zc, 4.6, 3.0), ring(62, zc, 4.6, 3.0),
-           rrect(5.0, 1.8, 0.6, 71.5, zc), ring(83, zc, 9.0, 7.0), Point(83, zc).buffer(1.0, quad_segs=12)]
+    det = [text_poly("PIXEL", 7.0, -78.0, zc - 3.3), ring(38, zc, 4.6, 3.0), ring(46, zc, 4.6, 3.0), ring(54, zc, 4.6, 3.0),
+           rrect(5.0, 1.8, 0.6, 63.5, zc), ring(75, zc, 9.0, 7.0), Point(75, zc).buffer(1.0, quad_segs=12)]
     for p in det:
         cuts.append(engrave_front(p, f, 0.7))
     bezel = single(D(front, *cuts), "PixelMonitorFront")
@@ -816,10 +700,6 @@ def build_monitor():
     # ---------- tapered CRT back (shell, printed back-down)
     back = D(monitor_back_solid(), monitor_back_solid(WALL, open_front=True))
     adds = []
-    # posts pressing the LCD's metal back forward (with 1 mm foam pads), clear of the faux Pi and its wires
-    y_press = y_lcd_back() + FOAM_T
-    for px, pz in post_positions():
-        adds.append(cyl_y(px, pz, y_press, f + BEZ_D + BACK_D - WALL + OVER, POST_D))
     # bottom block for the stand screws
     # (ends in a 45 deg ramp so it prints without support)
     yb0, yb1 = STAND_Y - 16.0, STAND_Y + 16.0
@@ -827,25 +707,25 @@ def build_monitor():
     # tongues reaching into the bezel
     for s in (-1, 1):
         adds.append(slab(s * TONGUE_X - 4.8, s * TONGUE_X + 4.8, f + BEZ_D - 6.0, f + BEZ_D + 2.0, zt + 0.2, zt + 1.8))
-    y_clip = min(f + BEZ_D - 7, y_press) - 1.0                    # the tongues and post tips reach into the bezel
+    y_clip = f + BEZ_D - 8.0                                      # the tongues reach into the bezel
     back = I(U([back, *adds]), U([monitor_back_solid(), slab(-300, 300, y_clip, f + BEZ_D + 0.01, -10, 400)]))
     bcuts = []
     for dx, dy in STAND_MON_SCREWS:                               # through the block: no thin cap to print
         if STAND_Y + dy > f + BEZ_D:
             bcuts.append(cyl(dx, STAND_Y + dy, z0 - 1, z0 + 11, PILOT))
     bcuts.append(ribbon_slot(z0 - 1, z0 + 11))                     # screen ribbon and power wires, into the stand
-    # perforated grilles on both sides and on top: cut through the walls only, so the posts stay whole
-    cols_y = [f + BEZ_D + 40 + 9 * j for j in range(7)]
+    # perforated grilles on both sides and on top
+    cols_y = [f + BEZ_D + 34 + 9 * j for j in range(7)]
     for y in cols_y:
         hw0, h0 = back_size(y)
         hw1, h1 = back_size(y + 6.0)
         for s in (-1, 1):
             xa, xb = hw1 - WALL - 0.6, hw0 + 1.0
-            for i in range(9):
+            for i in range(8):
                 z = z0 + 24 + 8 * i
                 bcuts.append(slab(min(s * xa, s * xb), max(s * xa, s * xb), y, y + 6.0, z, z + 2.2))
-        for i in range(17):
-            x = -48 + 6 * i
+        for i in range(15):
+            x = -42 + 6 * i
             bcuts.append(slab(x - 1.1, x + 1.1, y, y + 6.0, z0 + h1 - WALL - 0.6, z0 + h0 + 1.0))
     back = single(D(back, *bcuts), "PixelMonitorBack")
     return bezel, back
@@ -967,24 +847,26 @@ def pose(m, kind, like=None):
     return mm
 
 
+PRINT_COUNT = {"PixelScreenBracket": 2}
+
+
 def build_all():
     tray, case, plate, stand = build_tray(), build_case(), build_case_bottom(), build_stand()
     bezel, back = build_monitor()
     kb_base, kb_top, kb_top_local, kb_leds, kb_leds_local = build_keyboard()
-    adapter_local = build_adapter()
+    brk_l, brk_r = build_brackets(*screen_box(), y_glass())
     assembled = dict(PixelKeyboardBase=kb_base, PixelKeyboardTop=kb_top, PixelCase=case, PixelCaseBottom=plate,
                      PixelStand=stand, PixelMonitorFront=bezel, PixelMonitorBack=back,
-                     PixelScreenPowerAdapter=pi_local(adapter_local))
+                     PixelScreenBracket=brk_l, PixelScreenBracketRight=brk_r)
     printable = {
         "PixelMonitorFront": pose(bezel, "face_down"), "PixelMonitorBack": pose(back, "back_down"),
         "PixelStand": pose(stand, "top_down"), "PixelCase": pose(case, "top_down"),
         "PixelCaseBottom": pose(plate, "upright"), "PixelKeyboardBase": pose(kb_base, "upright"),
         "PixelKeyboardTop": pose(kb_top_local, "top_down"),
-        "PixelScreenPowerAdapter": pose(adapter_local, "upright"),
+        "PixelScreenBracket": pose(brk_r, "face_down"),
         "PixelStreamDeckTray": pose(tray, "upright"),
         "ScreenFitTest": build_fit_test(),
         "ScreenMountTest": pose(build_mount_test(), "face_down"),
-        "PixelScreenBracket": pose(build_brackets()[1], "face_down"),
         "ScrewPilotTest": build_pilot_test(),
         "StreamDeckFitTest": pose(build_sd_fit_test(), "top_down"),
     }
@@ -1005,9 +887,10 @@ def main():
         m.export(OUT / f"{name}.stl")
         w, d, h = m.extents
         grams = filament_g(m)
+        n = PRINT_COUNT.get(name, 1)
         if name != "PixelStreamDeckTray":                         # the tray replaces the keyboard
-            total += grams
-        print(f"  {name:24s} {w:6.1f} x {d:6.1f} x {h:5.1f} mm   ~{grams:4.0f} g")
+            total += n * grams
+        print(f"  {name:24s} {w:6.1f} x {d:6.1f} x {h:5.1f} mm   ~{grams:4.0f} g" + (f"  (print {n})" if n > 1 else ""))
     print(f"  filament for the set (without the option tray): ~{total:.0f} g")
 
 
