@@ -43,7 +43,7 @@ def persp(src, dst):
 
 def put_ui(img, proj, ui, dy=0.0, dz=0.0):
     """Paste an app screenshot on the picture area of the screen (seen through the window)."""
-    vx, vz = g.view_centre(); aw, ah = g.PIC_W / 2, g.PIC_H / 2; yf = g.y_glass() - 0.05 + dy; vz += dz
+    vx, vz = g.view_centre(); vx += g.PIC_DX; vz += g.PIC_DZ; aw, ah = g.PIC_W / 2, g.PIC_H / 2; yf = g.y_glass() - 0.05 + dy; vz += dz
     dst = [proj(p) for p in [(vx - aw, yf, vz + ah), (vx + aw, yf, vz + ah), (vx + aw, yf, vz - ah), (vx - aw, yf, vz - ah)]]
     warped = ui.transform(img.size, Image.Transform.PERSPECTIVE, persp([(0, 0), (ui.width, 0), (ui.width, ui.height), (0, ui.height)], dst),
                           Image.Resampling.BICUBIC)
@@ -68,13 +68,13 @@ def scene():
     parts = [(asm["PixelKeyboardBase"], BEIGE2), (asm["PixelKeyboardTop"], BEIGE), (body, (0.12, 0.13, 0.15)),
              (asm["PixelCase"], BEIGE), (asm["PixelCaseBottom"], BEIGE2), (asm["PixelStand"], BEIGE2),
              (asm["PixelMonitorFront"], BEIGE), (asm["PixelMonitorBack"], BEIGE), (scr["glass"], DARK), *keys]
-    extra = []
+    btn = mocks.power_button()
+    extra = [(btn["button_head"], METAL)]
     if g.V2_PANEL:
         fp = mocks.front_parts()
         extra += [(m, METAL) for m in fp.values()]
-        y0c = g.CASE_Y0; px_, pz_ = g.PWR_XZ
-        glow = g.D(g.cyl_y(px_, pz_, y0c - 3.3, y0c - 2.95, 18.0), g.cyl_y(px_, pz_, y0c - 4, y0c - 2, 15.2))
-        extra += [(glow, (0.2, 0.95, 0.35)), (g.cyl_y(*g.TURBO_XZ, y0c - 4.0, y0c - 2.4, 9.0), (0.86, 0.86, 0.88))]
+        y0c = g.CASE_Y0
+        extra += [(g.cyl_y(*g.TURBO_XZ, y0c - 4.0, y0c - 2.4, 9.0), (0.86, 0.86, 0.88))]
         for x, c in zip(g.LED3_X, [(0.2, 0.95, 0.35), (1.0, 0.62, 0.15)]):
             extra.append((g.cyl_y(x, g.LED3_Z, y0c - 4.5, y0c - 1.9, 3.0), c))
         extra.append((g.cyl_y(*g.LED5_XZ, y0c - 5.0, y0c - 1.9, 5.0), (0.3, 0.85, 1.0)))
@@ -181,15 +181,19 @@ def do_inside(out_dir, ui_dir):
     ex += [(mv(m, dz=-30), c) for m, c in pi_parts()]
     im3, p3 = render(ex, (0.60, 0.72, -0.36), S, light=(0.35, -0.65, 0.70))
 
-    solids = [p for p in parts if p[0] is not scr["glass"]] + [(scr["glass"], DARK)] + back
+    btn = mocks.power_button()
+    solids = [p for p in parts if p[0] is not scr["glass"]] + [(scr["glass"], DARK)] + back + \
+        [(btn["button_body"], METAL), (btn["button_nut"], METAL), (btn["button_wires"], RED)]
     inside = pi_parts() + wires()
     xc = -60.0
     im4, p4 = render(cut(solids, xc) + cut([(m, c) for m, c in inside], xc), (0.88, 0.33, -0.34), S, light=(0.7, -0.3, 0.65))
     cx, cz = g.screen_box()
     x0s, x1s, y0s, y1s = g.RIBBON_SLOT
     label(im4, p4, (60, 225, 20), "Raspberry Pi 4", 120, 150, (30, 130, 60))
-    label(im4, p4, (2, (y0s + y1s) / 2, g.CASE_H + 4), "Nappe de l'écran\n+ 2 fils 5 V et GND\ndans le pied", 160, -150, (200, 140, 30))
+    label(im4, p4, (2, (y0s + y1s) / 2, g.CASE_H + 4), "Nappe de l'écran, 2 fils 5 V et GND\net 2 fils du bouton\ndans le pied", 160, -150, (200, 140, 30))
     label(im4, p4, (xc, g.y_glass() + 1, cz + 35), "Écran 7\" Freenove\n(carte bleue)", -60, -120, (40, 40, 40))
+    bx, bz, _, _ = g.mon_btn()
+    label(im4, p4, (bx, g.MON_F - 2, bz), "Bouton d'allumage 12 mm", 40, 160, (90, 90, 90))
     sp = mocks.scr_spots()
     label(im4, p4, (cx + sp["pwr"][0], g.y_pcb_back() + 6, cz + sp["pwr"][1]), "Prise blanche :\nfils 5 V et GND", -280, 80, (200, 50, 50))
     sheet(out_dir / "preview-inside.png", [im3, im4], ["Vue éclatée", "Vue en coupe : ce qu'il y a dedans"], S[0])
@@ -257,7 +261,6 @@ def do_v2(out_dir):
         asm, prn, scr, parts, _ = scene()
         near = clip(parts, g.slab(-60, 120, -10, 160, -1, g.CASE_H - 0.05))
         im, p = render(near, (-0.40, 0.84, -0.36), (1300, 900), light=(-0.35, -0.65, 0.70))
-        label(im, p, (g.PWR_XZ[0], g.CASE_Y0 - 3, g.PWR_XZ[1] + 8), "Bouton d'allumage 16 mm", 20, -150, (40, 140, 60))
         label(im, p, (g.TURBO_XZ[0], g.CASE_Y0 - 3, g.TURBO_XZ[1] + 6), "Turbo 12 mm", -120, -170, (60, 60, 60))
         label(im, p, (g.LED5_XZ[0], g.CASE_Y0 - 3, g.LED5_XZ[1] + 3), "LED RVB", -180, -110, (40, 120, 200))
         label(im, p, (g.LED3_X[0], g.CASE_Y0 - 3, g.LED3_Z + 2), "2 voyants 3 mm", -260, -40, (200, 120, 30))

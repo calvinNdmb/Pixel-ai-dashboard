@@ -103,12 +103,13 @@ def monitor_screen(flip=False):
 
 
 def ribbon_bundle():
-    """The DSI ribbon and two Dupont plugs going down through the slots (monitor floor, stand, case top)."""
+    """The DSI ribbon and 4 Dupont plugs going down through the slots (monitor floor, stand, case top): the
+    screen's 5 V and GND, and the power button's 2 wires."""
     x0, x1, y0, y1 = g.RIBBON_SLOT
     zb, zt = g.CASE_H - g.WALL - 3.0, g.MON_Z0 + 12.0
     ym = (y0 + y1) / 2
     ribbon = g.slab(-8.0, 8.0, y0 + 2.0, y0 + 2.4, zb, zt)                       # 16 mm ribbon, flat
-    plugs = g.U([g.slab(x - 1.25, x + 1.25, ym + 1.0, ym + 3.5, zb, zt) for x in (-5.0, -1.5)])   # 2.5 mm housings
+    plugs = g.U([g.slab(x - 1.25, x + 1.25, ym + 1.0, ym + 3.5, zb, zt) for x in (-5.0, -1.5, 2.0, 5.5)])   # 2.5 mm housings
     return {"ribbon_in_slot": ribbon, "dupont_in_slot": plugs}
 
 
@@ -128,8 +129,9 @@ def pi_blocks(with_plugs=True):
         parts["plug_streamdeck"] = blk(87.1, 87.1 + 36.0, 21.0, 33.0, zt + 1.0, zt + 8.0)
         parts["plug_mic"] = blk(87.1, 87.1 + 18.0, 3.0, 15.0, zt + 1.0, zt + 7.0)
         parts["plug_power"] = blk(7.5, 15.0, -26.0, -1.1, zt, zt + 3.4)
-        # the screen's 5 V and GND wires on GPIO pins 4 and 6 (Dupont plugs + 10 mm of wire)
-        for p in g.SCR_PWR_PINS:
+        # the screen's 5 V and GND wires on GPIO pins 4 and 6, the monitor's power button's on pins 5 and 9
+        # (Dupont plugs + 10 mm of wire)
+        for p in g.SCR_PWR_PINS + g.BTN_PINS:
             hx, hy = g.gpio_xy(p)
             parts[f"plug_dupont{p}"] = blk(hx - 1.25, hx + 1.25, hy - 1.25, hy + 1.25, zt + 2.5, zt + 2.5 + g.DUPONT[1] + 10.0)
     return parts
@@ -141,10 +143,44 @@ def speaker():
     return g.cyl(sx, sy, g.CASE_H - g.WALL - g.SPK_H, g.CASE_H - g.WALL - 0.2, g.SPK_D)
 
 
+def power_button():
+    """The monitor's 12 mm power button: head in front of the bezel, body behind its front wall, hex nut on the
+    pocket's floor, and its 2 wires going over the stand block to the ribbon slot (they go down it with the ribbon:
+    see ribbon_bundle)."""
+    x, z, yf, ye = g.mon_btn()
+    f = g.MON_F
+    out = {"button_head": g.cyl_y(x, z, f - g.BTN_HEAD_T, f - 0.02, g.BTN_HEAD_D),
+           "button_body": g.cyl_y(x, z, f - 0.02, ye, g.BTN_BODY_D),
+           "button_nut": g.cyl_y(x, z, yf + 0.02, yf + g.BTN_NUT_T, g.BTN_NUT_D, sections=6)}
+    sx, sy = btn_slot_xy()
+    zw0, zw1 = g.MON_Z0 + 12.5, g.MON_Z0 + 16.5                     # over the stand block and the ribbon
+    out["button_wires"] = g.U([g.slab(x - 2.0, x + 2.0, ye - 0.5, ye + 2.5, min(z - 2.0, zw0), zw1),
+                               g.slab(min(x, sx) - 2.0, max(x, sx) + 2.0, ye, ye + 2.5, zw0, zw1),
+                               g.slab(sx - 2.0, sx + 2.0, ye, sy, zw0, zw1)])
+    return out
+
+
+def btn_slot_xy():
+    """Where the button's 2 wires go down the ribbon slot."""
+    x0, x1, y0, y1 = g.RIBBON_SLOT
+    return 3.75, (y0 + y1) / 2 + 2.25
+
+
+def btn_wire_length():
+    """Path of the button's wires, from the back of its body to the Pi's pins 5 and 9 (mm)."""
+    x, z, _, ye = g.mon_btn()
+    sx, sy = btn_slot_xy()
+    zw = g.MON_Z0 + 13.0
+    pin = np.array([*g.pi_xy(*g.gpio_xy(g.BTN_PINS[0])), g.PLATE_T + g.PI_STANDOFF + 1.4 + 8.5 + g.DUPONT[1]])
+    path = [np.array([x, ye, z]), [x, ye + 1, zw], [sx, ye + 1, zw], [sx, sy, zw], [sx, sy, g.CASE_H - g.WALL - 1.0], pin]
+    return sum(np.linalg.norm(np.subtract(path[i + 1], path[i])) for i in range(len(path) - 1))
+
+
 def front_parts():
-    """v2: real front-panel parts, body behind the panel, flange in front (power button, Turbo, LED holders)."""
+    """v2: real front-panel parts, body behind the panel, flange in front (Turbo, LED holders; the real power
+    button is on the monitor: power_button())."""
     y0 = g.CASE_Y0
-    spec = {"power": (g.PWR_XZ, 16.0, 19.0, 32.0, 3.0), "turbo": (g.TURBO_XZ, 12.0, 14.5, 26.0, 2.5),
+    spec = {"turbo": (g.TURBO_XZ, 12.0, 14.5, 26.0, 2.5),
             "led_rgb": (g.LED5_XZ, 7.8, 10.0, 12.0, 2.0)}
     for i, x in enumerate(g.LED3_X):
         spec[f"led3_{i}"] = ((x, g.LED3_Z), 4.8, 6.5, 10.0, 2.0)

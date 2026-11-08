@@ -62,12 +62,20 @@ SCR_PCB_T = 1.6                                 # blue PCB thickness (for the mo
 SCR_HOLE_IN = 6.0                               # 4 corner mounting holes: centres 6 mm from each glass edge
 SCR_NUT_D, SCR_NUT_H = 5.0, 3.0                 # brass ring around each hole, sticking out of the PCB [measure]
 SCR_BACK_FREE = 12.0                            # free depth behind the PCB (connectors, ribbon, wires)
-SCR_BORDER = dict(top=5.0, sides=8.0, bottom=5.0)   # black border around the picture (bottom [measure])
-PIC_W = SCR_W - 2 * SCR_BORDER["sides"]         # picture size
+SCR_BORDER = dict(left=3.0, right=7.0, top=4.0, bottom=8.0)   # black border around the picture, seen from the front
+PIC_W = SCR_W - SCR_BORDER["left"] - SCR_BORDER["right"]       # picture size
 PIC_H = SCR_H - SCR_BORDER["top"] - SCR_BORDER["bottom"]
-VIEW_DX, VIEW_DZ = 0.0, (SCR_BORDER["bottom"] - SCR_BORDER["top"]) / 2   # picture centre vs glass centre
-WIN_MARGIN = 1.0                                # the window shows the whole picture with this margin
-WIN_W, WIN_H, WIN_R = PIC_W + 2 * WIN_MARGIN, PIC_H + 2 * WIN_MARGIN, 2.0
+PIC_DX = (SCR_BORDER["left"] - SCR_BORDER["right"]) / 2        # picture centre vs glass centre (it is off-centre)
+PIC_DZ = (SCR_BORDER["bottom"] - SCR_BORDER["top"]) / 2
+# The window is symmetric about the glass centre: it shows the whole picture whichever way up (or mirrored) the
+# screen goes in, with WIN_MARGIN, and is at least WIN_MIN (measured on the printed test).
+WIN_MARGIN = 1.0
+WIN_MIN = (152.0, 93.5)
+WIN_W = max(WIN_MIN[0], PIC_W + 2 * abs(PIC_DX) + 2 * WIN_MARGIN)
+WIN_H = max(WIN_MIN[1], PIC_H + 2 * abs(PIC_DZ) + 2 * WIN_MARGIN)
+WIN_R = 2.0
+VIEW_DX, VIEW_DZ = 0.0, 0.0                     # window centre vs glass centre
+LIP_MIN = 2.0                                   # the lip over the glass (the back's posts hold the glass on it)
 # Parts on the PCB's back, from the user's photo (X, Z of the centre vs the glass centre seen from the FRONT,
 # size along X, along Z, height above the PCB). The screen may go in either way up (180 deg): everything behind
 # the PCB is kept free except at the 4 corner holes, and verify.py checks both ways.
@@ -106,8 +114,9 @@ GPIO_X1 = 3.5 + 29.0 - 9.5 * 2.54               # x of pins 1 and 2
 GPIO_Y = 52.5
 PI_STANDOFF = 5.0
 SPK_D, SPK_H = 40.0, 18.0                       # v2: 40 mm speaker
-# front-panel parts: engraved fakes in v1, real parts held by their own nuts in v2 (centres: X, Z)
-PWR_XZ, PWR_HOLE = (76.0, 51.0), 16.2           # 16 mm momentary metal button with LED ring
+# front-panel parts: engraved fakes in v1, real parts held by their own nuts in v2 (centres: X, Z). The real power
+# button is on the monitor (MON_BTN): the case's power button stays an engraved decor, in v2 too.
+PWR_XZ, PWR_HOLE = (76.0, 51.0), 16.2           # engraved power button with its ring (decor)
 TURBO_XZ, TURBO_HOLE = (56.0, 51.0), 12.2       # 12 mm momentary button, the "Turbo" of old PCs
 LED3_X, LED3_Z, LED3_HOLE = (24.0, 32.0), 51.0, 5.0   # two 3 mm LEDs in chrome holders: power, activity
 LED5_XZ, LED5_HOLE = (42.0, 51.0), 8.0          # 5 mm addressable RGB LED in a chrome holder: notifications
@@ -175,9 +184,10 @@ RIBBON_SLOT = (-10.0, 10.0, STAND_Y - 2.0, STAND_Y + 9.0)   # X0, X1, Y0, Y1: sc
 # monitor: everything follows the screen size
 MON_F = CASE_Y0 + 14.0                          # front face of the bezel
 MON_Z0 = CASE_H + STAND_H                       # bottom of the monitor
-SCR_BOTTOM = 20.0                               # glass bottom above the monitor's bottom (the "chin")
+SCR_BOTTOM = 24.0                               # glass bottom above the monitor's bottom (the "chin": the power button)
 BEZ_WALL, BEZ_TOP = 9.0, 13.0                   # bezel around the glass pocket: sides, top (holds the back's top screws)
 FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth (the lip in front of the tape)
+LIP_EDGE = 1.3                                  # the lip's straight edge at the window (no knife edge on a 2 mm lip)
 BEZ_RIM = 2.0                                   # the pocket's rim stands this much behind the PCB's back
 BEZ_D = FUNNEL + TAPE_T + SCR_T + BEZ_RIM
 BEZ_R, BEZ_CHAMFER = 7.0, 1.5
@@ -188,9 +198,20 @@ BACK_TAPER_W, BACK_TAPER_H = 30.0, 20.0         # its rear end is this much narr
 BACK_FRONT_W, BACK_FRONT_H = BEZ_W - 2 * BACK_STEP, BEZ_H - 2 * BACK_STEP
 BACK_W, BACK_H, BACK_D, BACK_R = BACK_FRONT_W - BACK_TAPER_W, BACK_FRONT_H - BACK_TAPER_H, 105.0, 8.0
 TONGUE_X = 55.0                                 # the back hooks into the bezel with two tongues at the top
+# The power button, on the monitor's chin at the bottom right like an old CRT: a 12 mm momentary metal button,
+# pre-wired (15 cm leads), IP65, M12 body. It replaces the engraved one. A pocket from behind leaves BTN_WALL
+# of bezel in front, for its nut.
+MON_BTN_X, MON_BTN_Z = 75.0, 11.5               # centre: X, height above the monitor's bottom
+BTN_HOLE = 12.2
+BTN_HEAD_D, BTN_HEAD_T = 14.0, 2.0              # round head with its ring, in front [measure]
+BTN_BODY_D, BTN_BODY_L = 12.0, 20.0             # body behind the panel
+BTN_NUT_D, BTN_NUT_T = 16.0, 2.5                # hex nut (across corners)
+BTN_WALL, BTN_POCKET_D = 2.4, 19.0              # bezel left in front of the pocket, pocket diameter (room for the nut)
+BTN_PINS = (5, 9)                               # its 2 wires: GPIO 3 (pin 5) and GND (pin 9), via Dupont + Wago
+BTN_LEAD = 150.0                                # its leads
 # 4 screws hold the CRT back on the bezel, so the posts keep their place: 2 from above (through the back's top) and
 # 2 from below (through its floor), each into a tab on the bezel's rear face. M2.5 x 8, self-tapping in the tab.
-BACK_SCREWS_TOP_X, BACK_SCREWS_BOT_X = 30.0, 68.0
+BACK_SCREWS_TOP_X, BACK_SCREWS_BOT_X = 30.0, 30.0
 BACK_TAB = (10.0, 9.0, 6.0)                     # tab: width (X), length behind the bezel (Y), thickness (Z)
 BACK_TAB_CLR = 0.3                              # tab to the back's walls
 
@@ -497,26 +518,39 @@ def case_feet():
 
 
 def front_panel_holes():
-    return [(PWR_XZ, PWR_HOLE), (TURBO_XZ, TURBO_HOLE), (LED5_XZ, LED5_HOLE)] + [((x, LED3_Z), LED3_HOLE) for x in LED3_X]
+    """v2: real holes in the case's front panel (the power button is on the monitor)."""
+    return [(TURBO_XZ, TURBO_HOLE), (LED5_XZ, LED5_HOLE)] + [((x, LED3_Z), LED3_HOLE) for x in LED3_X]
+
+
+def power_fake():
+    """The case's engraved power button (v1 and v2: the real one is on the monitor)."""
+    px, pz = PWR_XZ
+    return [ring(px, pz, PWR_HOLE + 2.6, PWR_HOLE + 1.0), disc(px, pz, 9.0)]
 
 
 def front_panel_fakes():
     """v1: engraved fakes of the v2 front-panel parts, at the same places."""
-    (px, pz), (tx, tz), (lx, lz) = PWR_XZ, TURBO_XZ, LED5_XZ
-    marks = [ring(px, pz, PWR_HOLE + 2.6, PWR_HOLE + 1.0), disc(px, pz, 9.0),            # power button: ring + centre
-             ring(tx, tz, TURBO_HOLE + 2.4, TURBO_HOLE + 0.8), disc(tx, tz, 6.0),        # Turbo button
+    (tx, tz), (lx, lz) = TURBO_XZ, LED5_XZ
+    marks = power_fake() + [ring(tx, tz, TURBO_HOLE + 2.4, TURBO_HOLE + 0.8), disc(tx, tz, 6.0),   # Turbo button
              ring(lx, lz, LED5_HOLE + 1.6, LED5_HOLE), disc(lx, lz, 3.2)]                 # notification LED
     marks += [ring(x, LED3_Z, LED3_HOLE + 1.4, LED3_HOLE - 0.2) for x in LED3_X]          # power and activity LEDs
     marks += [disc(x, LED3_Z, 2.0) for x in LED3_X]
     return marks
 
 
-def teardrop(x, z, d):
+def teardrop(x, z, d, cap=None):
     """Round hole with a small point at the bottom: the case prints upside down, so the point is the
-    top of the hole on the printer and needs no support. The part's own flange hides it."""
+    top of the hole on the printer and needs no support. The part's own flange hides it. cap: cut the point
+    flat this far below the centre (a short bridge), so a smaller head still hides it."""
     r = d / 2
     c = Point(x, z).buffer(r, quad_segs=24)
-    return c.union(Polygon([(x - r * 0.7071, z - r * 0.7071), (x, z - r * 1.4142), (x + r * 0.7071, z - r * 0.7071)]))
+    t = c.union(Polygon([(x - r * 0.7071, z - r * 0.7071), (x, z - r * 1.4142), (x + r * 0.7071, z - r * 0.7071)]))
+    return t.intersection(box(x - d, z - cap, x + d, z + d)) if cap else t
+
+
+def mon_btn():
+    """X, Z of the monitor's power button, and the Y range of its body behind the bezel's front."""
+    return MON_BTN_X, MON_Z0 + MON_BTN_Z, MON_F + BTN_WALL, MON_F + BTN_WALL + BTN_BODY_L
 
 
 def ribbon_slot(z0, z1):
@@ -577,8 +611,7 @@ def build_case():
         rrect(40, 9, 1.0, -2, 51.0).difference(rrect(38.4, 7.4, 0.6, -2, 51.0)),        # 3.5" bay outline
         rrect(28, 1.6, 0.6, -5, 51.6), rrect(4, 2, 0.5, 13, 48.6),                      # floppy slot, button
     ]
-    if not V2_PANEL:
-        det += front_panel_fakes()
+    det += front_panel_fakes() if not V2_PANEL else power_fake()
     for p in det:
         cuts.append(engrave_front(p, yf, 0.8))
     if V2_PANEL:
@@ -708,9 +741,10 @@ def build_monitor():
                  ext_xz(rrect(BEZ_W, BEZ_H, BEZ_R, 0, z0 + BEZ_H / 2), f + BEZ_CHAMFER, f + BEZ_D))
     sw, sh = scr_pocket()
     cuts = [pocket_cut(cx, cz, f + FUNNEL, f + BEZ_D + 1)]                                     # glass pocket + ribs
-    funnel = hull(ext_xz(rrect(WIN_W, WIN_H, WIN_R, vx, vz), f + FUNNEL - 0.01, f + FUNNEL + 0.01),   # WIN at the lip
-                  ext_xz(rrect(WIN_W + 2 * FUNNEL, WIN_H + 2 * FUNNEL, WIN_R + FUNNEL * 0.5, vx, vz), f - 0.01, f + 0.01))
-    cuts.append(funnel)
+    fs = FUNNEL - LIP_EDGE                                          # 45 deg funnel, then a straight edge at the glass
+    funnel = hull(ext_xz(rrect(WIN_W, WIN_H, WIN_R, vx, vz), f + fs - 0.01, f + fs + 0.01),
+                  ext_xz(rrect(WIN_W + 2 * fs, WIN_H + 2 * fs, WIN_R + fs * 0.5, vx, vz), f - 0.01, f + 0.01))
+    cuts += [funnel, ext_xz(rrect(WIN_W, WIN_H, WIN_R, vx, vz), f + fs - 0.02, f + FUNNEL + 0.5)]
     # tongue slots for the back
     zt = tongue_z()
     for s in (-1, 1):
@@ -722,11 +756,15 @@ def build_monitor():
     for x, ta, tb, _ in back_tabs():                                 # pilots for the back's 4 screws
         cuts.append(cyl(x, ys, ta - 1, tb + 1, PILOT))
     # engraved controls under the screen: badge, knobs, LED, power button
-    zc = z0 + 9.0
+    # and the real power button at the bottom right, in a pocket from behind (BTN_WALL left for its nut)
+    bx, bz, _, _ = mon_btn()
+    zc = bz
     det = [text_poly("PIXEL", 7.0, -78.0, zc - 3.3), ring(38, zc, 4.6, 3.0), ring(46, zc, 4.6, 3.0), ring(54, zc, 4.6, 3.0),
-           rrect(5.0, 1.8, 0.6, 63.5, zc), ring(75, zc, 9.0, 7.0), Point(75, zc).buffer(1.0, quad_segs=12)]
+           rrect(5.0, 1.8, 0.6, 63.5, zc), ring(bx, bz, BTN_HEAD_D + 3.0, BTN_HEAD_D + 1.6)]
     for p in det:
         cuts.append(engrave_front(p, f, 0.7))
+    cuts += [cyl_y(bx, bz, f - 1, f + BTN_WALL + 0.01, BTN_HOLE, sections=48),
+             cyl_y(bx, bz, f + BTN_WALL, f + BEZ_D + 1, BTN_POCKET_D, sections=48)]
     tabs = [slab(x - BACK_TAB[0] / 2, x + BACK_TAB[0] / 2, f + BEZ_D - OVER, f + BEZ_D + BACK_TAB[1], ta, tb)
             for x, ta, tb, _ in back_tabs()]
     bezel = single(D(U([front, *tabs]), *cuts), "PixelMonitorFront")
@@ -750,7 +788,8 @@ def build_monitor():
         r = SCR_POST_RIB / 2
         adds.append(cyl_y(px, pz, c0, y_end, SCR_POST_D))
         adds.append(slab(min(px, px + sx * 40), max(px, px + sx * 40), f + BEZ_D + 0.53, y_end, pz - r, pz + r))
-        adds.append(slab(px - r, px + r, f + BEZ_D + 0.57, y_end, min(pz, pz + sz * 80), max(pz, pz + sz * 80)))
+        y_rib = f + BEZ_D + 0.57 if sz > 0 else mon_btn()[3] + 5.0      # the lower ones leave room for the button
+        adds.append(slab(px - r, px + r, y_rib, y_end, min(pz, pz + sz * 80), max(pz, pz + sz * 80)))
     y_clip = f + BEZ_D - 8.0                                      # the tongues reach into the bezel
     back = I(U([back, *adds]), U([monitor_back_solid(), slab(-300, 300, y_clip, f + BEZ_D + 0.01, -10, 400)]))
     bcuts = []

@@ -129,21 +129,40 @@ def eq_d(poly):
     return 2 * (poly.area / np.pi) ** 0.5
 
 
+def pictures():
+    """The picture's outline in the 4 ways the screen can go in (as measured, turned 180 deg, mirrored both ways)."""
+    out = {}
+    for sx, sz, name in ((1, 1, "as measured"), (-1, -1, "turned 180 deg"), (-1, 1, "mirrored L/R"), (1, -1, "mirrored U/D")):
+        x, z = sx * g.PIC_DX, sz * g.PIC_DZ
+        out[name] = shapely.geometry.box(x - g.PIC_W / 2, z - g.PIC_H / 2, x + g.PIC_W / 2, z + g.PIC_H / 2)
+    return out
+
+
 def win_ok(lip, label):
-    """The window (biggest hole in a lip section) shows the whole picture with WIN_MARGIN, centred, and the lip
-    covers >= 3 mm of the glass's black border."""
+    """The window (biggest hole in a lip section, glass-centre coordinates) is centred, at least WIN_MIN, shows the
+    whole picture in all 4 orientations with a margin, and the lip all around covers >= LIP_MIN of the glass."""
     hole = max(holes_of(lip), key=lambda q: q.area)
-    pic = shapely.geometry.box(g.VIEW_DX - g.PIC_W / 2, g.VIEW_DZ - g.PIC_H / 2, g.VIEW_DX + g.PIC_W / 2, g.VIEW_DZ + g.PIC_H / 2)
     hx0, hz0, hx1, hz1 = hole.bounds
     cxh, czh = (hx0 + hx1) / 2, (hz0 + hz1) / 2
-    corner = min(hole.exterior.distance(shapely.geometry.Point(p)) for p in pic.exterior.coords)
-    check(hole.contains(pic) and corner >= 0.5 and abs(cxh - g.VIEW_DX) < 0.05 and abs(czh - g.VIEW_DZ) < 0.05,
-          f"{label}: the window shows the whole picture, centred",
-          f"window {hx1 - hx0:.1f} x {hz1 - hz0:.1f} mm, picture {g.PIC_W:.1f} x {g.PIC_H:.1f} mm (black border "
-          f"{g.SCR_BORDER['top']:.0f} top, {g.SCR_BORDER['sides']:.0f} sides, {g.SCR_BORDER['bottom']:.0f} bottom), "
-          f"{g.WIN_MARGIN:.1f} mm margin ({corner:.1f} mm at the rounded corners)")
+    margins = {}
+    for k, pic in pictures().items():
+        inside = hole.contains(pic)
+        margins[k] = min(hole.exterior.distance(shapely.geometry.Point(p)) for p in pic.exterior.coords) if inside else -1.0
+    edge = min(min(hx1 - p.bounds[2], p.bounds[0] - hx0, hz1 - p.bounds[3], p.bounds[1] - hz0) for p in pictures().values())
+    check(min(margins.values()) >= 0.5 and abs(cxh) < 0.05 and abs(czh) < 0.05
+          and hx1 - hx0 >= g.WIN_MIN[0] - 0.05 and hz1 - hz0 >= g.WIN_MIN[1] - 0.05,
+          f"{label}: the window shows the whole picture, whichever way the screen goes in",
+          f"window {hx1 - hx0:.1f} x {hz1 - hz0:.1f} mm centred (at least {g.WIN_MIN[0]} x {g.WIN_MIN[1]}); picture "
+          f"{g.PIC_W:.1f} x {g.PIC_H:.1f} mm, off-centre by {g.PIC_DX:+.1f} / {g.PIC_DZ:+.1f} mm (black border "
+          f"{g.SCR_BORDER['left']:.0f} left, {g.SCR_BORDER['right']:.0f} right, {g.SCR_BORDER['top']:.0f} top, "
+          f"{g.SCR_BORDER['bottom']:.0f} bottom); margin at least {edge:.1f} mm on the edges, {min(margins.values()):.1f} mm "
+          f"at the rounded corners, in the 4 orientations")
+    glass = shapely.geometry.box(-g.SCR_W / 2, -g.SCR_H / 2, g.SCR_W / 2, g.SCR_H / 2)
+    ring_ = glass.difference(hole)
     lip_x, lip_z = (g.SCR_W - (hx1 - hx0)) / 2, (g.SCR_H - (hz1 - hz0)) / 2
-    check(min(lip_x, lip_z) >= 3.0, f"{label}: the lip covers the glass's black border", f"{lip_x:.2f} mm sides, {lip_z:.2f} mm top/bottom")
+    check(min(lip_x, lip_z) >= g.LIP_MIN - 0.03 and ring_.geom_type == "Polygon" and len(ring_.interiors) == 1,
+          f"{label}: a continuous lip covers the glass's black border all around",
+          f"{lip_x:.1f} mm sides, {lip_z:.1f} mm top/bottom (LIP_MIN {g.LIP_MIN}); the back's posts hold the glass on it")
 
 
 def screen_mount(parts, holder, y_lip, label, cx=0.0, cz=0.0, posts=None):
@@ -176,7 +195,7 @@ def screen_mount(parts, holder, y_lip, label, cx=0.0, cz=0.0, posts=None):
     glass = shapely.geometry.box(-g.SCR_W / 2, -g.SCR_H / 2, g.SCR_W / 2, g.SCR_H / 2)
     if tape is not None:
         strips = [shapely.affinity.translate(t, -cx, -cz) for t in g.tape_strips(cx, cz)]
-        pic = shapely.geometry.box(g.VIEW_DX - g.PIC_W / 2, g.VIEW_DZ - g.PIC_H / 2, g.VIEW_DX + g.PIC_W / 2, g.VIEW_DZ + g.PIC_H / 2)
+        pic = shapely.ops.unary_union(list(pictures().values()))
         win = shapely.geometry.box(g.VIEW_DX - g.WIN_W / 2, g.VIEW_DZ - g.WIN_H / 2, g.VIEW_DX + g.WIN_W / 2, g.VIEW_DZ + g.WIN_H / 2)
         lip = shapely.affinity.translate(section_y(holder, y_lip - 0.3), -cx, -cz)
         to_win = min(t.distance(win) for t in strips)
@@ -268,6 +287,52 @@ def posts_ok(asm, prn):
           f"about {print_minutes(pt):.0f} min")
 
 
+def power_button_ok(asm):
+    """The real 12 mm power button on the monitor's chin: the hole, hidden by the head; a front wall for its nut
+    and a pocket behind it; the button and its wires clear of the screen (both ways up), the posts, the tabs and
+    the stand; its wires are long enough with a Dupont extension."""
+    bezel, back = asm["PixelMonitorFront"], asm["PixelMonitorBack"]
+    x, z, yf, ye = g.mon_btn()
+    f = g.MON_F
+    sec = section_y(bezel, f + g.BTN_WALL / 2)
+    near = [q for q in holes_of(sec) if q.distance(shapely.geometry.Point(x, z)) < 0.01]
+    hole = near[0] if near else shapely.geometry.Polygon()
+    fits = hole.contains(shapely.geometry.Point(x, z).buffer(g.BTN_HOLE / 2 - 0.05))
+    hidden = shapely.geometry.Point(x, z).buffer(g.BTN_HEAD_D / 2 - 0.1).contains(hole)
+    check(bool(near) and fits and hidden, "power button: a real 12.2 mm hole in the monitor's chin, hidden by the head",
+          f"bottom right of the bezel, X {x:+.0f} mm, {g.MON_BTN_Z:.1f} mm above its bottom (MON_BTN_X, MON_BTN_Z), "
+          f"{g.BTN_HOLE} mm (BTN_HOLE); engraved ring {g.BTN_HEAD_D + 1.6:.1f} to {g.BTN_HEAD_D + 3.0:.1f} mm around the head")
+    ann = g.D(g.cyl_y(x, z, f + 0.8, yf - 0.05, g.BTN_NUT_D + 1.0), g.cyl_y(x, z, f - 1, yf + 1, g.BTN_HOLE + 0.6))
+    room = g.cyl_y(x, z, yf + 0.05, f + g.BEZ_D + 1.0, g.BTN_NUT_D + 1.5)
+    seat = ov(ann, bezel) / ann.volume
+    bot = (z - g.BTN_POCKET_D / 2) - g.MON_Z0
+    top = (g.screen_box()[1] - g.scr_pocket()[1] / 2) - (z + g.BTN_POCKET_D / 2)
+    check(seat > 0.95 and ov(room, bezel) < 0.01 and min(bot, top) >= 2.0,
+          "power button: a 2.4 mm front wall for its nut, and a pocket behind it",
+          f"front wall {g.BTN_WALL} mm (BTN_WALL), pocket {g.BTN_POCKET_D:.0f} mm for the {g.BTN_NUT_D:.0f} mm nut; "
+          f"{bot:.1f} mm of bezel under the pocket, {top:.1f} mm to the glass pocket")
+    btn = mocks.power_button()
+    others = {"bezel": bezel, "back": back, "stand": asm["PixelStand"], "case": asm["PixelCase"],
+              **{f"ribbon/{k}": m for k, m in mocks.ribbon_bundle().items()}}
+    for flip in (False, True):
+        for k, m in mocks.monitor_screen(flip).items():
+            others[f"screen{'*' if flip else ''}/{k}"] = m
+    bad = []
+    for k, m in btn.items():
+        for o, mm in others.items():
+            if k == "button_body" and o == "bezel":
+                continue                                            # it goes through its hole
+            if ov(m, mm) > 0.01:
+                bad.append(f"{k} x {o}")
+    check(not bad and ov(btn["button_body"], bezel) < 0.01, "power button (head, body, nut) and its 2 wires vs bezel, CRT back "
+          "and its posts, tabs, stand, screen + connectors (both ways up), ribbon", "; ".join(bad))
+    L = mocks.btn_wire_length()
+    ext = 200.0
+    check(L + 30.0 <= g.BTN_LEAD + ext, "power button wires: long enough with a 20 cm Dupont extension",
+          f"path about {L:.0f} mm + 30 mm (button -> ribbon slot -> stand -> case -> Pi pins {g.BTN_PINS[0]} and "
+          f"{g.BTN_PINS[1]}): the {g.BTN_LEAD / 10:.0f} cm leads + 20 cm Dupont wires joined by 2 Wago")
+
+
 def mount_test(prn):
     """ScreenMountTest."""
     print("-- screen mount test")
@@ -321,7 +386,7 @@ def run(v2):
     pis = mocks.pi_blocks()
     bad = [f"{k}: {ov(m, asm['PixelCase'])}/{ov(m, asm['PixelCaseBottom'])}" for k, m in pis.items()
            if max(ov(m, asm["PixelCase"]), ov(m, asm["PixelCaseBottom"])) > 0.01]
-    check(not bad, "Pi 4 (ports, heatsink, SD card, GPIO, DSI) + plugs (Stream Deck, mic, USB-C, 2 Dupont) vs case / bottom",
+    check(not bad, "Pi 4 (ports, heatsink, SD card, GPIO, DSI) + plugs (Stream Deck, mic, USB-C, 4 Dupont) vs case / bottom",
           "; ".join(bad))
     spk = mocks.speaker()
     check(ov(spk, asm["PixelCase"]) < 0.01 and sum(ov(spk, m) for m in pis.values()) < 0.01,
@@ -351,7 +416,7 @@ def run(v2):
             for b in list(fp)[i + 1:]:
                 if ov(fp[a], fp[b]) > 0.01:
                     bad.append(f"{a} x {b}")
-        check(not bad, "v2 front parts (power, Turbo, RGB LED, 2 LED holders) vs case / keyboard / speaker / Pi / each other",
+        check(not bad, "v2 front parts (Turbo, RGB LED, 2 LED holders) vs case / keyboard / speaker / Pi / each other",
               "; ".join(bad))
         strip = mocks.kb_led_strip()
         bar = asm["PixelKeyboardLeds"]
@@ -361,7 +426,7 @@ def run(v2):
     else:
         case = asm["PixelCase"]
         intact = []
-        for (x, z), d in g.front_panel_holes():
+        for (x, z), d in [(g.PWR_XZ, g.PWR_HOLE)] + g.front_panel_holes():
             probe = g.cyl_y(x, z, g.CASE_Y0 + 0.9, g.CASE_Y0 + g.WALL - 0.1, 1.6)
             intact.append(ov(probe, case) / probe.volume)
         check(min(intact) > 0.95, "v1 front panel: buttons and LEDs are engraved, the wall is whole behind them",
@@ -382,7 +447,8 @@ def run(v2):
     screen_mount({"PixelMonitorFront": bezel, "PixelMonitorBack": mback}, bezel, g.y_lip(), "monitor", cx, cz,
                  posts="PixelMonitorBack")
     posts_ok(asm, prn)
-    win_ok(shapely.affinity.translate(section_y(bezel, g.y_lip() - 0.02), -cx, -cz), "bezel")
+    power_button_ok(asm)
+    win_ok(shapely.affinity.translate(section_y(bezel, g.y_lip() - 0.3), -cx, -cz), "bezel")
     walls = dict(sides=g.BEZ_WALL, top=g.BEZ_TOP, chin=g.SCR_BOTTOM - g.SCR_CLR)
     check(min(walls.values()) >= 3.0, "bezel walls around the glass pocket", ", ".join(f"{k} {v:.2f}" for k, v in walls.items()))
     inner_hw = g.BACK_FRONT_W / 2 - g.WALL; inner_top = z0 + g.BACK_FRONT_H - g.WALL
@@ -401,7 +467,7 @@ def run(v2):
     print("-- cables")
     bundle = mocks.ribbon_bundle()
     no_overlap(bundle, {k: asm[k] for k in ("PixelCase", "PixelStand", "PixelMonitorBack", "PixelMonitorFront")},
-               "DSI ribbon + 2 Dupont plugs pass through the slots (monitor floor, stand, case top)")
+               "DSI ribbon + 4 Dupont plugs (screen power, power button) pass through the slots (monitor floor, stand, case top)")
     yb = g.y_pcb_back()
     x0s, x1s, y0s, y1s = g.RIBBON_SLOT
     slot_top = np.array([(x0s + x1s) / 2, (y0s + y1s) / 2, z0 + 11.0])
@@ -477,7 +543,7 @@ def run(v2):
     com = sum(mm * np.asarray(c) for mm, c in masses) / M
     y_axis = max(y for _, y in g.case_feet()) + 5.0          # rear rubber feet, back edge
     tips = {}
-    for label, zp in (("top of the picture", g.view_centre()[1] + g.PIC_H / 2), ("top of the monitor", z0 + g.BEZ_H)):
+    for label, zp in (("top of the picture", g.view_centre()[1] + g.PIC_DZ + g.PIC_H / 2), ("top of the monitor", z0 + g.BEZ_H)):
         tips[label] = M / 1000 * 9.81 * (y_axis - com[1]) / zp
     check(com[1] < y_axis, "the centre of mass is in front of the rear feet",
           f"total ~{M:.0f} g, centre of mass Y {com[1]:.0f} mm, Z {com[2]:.0f} mm; rear feet at Y {y_axis:.0f} mm")
