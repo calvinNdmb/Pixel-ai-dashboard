@@ -8,7 +8,7 @@
 No moving parts. One cable: the Pi's USB-C power.
 
 Parts (stl/), each exported in its print orientation, no supports needed:
-    PixelMonitorFront.stl        bezel that holds the screen, with the 2 bracket recesses (prints face-down)
+    PixelMonitorFront.stl        bezel; the screen is taped on its lip, centred by small ribs (prints face-down)
     PixelMonitorBack.stl         tapered CRT back with vents (prints back-down)
     PixelStand.stl               round swivel foot under the monitor (prints top-down)
     PixelCase.stl                desktop case shell (prints top-down)
@@ -17,10 +17,8 @@ Parts (stl/), each exported in its print orientation, no supports needed:
     PixelKeyboardTop.stl         beige keyboard top with the 15 key holes (prints top-down)
     PixelStreamDeckTray.stl      option: low tray for a whole, unopened Stream Deck MK.2 (prints upright)
     ScreenFitTest.stl            thin frame to check the screen size before the big prints
-    ScreenMountTest.stl          the bezel's glass zone cut short: window, glass pocket, rim as deep as glass + PCB,
-                                 the 4 bracket bosses (prints face-down, ~50 min)
-    PixelScreenBracket.stl       print 2: flat bars screwed on the screen's brass rings and on the bezel (prints flat)
-    ScrewPilotTest.stl           5 bosses with self-tapping M2.5 pilots from 2.0 to 2.4 mm (prints flat)
+    ScreenMountTest.stl          the bezel's glass zone cut short: window, pocket with its ribs, rim as deep as
+                                 tape + glass + PCB, back open (prints face-down, quick)
     StreamDeckFitTest.stl        the keyboard top's key field on a short rim of the module pocket: press it on the
                                  bare Stream Deck module to check the 15 key windows before the keyboard (prints flat)
   v2 only (V2_PANEL = True):
@@ -76,19 +74,16 @@ SCR_DSI = (-44.9, -9.8, 6.0, 26.0, 3.0)         # DSI ribbon connector; the ribb
 SCR_PWR = (-44.9, -29.8, 9.0, 8.0, 7.0)         # white 2-pin power connector + plug, wires towards -Z [measure]
 SCR_SWITCH = (60.2, 46.2, 7.5, 3.5, 3.0)        # "Backlight" slide switch, next to the top edge [measure]
 SCR_PI_POSTS = ([-36.2, 21.8], [16.5, -32.5], 5.0, 6.0)   # brass standoffs for a Pi: X, Z, diameter, height [measure]
-# Screen brackets (PixelScreenBracket, x 2): a flat bar on each side, screwed on 2 brass rings with M2.5 x 6
-# and on the bezel with 2 self-tapping M2.5 x 8. It presses the rings forward: the glass is held on the bezel lip.
-BRK_W, BRK_T = 9.0, 3.0
-BRK_SQUEEZE = 0.3                               # the bracket seat is this much in front of the ring tips
-BRK_SCREW_OUT = 3.5                             # bezel screws: centre this far outside the glass pocket (top, bottom)
-BRK_END = 3.8                                   # bracket end beyond that screw
-SCR_PILOT = 2.2                                 # self-tapping M2.5 pilot (ScrewPilotTest tries 2.0 to 2.4)
-SCR_PILOT_DEPTH = 7.0
+# The screen is held by double-sided foam tape between the glass's black border and the bezel lip: no screws.
+TAPE_T = 1.0                                    # thin double-sided foam / VHB tape: the glass sits this far behind the lip
+TAPE_GAP, TAPE_EDGE = 0.5, 0.5                  # tape strips: this far from the window edge and from the glass edge
+SCR_RIB = 0.6                                   # small ribs in the pocket walls centre the glass while the tape sets
+SCR_RIB_W = 3.0                                 # (they leave SCR_CLR - SCR_RIB = 0.15 mm all around)
+SCR_RIBS = dict(x=[-50.0, 50.0], z=[-25.0, 25.0])   # rib positions on the top/bottom walls (X) and the sides (Z)
 # ScreenMountTest: the bezel's glass zone, cut short (quick print)
-SMT_LIP = 2.0                                   # lip under the glass (the real bezel's is FUNNEL deep)
+SMT_LIP = 2.0                                   # lip in front of the tape (the real bezel's is FUNNEL deep)
 SMT_WALL = 2.0                                  # rim around the glass pocket
-SMT_MARGIN = 0.4                                # the rim is this much deeper than glass + PCB
-PILOT_TEST = [2.0, 2.1, 2.2, 2.3, 2.4]          # ScrewPilotTest pilots
+SMT_MARGIN = 0.4                                # the rim is this much deeper than tape + glass + PCB
 
 SCR_PWR_PINS = (4, 6)                           # the screen's 5 V and GND Dupont wires go on these Pi pins
 
@@ -172,14 +167,13 @@ RIBBON_SLOT = (-10.0, 10.0, STAND_Y - 2.0, STAND_Y + 9.0)   # X0, X1, Y0, Y1: sc
 MON_F = CASE_Y0 + 14.0                          # front face of the bezel
 MON_Z0 = CASE_H + STAND_H                       # bottom of the monitor
 SCR_BOTTOM = 20.0                               # glass bottom above the monitor's bottom (the "chin")
-BEZ_WALL, BEZ_TOP = 9.0, 13.0                   # bezel around the glass pocket: sides, top (the top holds the
-                                                # bracket screws under the CRT back's rim)
-FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth (the lip in front of the glass)
-BEZ_D = FUNNEL + SCR_T + SCR_NUT_H - BRK_SQUEEZE + BRK_T   # its rear face is flush with the brackets
+BEZ_WALL, BEZ_TOP = 9.0, 10.0                   # bezel around the glass pocket: sides, top
+FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth (the lip in front of the tape)
+BEZ_RIM = 2.0                                   # the pocket's rim stands this much behind the PCB's back
+BEZ_D = FUNNEL + TAPE_T + SCR_T + BEZ_RIM
 BEZ_R, BEZ_CHAMFER = 7.0, 1.5
 BEZ_W = SCR_W + 2 * SCR_CLR + 2 * BEZ_WALL
 BEZ_H = SCR_BOTTOM + SCR_H + SCR_CLR + BEZ_TOP
-BRK_CLR = 0.4                                   # bracket recesses in the bezel's rear face: clearance all around
 BACK_STEP = 2.0                                 # the CRT back is this much smaller than the bezel (sides, top)
 BACK_TAPER_W, BACK_TAPER_H = 30.0, 20.0         # its rear end is this much narrower / lower than its front
 BACK_FRONT_W, BACK_FRONT_H = BEZ_W - 2 * BACK_STEP, BEZ_H - 2 * BACK_STEP
@@ -629,8 +623,12 @@ def view_centre():
     return cx + VIEW_DX, cz + VIEW_DZ
 
 
+def y_lip():
+    return MON_F + FUNNEL                          # back face of the lip: the tape goes here
+
+
 def y_glass():
-    return MON_F + FUNNEL                          # front face of the glass
+    return y_lip() + TAPE_T                        # front face of the glass
 
 
 def y_pcb_back():
@@ -671,17 +669,10 @@ def build_monitor():
     front = hull(ext_xz(rrect(BEZ_W - 2 * BEZ_CHAMFER, BEZ_H - 2 * BEZ_CHAMFER, BEZ_R - BEZ_CHAMFER, 0, z0 + BEZ_H / 2), f, f + 0.01),
                  ext_xz(rrect(BEZ_W, BEZ_H, BEZ_R, 0, z0 + BEZ_H / 2), f + BEZ_CHAMFER, f + BEZ_D))
     sw, sh = scr_pocket()
-    cuts = [ext_xz(rrect(sw, sh, 0.5, cx, cz), f + FUNNEL, f + BEZ_D + 1)]                      # glass pocket
-    funnel = hull(ext_xz(rrect(WIN_W, WIN_H, WIN_R, vx, vz), f + FUNNEL - 0.01, f + FUNNEL + 0.01),   # WIN at the glass
+    cuts = [pocket_cut(cx, cz, f + FUNNEL, f + BEZ_D + 1)]                                     # glass pocket + ribs
+    funnel = hull(ext_xz(rrect(WIN_W, WIN_H, WIN_R, vx, vz), f + FUNNEL - 0.01, f + FUNNEL + 0.01),   # WIN at the lip
                   ext_xz(rrect(WIN_W + 2 * FUNNEL, WIN_H + 2 * FUNNEL, WIN_R + FUNNEL * 0.5, vx, vz), f - 0.01, f + 0.01))
     cuts.append(funnel)
-    # the 2 screen brackets lie in recesses of the rear face, on 4 self-tapping pilots
-    seat = brk_seat(y_glass())
-    for s in (-1, 1):
-        x = cx + s * (SCR_W / 2 - SCR_HOLE_IN)
-        cuts.append(ext_xz(rrect(BRK_W + 2 * BRK_CLR, brk_len() + 2 * BRK_CLR, 2.0 + BRK_CLR, x, cz), seat, f + BEZ_D + 1))
-    for x, z in brk_screws(cx, cz):
-        cuts.append(cyl_y(x, z, seat - SCR_PILOT_DEPTH, seat + 1, SCR_PILOT))
     # tongue slots for the back
     zt = tongue_z()
     for s in (-1, 1):
@@ -739,8 +730,9 @@ def build_fit_test():
     return single(U([ext_xy(lipf, 0, 2.0), ext_xy(frame, 2.0 - OVER, 6.0)]), "ScreenFitTest")
 
 
-# ------------------------------------------------------------------ screen mounting (blue-board screen)
-# Local screen frame: (cx, cz) = glass centre seen from the front, yg = Y of the glass's front face.
+# ------------------------------------------------------------------ screen mounting (blue-board screen, taped)
+# Local screen frame: (cx, cz) = glass centre seen from the front. The lip's back face (where the tape goes) is
+# at Y = y_lip; the glass's front face is TAPE_T behind it.
 def scr_pocket():
     return SCR_W + 2 * SCR_CLR, SCR_H + 2 * SCR_CLR
 
@@ -751,69 +743,55 @@ def scr_holes(cx=0.0, cz=0.0):
     return [(cx + sx * hx, cz + sz * hz) for sx in (-1, 1) for sz in (-1, 1)]
 
 
-def brk_screws(cx=0.0, cz=0.0):
-    """The 4 self-tapping screws that hold the 2 brackets on the bezel (above and below the glass pocket)."""
-    hx, bz = SCR_W / 2 - SCR_HOLE_IN, scr_pocket()[1] / 2 + BRK_SCREW_OUT
-    return [(cx + sx * hx, cz + sz * bz) for sx in (-1, 1) for sz in (-1, 1)]
-
-
-def brk_seat(yg):
-    """Y of the brackets' front face: just in front of the brass ring tips."""
-    return yg + SCR_T + SCR_NUT_H - BRK_SQUEEZE
-
-
-def brk_len():
-    return 2 * (scr_pocket()[1] / 2 + BRK_SCREW_OUT + BRK_END)
-
-
-def build_brackets(cx=0.0, cz=0.0, yg=0.0):
-    """The 2 screen brackets in place (a flat bar on each side, 2 clearance holes on the brass rings, 2 on the
-    bezel screws)."""
-    y0 = brk_seat(yg)
+def scr_ribs(cx=0.0, cz=0.0):
+    """Centring ribs on the pocket walls, (X, Z) outlines: SCR_RIB into the pocket, 0.5 mm into the wall."""
+    pw, ph = scr_pocket()
     out = []
-    for s in (-1, 1):
-        x = cx + s * (SCR_W / 2 - SCR_HOLE_IN)
-        bar = ext_xz(rrect(BRK_W, brk_len(), 2.0, x, cz), y0, y0 + BRK_T)
-        holes = [cyl_y(hx, hz, y0 - 1, y0 + BRK_T + 1, CLEAR) for hx, hz in scr_holes(cx, cz) + brk_screws(cx, cz)
-                 if abs(hx - x) < 1.0]
-        out.append(single(D(bar, *holes), "PixelScreenBracket"))
+    for x in SCR_RIBS["x"]:
+        for s in (-1, 1):
+            z0, z1 = s * (ph / 2 - SCR_RIB), s * (ph / 2 + 0.5)
+            out.append(box(cx + x - SCR_RIB_W / 2, cz + min(z0, z1), cx + x + SCR_RIB_W / 2, cz + max(z0, z1)))
+    for z in SCR_RIBS["z"]:
+        for s in (-1, 1):
+            x0, x1 = s * (pw / 2 - SCR_RIB), s * (pw / 2 + 0.5)
+            out.append(box(cx + min(x0, x1), cz + z - SCR_RIB_W / 2, cx + max(x0, x1), cz + z + SCR_RIB_W / 2))
     return out
 
 
+def pocket_cut(cx, cz, y0, y1):
+    """The glass pocket with its centring ribs, from y0 to y1."""
+    pw, ph = scr_pocket()
+    return ext_xz(rrect(pw, ph, 0.5, cx, cz).difference(unary_union(scr_ribs(cx, cz))), y0, y1)
+
+
+def tape_strips(cx=0.0, cz=0.0):
+    """Double-sided tape on the lip, (X, Z) outlines: on the glass's black border only, TAPE_GAP outside the window
+    and TAPE_EDGE inside the glass edge. A long strip on each side, a short narrow one at the top and the bottom."""
+    xw, zw = WIN_W / 2 + TAPE_GAP, WIN_H / 2 + TAPE_GAP
+    xg, zg = SCR_W / 2 - TAPE_EDGE, SCR_H / 2 - TAPE_EDGE
+    vx, vz = cx + VIEW_DX, cz + VIEW_DZ
+    sides = [box(vx + xw, cz - zg, cx + xg, cz + zg), box(cx - xg, cz - zg, vx - xw, cz + zg)]
+    ends = [box(vx - xw, vz + zw, vx + xw, cz + zg), box(vx - xw, cz - zg, vx + xw, vz - zw)]
+    return sides + ends
+
+
+def tape_widths():
+    """Width of the side strips and of the top / bottom strips."""
+    s, _, e, _ = tape_strips()
+    return s.bounds[2] - s.bounds[0], e.bounds[3] - e.bounds[1]
+
+
 def build_mount_test():
-    """ScreenMountTest, in the local screen frame (glass centre at X = Z = 0, glass front at Y = 0): the bezel's
-    glass zone cut short. A thin lip with the real window, the real glass pocket in a rim SMT_MARGIN deeper than
-    glass + PCB, and the 4 bracket bosses with the real self-tapping pilots. Everything behind the PCB is open."""
+    """ScreenMountTest, in the local screen frame (glass centre at X = Z = 0, lip's back face at Y = 0): the bezel's
+    glass zone cut short. A thin lip with the real window, and the real pocket (with its centring ribs) in a rim
+    SMT_MARGIN deeper than tape + glass + PCB. Everything behind the PCB is open."""
     pw, ph = scr_pocket()
     outer = rrect(pw + 2 * SMT_WALL, ph + 2 * SMT_WALL, SMT_WALL + 0.5)
     lip = ext_xz(outer.difference(rrect(WIN_W, WIN_H, WIN_R, VIEW_DX, VIEW_DZ)), -SMT_LIP, 0.0)
-    rim = ext_xz(outer.difference(rrect(pw, ph, 0.5)), -OVER, SCR_T + SMT_MARGIN)
-    seat = brk_seat(0.0)
-    ears = []
-    for x, z in brk_screws():
-        s = np.sign(z)
-        z_in, z_out = s * (ph / 2 - 0.5), z + s * (BRK_SCREW_OUT + 1.0)
-        ear = rrect(BRK_W + 2.0, abs(z_out - z_in), 1.5, x, (z_in + z_out) / 2).difference(rrect(pw, ph, 0.5))
-        ears.append(ext_xz(ear, -SMT_LIP, seat))
-    body = U([lip, rim, *ears])
-    cuts = [cyl_y(x, z, seat - SCR_PILOT_DEPTH, seat + 1, SCR_PILOT) for x, z in brk_screws()]
+    rim = D(ext_xz(outer, -OVER, TAPE_T + SCR_T + SMT_MARGIN), pocket_cut(0.0, 0.0, -1.0, TAPE_T + SCR_T + SMT_MARGIN + 1))
     band = (ph / 2 + SMT_WALL + WIN_H / 2) / 2                       # middle of the lip's bottom band
-    cuts.append(engrave_front(text_centred("TEST ECRAN", 3.6, 0, VIEW_DZ - band), -SMT_LIP, 0.6))
-    return single(D(body, *cuts), "ScreenMountTest")
-
-
-def build_pilot_test():
-    """ScrewPilotTest (prints flat): 5 bosses with the pilots of PILOT_TEST, each labelled. The right pilot is the
-    one where an M2.5 x 8 bites firmly without splitting the boss."""
-    n, pitch, d, h, t = len(PILOT_TEST), 11.0, 7.0, 9.0, 2.0
-    w = pitch * n + 4.0
-    plate = ext_xy(rrect(w, 17.0, 2.5), 0, t)
-    xs = [(-(n - 1) / 2 + i) * pitch for i in range(n)]
-    body = U([plate, *[cyl(x, 2.5, t - OVER, t + h, d) for x in xs]])
-    cuts = [cyl(x, 2.5, 1.2, t + h + 1, p, sections=48) for x, p in zip(xs, PILOT_TEST)]
-    for x, p in zip(xs, PILOT_TEST):
-        cuts += engrave_top(text_centred(f"{p:.1f}", 3.0, x, -5.3), t, 0.6)
-    return single(D(body, *cuts), "ScrewPilotTest")
+    cut = engrave_front(text_centred("TEST ECRAN", 3.6, 0, VIEW_DZ - band), -SMT_LIP, 0.6)
+    return single(D(U([lip, rim]), cut), "ScreenMountTest")
 
 
 def build_sd_fit_test():
@@ -847,27 +825,20 @@ def pose(m, kind, like=None):
     return mm
 
 
-PRINT_COUNT = {"PixelScreenBracket": 2}
-
-
 def build_all():
     tray, case, plate, stand = build_tray(), build_case(), build_case_bottom(), build_stand()
     bezel, back = build_monitor()
     kb_base, kb_top, kb_top_local, kb_leds, kb_leds_local = build_keyboard()
-    brk_l, brk_r = build_brackets(*screen_box(), y_glass())
     assembled = dict(PixelKeyboardBase=kb_base, PixelKeyboardTop=kb_top, PixelCase=case, PixelCaseBottom=plate,
-                     PixelStand=stand, PixelMonitorFront=bezel, PixelMonitorBack=back,
-                     PixelScreenBracket=brk_l, PixelScreenBracketRight=brk_r)
+                     PixelStand=stand, PixelMonitorFront=bezel, PixelMonitorBack=back)
     printable = {
         "PixelMonitorFront": pose(bezel, "face_down"), "PixelMonitorBack": pose(back, "back_down"),
         "PixelStand": pose(stand, "top_down"), "PixelCase": pose(case, "top_down"),
         "PixelCaseBottom": pose(plate, "upright"), "PixelKeyboardBase": pose(kb_base, "upright"),
         "PixelKeyboardTop": pose(kb_top_local, "top_down"),
-        "PixelScreenBracket": pose(brk_r, "face_down"),
         "PixelStreamDeckTray": pose(tray, "upright"),
         "ScreenFitTest": build_fit_test(),
         "ScreenMountTest": pose(build_mount_test(), "face_down"),
-        "ScrewPilotTest": build_pilot_test(),
         "StreamDeckFitTest": pose(build_sd_fit_test(), "top_down"),
     }
     if V2_PANEL:
@@ -887,10 +858,9 @@ def main():
         m.export(OUT / f"{name}.stl")
         w, d, h = m.extents
         grams = filament_g(m)
-        n = PRINT_COUNT.get(name, 1)
         if name != "PixelStreamDeckTray":                         # the tray replaces the keyboard
-            total += n * grams
-        print(f"  {name:24s} {w:6.1f} x {d:6.1f} x {h:5.1f} mm   ~{grams:4.0f} g" + (f"  (print {n})" if n > 1 else ""))
+            total += grams
+        print(f"  {name:24s} {w:6.1f} x {d:6.1f} x {h:5.1f} mm   ~{grams:4.0f} g")
     print(f"  filament for the set (without the option tray): ~{total:.0f} g")
 
 

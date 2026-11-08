@@ -79,13 +79,14 @@ def blue_screen(cx=0.0, cz=0.0, yg=0.0, flip=False):
 
 
 def scr_free_zone(cx=0.0, cz=0.0, yg=0.0):
-    """The free depth behind the PCB (SCR_BACK_FREE), less the two bracket strips: nothing printed may go there."""
+    """The free depth behind the PCB (SCR_BACK_FREE): nothing printed may go there."""
     yb = yg + g.SCR_T
-    zone = g.ext_xz(g.rrect(g.SCR_W - 0.2, g.SCR_H - 0.2, 1.0, cx, cz), yb + 0.05, yb + g.SCR_BACK_FREE)
-    hx = g.SCR_W / 2 - g.SCR_HOLE_IN
-    strips = [g.slab(cx + s * hx - g.BRK_W / 2 - 0.5, cx + s * hx + g.BRK_W / 2 + 0.5, yb - 1, yb + g.SCR_BACK_FREE + 1,
-                     cz - 200, cz + 200) for s in (-1, 1)]
-    return g.D(zone, *strips)
+    return g.ext_xz(g.rrect(g.SCR_W - 0.2, g.SCR_H - 0.2, 1.0, cx, cz), yb + 0.05, yb + g.SCR_BACK_FREE)
+
+
+def tape(cx=0.0, cz=0.0, y_lip=0.0):
+    """The double-sided tape strips, from the lip's back face to the glass (TAPE_T thick)."""
+    return g.U([g.ext_xz(t, y_lip, y_lip + g.TAPE_T) for t in g.tape_strips(cx, cz)])
 
 
 def box(x0, x1, y0, y1, z0, z1):
@@ -94,8 +95,8 @@ def box(x0, x1, y0, y1, z0, z1):
 
 
 def monitor_screen(flip=False):
-    """The screen as it sits in the monitor."""
-    return blue_screen(*g.screen_box(), g.y_glass(), flip)
+    """The screen as it sits in the monitor, with its tape."""
+    return {**blue_screen(*g.screen_box(), g.y_glass(), flip), "tape": tape(*g.screen_box(), g.y_lip())}
 
 
 def ribbon_bundle():

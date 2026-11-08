@@ -1,7 +1,7 @@
 """Pictures for the README, from the same model as the STL files.
 
     python3 tools/render.py                    # all pictures into pixel-desk/
-    python3 tools/render.py --only mount       # one picture: preview, inside, print, mount, sdtest, v2
+    python3 tools/render.py --only tape        # one picture: preview, inside, print, tape, sdtest, v2
     python3 tools/render.py --ui DIR           # app screenshots (800 x 480 PNG) to show on the screen
 
 The screen shows real screenshots of the Pixel app (tools/ui/, taken from pixel-app/).
@@ -23,7 +23,7 @@ g = mocks.g
 BEIGE = (0.90, 0.87, 0.78); BEIGE2 = (0.85, 0.82, 0.72); DARK = (0.05, 0.07, 0.06)
 KEYS = [(0.86, 0.83, 0.73), (0.55, 0.62, 0.60), (0.92, 0.60, 0.33), (0.62, 0.70, 0.78), (0.78, 0.44, 0.40)]
 METAL = (0.78, 0.79, 0.82); BRASS = (0.83, 0.68, 0.30); GREEN_PCB = (0.15, 0.55, 0.30); BLUE_PCB = (0.12, 0.30, 0.62)
-WHITE_PART = (0.95, 0.95, 0.92); TEST_GREY = (0.8, 0.8, 0.84)
+WHITE_PART = (0.95, 0.95, 0.92); TEST_GREY = (0.8, 0.8, 0.84); TAPE_COL = (0.86, 0.30, 0.22)
 RED, BLACK_WIRE, RIBBON = (0.85, 0.18, 0.15), (0.12, 0.12, 0.13), (0.93, 0.92, 0.88)
 PI_COL = {"board": GREEN_PCB, "heatsink": (0.55, 0.57, 0.62), "sdcard": (0.2, 0.2, 0.25)}
 S = (1300, 1200)
@@ -87,10 +87,9 @@ SCR_COL = {"pcb": BLUE_PCB, "rings": BRASS, "dsi_connector": (0.85, 0.80, 0.70),
            "backlight_switch": WHITE_PART, "pi_standoffs": BRASS, "ribbon_fold": RIBBON, "power_wires": RED}
 
 
-def screen_back(scr, brackets):
-    """Everything on the back of the screen (PCB, rings, connectors...), and the 2 brackets, coloured."""
-    out = [(m, SCR_COL.get(k, BLUE_PCB)) for k, m in scr.items() if k != "glass"]
-    return out + [(b, BEIGE2) for b in brackets]
+def screen_back(scr):
+    """Everything on the back of the screen (PCB, rings, connectors...), coloured."""
+    return [(m, SCR_COL.get(k, BLUE_PCB)) for k, m in scr.items() if k not in ("glass", "tape")]
 
 
 def wires(cx=None, cz=None, yg=None, to_pi=True):
@@ -172,18 +171,17 @@ def do_preview(out_dir, ui_dir):
 
 def do_inside(out_dir, ui_dir):
     asm, prn, scr, parts, (body, keys) = scene()
-    brk = [asm["PixelScreenBracket"], asm["PixelScreenBracketRight"]]
-    back = screen_back(scr, brk)
+    back = screen_back(scr)
     ex = [(mv(asm["PixelCaseBottom"], dz=-30), BEIGE2), (asm["PixelCase"], BEIGE), (mv(asm["PixelStand"], dz=22), BEIGE2),
           (mv(asm["PixelMonitorFront"], dy=-34, dz=45), BEIGE), (mv(scr["glass"], dy=-14, dz=45), DARK),
-          *[(mv(m, dy=-14, dz=45), c) for m, c in back if not any(m is b for b in brk)],
-          *[(mv(b, dy=10, dz=45), BEIGE2) for b in brk], (mv(asm["PixelMonitorBack"], dy=55, dz=45), BEIGE),
+          *[(mv(m, dy=-14, dz=45), c) for m, c in back], (mv(scr["tape"], dy=-24, dz=45), TAPE_COL),
+          (mv(asm["PixelMonitorBack"], dy=55, dz=45), BEIGE),
           (mv(asm["PixelKeyboardBase"], dy=-30), BEIGE2), (mv(body, dy=-30, dz=22), (0.12, 0.13, 0.15)),
           *[(mv(k, dy=-30, dz=22), c) for k, c in keys], (mv(asm["PixelKeyboardTop"], dy=-30, dz=48), BEIGE)]
     ex += [(mv(m, dz=-30), c) for m, c in pi_parts()]
     im3, p3 = render(ex, (0.60, 0.72, -0.36), S, light=(0.35, -0.65, 0.70))
 
-    solids = [p for p in parts if p[0] is not scr["glass"]] + [(scr["glass"], DARK)] + back
+    solids = [p for p in parts if p[0] is not scr["glass"]] + [(scr["glass"], DARK), (scr["tape"], TAPE_COL)] + back
     inside = pi_parts() + wires()
     xc = -60.0
     im4, p4 = render(cut(solids, xc) + cut([(m, c) for m, c in inside], xc), (0.88, 0.33, -0.34), S, light=(0.7, -0.3, 0.65))
@@ -199,48 +197,47 @@ def do_inside(out_dir, ui_dir):
 
 def do_print(out_dir):
     asm, prn, *_ = scene()
-    layout = {"PixelCase": (0, 0), "PixelMonitorFront": (222, 0), "PixelStand": (420, 0), "ScrewPilotTest": (505, 0),
+    layout = {"PixelCase": (0, 0), "PixelMonitorFront": (222, 0), "PixelStand": (420, 0),
               "PixelCaseBottom": (0, 175), "PixelKeyboardBase": (218, 175), "PixelKeyboardTop": (366, 175),
               "ScreenFitTest": (515, 175), "ScreenMountTest": (515, 300), "PixelMonitorBack": (230, 330)}
-    tests = ("ScreenFitTest", "ScreenMountTest", "ScrewPilotTest")
+    tests = ("ScreenFitTest", "ScreenMountTest")
     plate = []
     for name, (x, y) in layout.items():
         m = prn[name].copy(); m.apply_translation([-m.bounds[0][0] + x, -m.bounds[0][1] + y, 0])
         plate.append((m, TEST_GREY if name in tests else BEIGE))
-    for k in range(2):
-        m = prn["PixelScreenBracket"].copy(); m.apply_translation([-m.bounds[0][0] + 600 + 14 * k, -m.bounds[0][1] + 20, 0])
-        plate.append((m, BEIGE))
     im5, _ = render(plate, (0.35, 0.60, -0.72), (1300, 1100), light=(0.3, -0.5, 0.8))
     im5.save(out_dir / "preview-print.png")
     print("saved", out_dir / "preview-print.png")
 
 
-def do_mount(out_dir):
-    """The screen mount: in ScreenMountTest (left) and in the real bezel (right), seen from behind."""
-    scr = mocks.blue_screen()
-    brk = g.build_brackets()
-    view = [(g.build_mount_test(), TEST_GREY), (scr["glass"], DARK)] + screen_back(scr, brk) + wires(0.0, 0.0, 0.0, to_pi=False)
-    im1, p1 = render(view, (-0.35, -0.90, -0.25), (1100, 900), light=(-0.3, 0.8, 0.6))
-    hx = g.SCR_W / 2 - g.SCR_HOLE_IN
-    seat = g.brk_seat(0.0)
-    (bx, bz), (tx, tz) = g.brk_screws()[1], g.scr_holes()[1]
-    label(im1, p1, (bx, seat + g.BRK_T, bz), "M2,5 × 8 dans le plastique", -430, -30, (130, 100, 30))
-    label(im1, p1, (tx, seat + g.BRK_T, tz), "M2,5 × 6 dans\nla bague en laiton", -430, 60, (130, 100, 30))
-    label(im1, p1, (hx, seat + g.BRK_T, 0.0), "Barrette\n(× 2)", 130, 90, (150, 120, 40))
-    sp = mocks.scr_spots()
-    label(im1, p1, (sp["dsi"][0], g.SCR_T + 3, sp["dsi"][1]), "Nappe DSI", -330, -40, (170, 130, 40))
-    label(im1, p1, (sp["pwr"][0], g.SCR_T + 7, sp["pwr"][1]), "Prise blanche :\nrouge 5 V, noir GND", -380, 110, (200, 50, 50))
-    label(im1, p1, (sp["switch"][0], g.SCR_T + 3, sp["switch"][1]), "Interrupteur\n« Backlight »", 200, 90, (60, 60, 60))
-
-    # right: the real bezel from behind, with the screen and its brackets
-    asm, _, mscr, *_ = scene()
-    mbrk = [asm["PixelScreenBracket"], asm["PixelScreenBracketRight"]]
-    view2 = [(asm["PixelMonitorFront"], BEIGE), (mscr["glass"], DARK)] + screen_back(mscr, mbrk) + wires(to_pi=False)
-    im2, p2 = render(view2, (-0.35, -0.90, -0.25), (1100, 900), light=(-0.3, 0.8, 0.6))
+def do_tape(out_dir):
+    """The screen is taped: the tape strips on the bezel's lip (left), the screen in ScreenMountTest (right),
+    both seen from behind."""
+    asm, _, _, *_ = scene()
     cx, cz = g.screen_box()
-    label(im2, p2, (cx - hx, g.brk_seat(g.y_glass()) + g.BRK_T, cz), "Barrettes dans leur logement,\nau ras de l'arrière du cadre",
-          -430, 200, (150, 120, 40))
-    sheet(out_dir / "preview-mount.png", [im1, im2], ["ScreenMountTest : l'écran et ses 2 barrettes", "Pareil dans le vrai cadre du moniteur"], 1100)
+    tape = mocks.tape(cx, cz, g.y_lip())
+    im1, p1 = render([(asm["PixelMonitorFront"], BEIGE), (tape, TAPE_COL)], (-0.35, -0.90, -0.25), (1100, 900),
+                     light=(-0.3, 0.8, 0.6))
+    strips = g.tape_strips(cx, cz)
+    sw_, ew_ = g.tape_widths()
+    yl = g.y_lip() + g.TAPE_T
+    s0, e0 = strips[1].centroid, strips[2].centroid
+    label(im1, p1, (s0.x, yl, s0.y), f"Ruban mousse double face,\n{sw_:.0f} mm de large sur les côtés", -400, 60, (180, 60, 40))
+    label(im1, p1, (e0.x + 30, yl, e0.y), f"{ew_:.0f} mm en haut et en bas", 120, -120, (180, 60, 40))
+    rx, rz = g.SCR_RIBS["x"][1], g.scr_pocket()[1] / 2
+    label(im1, p1, (cx + rx, g.y_glass() + 4, cz - rz), "Petites nervures :\nelles centrent la vitre", 150, 60, (90, 90, 90))
+
+    scr = mocks.blue_screen(0.0, 0.0, g.TAPE_T)
+    view = [(g.build_mount_test(), TEST_GREY), (scr["glass"], DARK), (mocks.tape(), TAPE_COL)] + screen_back(scr) + \
+        wires(0.0, 0.0, g.TAPE_T, to_pi=False)
+    im2, p2 = render(view, (-0.35, -0.90, -0.25), (1100, 900), light=(-0.3, 0.8, 0.6))
+    sp = mocks.scr_spots()
+    yb = g.TAPE_T + g.SCR_T
+    label(im2, p2, (sp["dsi"][0], yb + 3, sp["dsi"][1]), "Nappe DSI", -330, -40, (170, 130, 40))
+    label(im2, p2, (sp["pwr"][0], yb + 7, sp["pwr"][1]), "Prise blanche :\nrouge 5 V, noir GND", -380, 110, (200, 50, 50))
+    label(im2, p2, (sp["switch"][0], yb + 3, sp["switch"][1]), "Interrupteur\n« Backlight »", 200, 90, (60, 60, 60))
+    label(im2, p2, (-g.SCR_W / 2 - g.SMT_WALL, yb + g.SMT_MARGIN, 10.0), "La carte arrive juste\nsous le bord", -300, -200, (60, 60, 60))
+    sheet(out_dir / "preview-tape.png", [im1, im2], ["Le ruban sur le bord de la fenêtre (vu de dos)", "ScreenMountTest : l'écran posé dedans"], 1100)
 
 
 def do_sdtest(out_dir):
@@ -280,11 +277,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ui", type=Path, default=HERE / "ui", help="folder with the app screenshots")
     ap.add_argument("--out", type=Path, default=HERE.parent, help="where to write the PNG files")
-    ap.add_argument("--only", choices=["preview", "inside", "print", "mount", "sdtest", "v2"])
+    ap.add_argument("--only", choices=["preview", "inside", "print", "tape", "sdtest", "v2"])
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
     jobs = {"preview": lambda: do_preview(a.out, a.ui), "inside": lambda: do_inside(a.out, a.ui), "print": lambda: do_print(a.out),
-            "mount": lambda: do_mount(a.out), "sdtest": lambda: do_sdtest(a.out), "v2": lambda: do_v2(a.out)}
+            "tape": lambda: do_tape(a.out), "sdtest": lambda: do_sdtest(a.out), "v2": lambda: do_v2(a.out)}
     for k, job in jobs.items():
         if a.only in (None, k):
             job()
