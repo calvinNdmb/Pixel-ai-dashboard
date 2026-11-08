@@ -77,11 +77,7 @@ Le visage tient dans un cadre 16:9 entre le haut de l'écran et la ligne du bas.
 - Claude réfléchit : Réfléchit ; Claude répond : Bavarde ;
 - au réveil et à la fin du démarrage : Réveil.
 
-**Le toucher :**
-- sous ton doigt, le visage s'écrase un peu, puis rebondit ;
-- une tape : Content, ou parfois Fou rire ;
-- cinq tapes de suite : En colère ;
-- une caresse d'un côté à l'autre : Amoureux.
+**Le toucher :** sous ton doigt, le visage s'écrase un peu, puis rebondit. Pour le reste, Pixel a sa personnalité : voir la partie suivante.
 
 **Pour en jouer une :**
 - tape `anim danse`, `animation fou rire`, `anim clin d'oeil`… (le nom, avec ou sans accents) ;
@@ -93,6 +89,63 @@ Le visage tient dans un cadre 16:9 entre le haut de l'écran et la ligne du bas.
 Elle se joue une ou deux fois, puis Pixel revient à son humeur. Ça marche dans les 6 thèmes, quel que soit le visage choisi. Sur l'écran Claude, la petite tête réfléchit, parle et écoute avec les mêmes animations.
 
 **Pour garder l'ancien visage :** dans **Réglages**, touche **Vivant** à côté de « VISAGE ». Tu peux aussi taper `visage vivant`, puis `visage pack` pour revenir au pack. Le choix est gardé au redémarrage.
+
+## Sa personnalité
+
+Pixel réagit à ce que tu lui fais, s'en souvient un moment, et vit sa vie quand personne ne le regarde. Ses expressions viennent de tes 52 animations. Pixel bouge en entier sur l'écran : il nage, part se promener, se cache ou boude dans un coin. Autour de lui : des cœurs, des larmes, des bulles, une mouche… Et il parle dans une bulle. Ça marche dans les 6 thèmes, avec les deux visages. En Rétro et en LCD, tout est dessiné en gros pixels, comme son visage.
+
+![Neuf moments de sa personnalité dans les 6 thèmes](preview-personnalite.png)
+
+**Quand tu le touches**, ça dépend de l'endroit :
+
+| Où | Ce qu'il fait |
+| --- | --- |
+| un œil | « Aïe, mon œil ! », et une petite larme |
+| le haut de la tête | « Bonk ! » : il s'écrase, des étoiles tournent |
+| la bouche | il rit : « Ça chatouille ! » |
+| un côté | il glisse plus loin : « Hé, pousse pas ! », puis revient |
+| à côté de lui | il se penche vers ton doigt : « Y a quoi, là ? » |
+| ailleurs sur le visage | au hasard : coucou, youpi, pirouette, timide, bisou, « J'ai une idée… non, rien » |
+| deux tapes très vite | une pirouette |
+
+**Quand tu l'embêtes**, il s'énerve petit à petit : d'abord « Hé ho ! », « Pfff… » ; puis il esquive ton doigt (« Raté ! ») ou se met en colère, avec de la vapeur et une veine sur le front. Une dizaine de tapes de suite, et **il boude** : il part dans un coin, de dos, avec un panneau « NE PAS DÉRANGER ». Si tu insistes, il répond sans te regarder (« Pfff. », « Je boude. ») et ça dure plus longtemps. Il pardonne au bout d'une demi-minute, ou avec deux câlins : « Bon… je te pardonne. » Sa colère retombe en une minute environ.
+
+**Les câlins** (caresse le visage d'un côté à l'autre) : des cœurs et un « Ronron… ». Ils le calment quand il est agacé. Beaucoup de câlins de suite, et il s'endort.
+
+**Quand tu reviens** après un moment sans le toucher :
+- après 20 minutes : « Ah, te revoilà ! » ;
+- après 2 heures : il est triste (« Tu m'as manqué… »), puis il saute de joie ;
+- le matin, après la nuit : « Bonjour ! Prêt pour la journée ? » ; le soir : « Bonsoir ! » ;
+- réveillé de sa sieste : « Hein ? Je dormais pas ! »
+
+Il s'en souvient même si Pixel a redémarré.
+
+**Quand personne ne le regarde**, toutes les 1 à 2 minutes et demie, il fait un des 23 moments de vie, jamais deux fois le même de suite :
+- **Le poisson :** il nage en rond en faisant des bulles.
+- **La balade :** il sort de l'écran d'un côté et revient de l'autre.
+- **Coucou caché :** il se cache en bas, ressort les yeux, puis « Bouh ! ».
+- **L'économiseur d'écran :** il rebondit sur les bords comme le vieux logo DVD, jusqu'à toucher le coin : « LE COIN !!! ».
+- **La toupie :** il tourne, puis il a la tête qui tourne.
+- **La mouche :** il la suit, elle se pose sur sa tête, il éternue.
+- **Le hoquet, l'éternuement, il sifflote, la danse en cachette :** si tu le surprends en train de danser, il répond « Euh… t'as rien vu ! ».
+- **Toc toc :** il tape à la vitre de l'écran, de l'intérieur.
+- **L'ennui, la sieste, le grand étirement, la rêverie, la méditation, la joie, la gym, « Psst ! » :** des petits moments calmes.
+- **Selon le moment :** sous la pluie, il a un petit nuage au-dessus de la tête. Au soleil, il bronze. À l'heure des repas, il pense à une pizza. La nuit, il ne fait que des moments calmes et bâille.
+
+Ils ne passent pas quand quelque chose d'autre a besoin de son visage : une humeur, une animation, Claude, Codex, un bandeau, ou juste avant qu'il s'endorme.
+
+**Autour de lui :**
+- quand tu éteins toutes les lumières, il a peur du noir : « Qui a éteint ?! » ;
+- quand tu les rallumes : « Ah, la lumière ! » ;
+- à chaque heure pile, dans la journée, il fait le coucou de l'heure : « Coucou ! Il est 15 h. »
+
+**Pour en voir un :**
+- tape `fais le poisson`, `fais la sieste`, `joue la toupie`, `fais l'économiseur d'écran`… ;
+- `scènes` affiche la liste ;
+- dans Pixel Lab, le panneau **Personnalité** joue chaque moment, l'embête, lui fait un câlin et simule ton retour après 30 min, 3 h ou une nuit ;
+- demande à Claude « fais le poisson ! ».
+
+Chaque écran a son propre Pixel : ton téléphone et l'écran de Pixel réagissent chacun à leur toucher. Une scène demandée par une commande ou par Claude passe sur tous les écrans.
 
 ## Les humeurs
 
@@ -148,6 +201,8 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 | `thème suivant`, `thème précédent` | passe au thème d'après, ou d'avant |
 | `anim danse`, `animation fou rire`, `danse`, `coucou`… | joue une des 52 animations |
 | `animations` | affiche la liste des animations |
+| `fais le poisson`, `fais la sieste`, `joue la toupie`… | un de ses moments de vie (voir « Sa personnalité ») |
+| `scènes` | affiche ses moments de vie |
 | `visage vivant`, `visage pack` | change de visage |
 | `aide` | affiche la liste des commandes |
 | n'importe quoi d'autre | c'est envoyé à Claude, par exemple « baisse un peu les lumières, je regarde un film » |
@@ -260,6 +315,13 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Claude** (`test_claude_loop.py`) : la boucle a tourné face à un faux serveur d'API. Claude règle le salon, change de thème et d'humeur, et un thème inconnu est refusé.
 - **Visage vivant** (`test_life.js`) : clignements, regards, bâillements, étirements, réactions au toucher, et chaque thème dessine chaque humeur et chaque passage d'une humeur à l'autre sans erreur.
 - **Animations** (`test_pack.js`) : chaque thème dessine les 52 animations à plusieurs moments, avec les deux visages et les passages de l'une à l'autre. Les humeurs, l'attente tirée au sort, le toucher et les événements jouent les bonnes animations. `test_pixel.py` vérifie aussi `anim.play`, les commandes `anim …`, la touche *Anim +* et le choix du visage après un redémarrage.
+- **Personnalité** (`test_persona.js`) : les 55 scènes se dessinent dans les 6 thèmes avec les deux visages, et Pixel finit chaque scène à sa place. Le test vérifie aussi :
+  - les endroits du visage, et la colère qui monte, la bouderie, le pardon, les câlins ;
+  - les retours (20 min, 2 h, le matin, le soir, la sieste) ;
+  - les moments de vie : jamais quand le visage est occupé, jamais deux fois de suite, la pluie seulement quand il pleut, le calme la nuit ;
+  - les lumières, une scène demandée par le serveur, et les 60 images par seconde quand il bouge.
+
+  `test_pixel.py` vérifie `scene.play`, les commandes `fais …` et `scènes`, et l'outil de Claude.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
@@ -271,6 +333,7 @@ python3 tests/test_claude_loop.py
 python3 tests/test_agenda.py
 node tests/test_life.js
 node tests/test_pack.js
+node tests/test_persona.js
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -287,8 +350,8 @@ Pas encore testé avec le vrai matériel :
 | Fichier | Rôle |
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
-| `pixel/` | un module par service : `hue`, `claude`, `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches) et `state` (état partagé) |
-| `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
+| `pixel/` | un module par service : `hue`, `claude`, `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
+| `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |

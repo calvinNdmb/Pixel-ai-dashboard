@@ -114,6 +114,35 @@ setInterval(() => {                                   // on the virtual clock: s
   const a = hub.ANIMS[showAll.i];
   if (C.now() - showAll.at >= a.duration * 1000) { showAll.i = (showAll.i + 1) % hub.ANIMS.length; showAll.at = C.now(); pickAnim(hub.ANIMS[showAll.i].id, true); }
 }, 100);
+/* ---------- Pixel's personality (persona.js through screens.js): every scene, his moods, coming back ---------- */
+const PER = Screens.persona, persoChips = [];
+const PGROUPS = [['tap', 'Quand tu le touches'], ['fache', 'Quand tu l’embêtes'], ['calin', 'Les câlins'], ['retour', 'Quand tu reviens'], ['vie', 'Ses moments de vie'], ['evt', 'Ce qui se passe autour']];
+function pickScene(id) {
+  touch(); stopTour(); stopAll();
+  if (P && P.screen !== 'visage') hub.dispatch('screen.show', { screen: 'visage' });
+  L.local = null; L.sleepy = false; if (hub.S.anim) hub.dispatch('anim.stop');
+  PER.play(id);
+}
+if (PER) {
+  for (const [g, title] of PGROUPS) {
+    const list = PER.scenes.filter(s => s.group === g); if (!list.length) continue;
+    const box = el('div', 'ev'), row = el('div', 'chips'); box.append(el('h3', null, title), row); row.setAttribute('role', 'group'); row.setAttribute('aria-label', title);
+    for (const s of list) { const b = chip(s.label, () => pickScene(s.id)); b.dataset.id = s.id; row.append(b); persoChips.push(b); }
+    $('persoGroups').append(box);
+  }
+  if (saved.life === false) PER.setLife(false);
+  if (saved.often) PER.setEvery(4000, 10000);
+  $('lifeBtn').addEventListener('click', () => { touch(); const on = !PER.state.life; PER.setLife(on); remember('life', on); syncStatic(); });
+  $('oftenBtn').addEventListener('click', () => { touch(); const on = !saved.often; remember('often', on); if (on) PER.setEvery(4000, 10000); else PER.setEvery(45000, 150000); syncStatic(); });
+  let pester = null;
+  $('pesterBtn').addEventListener('click', () => {                     // ten taps in a row on his face
+    touch(); if (pester) return; let n = 0; if (P && P.screen !== 'visage') hub.dispatch('screen.show', { screen: 'visage' });
+    pester = setInterval(() => { PER.tap({ x: 400 + (Math.random() - 0.5) * 120, y: 235 + (Math.random() - 0.5) * 60 }, { x: 64, y: 50, w: 672, h: 378 }); if (++n >= 10) { clearInterval(pester); pester = null; } }, 420);
+  });
+  $('petBtn').addEventListener('click', () => { touch(); if (P && P.screen !== 'visage') hub.dispatch('screen.show', { screen: 'visage' }); PER.pet(); });
+  for (const [id, ms] of [['away1', 30 * 60e3], ['away3', 3 * 3600e3], ['away8', 9 * 3600e3]])
+    $(id).addEventListener('click', () => { touch(); if (P && P.screen !== 'visage') hub.dispatch('screen.show', { screen: 'visage' }); L.sleepy = false; PER.stop(); PER.away(ms); PER.input(); });
+} else document.querySelector('section[aria-labelledby="hPerso"]').hidden = true;
 document.querySelectorAll('#moodDur button').forEach(b => b.addEventListener('click', () => { remember('moodDur', Number(b.dataset.dur)); syncStatic(); }));
 let wx = 'exemple';
 for (const k of [...hub.KINDS, { id: 'melange', name: 'Mélange' }, { id: 'exemple', name: 'Exemple' }]) {
@@ -344,6 +373,7 @@ function syncStatic() {
   press($('tourBtn'), !!tour); setT($('tourBtn'), tour ? 'Arrêter la démo' : 'Lancer la démo'); press($('kmTour'), !!tour);
   setT($('tourNote'), tour ? `Étape ${tour.i + 1} sur ${tour.steps.length} : ${tour.steps[tour.i].label}` : 'Toutes les humeurs, des animations, puis tous les écrans, puis le thème suivant. En boucle.');
   press($('ecoBtn'), !L.full);
+  if (PER) { press($('lifeBtn'), PER.state.life); press($('oftenBtn'), !!saved.often); }
   press($('idleBtn'), L.packIdle !== false); press($('allBtn'), !!showAll);
   setT($('allBtn'), showAll ? 'Arrêter' : 'Tout voir');
   testChips.forEach(b => press(b, b.dataset.id === TC.page));
@@ -358,6 +388,12 @@ function refresh() {                                  // things that change with
   animChips.forEach(b => press(b, b.dataset.id === pa));
   if (showAll) { const a = hub.ANIMS[showAll.i]; setT($('animNote'), `Tout voir : ${showAll.i + 1} sur ${hub.ANIMS.length}, ${a.label}.`); }
   else { const a = hub.ANIMS.find(x => x.id === pa); setT($('animNote'), a ? `${a.label} (${a.group}). Touche une animation pour la jouer.` : 'Les 52 animations de ton pack. Touche-en une pour la jouer.'); }
+  if (PER) {                                          // his mood of the moment
+    const ps = PER.state, bar = v => '▮'.repeat(Math.round(Math.min(5, v))) + '▯'.repeat(5 - Math.round(Math.min(5, v)));
+    const cur = ps.cur ? (PER.scenes.find(s => s.id === ps.cur) || {}).label : '';
+    setT($('persoState'), `Agacement ${bar(ps.annoy / 2)} · Câlins ${bar(ps.love)}${cur ? ' · en ce moment : ' + cur : ''}`);
+    persoChips.forEach(b => press(b, b.dataset.id === ps.cur));
+  }
   const st = C.stats(), fps = Math.round(st.fps);
   const info = `${hub.themeName(P.view.theme)} · ${hub.NAMES[P.screen]} · ${hub.moodName(md)} · ${speedLabel()}${C.paused ? ' · en pause' : ''} · ${fps} im/s${L.full ? '' : ` (voulu ${L.fpsWant})`}`;
   setT($('readout'), info); setT($('kmInfo'), info);

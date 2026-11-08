@@ -5,7 +5,7 @@ Anything that is not a command goes to Claude.
 import re
 import unicodedata
 
-from . import anims
+from . import anims, scenes
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -13,7 +13,8 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "neon": "neon", "synthwave": "neon", "fluo": "neon", "croquis": "croquis", "crayon": "croquis",
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
-        "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · visage vivant · sinon : Claude")
+        "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
+        "visage vivant · sinon : Claude")
 # a few words that play an animation on their own
 BARE = {"danse": "danse", "chante": "chante", "coucou": "salut", "bisou": "bisou"}
 FACE_WORDS = {"pack": "pack", "pack 52": "pack", "52": "pack", "animations": "pack", "vivant": "vivant", "anime": "vivant"}
@@ -109,6 +110,13 @@ async def run(hub, text):
     if m and m.group(1) in FACE_WORDS:
         await hub.dispatch("face.set", {"name": FACE_WORDS[m.group(1)]})
         return await hub.dispatch("screen.show", {"screen": "visage"})
+
+    if t in ("scenes", "les scenes", "liste des scenes"):
+        life = ", ".join(label for i, label, g in scenes.SCENES if g == "vie")
+        return hub.toast("Ses moments de vie : " + life + ". Tape « fais le poisson », « fais la sieste »…", 15000)
+    m = re.match(r"^(?:fais|fait|faire|joue)\s+(.+)$", t)       # not "scène": that is for the lights
+    if m and scenes.find(m.group(1)):                      # otherwise it is a question for Claude ("fais une liste de…")
+        return await hub.dispatch("scene.play", {"id": scenes.find(m.group(1))})
 
     if t in ("animations", "les animations", "liste des animations"):
         groups = [g + " : " + ", ".join(a["label"] for a in anims.ANIMS if a["group"] == g) for g in anims.GROUPS]

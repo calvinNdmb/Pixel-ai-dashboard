@@ -44,6 +44,9 @@ function mood() {
 const THEMES = PixelThemes({ X, RM, get now() { return now; }, get S() { return S; }, get scr() { return L.boot >= 0 ? 'boot' : L.scr; },
   blinkP: () => (now - L.blink.t) / 180, txt, wrap, fit });
 const IDS = Object.keys(THEMES);
+/* Pixel's personality (persona.js): reactions to touch, moods that last, moments of life when nobody looks */
+const PER = window.PixelPersona ? window.PixelPersona({ X, rnd, rm: RM, now: () => now, theme: () => T, txt, fit, wrap }) : null;
+let PV = { id: '', group: '', anim: null, mood: null, m: { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 } };   // what it asks this frame
 function useTheme(id) { if (T && T.id === id) return; T = THEMES[id] || THEMES.retro; ({ fg: G, dim: D, faint: DK, bg: B, accent: AM, pink: PK, hi: WH } = T.c); L.theme = T.id; }
 useTheme('retro');
 /* one life per face on screen: the big face, the Claude panel, the sleeping face, the boot splash */
@@ -79,6 +82,7 @@ const packMode = () => PACK.length > 0 && !!T.packFace && !(P && P.view && P.vie
 const serverAnim = () => { const a = P && P.anim; return a && PBY[a.id] && (!a.until || srv() < a.until) ? a.id : null; };
 const sleepCycle = () => (now / 1000) % 15 < 10 ? 'sommeil' : 'reve';
 function packWant() {               // touch first, then what was asked, then the events, then the mood, then the idle
+  if (PV.id && PV.group !== 'vie') return PV.anim;                          // his personality: a touch, you come back, the lights
   if (L.pack && now < L.pack.until) return L.pack.id;                       // a laugh, waking up
   if (L.local && now < L.local.until) return MOOD_ANIM[L.local.name] || null;   // happy, angry, in love (touch)
   const sa = serverAnim(); if (sa) return sa;
@@ -89,12 +93,26 @@ function packWant() {               // touch first, then what was asked, then th
   if (md !== 'neutre') return MOOD_ANIM[md] || null;
   if (P.codex && P.codex.running) return 'code';
   if (L.kiosk && (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) < 10000) return 'idle-somnole';   // nodding off
+  if (PV.id) return PV.anim;                                                // a moment of life: the fish, the walk, the nap...
   return null;
 }
-function packDraw(player, want, x, y, w, h, a) {   // a: life state for the touch physics (squash under the finger, bounce)
+function moveFace(m, x, y, w, h) {   // the scene's motion around the centre of the face's box
+  if (!m || (m.x === 0 && m.y === 0 && m.s === 1 && m.r === 0 && !m.f && (m.sx ?? 1) === 1 && (m.sy ?? 1) === 1)) return;
+  const cx = x + w / 2, cy = y + h / 2;
+  X.translate(cx + m.x, cy + m.y); X.rotate(m.r); X.scale(m.s * (m.sx ?? 1) * (m.f ? -1 : 1), m.s * (m.sy ?? 1)); X.translate(-cx, -cy);
+}
+/* pixel themes (Rétro, LCD): a smaller or bigger face is drawn again with whole pixels (2 to 14 screen pixels per
+   pack pixel), not squeezed by the canvas, so it stays crisp; the scale is snapped to those sizes */
+const snapPix = m => ({ ...m, s: clamp(Math.round(PBOX.w / 96 * m.s), 2, 14) / (PBOX.w / 96), x: Math.round(m.x), y: Math.round(m.y) });
+function packDraw(player, want, x, y, w, h, a, m) {   // a: life state for the touch physics (squash under the finger, bounce); m: motion
   const st = player.update(fdt, want, L.packIdle !== false);
   if (player === PLAY.face) L.packNow = st.id;            // for the lab: what the big face plays
   X.save();
+  if (m && T.faceFps) {
+    const k = clamp(Math.round(w / 96 * m.s), 2, 14), cx = Math.round(x + w / 2 + m.x), cy = Math.round(y + h / 2 + m.y);
+    w = 96 * k; h = 54 * k; x = cx - w / 2; y = cy - h / 2;
+    if (m.r || m.f || (m.sx ?? 1) !== 1 || (m.sy ?? 1) !== 1) { X.translate(cx, cy); X.rotate(m.r); X.scale((m.f ? -1 : 1) * (m.sx ?? 1), m.sy ?? 1); X.translate(-cx, -cy); }
+  } else moveFace(m, x, y, w, h);
   if (a) { const px = x + w / 2, py = y + h; X.translate(px, py - a.hop * 16); X.scale(1 + 0.5 * a.sq, 1 - 0.5 * a.sq); X.translate(-px, -py); }
   T.packFace(x, y, w, h, st); X.restore();
   return st;
@@ -106,22 +124,27 @@ function drawVisage() {
   if (T.top) T.top(clock()); else txt(clock(), W - 24, 16, 30, D, 'right', 'title');
   const md = mood(), pack = packMode(), anim = serverAnim(), ptr = L.ptr && !['endormi', 'reflechit'].includes(md) ? { x: clamp((L.ptr.x - 400) / 120, -1.6, 1.6), y: clamp((L.ptr.y - 230) / 110, -1, 1) } : null;
   const sleepIn = L.kiosk && P ? (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) : Infinity;
-  const a = LIFE.face.update(now, md, { look: ptr, idle: now - L.lastInput, sleepIn, calm: RM || pack || !!anim });
-  if (pack || (anim && T.packFace)) packDraw(PLAY.face, pack ? packWant() : anim, PBOX.x, PBOX.y, PBOX.w, PBOX.h, a);
+  let pm = PV.id ? PV.m : null; if (pm && pack && T.faceFps) pm = snapPix(pm);
+  const lmd = PV.id && PV.mood && (PV.group !== 'vie' || md === 'neutre') ? PV.mood : md;
+  const a = LIFE.face.update(now, lmd, { look: PV.id ? null : ptr, idle: now - L.lastInput, sleepIn, calm: RM || pack || !!anim || !!PV.id });
+  if (pack || (anim && T.packFace)) packDraw(PLAY.face, pack ? packWant() : anim, PBOX.x, PBOX.y, PBOX.w, PBOX.h, a, pm);
   else {
     const nap = (a.mood === 'endormi' ? a.k : 0) + (a.from === 'endormi' ? 1 - a.k : 0);
+    X.save(); moveFace(pm, PBOX.x, PBOX.y, PBOX.w, PBOX.h);
     X.globalAlpha = 1 - (1 - (T.sleepA ?? 0.6)) * clamp(nap, 0, 1);
-    face(400, 236, 16, a.mood, a.lx, a.ly, a); X.globalAlpha = 1;
+    face(400, 236, 16, a.mood, a.lx, a.ly, a); X.globalAlpha = 1; X.restore();
   }
+  if (PER && PV.id) { X.shadowBlur = 0; PER.drawOver(PBOX, pm || PV.m); glow(); }
   const parts = [], r = P.lights.rooms[0], w = P.weather, e = nextEvent();
   if (r) parts.push(`${r.name} ${r.on ? r.bri + ' %' : 'éteint'}`);
   if (w && w.now) parts.push(temp(w.now.t));
   if (e) parts.push(`${hm(e.start)} ${e.title}`);
   const tick = parts.join('   ·   ');
   txt(fit(T.upper ? tick.toUpperCase() : tick, 760, 24), 400, 440, 24, D, 'center');
-  hit(0, 0, W, H, () => {
-    if (md === 'endormi') { send('mood.set', { name: 'neutre' }); L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; return; }
+  hit(0, 0, W, H, pt => {
+    if (md === 'endormi') { send('mood.set', { name: 'neutre' }); L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; if (PER) PER.play('reveille'); return; }
     if (L.petted) { L.petted = false; return; }
+    if (PER) { const h = new Date().getHours(); PER.tap(pt || { x: 400, y: 240 }, PBOX, { night: h >= 23 || h < 6 }); L.local = null; L.pack = null; return; }
     const r2 = LIFE.face.tap(now); L.local = r2 ? { name: r2, until: now + 2600 } : { name: 'content', until: now + 1800 };
     if (r2) L.pack = null; else if (rnd() < 0.3) L.pack = { id: 'rire', until: now + 3000 };      // sometimes a tap makes him laugh
   });
@@ -134,7 +157,7 @@ cv.addEventListener('pointerdown', e => { const p = toCanvas(e); L.petted = fals
 cv.addEventListener('pointermove', e => {
   if (!rubAt) return;
   const p = toCanvas(e), r = LIFE.face.rub(p.x - rubAt.x, p.y - rubAt.y, now); rubAt = p;
-  if (r) { L.local = { name: r, until: now + 3200 }; L.petted = true; L.pack = null; }
+  if (r) { L.petted = true; L.pack = null; if (PER) { L.local = null; PER.pet(); } else L.local = { name: r, until: now + 3200 }; }
 });
 for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) cv.addEventListener(ev, () => { if (rubAt) { LIFE.face.press(false); rubAt = null; } });
 
@@ -378,7 +401,7 @@ Object.assign(L, { full: typeof location !== "undefined" && /[?&]fps=full\b/.tes
 function fast(ms = 150) { L.fastUntil = Math.max(L.fastUntil, realNow() + ms); }
 function wantFps() {
   const r = realNow();
-  if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
+  if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (PV.id && L.scr === 'visage') || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
   const calm = T.calmFps || 10;                       // still screens: the clock, a blinking cursor
   switch (L.scr) {
     case 'visage': {
@@ -395,6 +418,13 @@ function wantFps() {
   }
 }
 let drawnAt = -1e9, seenScr = '', seenTheme = '';
+function personaCtx() {               // what the personality needs to know about the world
+  const vis = L.scr === 'visage' && L.boot < 0, rooms = P.lights && P.lights.rooms || [], h = new Date().getHours();
+  const free = vis && !L.sleepy && mood() === 'neutre' && !serverAnim() && P.chat.phase === 'idle' && !(P.codex && P.codex.running) && !L.banner
+    && !(L.packEv && now < L.packEv.until) && !(L.kiosk && (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) < 20000);
+  return { visage: vis, canLive: free, idle: now - L.lastInput, weather: P.weather && P.weather.now ? P.weather.now.kind : '',
+    lightsOn: rooms.length ? rooms.some(r => r.on) : null, night: h >= 23 || h < 6, rm: RM };
+}
 function update() {
   if (now > L.blink.next) { L.blink.t = now; L.blink.next = now + 2000 + rnd() * 4000; }   // for faces drawn without a life state
   if (L.kiosk && P && L.scr === 'visage' && !L.sleepy && now - L.lastInput > (P.settings.sleep_min || 10) * 60000) L.sleepy = true;
@@ -412,7 +442,7 @@ function frame(t) {
   X.setTransform(S, 0, 0, S, 0, 0); X.globalAlpha = 1; X.shadowBlur = 0; T.bg(dt); glow();
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
-  else (DRAW[L.scr] || drawVisage)(dt);
+  else { if (PER) PV = PER.update(dt, personaCtx()); (DRAW[L.scr] || drawVisage)(dt); }
   drawBanner();
   if (T.fg) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }
 }
@@ -436,11 +466,18 @@ return {
       if (!busy && !(L.packEv && now < L.packEv.until) && !/^(THÈME|VISAGE) /.test(p.toast.msg)) L.packEv = { id: 'notification', until: now + 4000 };   // not for our own settings
     }
     if (P && P.screen === 'veille' && p.screen === 'visage') L.pack = { id: 'reveil', until: now + 5000 };
-    if (p.anim && p.anim.t0 !== (P && P.anim && P.anim.t0)) { L.pack = null; L.local = null; }   // a new animation asked for takes over at once
+    if (p.anim && p.anim.t0 !== (P && P.anim && P.anim.t0)) { L.pack = null; L.local = null; if (PER && PER.busy()) PER.stop(); }   // a new animation asked for takes over at once
+    if (PER && P && p.scene && p.scene.t0 !== (P.scene && P.scene.t0) && p.server_now - p.scene.t0 < 10000) PER.play(p.scene.id);   // "fais le poisson"
     if (p.boot_at > L.lastBootAt) { L.lastBootAt = p.boot_at; L.boot = now; }
     P = p; L.dirty = true;
   },
-  input() { L.lastInput = now; L.inputAt = realNow(); if (L.sleepy) { L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; return true; } return false; },
+  input() {
+    L.lastInput = now; L.inputAt = realNow();
+    if (L.sleepy) { L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; if (PER) PER.input({ wake: true }); return true; }
+    if (PER) PER.input();                                     // back after a while: he says so
+    return false;
+  },
+  persona: PER,
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

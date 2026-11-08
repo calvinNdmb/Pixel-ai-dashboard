@@ -51,13 +51,14 @@ chromium-browser --kiosk "http://localhost:8080/lab?kiosk=1"
 | **Écran** | Les 10 écrans. Sur l'écran, tu peux aussi toucher et glisser. |
 | **Stream Deck** | Les 15 touches. Rangées 1 et 2 : les écrans. Rangée 3 : les actions de l'écran ouvert. |
 | **Animations** | Les 52 animations de ton pack, par famille : Humeurs, Émotions, Activités, Système, Repos, Idle. **Idle vivant** enchaîne les animations d'attente quand rien ne se passe ; éteint, l'animation choisie tourne en boucle. **Pack 52 / Vivant** change de visage. **Tout voir** les joue toutes, une boucle chacune. |
+| **Personnalité** | Ses 55 scènes, par famille : quand tu le touches, quand tu l'embêtes, les câlins, quand tu reviens, ses moments de vie, ce qui se passe autour. **Moments de vie** les laisse venir tout seuls quand on ne le touche pas ; **Plus souvent** en fait passer un toutes les 4 à 10 secondes, pour les voir vite. **L'embêter** le tape 10 fois de suite, jusqu'à ce qu'il boude ; **Un câlin** le caresse. **Revenir après 30 min, 3 h, une nuit** fait comme si tu revenais. En haut, son agacement et ses câlins du moment. |
 | **Événements** | Notification avec ton texte, conversation avec Claude, tâche Codex réussie ou en échec, minuteur d'une minute et fin tout de suite, veille et réveil, animation de démarrage. |
 | **Lumières, météo, agenda** | Scènes et pièces, chaque météo (soleil, nuages, pluie, neige, orage) pour aujourd'hui et les jours suivants, °C ou °F, agenda d'aujourd'hui ou de demain, rendez-vous dans 10 minutes. |
 | **Affichage** | Luminosité et effet cathodique. |
 | **Vitesse** | ×0,25, ×0,5, ×1, ×2, **Pause** et **+1 image** (une image de plus, toujours en pause). |
 | **Démo auto** | Toutes les humeurs, quelques animations du pack (les 52 sur un tour complet), puis tous les écrans, puis le thème suivant, en boucle. Tu choisis le temps entre deux étapes. |
 | **Capture** | Enregistre l'écran de Pixel en image PNG. Sur un téléphone, l'image s'affiche : appuie longuement dessus pour la garder. |
-| **Barre de commande** | Les mêmes commandes que sur Pixel : `salon 40`, `thème manga`, `humeur content`, `minuteur 1`, `aide`… Le reste part à Claude, qui répond avec des phrases toutes faites. |
+| **Barre de commande** | Les mêmes commandes que sur Pixel : `salon 40`, `thème manga`, `humeur content`, `fais le poisson`, `minuteur 1`, `aide`… Le reste part à Claude, qui répond avec des phrases toutes faites. |
 
 Le labo retient ton dernier thème, ton écran et ta vitesse.
 

@@ -87,6 +87,12 @@ def static_checks():
     check("the app and the lab load the pack before themes.js", all(
         (web / f).read_text().index("pack52/pixel52-themes.js") < (web / f).read_text().index("themes.js\"") for f in ("index.html", "lab/index.html")))
     check("Claude can play every animation", tools["play_animation"]["animation"]["enum"] == anims.IDS)
+    from pixel import scenes
+    check("Claude can play his moments of life, reactions and moods (not the greetings and events, they need a reason)",
+          set(tools["play_scene"]["scene"]["enum"]) == {i for i, _, g in scenes.SCENES if g in ("vie", "tap", "fache", "calin")}
+          and "poisson" in tools["play_scene"]["scene"]["enum"] and "bonjour" not in tools["play_scene"]["scene"]["enum"])
+    check("the app and the lab load persona.js between themes.js and screens.js", all(
+        (web / f).read_text().index("themes.js\"") < (web / f).read_text().index("persona.js") < (web / f).read_text().index("screens.js") for f in ("index.html", "lab/index.html")))
 
 
 async def main(args):
@@ -232,6 +238,28 @@ async def main(args):
             check("an unknown animation makes him confused and says so", state["mood"]["name"] == "confus" and "animation" in state["toast"]["msg"])
             await cmd("animations")
             check("'animations' lists them", state["toast"]["msg"].startswith("Les 52 animations") and "Gratouille" in state["toast"]["msg"] and state["toast"]["ms"] == 15000)
+
+            # ---- his personality: scenes asked for by a command ----
+            await act("anim.play", id="danse")
+            await act("screen.show", screen="meteo")
+            await act("scene.play", id="poisson")
+            sc = state.get("scene") or {}
+            check("scene.play poisson: on the face, the animation stops", sc.get("id") == "poisson" and sc.get("t0") and state["screen"] == "visage" and state["anim"] is None, str(sc))
+            await act("scene.play", id="pas-une-scene")
+            check("an unknown scene is refused", state["scene"]["id"] == "poisson")
+            for text, want in [("fais le poisson", "poisson"), ("fais la sieste", "sieste"), ("Fais la toupie", "toupie"), ("fais l'économiseur d'écran", "dvd"),
+                               ("fais coucou caché", "cache"), ("joue la gym", "gym"), ("fais dodo", "sieste"), ("fais la danse en cachette", "danse"), ("fais le hoquet", "hoquet")]:
+                await act("scene.play", 0.1, id="joie")
+                await cmd(text, 0.3)
+                check(f"'{text}' plays the scene {want}", state["scene"]["id"] == want, str(state["scene"]))
+            before = state["scene"]
+            await cmd("fais une liste de courses", 0.3)
+            check("'fais une liste de courses' is not a scene: it goes to Claude", state["scene"] == before and state["screen"] == "claude", state["screen"])
+            await cmd("scènes")
+            check("'scènes' lists his moments of life", state["toast"]["msg"].startswith("Ses moments de vie") and "Le poisson" in state["toast"]["msg"] and "fais le poisson" in state["toast"]["msg"])
+            await cmd("scène film")
+            check("'scène film' is still a Hue scene, not a personality scene", state["scene"] == before, str(state["scene"]))
+            await act("anim.play", id="bisou")                 # back to the last animation the checks below expect
             await cmd("minuteur 5")
             await cmd("pause")
             check("'pause' is still the timer's command", not state["timer"]["running"] and state["screen"] == "minuteur")

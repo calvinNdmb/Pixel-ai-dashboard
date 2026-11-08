@@ -86,6 +86,24 @@
       <p class="note" id="animNote">Les 52 animations de ton pack. Touche-en une pour la jouer.</p>
     </section>
 
+    <section class="grp" aria-labelledby="hPerso">
+      <h2 id="hPerso">Personnalité</h2>
+      <p class="note" id="persoState">&nbsp;</p>
+      <div class="btns">
+        <button type="button" id="lifeBtn" aria-pressed="true">Moments de vie</button>
+        <button type="button" id="oftenBtn" aria-pressed="false">Plus souvent</button>
+        <button type="button" id="pesterBtn">L’embêter</button>
+        <button type="button" id="petBtn">Un câlin</button>
+      </div>
+      <div class="btns">
+        <button type="button" id="away1">Revenir après 30 min</button>
+        <button type="button" id="away3">Après 3 h</button>
+        <button type="button" id="away8">Après une nuit</button>
+      </div>
+      <div id="persoGroups"></div>
+      <p class="note" id="persoNote">Touche Pixel sur l’écran : les yeux, le haut de la tête, la bouche, les côtés ou à côté de lui. Tape plusieurs fois de suite pour l’énerver, caresse-le pour le calmer. Laissé seul, il vit sa vie : toutes les 1 à 2 minutes et demie, un moment au hasard.</p>
+    </section>
+
     <section class="grp" aria-labelledby="hEvents">
       <h2 id="hEvents">Événements</h2>
       <div class="ev"><h3>Notification</h3>
@@ -235,6 +253,7 @@
 <script src="../pack52/pixel52.js"></script>
 <script src="../pack52/pixel52-themes.js"></script>
 <script src="../themes.js"></script>
+<script src="../persona.js"></script>
 <script src="../screens.js"></script>
 <script src="demo-hub.js"></script>
 <script src="testcard.js"></script>

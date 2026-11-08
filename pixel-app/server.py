@@ -18,7 +18,7 @@ from pathlib import Path
 import segno
 from aiohttp import WSMsgType, web
 
-from pixel import anims, commands, timer
+from pixel import anims, commands, scenes, timer
 from pixel.agenda import Agenda
 from pixel.claude import Claude
 from pixel.codex import Codex
@@ -45,6 +45,7 @@ def core_actions(hub, datadir):
     if v["face"] not in FACES:
         v["face"] = "pack"
     hub.s.setdefault("anim", None)
+    hub.s.setdefault("scene", None)
 
     def save():
         ui_file.write_text(json.dumps({"theme": v["theme"], "face": v["face"]}))
@@ -76,6 +77,14 @@ def core_actions(hub, datadir):
     @hub.action("anim.stop")
     async def anim_stop():
         hub.s["anim"] = None
+
+    @hub.action("scene.play")
+    async def scene_play(id):
+        """One of Pixel's personality scenes (web/persona.js): the fish, the nap... Each screen plays it on the face."""
+        if id in scenes.BY_ID:
+            hub.s["anim"] = None
+            hub.s["scene"] = {"id": id, "t0": time.time() * 1000}
+            hub.s["screen"] = "visage"
 
     @hub.action("theme.step")
     async def theme_step(d=1):

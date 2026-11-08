@@ -6,7 +6,7 @@ import logging
 import re
 
 from .commands import norm
-from . import anims
+from . import anims, scenes
 from .keys import MOODS, NAV, THEMES
 
 log = logging.getLogger("pixel.claude")
@@ -45,6 +45,9 @@ TOOLS = [
     tool("play_animation", "Joue une animation du visage de Pixel, une ou deux fois, puis il revient à son humeur. Les animations : "
                            + " ; ".join(f"{a['id']} ({a['label']})" for a in anims.ANIMS) + ".",
          {"animation": {"type": "string", "enum": anims.IDS}}, ["animation"]),
+    tool("play_scene", "Fait vivre à Pixel un de ses petits moments de personnalité sur son visage : il nage comme un poisson, "
+                       "fait la sieste, la toupie, boude… Les scènes : " + " ; ".join(f"{i} ({label})" for i, label, g in scenes.SCENES if g in ("vie", "tap", "fache", "calin")) + ".",
+         {"scene": {"type": "string", "enum": [i for i, _, g in scenes.SCENES if g in ("vie", "tap", "fache", "calin")]}}, ["scene"]),
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
 
@@ -63,6 +66,7 @@ def check(name, a):
         "set_mood": a.get("mood") in MOODS,
         "set_theme": a.get("theme") in THEMES,
         "play_animation": a.get("animation") in anims.BY_ID,
+        "play_scene": a.get("scene") in scenes.BY_ID,
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
@@ -135,6 +139,9 @@ class Claude:
             return "ok"
         if name == "play_animation":
             await h.dispatch("anim.play", {"id": a["animation"]})
+            return "ok"
+        if name == "play_scene":
+            await h.dispatch("scene.play", {"id": a["scene"]})
             return "ok"
         if name == "run_codex":
             await h.dispatch("codex.run", {"task": a["task"]})
