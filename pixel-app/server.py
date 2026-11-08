@@ -175,7 +175,14 @@ async def serve(args, cfg, datadir, token):
             hub.clients.discard(ws)
         return ws
 
+    async def revalidate(request, response):
+        """After an update (git pull), the screen must not keep old copies of the app's files: it asks again every time
+        (a 304 when nothing changed, nothing to download)."""
+        if request.path.startswith("/app/"):
+            response.headers["Cache-Control"] = "no-cache"
+
     app = web.Application()
+    app.on_response_prepare.append(revalidate)
     app.router.add_get("/", index)
     app.router.add_get("/ws", ws_handler)
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
