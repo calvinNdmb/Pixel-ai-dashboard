@@ -95,8 +95,11 @@ def box(x0, x1, y0, y1, z0, z1):
 
 
 def monitor_screen(flip=False):
-    """The screen as it sits in the monitor, with its tape."""
-    return {**blue_screen(*g.screen_box(), g.y_glass(), flip), "tape": tape(*g.screen_box(), g.y_lip())}
+    """The screen as it sits in the monitor (with its tape, if TAPE_T > 0)."""
+    parts = blue_screen(*g.screen_box(), g.y_glass(), flip)
+    if g.TAPE_T > 0:
+        parts["tape"] = tape(*g.screen_box(), g.y_lip())
+    return parts
 
 
 def ribbon_bundle():

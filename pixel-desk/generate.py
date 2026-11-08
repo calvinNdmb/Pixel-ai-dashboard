@@ -8,8 +8,8 @@
 No moving parts. One cable: the Pi's USB-C power.
 
 Parts (stl/), each exported in its print orientation, no supports needed:
-    PixelMonitorFront.stl        bezel; the screen is taped on its lip, centred by small ribs (prints face-down)
-    PixelMonitorBack.stl         tapered CRT back with vents (prints back-down)
+    PixelMonitorFront.stl        bezel; the screen sits on its lip, centred by small ribs (prints face-down)
+    PixelMonitorBack.stl         tapered CRT back with vents and 4 posts on the screen's brass rings (prints back-down)
     PixelStand.stl               round swivel foot under the monitor (prints top-down)
     PixelCase.stl                desktop case shell (prints top-down)
     PixelCaseBottom.stl          bottom plate, the Pi is screwed on it (prints flat)
@@ -19,6 +19,7 @@ Parts (stl/), each exported in its print orientation, no supports needed:
     ScreenFitTest.stl            thin frame to check the screen size before the big prints
     ScreenMountTest.stl          the bezel's glass zone cut short: window, pocket with its ribs, rim as deep as
                                  tape + glass + PCB, back open (prints face-down, quick)
+    ScreenPostTest.stl           one short post with the real cup, to try on a brass ring of the screen (prints upright)
     StreamDeckFitTest.stl        the keyboard top's key field on a short rim of the module pocket: press it on the
                                  bare Stream Deck module to check the 15 key windows before the keyboard (prints flat)
   v2 only (V2_PANEL = True):
@@ -74,10 +75,18 @@ SCR_DSI = (-44.9, -9.8, 6.0, 26.0, 3.0)         # DSI ribbon connector; the ribb
 SCR_PWR = (-44.9, -29.8, 9.0, 8.0, 7.0)         # white 2-pin power connector + plug, wires towards -Z [measure]
 SCR_SWITCH = (60.2, 46.2, 7.5, 3.5, 3.0)        # "Backlight" slide switch, next to the top edge [measure]
 SCR_PI_POSTS = ([-36.2, 21.8], [16.5, -32.5], 5.0, 6.0)   # brass standoffs for a Pi: X, Z, diameter, height [measure]
-# The screen is held by double-sided foam tape between the glass's black border and the bezel lip: no screws.
-TAPE_T = 1.0                                    # thin double-sided foam / VHB tape: the glass sits this far behind the lip
+# The screen sits on the bezel lip; 4 posts of the CRT back press on its 4 brass rings, so it cannot fall
+# backwards. No screws in the screen, no tape, no latch.
+SCR_POST_D = 9.0                                # posts: diameter (+ 2 ribs each, out to the CRT back's walls)
+SCR_POST_RIB = 2.4                              # rib thickness
+SCR_CUP_D, SCR_CUP_H = 5.6, 1.5                 # cup at the post's end, over the brass ring (centres it)
+SCR_SQUEEZE = 0.3                               # the cup's bottom is this far into the ring's tip: the closed back
+                                                # presses the glass onto the lip
+TAKEUP_T = 1.0                                  # optional 1 mm felt / rubber dot in each cup, if there is play
+# Optional: double-sided foam tape between the black border and the lip (TAPE_T > 0 moves the glass back).
+TAPE_T = 0.0                                    # 0: the glass sits directly on the lip
 TAPE_GAP, TAPE_EDGE = 0.5, 0.5                  # tape strips: this far from the window edge and from the glass edge
-SCR_RIB = 0.6                                   # small ribs in the pocket walls centre the glass while the tape sets
+SCR_RIB = 0.6                                   # small ribs in the pocket walls centre the glass
 SCR_RIB_W = 3.0                                 # (they leave SCR_CLR - SCR_RIB = 0.15 mm all around)
 SCR_RIBS = dict(x=[-50.0, 50.0], z=[-25.0, 25.0])   # rib positions on the top/bottom walls (X) and the sides (Z)
 # ScreenMountTest: the bezel's glass zone, cut short (quick print)
@@ -167,7 +176,7 @@ RIBBON_SLOT = (-10.0, 10.0, STAND_Y - 2.0, STAND_Y + 9.0)   # X0, X1, Y0, Y1: sc
 MON_F = CASE_Y0 + 14.0                          # front face of the bezel
 MON_Z0 = CASE_H + STAND_H                       # bottom of the monitor
 SCR_BOTTOM = 20.0                               # glass bottom above the monitor's bottom (the "chin")
-BEZ_WALL, BEZ_TOP = 9.0, 10.0                   # bezel around the glass pocket: sides, top
+BEZ_WALL, BEZ_TOP = 9.0, 13.0                   # bezel around the glass pocket: sides, top (holds the back's top screws)
 FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth (the lip in front of the tape)
 BEZ_RIM = 2.0                                   # the pocket's rim stands this much behind the PCB's back
 BEZ_D = FUNNEL + TAPE_T + SCR_T + BEZ_RIM
@@ -179,6 +188,11 @@ BACK_TAPER_W, BACK_TAPER_H = 30.0, 20.0         # its rear end is this much narr
 BACK_FRONT_W, BACK_FRONT_H = BEZ_W - 2 * BACK_STEP, BEZ_H - 2 * BACK_STEP
 BACK_W, BACK_H, BACK_D, BACK_R = BACK_FRONT_W - BACK_TAPER_W, BACK_FRONT_H - BACK_TAPER_H, 105.0, 8.0
 TONGUE_X = 55.0                                 # the back hooks into the bezel with two tongues at the top
+# 4 screws hold the CRT back on the bezel, so the posts keep their place: 2 from above (through the back's top) and
+# 2 from below (through its floor), each into a tab on the bezel's rear face. M2.5 x 8, self-tapping in the tab.
+BACK_SCREWS_TOP_X, BACK_SCREWS_BOT_X = 30.0, 68.0
+BACK_TAB = (10.0, 9.0, 6.0)                     # tab: width (X), length behind the bezel (Y), thickness (Z)
+BACK_TAB_CLR = 0.3                              # tab to the back's walls
 
 
 # ------------------------------------------------------------------ helpers
@@ -661,6 +675,30 @@ def tongue_z():
     return MON_Z0 + BACK_FRONT_H - 2.2
 
 
+def cup_y():
+    """Y of the post cups: (front rim, bottom). The bottom is SCR_SQUEEZE into the brass ring's tip."""
+    tip = y_glass() + SCR_T + SCR_NUT_H
+    return tip - SCR_SQUEEZE - SCR_CUP_H, tip - SCR_SQUEEZE
+
+
+def back_tabs():
+    """The 4 tabs on the bezel's rear face for the back's screws: (x, z0, z1, top) with the tab's Z range and
+    whether the screw comes from above (top) or from below. The screw axis is vertical at (x, back_screw_y())."""
+    y1 = MON_F + BEZ_D + BACK_TAB[1]
+    _, h1 = back_size(y1)
+    top_z1 = MON_Z0 + h1 - WALL - BACK_TAB_CLR - 0.6                 # under the back's (sloping) top wall
+    bot_z0 = MON_Z0 + WALL + BACK_TAB_CLR
+    glass_top = screen_box()[1] + SCR_H / 2 + 0.3                    # the top tabs stay above the PCB's edge
+    t_top = min(BACK_TAB[2], top_z1 - glass_top)
+    out = [(s * BACK_SCREWS_TOP_X, top_z1 - t_top, top_z1, True) for s in (-1, 1)]
+    out += [(s * BACK_SCREWS_BOT_X, bot_z0, bot_z0 + BACK_TAB[2], False) for s in (-1, 1)]
+    return out
+
+
+def back_screw_y():
+    return MON_F + BEZ_D + BACK_TAB[1] / 2
+
+
 def build_monitor():
     f, z0 = MON_F, MON_Z0
     cx, cz = screen_box()
@@ -680,13 +718,18 @@ def build_monitor():
     for dx, dy in STAND_MON_SCREWS:
         if STAND_Y + dy < f + BEZ_D:
             cuts.append(cyl(dx, STAND_Y + dy, z0 - 1, z0 + 12, PILOT))
+    ys = back_screw_y()
+    for x, ta, tb, _ in back_tabs():                                 # pilots for the back's 4 screws
+        cuts.append(cyl(x, ys, ta - 1, tb + 1, PILOT))
     # engraved controls under the screen: badge, knobs, LED, power button
     zc = z0 + 9.0
     det = [text_poly("PIXEL", 7.0, -78.0, zc - 3.3), ring(38, zc, 4.6, 3.0), ring(46, zc, 4.6, 3.0), ring(54, zc, 4.6, 3.0),
            rrect(5.0, 1.8, 0.6, 63.5, zc), ring(75, zc, 9.0, 7.0), Point(75, zc).buffer(1.0, quad_segs=12)]
     for p in det:
         cuts.append(engrave_front(p, f, 0.7))
-    bezel = single(D(front, *cuts), "PixelMonitorFront")
+    tabs = [slab(x - BACK_TAB[0] / 2, x + BACK_TAB[0] / 2, f + BEZ_D - OVER, f + BEZ_D + BACK_TAB[1], ta, tb)
+            for x, ta, tb, _ in back_tabs()]
+    bezel = single(D(U([front, *tabs]), *cuts), "PixelMonitorFront")
 
     # ---------- tapered CRT back (shell, printed back-down)
     back = D(monitor_back_solid(), monitor_back_solid(WALL, open_front=True))
@@ -698,6 +741,16 @@ def build_monitor():
     # tongues reaching into the bezel
     for s in (-1, 1):
         adds.append(slab(s * TONGUE_X - 4.8, s * TONGUE_X + 4.8, f + BEZ_D - 6.0, f + BEZ_D + 2.0, zt + 0.2, zt + 1.8))
+    # 4 posts on the screen's brass rings, each with 2 ribs out to the side wall and to the top wall / the floor
+    # (everything outside the back's outer shape is cut off below, so they merge into the walls)
+    c0, _ = cup_y()
+    y_end = f + BEZ_D + BACK_D - 0.37                              # (not on the back's rear face)
+    for px, pz in scr_holes(cx, cz):
+        sx, sz = np.sign(px - cx), np.sign(pz - cz)
+        r = SCR_POST_RIB / 2
+        adds.append(cyl_y(px, pz, c0, y_end, SCR_POST_D))
+        adds.append(slab(min(px, px + sx * 40), max(px, px + sx * 40), f + BEZ_D + 0.53, y_end, pz - r, pz + r))
+        adds.append(slab(px - r, px + r, f + BEZ_D + 0.57, y_end, min(pz, pz + sz * 80), max(pz, pz + sz * 80)))
     y_clip = f + BEZ_D - 8.0                                      # the tongues reach into the bezel
     back = I(U([back, *adds]), U([monitor_back_solid(), slab(-300, 300, y_clip, f + BEZ_D + 0.01, -10, 400)]))
     bcuts = []
@@ -705,6 +758,12 @@ def build_monitor():
         if STAND_Y + dy > f + BEZ_D:
             bcuts.append(cyl(dx, STAND_Y + dy, z0 - 1, z0 + 11, PILOT))
     bcuts.append(ribbon_slot(z0 - 1, z0 + 11))                     # screen ribbon and power wires, into the stand
+    c0, c1 = cup_y()
+    for px, pz in scr_holes(cx, cz):                                # the cups over the brass rings
+        bcuts.append(cyl_y(px, pz, c0 - 1, c1, SCR_CUP_D))
+    ys = back_screw_y()
+    for x, ta, tb, top in back_tabs():                              # clearance holes for the 4 screws to the bezel
+        bcuts.append(cyl(x, ys, tb - 0.5, z0 + BEZ_H, CLEAR) if top else cyl(x, ys, z0 - 1, ta + 0.5, CLEAR))
     # perforated grilles on both sides and on top
     cols_y = [f + BEZ_D + 34 + 9 * j for j in range(7)]
     for y in cols_y:
@@ -713,7 +772,7 @@ def build_monitor():
         for s in (-1, 1):
             xa, xb = hw1 - WALL - 0.6, hw0 + 1.0
             for i in range(8):
-                z = z0 + 24 + 8 * i
+                z = z0 + 34 + 8 * i                                 # above the lower posts
                 bcuts.append(slab(min(s * xa, s * xb), max(s * xa, s * xb), y, y + 6.0, z, z + 2.2))
         for i in range(15):
             x = -42 + 6 * i
@@ -794,6 +853,13 @@ def build_mount_test():
     return single(D(U([lip, rim]), cut), "ScreenMountTest")
 
 
+def build_post_test():
+    """ScreenPostTest (prints upright): a short post with the real cup, to try on a brass ring of the screen."""
+    h, t = 10.0, 1.6
+    body = U([cyl(0, 0, 0, t, 16.0, sections=48), cyl(0, 0, t - OVER, h, SCR_POST_D, sections=48)])
+    return single(D(body, cyl(0, 0, h - SCR_CUP_H, h + 1, SCR_CUP_D, sections=48)), "ScreenPostTest")
+
+
 def build_sd_fit_test():
     """Stream Deck fit test, in the keyboard's local frame (w = 0 is the top plate's underside): the keyboard top's
     plate cropped to the module pocket, with the same 15 key windows, on a rim of the base's module pocket down to
@@ -839,6 +905,7 @@ def build_all():
         "PixelStreamDeckTray": pose(tray, "upright"),
         "ScreenFitTest": build_fit_test(),
         "ScreenMountTest": pose(build_mount_test(), "face_down"),
+        "ScreenPostTest": build_post_test(),
         "StreamDeckFitTest": pose(build_sd_fit_test(), "top_down"),
     }
     if V2_PANEL:

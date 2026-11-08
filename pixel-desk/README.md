@@ -23,10 +23,11 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 | Fichier | Taille (mm) | Sens d'impression | Filament |
 | --- | --- | --- | --- |
 | `ScreenFitTest.stl` | 172 × 106 × 6 | cadre de test de la vitre (carte bleue), à plat | 19 g |
-| `ScreenMountTest.stl` | 170 × 104 × 13 | **à imprimer en premier** : test de l'écran, face avant sur le plateau, environ 45 min (voir plus bas) | 25 g |
+| `ScreenMountTest.stl` | 170 × 104 × 12 | **à imprimer en premier** : test de l'écran, face avant sur le plateau, environ 45 min (voir plus bas) | 24 g |
+| `ScreenPostTest.stl` | Ø 16 × 10 | **en premier aussi** : un bout de poteau avec sa coupelle, debout, 10 min | 1 g |
 | `StreamDeckFitTest.stl` | 112 × 75 × 11 | test des touches du Stream Deck, à plat, environ 35 min. **Avant le clavier** (voir plus bas) | 19 g |
-| `PixelMonitorFront.stl` | 184 × 129 × 18 | face avant sur le plateau | 78 g |
-| `PixelMonitorBack.stl` | 180 × 125 × 111 | dos sur le plateau | 231 g |
+| `PixelMonitorFront.stl` | 184 × 132 × 26 | face avant sur le plateau | 80 g |
+| `PixelMonitorBack.stl` | 180 × 128 × 111 | dos sur le plateau, avec ses 4 poteaux | 259 g |
 | `PixelStand.stl` | Ø 72 × 10 | à l'envers | 16 g |
 | `PixelCase.stl` | 210 × 160 × 64 | à l'envers (dessus sur le plateau) | 239 g |
 | `PixelCaseBottom.stl` | 205 × 155 × 7 | à plat | 91 g |
@@ -36,7 +37,7 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 
 - **Imprimante :** tout tient sur une Bambu Lab P2S (256 × 256 × 256 mm), une grosse pièce par plateau. La plus haute est l'arrière du moniteur : 111 mm.
 - **Réglages :** buse 0,4 mm, couches de 0,2 mm, 3 parois, 15 % de remplissage. Supports désactivés.
-- **Filament :** environ **845 g** de beige, pièces de test comprises (estimation : 3 parois de 0,42 mm sur toute la surface, 15 % de remplissage dedans). Une bobine de 1 kg suffit, de justesse : prévois-en une deuxième.
+- **Filament :** environ **875 g** de beige, pièces de test comprises (estimation : 3 parois de 0,42 mm sur toute la surface, 15 % de remplissage dedans). Une bobine de 1 kg suffit, de justesse : prévois-en une deuxième.
 - **Surplombs :** il ne reste que des petits ponts (fentes d'aération, tunnels de câbles). Le plus long fait 14 mm : ça s'imprime sans support.
 - **Détails gravés :** les lecteurs CD et disquette, le bouton d'allumage, le Turbo, les voyants, les boutons du moniteur et les badges « PIXEL ». Tu peux colorier les voyants au feutre si tu veux.
 
@@ -48,27 +49,27 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 
 ### Avant le moniteur : le test de l'écran
 
-Ton écran, c'est la version à **carte bleue** : vitre de 164,5 × 98,5 mm, 10 mm d'épaisseur avec la carte. **Il n'y a pas de vis :** l'écran est collé avec du **ruban mousse double face** (1 mm), entre le bord noir de la vitre et le rebord de la fenêtre. Le logement (166 × 100) a 8 petites nervures qui centrent la vitre : elle ne peut pas glisser pendant que le ruban prend.
+Ton écran, c'est la version à **carte bleue** : vitre de 164,5 × 98,5 mm, 10 mm d'épaisseur avec la carte. **Pas de vis dans l'écran, pas de ruban, pas de clip :** la vitre se pose sur le rebord de la fenêtre, et quand tu fermes le moniteur, **4 poteaux de l'arrière appuient sur les 4 bagues en laiton** des coins de la carte. Chaque poteau finit par une petite coupelle qui coiffe sa bague : elle la centre, et elle ne touche pas la carte. L'écran ne peut plus tomber vers l'arrière. Le logement (166 × 100) a 8 petites nervures qui centrent la vitre.
 
-`ScreenMountTest.stl` est la zone de l'écran du vrai cadre, coupée court : la même fenêtre, le même logement avec ses nervures, et un bord aussi profond que ruban + vitre + carte (+ 0,4 mm). Le dos reste ouvert. Ça s'imprime face avant sur le plateau, sans support, en 45 min environ (25 g).
+![Les 4 poteaux](preview-posts.png)
 
-![Le ruban de l'écran](preview-tape.png)
+Deux petites pièces de test, avant les grosses :
+- `ScreenMountTest.stl` : la zone de l'écran du vrai cadre, coupée court. La même fenêtre, le même logement avec ses nervures, et un bord aussi profond que vitre + carte (+ 0,4 mm). Le dos reste ouvert. Face avant sur le plateau, sans support, environ 45 min (24 g).
+- `ScreenPostTest.stl` : un bout de poteau avec la vraie coupelle (1 g, 10 min).
 
-Le ruban ne va que sur le bord noir, jamais sur l'image :
-- **sur les côtés**, une bande de **6 mm** de large (c'est elle qui tient l'écran) ;
-- **en haut et en bas**, le bord noir ne fait que 5 mm : il ne reste que **3 mm** pour le ruban. On ne peut pas élargir le rebord sans cacher le haut ou le bas de l'image. Mets-y une bande fine de 3 mm, ou rien.
+1. Imprime les deux.
+2. **La vitre :** pose l'écran dans `ScreenMountTest`, vitre vers le fond. Il doit entrer sans forcer et ne presque pas bouger (les nervures).
+3. **L'épaisseur :** le dos de la carte bleue doit arriver **juste sous le bord** (0,4 mm). Pose une règle sur le bord : elle ne doit pas toucher la carte.
+4. **La coupelle :** pose `ScreenPostTest` sur une bague en laiton. Elle doit la coiffer sans forcer, avec un tout petit jeu, et ne pas toucher la carte bleue.
+5. **L'image :** branche l'écran (nappe et 2 fils, voir le montage, étape 2) et allume. Toute l'image doit être visible, avec un fin liseré noir tout autour.
+6. **Les prises :** la nappe, la prise blanche avec ses fils et l'interrupteur ne doivent toucher nulle part (le dos est ouvert).
 
-1. Imprime `ScreenMountTest.stl`.
-2. **La vitre :** pose l'écran dedans, vitre vers le fond, **sans ruban**. Il doit entrer sans forcer et ne presque pas bouger (les nervures).
-3. **L'épaisseur :** sans ruban, le dos de la carte bleue arrive 1,4 mm sous le bord ; avec le ruban de 1 mm, **juste sous le bord** (0,4 mm). Pose une règle sur le bord : elle ne doit pas toucher la carte.
-4. **L'image :** branche l'écran (nappe et 2 fils, voir le montage, étape 2) et allume. Toute l'image doit être visible, avec un fin liseré noir tout autour.
-5. **Les prises :** la nappe, la prise blanche avec ses fils et l'interrupteur ne doivent toucher nulle part (le dos est ouvert).
-6. Si tu veux, essaie le ruban sur le test : c'est le même rebord que le vrai cadre.
-
-Si ça ne va pas, change la cote en haut de `generate.py`, puis relance `python3 generate.py` et `python3 tools/verify.py`. Le test et le vrai moniteur suivent ensemble :
+Si ça ne va pas, change la cote en haut de `generate.py`, puis relance `python3 generate.py` et `python3 tools/verify.py`. Les tests et le vrai moniteur suivent ensemble :
 - **la vitre n'entre pas, ou elle flotte :** `SCR_W`, `SCR_H` (164,5 et 98,5), le jeu `SCR_CLR` (0,75), ou la hauteur des nervures `SCR_RIB` (0,6 : elles laissent 0,15 mm) ;
-- **la carte dépasse du bord, ou reste loin dedans :** l'épaisseur vitre + carte → `SCR_T` (10), ou celle de ton ruban → `TAPE_T` (1) ;
-- **un bout de l'image est caché :** mesure le bord noir autour de l'image, vu de face → `SCR_BORDER` (5 en haut, 8 sur les côtés, 5 en bas : celui du bas reste à mesurer). La fenêtre et le ruban suivent ;
+- **la carte dépasse du bord, ou reste loin dedans :** l'épaisseur vitre + carte → `SCR_T` (10). Les poteaux suivent ;
+- **la coupelle n'entre pas sur la bague, ou flotte :** le diamètre de la bague → `SCR_NUT_D` (5), ou celui de la coupelle → `SCR_CUP_D` (5,6) ;
+- **la coupelle touche la carte :** la hauteur de la bague → `SCR_NUT_H` (3) ;
+- **un bout de l'image est caché :** mesure le bord noir autour de l'image, vu de face → `SCR_BORDER` (5 en haut, 8 sur les côtés, 5 en bas : celui du bas reste à mesurer). La fenêtre suit ;
 - **une prise ou l'interrupteur touche :** leur place vue de face → `SCR_DSI`, `SCR_PWR`, `SCR_SWITCH`.
 
 ### Avant le clavier : le test du Stream Deck
@@ -111,14 +112,15 @@ Les cotes du module du Stream Deck viennent du plan publié par le projet [Strea
 | Carte microSD (32 Go ou plus) | 1 | |
 | Patins caoutchouc Ø 10 mm | 8 | 4 sous le boîtier, 4 sous le clavier |
 | Mousse adhésive de 0,5 mm | une bande de 2,5 mm de large | sur le rebord qui porte le module, pour le serrer |
-| [**Ruban mousse double face**, environ **1 mm** d'épaisseur, 10 mm de large](https://www.amazon.fr/s?k=ruban+mousse+double+face+1mm) | environ 50 cm | tient l'écran sur le rebord de la fenêtre. Coupe 2 bandes de 6 mm × 97 mm (côtés) et, si tu veux, 2 bandes de 3 mm × 150 mm (haut et bas). Un ruban de type VHB tient très bien. *Autre solution :* quelques points de colle (colle chaude ou néoprène) sur le bord noir, mais l'écran sera difficile à ressortir |
+| [Pastilles adhésives en feutre ou caoutchouc, **1 mm**, Ø 5 mm environ](https://www.amazon.fr/s?k=pastilles+feutre+adh%C3%A9sives+1mm) | 4 | *option* : une au fond de chaque coupelle, seulement si l'écran a du jeu une fois le moniteur fermé |
 
-Les liens sont des recherches Amazon.fr. Comme outil : un petit tournevis cruciforme, des ciseaux et un chiffon avec un peu d'alcool.
+Les liens sont des recherches Amazon.fr. Comme outil : un petit tournevis cruciforme.
 
 ### Vis (M2,5, vissées directement dans le plastique)
 
 | Vis | Qté | Usage |
 | --- | --- | --- |
+| M2,5 × 8 | 4 | l'arrière du moniteur sur le cadre : 2 par le dessus, 2 par le dessous |
 | M2,5 × 6 | 4 | le Pi sur le fond du boîtier |
 | M2,5 × 8 | 4 | le fond sur le boîtier |
 | M2,5 × 8 | 4 | le pied sur le boîtier (vissées depuis l'intérieur) |
@@ -130,18 +132,16 @@ Les liens sont des recherches Amazon.fr. Comme outil : un petit tournevis crucif
 
 1. **L'écran dans le cadre :**
    1. Pose l'avant du moniteur face contre une serviette.
-   2. Essaie d'abord l'écran **sans ruban** : il doit entrer sans forcer. Décide dans quel sens il va : la prise blanche et la prise de la nappe peuvent être en haut ou en bas, il y a la place des deux côtés. Si l'image est à l'envers, tourne-la dans le système (voir « À savoir »).
-   3. Ressors l'écran. Nettoie le bord noir de la vitre et le rebord de la fenêtre avec un chiffon et un peu d'alcool. Laisse sécher.
-   4. Colle les bandes de ruban sur le rebord, **au ras du bord du logement** : 6 mm sur les côtés, 3 mm en haut et en bas (si tu en mets). Le ruban ne doit pas dépasser dans la fenêtre. Retire la protection.
-   5. Pose l'écran bien droit dans le logement, vitre vers le fond : les nervures le centrent. Ne le fais pas glisser une fois posé.
-   6. Appuie fort sur le bord de la carte, tout autour, pendant **30 secondes**. Attends une heure avant de remettre le moniteur debout.
+   2. Pose l'écran dans son logement, vitre vers le fond : les nervures le centrent. La prise blanche et la prise de la nappe peuvent être en haut ou en bas, il y a la place des deux côtés. Si l'image est à l'envers, tourne-la dans le système (voir « À savoir »).
 2. **Les fils de l'écran :**
    1. Branche la nappe DSI de 300 mm sur la prise de la carte bleue, contacts dans le bon sens.
    2. Branche le fil **rouge** sur le **5V** de la prise blanche et le fil **noir** sur le **GND**.
    3. Laisse l'interrupteur « Backlight » sur marche.
 3. **Le moniteur :**
    1. Fais descendre la nappe et les 2 fils jusqu'au trou du fond, au-dessus du pied.
-   2. Accroche l'arrière par ses deux languettes du haut, puis rabats-le vers le bas.
+   2. **Ferme l'arrière :** accroche-le par ses deux languettes du haut, puis rabats-le vers le bas. Les 4 poteaux viennent appuyer sur les 4 bagues en laiton de l'écran.
+   3. Visse l'arrière sur le cadre : 2 vis M2,5 × 8 par le dessus, 2 par le dessous (elles vont dans 4 pattes du cadre).
+   4. Secoue doucement : l'écran ne doit pas bouger. S'il a du jeu, colle une pastille de feutre de 1 mm au fond de chaque coupelle.
 4. **Le pied :** passe la nappe et les 2 fils dans le trou du pied. Visse le pied sous le moniteur avec 4 × M2,5 × 10, depuis l'intérieur du pied. Ces vis tiennent aussi l'arrière du moniteur.
 5. **Sur le boîtier :** passe la nappe et les fils dans le trou du dessus du boîtier. Visse le pied avec 4 × M2,5 × 8, depuis l'intérieur du boîtier.
 6. **Dans le boîtier :**
@@ -164,9 +164,9 @@ Les liens sont des recherches Amazon.fr. Comme outil : un petit tournevis crucif
 La vitre (164,5 × 98,5), l'épaisseur (10 mm) et le bord noir du haut et des côtés (5 et 8 mm) sont mesurés sur ton écran. Il reste quelques cotes marquées `[measure]` en haut de `generate.py`, estimées sur ta photo du dos de l'écran. Le test de l'écran (plus haut) les vérifie presque toutes. Pour les mesures, pose l'écran vitre contre une serviette ; « vue de face », c'est comme si tu regardais l'image (donc gauche et droite inversées par rapport au dos).
 
 1. **Le bord noir du bas** de l'image, écran allumé → `SCR_BORDER` (`bottom`, 5 supposé). La fenêtre suit, centrée sur l'image.
-2. **Ton ruban :** son épaisseur → `TAPE_T` (1). Le logement s'approfondit tout seul.
-3. **Les bagues en laiton** des coins : leur hauteur au-dessus de la carte bleue → `SCR_NUT_H` (3). Seulement pour les vérifications (plus rien ne s'y visse).
-4. **Les prises :** la place de la prise de la nappe (`SCR_DSI`), de la prise blanche avec sa fiche (`SCR_PWR`) et de l'interrupteur « Backlight » (`SCR_SWITCH`), vue de face, depuis le centre de la vitre. Elles ne changent pas les pièces : tout le dos de la carte reste libre sur 12 mm (`SCR_BACK_FREE`). Elles servent aux vérifications (qui testent l'écran dans les deux sens).
+2. **Les bagues en laiton** des coins : leur diamètre → `SCR_NUT_D` (5) et leur hauteur au-dessus de la carte bleue → `SCR_NUT_H` (3). Les poteaux appuient dessus : c'est la cote la plus importante. `ScreenPostTest` la vérifie.
+3. **Le serrage :** les poteaux enfoncent la bague de 0,3 mm (`SCR_SQUEEZE`). Si l'écran force trop, baisse-le ; s'il a du jeu, mets les pastilles de feutre (`TAKEUP_T`, 1 mm).
+4. **Les prises :** la place de la prise de la nappe (`SCR_DSI`), de la prise blanche avec sa fiche (`SCR_PWR`) et de l'interrupteur « Backlight » (`SCR_SWITCH`), vue de face, depuis le centre de la vitre. Elles ne changent pas les pièces : tout le dos de la carte reste libre sur 12 mm (`SCR_BACK_FREE`), sauf aux 4 coins des poteaux. Elles servent aux vérifications (qui testent l'écran dans les deux sens).
 5. **Les entretoises du Pi** sur la carte bleue (`SCR_PI_POSTS`, 6 mm de haut supposés) : seulement pour les vérifications.
 
 Ensuite, dans le dossier `pixel-desk` :
@@ -187,21 +187,23 @@ Si une vérification échoue, la ligne dit ce qui touche quoi. Le moniteur suit 
   - le Pi 4 (prises USB comprises) avec ses fiches : Stream Deck, micro, USB-C et les 2 fils de l'écran ;
   - le module du Stream Deck, ses 15 touches, sa prise USB-C et la prise coudée ; le plateau en option avec un Stream Deck entier ;
   - en v2 : les boutons, les supports de LED, le haut-parleur, le ruban LED et la barre translucide.
-- **L'écran :** logement de 166 × 100 mm (comme le cadre de test qui passe), avec 8 nervures qui laissent 0,15 mm autour de la vitre. Rien ne touche le dos de la carte : 12 mm libres derrière. Pas de vis, pas de faux Pi.
-- **Le ruban :** 1 mm d'épaisseur, seulement sur le bord noir : à 0,5 mm de la fenêtre et à 0,5 mm du bord de la vitre, avec le rebord derrière toute sa surface. Bandes de 6 mm sur les côtés (12 cm² en tout), 3 mm en haut et en bas.
+- **L'écran :** logement de 166 × 100 mm (comme le cadre de test qui passe), avec 8 nervures qui laissent 0,15 mm autour de la vitre. 12 mm libres derrière la carte, sauf aux 4 coins. Pas de vis dans l'écran, pas de ruban, pas de faux Pi.
+- **Les 4 poteaux :** une coupelle de 5,6 mm sur chaque bague (0,3 mm de jeu tout autour), qui l'enfonce de 0,3 mm. Le bord de la coupelle reste à 1,2 mm de la carte. Ils évitent la nappe, la prise blanche et ses fils, l'interrupteur et les entretoises, l'écran dans un sens ou dans l'autre. Ils sont nervurés et soudés aux parois de l'arrière (libres sur 2 mm seulement), et s'impriment sans support.
+- **L'arrière tient :** 4 vis dans 4 pattes du cadre. Le jeu des trous (0,15 mm) est plus petit que le serrage (0,3 mm) : les poteaux ne peuvent pas reculer.
 - **La fenêtre :** 150,5 × 90,5 mm, centrée. Elle montre toute l'image (148,5 × 88,5) avec 1 mm de marge (0,6 mm dans les coins arrondis). Le cadre tient la vitre par son bord noir : 7 mm sur les côtés, 4 mm en haut et en bas.
-- **Le test de l'écran :** même logement, mêmes nervures, même fenêtre que le vrai cadre. Bord 0,4 mm plus haut que la carte (avec le ruban). 25 g, environ 45 min.
+- **Les tests de l'écran :** même logement, mêmes nervures, même fenêtre que le vrai cadre ; bord 0,4 mm plus haut que la carte ; 24 g, environ 45 min. Et la même coupelle que les poteaux (1 g).
 - **Le test du Stream Deck :** mêmes 15 fenêtres que le vrai dessus (0,375 mm de jeu autour de chaque touche), même jeu de 0,25 mm autour du module que le socle, bord à la hauteur du rebord. Moins de 25 g, moins d'une heure.
 - **Le trou du pied** (20 × 11 mm) laisse passer la nappe de 16 mm et les 2 prises Dupont, à travers le moniteur, le pied et le boîtier.
 - **Les longueurs :** la nappe fait environ 240 mm de chemin (+ 40 mm pour les plis), donc 300 mm suffisent. Les fils font environ 265 mm de chemin : prends-les d'au moins 30 cm.
 - **L'impression :** chaque pièce tient sur la P2S. Chaque fichier est un seul objet fermé, propre. Aucun surplomb n'a besoin de support. Aucune paroi ni aucun fond ne fait moins de 1,2 mm. Les seules exceptions : de fines arêtes au bord de parties épaisses (entre deux gravures, ou là où deux formes se rejoignent), sans importance, et la barre translucide de la v2, fine exprès.
-- **Stabilité :** Pixel pèse environ 1,3 kg. Il faut pousser d'environ **6,6 N** vers l'arrière, en haut de l'image, pour le faire basculer. Un toucher normal fait environ 1 N.
+- **Stabilité :** Pixel pèse environ 1,3 kg. Il faut pousser d'environ **6,7 N** vers l'arrière, en haut de l'image, pour le faire basculer. Un toucher normal fait environ 1 N.
 - Rien n'a encore été imprimé.
 
 ## À savoir
 
 - **Si l'écran ne s'allume pas :** vérifie les 2 fils (rouge sur 5V et broche 4, noir sur GND et broche 6), la nappe (contacts dans le bon sens aux deux bouts) et l'interrupteur « Backlight ».
-- **Ressortir l'écran :** c'est possible, mais avec soin. Glisse un fil de pêche ou une carte plastique fine entre le rebord et la vitre et scie doucement le ruban, sans faire levier sur la vitre ni sur la carte. Avec de la colle, c'est beaucoup plus difficile.
+- **Ressortir l'écran :** dévisse les 4 vis de l'arrière, ouvre-le : l'écran sort tout seul.
+- **Si l'écran a du jeu** même avec les pastilles : un peu de ruban mousse double face fin sur le bord noir (côtés seulement, 6 mm de large, jamais sur l'image) fait l'affaire. Mets alors son épaisseur dans `TAPE_T` : le logement et les poteaux reculent d'autant.
 - **Si l'image est à l'envers** (écran monté dans l'autre sens) : tourne-la de 180° dans le système, par exemple dans les réglages d'écran du bureau, ou avec `video=DSI-1:800x480@60,rotate=180` dans `/boot/firmware/cmdline.txt`.
 - **Éteindre :** en v1, il n'y a pas de bouton. Éteins depuis l'appli ou le système, puis débranche.
 - **Le courant :** l'alimentation de 3 A suffit pour le Pi, l'écran et le Stream Deck.
@@ -253,7 +255,7 @@ dtparam=spi=on                       # les LED RVB
 
 ## Modifier / vérifier
 
-Toutes les cotes sont en haut de `generate.py` : l'écran, son ruban, le boîtier, `V2_PANEL`… Le moniteur se recalcule à partir de la taille de l'écran.
+Toutes les cotes sont en haut de `generate.py` : l'écran, les poteaux, le boîtier, `V2_PANEL`… Le moniteur se recalcule à partir de la taille de l'écran.
 
 ```bash
 pip install trimesh manifold3d shapely mapbox_earcut numpy scipy matplotlib pillow
