@@ -252,7 +252,7 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
    - allumé, ton téléphone montre et change l'écran de Pixel ;
    - éteint, tu navigues de ton côté sans changer l'écran de Pixel.
 
-**L'appli Android** (projet Expo `pixel-mobile`) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
+**L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/)) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
 - Pose l'APK dans le dossier de données de Pixel, sous le nom `~/.config/pixel/pixel.apk`. Dans Chrome sur Android, un lien **Appli Android** apparaît alors sous le clavier.
 - Au premier lancement, l'appli scanne le QR code de Pixel, puis s'en souvient.
 
