@@ -42,7 +42,7 @@ def persp(src, dst):
 
 def put_ui(img, proj, ui, dy=0.0, dz=0.0):
     """Paste an app screenshot on the picture area of the screen (seen through the window)."""
-    vx, vz = g.view_centre(); aw, ah = g.ACTIVE_W / 2, g.ACTIVE_H / 2; yf = g.y_glass() - 0.05 + dy; vz += dz
+    vx, vz = g.view_centre(); aw, ah = g.OLD_ACTIVE_W / 2, g.OLD_ACTIVE_H / 2; yf = g.y_glass() - 0.05 + dy; vz += dz
     dst = [proj(p) for p in [(vx - aw, yf, vz + ah), (vx + aw, yf, vz + ah), (vx + aw, yf, vz - ah), (vx - aw, yf, vz - ah)]]
     warped = ui.transform(img.size, Image.Transform.PERSPECTIVE, persp([(0, 0), (ui.width, 0), (ui.width, ui.height), (0, ui.height)], dst),
                           Image.Resampling.BICUBIC)
@@ -106,7 +106,7 @@ def wires():
     cx, cz = g.screen_box(); z0 = g.MON_Z0
     x0s, x1s, y0s, y1s = g.RIBBON_SLOT; ys = (y0s + y1s) / 2
     p_fold = g.pi_world(-14.0, 27.6, -g.STANDOFF_H + 1.0)
-    low = cz - g.SCR_H / 2 + 2.0
+    low = cz - g.OLD_SCR_H / 2 + 2.0
     pi_dsi = np.array([*g.pi_xy(3.1, 27.5), g.PLATE_T + g.PI_STANDOFF + 1.4 + 5.0])
     ffc = tube([p_fold, (p_fold[0], p_fold[1] + 1, low + 6), (p_fold[0] + 8, g.MON_F + g.BEZ_D + 4, low),
                 (-30, g.MON_F + g.BEZ_D + 14, z0 + 13), (-3, ys - 3, z0 + 12), (-3, ys - 3, g.CASE_H - 6),

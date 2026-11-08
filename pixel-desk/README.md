@@ -22,7 +22,10 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 
 | Fichier | Taille (mm) | Sens d'impression | Filament |
 | --- | --- | --- | --- |
-| `ScreenFitTest.stl` | 200 × 118 × 6 | **à imprimer en premier** (voir plus bas) | 31 g |
+| `ScreenFitTest.stl` | 172 × 106 × 6 | cadre de test de la vitre (carte bleue), à plat | 19 g |
+| `ScreenMountTest.stl` | 170 × 116 × 15 | **à imprimer en premier** : test de l'écran, face avant sur le plateau, environ 50 min (voir plus bas) | 29 g |
+| `PixelScreenBracket.stl` | 9 × 115 × 3 | **à imprimer 2 fois** : les barrettes qui tiennent l'écran, à plat | 2 × 4 g |
+| `ScrewPilotTest.stl` | 59 × 17 × 11 | test des trous de vis (2,0 à 2,4 mm), à plat, 15 min | 4 g |
 | `StreamDeckFitTest.stl` | 112 × 75 × 11 | test des touches du Stream Deck, à plat, environ 35 min. **Avant le clavier** (voir plus bas) | 19 g |
 | `PixelScreenPowerAdapter.stl` | 65 × 65 × 4 | « faux Pi », à plat. **À imprimer en premier aussi** | 10 g |
 | `PixelMonitorFront.stl` | 205 × 139 × 22 | face avant sur le plateau | 101 g |
@@ -45,6 +48,29 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 1. Imprime `ScreenFitTest.stl`. Pose l'écran dedans, la vitre vers le fond. Il doit entrer sans forcer, avec moins d'un millimètre de jeu.
 2. Allume l'écran (voir le « faux Pi » juste après) : l'image doit remplir la fenêtre, avec un peu de noir tout autour.
 3. Si ça ne va pas, suis la liste « Demain, quand l'écran arrive » plus bas.
+
+### Avant le moniteur : le test de l'écran
+
+Ton écran, c'est la version à **carte bleue** : vitre de 164,5 × 98,5 mm, 10 mm d'épaisseur avec la carte. `ScreenMountTest.stl` est la zone de l'écran du vrai cadre, coupée court : la même fenêtre, le même logement (166 × 100), et les 4 bossages qui tiennent les **2 barrettes** de l'écran (`PixelScreenBracket.stl`, à imprimer 2 fois). Ça s'imprime face avant sur le plateau, sans support, en 50 min environ (29 g, + 7 g pour les 2 barrettes).
+
+Comment l'écran tient : les 4 bagues en laiton des coins dépassent au dos de la carte. Chaque barrette se pose sur 2 bagues (une en haut, une en bas) et se visse dedans avec 2 vis M2,5 × 6. Ses deux bouts se vissent dans le cadre avec 2 vis M2,5 × 8, directement dans le plastique. La barrette pousse les bagues vers l'avant : la vitre est serrée contre le bord de la fenêtre. Tout le reste du dos de la carte reste libre (12 mm), pour la nappe, la prise blanche et l'interrupteur « Backlight ».
+
+1. Imprime `ScreenMountTest.stl`, 2 × `PixelScreenBracket.stl` et `ScrewPilotTest.stl` (4 g, 15 min).
+2. **La vitre :** pose l'écran dedans, vitre vers le fond. Il doit entrer sans forcer.
+3. **L'épaisseur :** le dos de la carte bleue doit arriver **juste sous le bord** (0,4 mm). Pose une règle sur le bord : elle ne doit pas toucher la carte, ni rester loin au-dessus.
+4. **Les vis :** pose une barrette de chaque côté, sur les bagues. Visse les bouts dans les bossages (M2,5 × 8) : la vis doit mordre fermement, sans fendre le bossage. Puis visse les 2 M2,5 × 6 dans les bagues.
+5. **L'image :** branche l'écran (nappe et 2 fils, voir le montage) et allume. Toute l'image doit être visible, avec un fin liseré noir tout autour.
+6. **Les prises :** la nappe, la prise blanche avec ses fils et l'interrupteur ne doivent toucher ni le cadre ni les barrettes.
+
+Si ça ne va pas, change la cote en haut de `generate.py`, puis relance `python3 generate.py` et `python3 tools/verify.py`. Le test et le vrai moniteur suivent ensemble :
+- **la vitre n'entre pas, ou elle flotte :** `SCR_W`, `SCR_H` (164,5 et 98,5), ou le jeu `SCR_CLR` (0,75) ;
+- **la carte dépasse du bord, ou reste loin dedans :** l'épaisseur vitre + carte → `SCR_T` (10) ;
+- **les barrettes ne tombent pas sur les bagues :** la distance du centre des bagues aux bords de la vitre → `SCR_HOLE_IN` (6) ;
+- **les barrettes ne touchent pas les bagues, ou se tordent beaucoup :** la hauteur des bagues au-dessus de la carte → `SCR_NUT_H` (3), ou le serrage `BRK_SQUEEZE` (0,3) ;
+- **la vis tourne dans le vide, ou fend le bossage :** essaie les 5 trous de `ScrewPilotTest` (2,0 à 2,4 mm) et prends celui qui serre le mieux → `SCR_PILOT` (2,2) ;
+- **les bagues ne sont pas filetées** (la M2,5 × 6 n'accroche pas) : ce n'est pas grave, les barrettes serrent quand même l'écran en appuyant dessus ;
+- **un bout de l'image est caché :** mesure le bord noir autour de l'image, vu de face → `SCR_BORDER` (5 en haut, 8 sur les côtés, 5 en bas : celui du bas reste à mesurer). La fenêtre suit ;
+- **une prise ou l'interrupteur touche :** leur place vue de face → `SCR_DSI`, `SCR_PWR`, `SCR_SWITCH`.
 
 ### D'abord aussi : le « faux Pi »
 

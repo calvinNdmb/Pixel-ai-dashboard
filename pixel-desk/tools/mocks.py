@@ -39,6 +39,55 @@ def sd_module():
     return body, keys, conn, plug
 
 
+# ------------------------------------------------------------------ screen (Freenove 7", blue board)
+def scr_spots(flip=False):
+    """Parts on the PCB's back (generate.SCR_DSI, ...), turned 180 deg if flip (the screen put in the other way up)."""
+    k = -1.0 if flip else 1.0
+    spot = lambda t: (k * t[0], k * t[1], *t[2:])                          # noqa: E731
+    xs, zs, d, h = g.SCR_PI_POSTS
+    posts = [(k * x, k * z) for x in xs for z in zs]
+    return dict(dsi=spot(g.SCR_DSI), pwr=spot(g.SCR_PWR), switch=spot(g.SCR_SWITCH), posts=posts, post_dh=(d, h), k=k)
+
+
+def blue_screen(cx=0.0, cz=0.0, yg=0.0, flip=False):
+    """The blue-board screen with the glass front at Y = yg and its centre at (cx, cz): glass + LCD block, PCB,
+    the 4 brass rings, and what sits on the PCB's back (DSI connector + the ribbon's fold, power connector + plug +
+    the 2 wires, Backlight switch, the Pi standoffs)."""
+    yb = yg + g.SCR_T                                                      # PCB back
+    sp = scr_spots(flip)
+    k = sp["k"]
+    parts = {"glass": g.ext_xz(g.rrect(g.SCR_W, g.SCR_H, 1.0, cx, cz), yg, yb - g.SCR_PCB_T),
+             "pcb": g.ext_xz(g.rrect(g.SCR_W, g.SCR_H, 1.0, cx, cz), yb - g.SCR_PCB_T - 0.01, yb)}
+    parts["rings"] = g.U([g.cyl_y(x, z, yb - 0.01, yb + g.SCR_NUT_H, g.SCR_NUT_D) for x, z in g.scr_holes(cx, cz)])
+    def blk(t, y0=0.0):
+        x, z, w, hz, h = t
+        return box(cx + x - w / 2, cx + x + w / 2, yb + y0, yb + h, cz + z - hz / 2, cz + z + hz / 2)
+    parts["dsi_connector"] = blk(sp["dsi"], -0.01)
+    parts["power_connector"] = blk(sp["pwr"], -0.01)
+    parts["backlight_switch"] = blk(sp["switch"], -0.01)
+    d, h = sp["post_dh"]
+    parts["pi_standoffs"] = g.U([g.cyl_y(cx + x, cz + z, yb - 0.01, yb + h, d) for x, z in sp["posts"]])
+    # the ribbon leaves the DSI connector towards -X (seen from the front) and folds back into the free depth
+    x, z, w, hz, _ = sp["dsi"]
+    xe = x - k * w / 2
+    parts["ribbon_fold"] = box(cx + xe, cx + xe - k * 12.0, yb + 0.3, yb + g.SCR_BACK_FREE, cz + z - 9.0, cz + z + 9.0)
+    # the 2 power wires leave the plug towards -Z, lie on the PCB to its edge, then go back
+    x, z, w, hz, _ = sp["pwr"]
+    ze = z - k * hz / 2
+    parts["power_wires"] = box(cx + x - 2.0, cx + x + 2.0, yb + 0.3, yb + 3.0, cz + ze, cz - k * (g.SCR_H / 2 - 1.0))
+    return parts
+
+
+def scr_free_zone(cx=0.0, cz=0.0, yg=0.0):
+    """The free depth behind the PCB (SCR_BACK_FREE), less the two bracket strips: nothing printed may go there."""
+    yb = yg + g.SCR_T
+    zone = g.ext_xz(g.rrect(g.SCR_W - 0.2, g.SCR_H - 0.2, 1.0, cx, cz), yb + 0.05, yb + g.SCR_BACK_FREE)
+    hx = g.SCR_W / 2 - g.SCR_HOLE_IN
+    strips = [g.slab(cx + s * hx - g.BRK_W / 2 - 0.5, cx + s * hx + g.BRK_W / 2 + 0.5, yb - 1, yb + g.SCR_BACK_FREE + 1,
+                     cz - 200, cz + 200) for s in (-1, 1)]
+    return g.D(zone, *strips)
+
+
 # ------------------------------------------------------------------ screen (Freenove FNK0078H)
 def box(x0, x1, y0, y1, z0, z1):
     """Box between two corners, in any order."""
@@ -56,7 +105,7 @@ def pi_cyl(x, y, w0, w1, d, sections=24):
 
 def screen_glass():
     cx, cz = g.screen_box(); y = g.y_glass()
-    return g.ext_xz(g.rrect(g.SCR_W, g.SCR_H, 6.0, cx, cz), y, y + g.SCR_GLASS_T)
+    return g.ext_xz(g.rrect(g.OLD_SCR_W, g.OLD_SCR_H, 6.0, cx, cz), y, y + g.OLD_SCR_GLASS_T)
 
 
 def screen_parts():
@@ -66,7 +115,7 @@ def screen_parts():
     yg, yl = g.y_glass(), g.y_lcd_back()
     sh = -g.STANDOFF_H                             # w of the driver board's top surface
     parts = {"glass": screen_glass(),
-             "lcd": g.ext_xz(g.rrect(g.LCD_W, g.LCD_H, 2.0, cx + g.LCD_DX, cz + g.LCD_DZ), yg + g.SCR_GLASS_T - 0.01, yl)}
+             "lcd": g.ext_xz(g.rrect(g.LCD_W, g.LCD_H, 2.0, cx + g.LCD_DX, cz + g.LCD_DZ), yg + g.OLD_SCR_GLASS_T - 0.01, yl)}
     tw, th, tt = g.SCR_TAB
     for i, (tx, tz) in enumerate(g.SCR_TABS):      # stamped tabs with M3 nuts (for Freenove's legs)
         parts[f"tab{i}"] = g.slab(cx + tx - tw / 2, cx + tx + tw / 2, yl - 0.01, yl + tt, cz + tz - th / 2, cz + tz + th / 2)
@@ -84,7 +133,7 @@ def screen_parts():
     p_end = g.pi_world(-6.0, 35.6, w_r)
     x_out = g.pi_world(-6.0 - 16.0, 35.6, w_r)[0]
     xa_, xb_ = min(p_end[0], x_out), max(p_end[0], x_out)
-    z_low = cz - (g.SCR_H / 2 + g.SCR_CLR) + 1.5                   # just above the bezel's inner bottom
+    z_low = cz - (g.OLD_SCR_H / 2 + g.SCR_CLR) + 1.5                   # just above the bezel's inner bottom
     y_drop = g.MON_F + g.BEZ_D + 4.0
     parts["ribbon_down"] = g.U([box(xa_, xb_, p_end[1] - 0.2, p_end[1] + 0.6, z_low, max(p_end[2], z_low + 1.0)),
                                 box(xa_, xb_, p_end[1] - 0.2, y_drop + 0.6, z_low, z_low + 0.6),

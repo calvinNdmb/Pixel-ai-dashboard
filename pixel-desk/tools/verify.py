@@ -16,6 +16,7 @@ import warnings
 
 import numpy as np
 import shapely
+import shapely.ops
 
 import checks
 import mocks
@@ -112,6 +113,100 @@ def sd_fit_test(asm, prn):
           f"{m.extents[0]:.1f} x {m.extents[1]:.1f} x {m.extents[2]:.1f} mm, ~{grams:.0f} g, about {mins:.0f} min on the P2S")
 
 
+def section_y(m, y):
+    """Material of a mesh in the plane Y = y, as one shapely geometry in (X, Z)."""
+    polys = checks._section_polys(m, np.array([0.0, y, 0.0]), np.array([0.0, 1.0, 0.0]))[0]
+    return shapely.ops.unary_union([shapely.ops.transform(lambda a, b: (b, a), p) for p in polys])   # (Z, X) -> (X, Z)
+
+
+def holes_of(geom):
+    return [shapely.geometry.Polygon(i) for q in getattr(geom, "geoms", [geom]) for i in q.interiors]
+
+
+def eq_d(poly):
+    return 2 * (poly.area / np.pi) ** 0.5
+
+
+def screen_mount(parts, yg, label, cx=0.0, cz=0.0):
+    """The blue-board screen in a holder (ScreenMountTest or the real bezel), both ways up: nothing printed
+    touches the screen, its connectors, the ribbon's fold or its wires; nothing printed in the free depth behind
+    the PCB except the brackets; the brackets sit on the 4 brass rings and on the 4 bezel screws."""
+    brk = g.build_brackets(cx, cz, yg)
+    printed = {**parts, "bracket L": brk[0], "bracket R": brk[1]}
+    for flip in (False, True):
+        scr = mocks.blue_screen(cx, cz, yg, flip)
+        no_overlap(scr, printed, skip=[("rings", "bracket L"), ("rings", "bracket R")], label=f"{label}: screen (glass, PCB, brass rings, DSI connector + ribbon fold, power plug + "
+                                 f"wires, Backlight switch, Pi standoffs) vs printed parts, {'turned 180 deg' if flip else 'as on the photo'}")
+    zone = mocks.scr_free_zone(cx, cz, yg)
+    v = sum(ov(zone, m) for m in parts.values())
+    check(v < 0.01, f"{label}: {g.SCR_BACK_FREE:.0f} mm free behind the PCB (only the 2 brackets cross it)", f"{v} mm3 in the zone")
+    seat, tip = g.brk_seat(yg), yg + g.SCR_T + g.SCR_NUT_H
+    al = []
+    for b in brk:
+        bx = b.centroid[0]
+        for x, z in g.scr_holes(cx, cz) + g.brk_screws(cx, cz):
+            if abs(x - bx) < 1.0:
+                probe = g.cyl_y(x, z, seat + 0.2, seat + g.BRK_T - 0.2, g.CLEAR - 0.3)
+                al.append(ov(probe, b))
+    check(len(al) == 8 and max(al) < 0.01 and 0.0 <= tip - seat <= 0.5,
+          f"{label}: bracket holes on the 4 corner holes ({g.SCR_HOLE_IN:.0f} mm from the glass edges) and the 4 bezel screws",
+          f"the brackets press the brass rings {tip - seat:.1f} mm (BRK_SQUEEZE); M2.5 x 6 into the rings: "
+          f"{6 - g.BRK_T:.0f} mm of thread")
+    return brk
+
+
+def win_ok(lip, label):
+    """The window (biggest hole in a lip section) shows the whole picture with WIN_MARGIN, centred, and the lip
+    covers >= 3 mm of the glass's black border."""
+    hole = max(holes_of(lip), key=lambda q: q.area)
+    pic = shapely.geometry.box(g.VIEW_DX - g.PIC_W / 2, g.VIEW_DZ - g.PIC_H / 2, g.VIEW_DX + g.PIC_W / 2, g.VIEW_DZ + g.PIC_H / 2)
+    hx0, hz0, hx1, hz1 = hole.bounds
+    cxh, czh = (hx0 + hx1) / 2, (hz0 + hz1) / 2
+    corner = min(hole.exterior.distance(shapely.geometry.Point(p)) for p in pic.exterior.coords)
+    check(hole.contains(pic) and corner >= 0.5 and abs(cxh - g.VIEW_DX) < 0.05 and abs(czh - g.VIEW_DZ) < 0.05,
+          f"{label}: the window shows the whole picture, centred",
+          f"window {hx1 - hx0:.1f} x {hz1 - hz0:.1f} mm, picture {g.PIC_W:.1f} x {g.PIC_H:.1f} mm (black border "
+          f"{g.SCR_BORDER['top']:.0f} top, {g.SCR_BORDER['sides']:.0f} sides, {g.SCR_BORDER['bottom']:.0f} bottom), "
+          f"{g.WIN_MARGIN:.1f} mm margin ({corner:.1f} mm at the rounded corners)")
+    lip_x, lip_z = (g.SCR_W - (hx1 - hx0)) / 2, (g.SCR_H - (hz1 - hz0)) / 2
+    check(min(lip_x, lip_z) >= 3.0, f"{label}: the lip covers the glass's black border", f"{lip_x:.2f} mm sides, {lip_z:.2f} mm top/bottom")
+
+
+def mount_test(prn):
+    """ScreenMountTest (+ the 2 brackets) and ScrewPilotTest."""
+    print("-- screen mount test")
+    test = g.build_mount_test()
+    screen_mount({"ScreenMountTest": test}, 0.0, "mount test")
+    pw, ph = g.scr_pocket()
+    pocket = max(holes_of(section_y(test, g.SCR_T / 2)), key=lambda q: q.area)
+    x0, z0, x1, z1 = pocket.bounds
+    check(abs((x1 - x0) - pw) < 0.05 and abs((z1 - z0) - ph) < 0.05, "mount test: glass pocket like the bezel's",
+          f"{x1 - x0:.2f} x {z1 - z0:.2f} mm (glass {g.SCR_W} x {g.SCR_H} + {g.SCR_CLR} mm all around)")
+    rim_top = g.SCR_T + g.SMT_MARGIN
+    a_in, a_out = section_y(test, rim_top - 0.05).area, section_y(test, rim_top + 0.05).area
+    check(a_out < 0.6 * a_in and 0.3 <= g.SMT_MARGIN <= 0.5, "mount test: the rim stands just proud of the PCB's back",
+          f"rim {rim_top:.1f} mm deep for glass + PCB {g.SCR_T:.1f} mm: the PCB sits {g.SMT_MARGIN:.1f} mm under its edge (SMT_MARGIN)")
+    win_ok(section_y(test, -g.SMT_LIP / 2 + 0.3), "mount test")
+    sec = section_y(test, g.brk_seat(0.0) - 2.0)
+    pil = []
+    for x, z in g.brk_screws():
+        near = [q for q in holes_of(sec) if q.centroid.distance(shapely.geometry.Point(x, z)) < 0.1]
+        pil.append(eq_d(near[0]) if near else 0.0)
+    check(min(pil) > g.SCR_PILOT - 0.1 and max(pil) < g.SCR_PILOT + 0.05 and g.SCR_PILOT_DEPTH >= 8 - g.BRK_T + 1.0,
+          "mount test: 4 bracket bosses with the real self-tapping pilot",
+          f"pilot {np.mean(pil):.2f} mm (SCR_PILOT), {g.SCR_PILOT_DEPTH:.0f} mm deep for M2.5 x 8 through a {g.BRK_T:.0f} mm bracket")
+    m = prn["ScreenMountTest"]
+    grams, mins = g.filament_g(m), print_minutes(m)
+    check(grams < 30.0 and mins < 90.0, "mount test is a quick print",
+          f"{m.extents[0]:.1f} x {m.extents[1]:.1f} x {m.extents[2]:.1f} mm, ~{grams:.0f} g, about {mins:.0f} min on the P2S "
+          f"(+ the 2 brackets: ~{2 * g.filament_g(prn['PixelScreenBracket']):.0f} g, about {print_minutes(prn['PixelScreenBracket']):.0f} min)")
+    pt = prn["ScrewPilotTest"]
+    ds = sorted(eq_d(q) for q in holes_of(section(pt, pt.bounds[1][2] - 2.0)))
+    check(len(ds) == len(g.PILOT_TEST) and max(abs(a - b) for a, b in zip(ds, sorted(g.PILOT_TEST))) < 0.03
+          and g.filament_g(pt) < 8.0, "pilot test: one labelled boss per pilot of PILOT_TEST",
+          f"{', '.join(f'{d:.2f}' for d in ds)} mm, ~{g.filament_g(pt):.0f} g, about {print_minutes(pt):.0f} min")
+
+
 def run(v2):
     g.V2_PANEL = v2
     tag = "v2" if v2 else "v1"
@@ -176,6 +271,7 @@ def run(v2):
     check(ov(conn, base) + ov(plug, base) < 0.01, "module USB-C connector + 90 deg plug vs keyboard base")
     check(plug.bounds[0][2] > 0.5, "90 deg plug stays above the desk", f"lowest point {plug.bounds[0][2]:.1f} mm")
     sd_fit_test(asm, prn)
+    mount_test(prn)
     deck_body, deck_plug, _ = mocks.deck()
     tray = g.build_tray()
     check(ov(deck_body, tray) + ov(deck_plug, tray) < 0.01, "option tray vs whole Stream Deck + 90 deg plug")
@@ -218,11 +314,11 @@ def run(v2):
     # ---------------------------------------------------------------- monitor
     print("-- monitor and screen")
     cx, cz = g.screen_box(); vx, vz = g.view_centre(); z0 = g.MON_Z0
-    sw, sh = g.SCR_W + 2 * g.SCR_CLR, g.SCR_H + 2 * g.SCR_CLR
-    mx = (g.WIN_W - g.ACTIVE_W) / 2 - abs(vx - cx - g.VIEW_DX); mz = (g.WIN_H - g.ACTIVE_H) / 2 - abs(vz - cz - g.VIEW_DZ)
+    sw, sh = g.OLD_SCR_W + 2 * g.SCR_CLR, g.OLD_SCR_H + 2 * g.SCR_CLR
+    mx = (g.OLD_WIN_W - g.OLD_ACTIVE_W) / 2 - abs(vx - cx - g.OLD_VIEW_DX); mz = (g.OLD_WIN_H - g.OLD_ACTIVE_H) / 2 - abs(vz - cz - g.OLD_VIEW_DZ)
     check(mx > 1.0 and mz > 1.0, "the window shows the whole picture", f"margins {mx:.1f} mm left/right, {mz:.1f} mm top/bottom; "
           f"the picture may be off-centre by up to that much")
-    lip_x = (sw - g.WIN_W) / 2 - abs(g.VIEW_DX); lip_z = (sh - g.WIN_H) / 2 - abs(g.VIEW_DZ)
+    lip_x = (sw - g.OLD_WIN_W) / 2 - abs(g.OLD_VIEW_DX); lip_z = (sh - g.OLD_WIN_H) / 2 - abs(g.OLD_VIEW_DZ)
     check(min(lip_x, lip_z) > 5.0, "the bezel holds the glass by its black border", f"lip {lip_x:.1f} mm sides, {lip_z:.1f} mm top/bottom")
     walls = dict(sides=g.BEZ_WALL, top=g.BEZ_TOP, chin=g.SCR_BOTTOM - g.SCR_CLR)
     check(min(walls.values()) >= 3.0, "bezel walls around the glass pocket", ", ".join(f"{k} {v:.2f}" for k, v in walls.items()))
@@ -325,7 +421,7 @@ def run(v2):
     com = sum(mm * np.asarray(c) for mm, c in masses) / M
     y_axis = max(y for _, y in g.case_feet()) + 5.0          # rear rubber feet, back edge
     tips = {}
-    for label, zp in (("top of the picture", vz + g.ACTIVE_H / 2), ("top of the monitor", z0 + g.BEZ_H)):
+    for label, zp in (("top of the picture", vz + g.OLD_ACTIVE_H / 2), ("top of the monitor", z0 + g.BEZ_H)):
         tips[label] = M / 1000 * 9.81 * (y_axis - com[1]) / zp
     check(com[1] < y_axis, "the centre of mass is in front of the rear feet",
           f"total ~{M:.0f} g, centre of mass Y {com[1]:.0f} mm, Z {com[2]:.0f} mm; rear feet at Y {y_axis:.0f} mm")
