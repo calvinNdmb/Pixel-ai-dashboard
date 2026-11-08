@@ -21,6 +21,16 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 
 ## Les thèmes
 
+**Pour le moment, Pixel n'a que le thème Rétro.** Les 5 autres sont toujours là, mais rien ne les propose : ni Réglages, ni le Stream Deck, ni les commandes, ni Claude. Sur Réglages, le Stream Deck montre alors *Effet CRT*, *Visage Pack 52* et *Visage Vivant* à la place des touches de thème. Pixel ne charge que la police du Rétro, ce qui allège aussi son démarrage.
+
+Pour les retrouver, mets dans `config.toml`, partie `[ui]`, puis redémarre Pixel :
+
+```toml
+themes = ["retro", "moderne", "manga", "neon", "croquis", "lcd"]
+```
+
+Tu peux aussi n'en garder que quelques-uns, par exemple `themes = ["retro", "lcd"]`. Dans Pixel Lab, le bouton **Voir les 6 thèmes** les montre quand même.
+
 | Thème | Style |
 | --- | --- |
 | **Rétro** | Écran vert de vieux PC, visage en gros pixels, lignes de balayage. Il démarre comme un vieux PC, avec un BIOS. |
@@ -30,7 +40,7 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 | **Croquis** | Dessin au crayon sur une page de cahier à lignes. Les traits tremblent un peu, comme un dessin animé fait main. Surligneur jaune et stylo rouge. |
 | **LCD** | Écran de console de poche : quatre tons de vert, grille de points, pixels qui font une petite ombre. Pixel y devient une petite créature avec une antenne. |
 
-**Pour changer de thème :**
+**Pour changer de thème** (quand il y en a plusieurs) :
 - sur l'écran **Réglages**, touche un thème ;
 - avec les touches **Thème −** et **Thème +** du Stream Deck, sur Réglages ;
 - en tapant `thème néon`, `thème croquis`, `thème suivant`… ;
@@ -308,7 +318,7 @@ L'appli est gratuite. Les réponses de Claude sont facturées à l'usage sur ton
 ## Vérifications faites
 
 Testé sur ordinateur, avec les tests du dossier `tests/` :
-- **Commandes et accès** (`test_pixel.py`) : lampes, scènes, minuteur, écrans, Claude et Codex en démo, refus d'un appareil sans code d'accès. Chaque thème : choix dans Réglages, touches *Thème −* et *Thème +*, commande `thème …`, choix gardé après un redémarrage. Chaque humeur avec `humeur …`.
+- **Commandes et accès** (`test_pixel.py`) : lampes, scènes, minuteur, écrans, Claude et Codex en démo, refus d'un appareil sans code d'accès. Chaque thème : choix dans Réglages, touches *Thème −* et *Thème +*, commande `thème …`, choix gardé après un redémarrage (avec les 6 thèmes activés). Sans réglage `themes` : Rétro seul, les autres refusés avec un message, pas de touches de thème, pas d'outil de thème pour Claude. Chaque humeur avec `humeur …`.
 - **Données réelles** (`test_real.py`) : la vraie météo d'Open-Meteo, un agenda iCal avec un événement sur la journée et un événement répété, et les 15 touches du Stream Deck dessinées dans chaque thème.
 - **Agendas** (`test_agenda.py`) : un agenda Google (heure de Paris, événement répété, vacances sur plusieurs jours, soirée après minuit, événement annulé), un fichier Samsung .vcs importé puis réimporté, un rendez-vous présent dans deux agendas affiché une seule fois, les erreurs (404, page web, pas d'internet), le fichier privé, et l'adresse secrète qui n'arrive jamais sur les écrans.
 - **Pixel Lab** : 140 vérifications dans Chromium, sur ordinateur, téléphone et en plein écran 800 × 480.

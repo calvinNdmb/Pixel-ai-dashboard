@@ -47,7 +47,9 @@ const IDS = Object.keys(THEMES);
 /* Pixel's personality (persona.js): reactions to touch, moods that last, moments of life when nobody looks */
 const PER = window.PixelPersona ? window.PixelPersona({ X, rnd, rm: RM, now: () => now, theme: () => T, txt, fit, wrap }) : null;
 let PV = { id: '', group: '', anim: null, mood: null, m: { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 } };   // what it asks this frame
-function useTheme(id) { if (T && T.id === id) return; T = THEMES[id] || THEMES.retro; ({ fg: G, dim: D, faint: DK, bg: B, accent: AM, pink: PK, hi: WH } = T.c); L.theme = T.id; }
+const fontsAsked = new Set();
+function loadFonts(t) { for (const f of (t && t.fonts) || []) if (!fontsAsked.has(f)) { fontsAsked.add(f); document.fonts?.load(f).catch(() => {}); } }   // a theme's fonts, once
+function useTheme(id) { if (T && T.id === id) return; T = THEMES[id] || THEMES.retro; loadFonts(T); ({ fg: G, dim: D, faint: DK, bg: B, accent: AM, pink: PK, hi: WH } = T.c); L.theme = T.id; }
 useTheme('retro');
 /* one life per face on screen: the big face, the Claude panel, the sleeping face, the boot splash */
 const LIFE = { face: PixelLife(), mini: PixelLife(), nap: PixelLife(), boot: PixelLife() };
@@ -331,10 +333,12 @@ function drawSettings() {
   });
   [['HUE', P.lights.status], ['CLAUDE', st.claude], ['STREAM DECK', st.deck], ['MODE', st.demo ? 'DÉMO (fausses données)' : 'normal']].forEach(([k, v], i) => {
     txt(fit(k, 176, 22), 24, 292 + i * 26, 22, D); txt(fit(String(v || '—'), 566, 24), 210, 291 + i * 26, 24, G); });
-  // theme picker: chips in rows of 4, as many rows as needed
-  const per = 4, rows = Math.ceil(IDS.length / per), ch = rows > 1 ? 34 : 44, cw = 134, y0 = 480 - 8 - rows * (ch + 6) + 6;
+  // theme picker: the themes switched on ([ui] themes in config.toml), chips in rows of 4; none when there is only one
+  const ON = ((st.themes && st.themes.length) ? st.themes : IDS).filter(id => THEMES[id]);
+  if (ON.length < 2) return;
+  const per = 4, rows = Math.ceil(ON.length / per), ch = rows > 1 ? 34 : 44, cw = 134, y0 = 480 - 8 - rows * (ch + 6) + 6;
   txt('THÈME', 24, y0 + (rows > 1 ? ch - 6 : 8), 26, D);
-  IDS.forEach((id, i) => {
+  ON.forEach((id, i) => {
     const x = 210 + (i % per) * (cw + 8), y = y0 + Math.floor(i / per) * (ch + 6), on = T.id === id, sz = rows > 1 ? 24 : 28;
     box(x, y, cw, ch, on ? G : D, on ? G : null); txt(fit(THEMES[id].name, cw - 12, sz), x + cw / 2, y + (ch - sz) / 2 + 1, sz, on ? (T.onFg || B) : G, 'center');
     hit(x, y, cw, ch, () => send('theme.set', { name: id }));
@@ -451,13 +455,13 @@ addEventListener('resize', () => { fitAt = 0; });
 return {
   local: L,
   start() {
-    const fonts = new Set(Object.values(THEMES).flatMap(t => t.fonts || []));
-    for (const f of fonts) document.fonts?.load(f).catch(() => {});
+    loadFonts(T);                                   // the other themes' fonts come with the server's list of themes
     fitCanvas(); requestAnimationFrame(frame);
   },
   setSend(fn) { send = fn; },
   setState(p) {
     offset = p.server_now - Date.now(); useTheme(p.view.theme);
+    for (const id of (p.settings && p.settings.themes) || IDS) loadFonts(THEMES[id]);   // the themes Pixel offers: ready before you pick one
     if (first) { L.lastToast = p.toast?.id || 0; L.lastBootAt = p.boot_at; if (L.kiosk) L.boot = now; first = false; }
     if (P && P.codex && P.codex.running && p.codex && !p.codex.running && p.codex.status !== 'arrêté') L.packEv = { id: /^terminé/.test(p.codex.status) ? 'succes' : 'erreur', until: now + 4000 };
     if (p.toast && p.toast.id !== L.lastToast) {

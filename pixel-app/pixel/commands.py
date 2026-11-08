@@ -95,7 +95,10 @@ async def run(hub, text):
             return await hub.dispatch("theme.step", {"d": -1})
         if w in THEME_WORDS:
             return await hub.dispatch("theme.set", {"name": THEME_WORDS[w]})
-        return hub.toast("Les thèmes : " + ", ".join(n.lower() for n in THEMES.values()), 5000)
+        on = hub.s["settings"].get("themes") or list(THEMES)
+        if len(on) < 2:
+            return hub.toast(f"Pour le moment, seul le thème {THEMES[on[0]]} est activé.", 5000)
+        return hub.toast("Les thèmes : " + ", ".join(THEMES[i].lower() for i in on), 5000)
 
     m = re.match(r"^humeur\s+(.+)$", t)
     if m:

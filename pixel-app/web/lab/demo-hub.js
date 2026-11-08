@@ -20,8 +20,18 @@ function discoverThemes() {
   } catch (e) { console.warn('Pixel Lab: PixelThemes() failed', e); }
   return [{ id: 'retro', name: 'Rétro' }];
 }
-const THEMES = discoverThemes().map(t => ({ id: t.id, name: String(t.name || t.id), c: t.c && typeof t.c === 'object' ? t.c : null, font: typeof t.font === 'function' ? t.font : null, crt: typeof t.crt === 'boolean' ? t.crt : undefined }));
-const TNAME = Object.fromEntries(THEMES.map(t => [t.id, t.name]));
+const ALLT = discoverThemes().map(t => ({ id: t.id, name: String(t.name || t.id), c: t.c && typeof t.c === 'object' ? t.c : null, font: typeof t.font === 'function' ? t.font : null, crt: typeof t.crt === 'boolean' ? t.crt : undefined }));
+/* the themes switched on, like [ui] themes in config.toml: only Rétro for now. ?themes=all (or ?themes=retro,neon) or the lab's
+   "Voir les 6 thèmes" button (saved in pixel_lab.allThemes) brings the others back. */
+const WANT = (() => {
+  let q = null; try { q = new URLSearchParams(location.search).get('themes'); } catch {}
+  if (q === 'all') return ALLT.map(t => t.id);
+  if (q) return q.split(',');
+  try { if ((JSON.parse(localStorage.getItem('pixel_lab')) || {}).allThemes) return ALLT.map(t => t.id); } catch {}
+  return ['retro'];
+})();
+const THEMES = ALLT.filter(t => WANT.includes(t.id)).length ? ALLT.filter(t => WANT.includes(t.id)) : ALLT.slice(0, 1);
+const TNAME = Object.fromEntries(THEMES.map(t => [t.id, t.name])), ALLNAME = Object.fromEntries(ALLT.map(t => [t.id, t.name]));
 const MOODS = (Array.isArray(window.PixelMoods) ? window.PixelMoods : []).filter(m => m && typeof m.id === 'string')
   .map(m => ({ id: m.id, name: String(m.name || m.id), desc: String(m.desc || '') }));
 if (!MOODS.some(m => m.id === 'neutre')) MOODS.unshift({ id: 'neutre', name: 'Neutre', desc: '' });
@@ -71,7 +81,7 @@ const S = {
   agenda: demoAgenda(),
   timer: { mode: 'TRAVAIL', total: 1500, left: 1500, running: false, ends_at: 0, done: 2 },
   sys: { temps: [], cpus: [], bright: 1, hw_bright: false, host: 'pixel', temp: 46, cpu: 8, ram_used: 1.2e9, ram_total: 4.1e9, wifi: -52, uptime: 3 * 86400 + 4 * 3600, disk: 24, ip: '192.168.1.42' },
-  settings: { url: 'http://pixel.local:8080/?t=demo', ip_url: 'http://192.168.1.42:8080/?t=demo', qr: QR, demo: true, sleep_min: 10, claude: 'démo (pas de clé API)', deck: 'Stream Deck MK.2 (15 touches)' },
+  settings: { url: 'http://pixel.local:8080/?t=demo', ip_url: 'http://192.168.1.42:8080/?t=demo', qr: QR, demo: true, sleep_min: 10, claude: 'démo (pas de clé API)', deck: 'Stream Deck MK.2 (15 touches)', themes: THEMES.map(t => t.id) },
   toast: null,
   boot_at: 0,
 };
@@ -107,6 +117,7 @@ function row3(scr) {
     case 'systeme': return [K('Lumi. −', 'sys.bright', { d: -0.1 }), K('Lumi. +', 'sys.bright', { d: 0.1 }), K('Effet\nCRT', 'view.toggle', { key: 'crt_off' }), K('Démar-\nrage', 'sys.boot'), K('Veille', 'screen.show', { screen: 'veille' })];
     case 'reglages': {
       const head = [K('Associer\nHue', 'lights.pair'), K('Clavier', 'view.toggle', { key: 'osk' })];
+      if (THEMES.length < 2) return [...head, K('Effet\nCRT', 'view.toggle', { key: 'crt_off' }), K('Visage\nPack 52', 'face.set', { name: 'pack' }), K('Visage\nVivant', 'face.set', { name: 'vivant' })];   // keys.py, one theme
       if (THEMES.length <= 3) return fill5([...head, ...THEMES.map(x => K(x.name, 'theme.set', { name: x.id }))]);
       const n = THEMES.length, i = Math.max(0, THEMES.findIndex(x => x.id === S.view.theme));   // too many themes for one key each
       return [...head, K('Thème −', 'theme.set', { name: THEMES[(i + n - 1) % n].id }), K('Thème +', 'theme.set', { name: THEMES[(i + 1) % n].id }), K('Effet\nCRT', 'view.toggle', { key: 'crt_off' })];
@@ -198,7 +209,10 @@ const num = (v, d) => Number.isFinite(Number(v)) && v !== null && v !== '' ? Num
 
 /* ---------- actions: same names and arguments as the real server ---------- */
 const A = {
-  'theme.set': ({ name }) => { if (!TNAME[name]) return; S.view.theme = name; toast('THÈME ' + TNAME[name].toUpperCase()); },
+  'theme.set': ({ name }) => {
+    if (!TNAME[name]) { if (ALLNAME[name]) toast(THEMES.length < 2 ? `Pour le moment, seul le thème ${THEMES[0].name} est activé.` : `Ce thème n'est pas activé. Les thèmes : ${THEMES.map(t => t.name).join(', ')}.`, 5000); return; }
+    S.view.theme = name; toast('THÈME ' + TNAME[name].toUpperCase());
+  },
   'screen.show': ({ screen }) => { if (!NAV.includes(screen)) return; if (S.screen === 'veille' && screen !== 'veille') mood('surpris', 900); S.screen = screen; },
   'mood.set': ({ name, ms = 0 }) => mood(String(name), Math.trunc(num(ms, 0))),
   'face.set': ({ name }) => { if (!FACES[name]) return; S.view.face = name; toast('VISAGE : ' + FACES[name].toUpperCase()); },
@@ -272,8 +286,8 @@ const A = {
 const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
-THEMES.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });
-for (const [w, id] of [['actuel', 'moderne'], ['anime', 'manga']]) if (TNAME[id]) THEME_WORDS[w] ??= id;     // commands.py extras
+ALLT.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });   // every theme: a disabled one gets the "not on" message
+for (const [w, id] of [['actuel', 'moderne'], ['anime', 'manga']]) if (ALLNAME[id]) THEME_WORDS[w] ??= id;     // commands.py extras
 MOODS.forEach(m => { MOOD_WORDS[kw(m.id)] = m.id; MOOD_WORDS[kw(m.name)] ??= m.id; });
 const akey = s => kw(s).replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();      // anims.py key()
 const ANIM_WORDS = {};
@@ -310,6 +324,11 @@ function command(raw) {
     const room = findRoom(m[1]), v = m[2];
     return v === 'on' || v === 'off' ? A['lights.set']({ room, on: v === 'on' }) : A['lights.set']({ room, bri: Math.max(0, Math.min(100, parseInt(v, 10))) });
   }
+  if ((m = kw(raw).match(/^(?:theme|style)\s+(suivant|precedent|\+|-|plus|moins)$/))) {   // commands.py: theme.step
+    if (THEMES.length < 2) return toast(`Pour le moment, seul le thème ${THEMES[0].name} est activé.`, 4000);
+    const i = Math.max(0, THEMES.findIndex(t => t.id === S.view.theme)), d = /suivant|\+|plus/.test(m[1]) ? 1 : -1;
+    return A['theme.set']({ name: THEMES[(i + d + THEMES.length) % THEMES.length].id });
+  }
   if ((m = kw(raw).match(/^(?:theme|style)\s+(.+)$/)) && THEME_WORDS[m[1]]) return A['theme.set']({ name: THEME_WORDS[m[1]] });
   if ((m = kw(raw).match(/^humeur\s+(.+)$/)) && MOOD_WORDS[m[1]]) { const id = MOOD_WORDS[m[1]]; A['screen.show']({ screen: 'visage' }); return A['mood.set']({ name: id, ms: id === 'endormi' ? 0 : 3000 }); }
   if ((m = t.match(/^visage\s+(.+)$/)) && FACE_WORDS[m[1]]) { A['face.set']({ name: FACE_WORDS[m[1]] }); return A['screen.show']({ screen: 'visage' }); }
@@ -339,7 +358,7 @@ setInterval(() => {
 }, 1000);
 
 return {
-  NAV, NAMES, THEMES, MOODS, KINDS, ANIMS, AGROUPS, FACES, PSCENES, S, norm, row3, snapshot, findScene,
+  NAV, NAMES, THEMES, ALLT, MOODS, KINDS, ANIMS, AGROUPS, FACES, PSCENES, S, norm, row3, snapshot, findScene,
   themeName: id => TNAME[id] || id, moodName: id => MNAME[id] || id,
   busy: () => ({ chat: chatBusy, codex: S.codex.running }),
   /* Initial values, before the first listener (no toast): the lab restores the last theme and screen. */

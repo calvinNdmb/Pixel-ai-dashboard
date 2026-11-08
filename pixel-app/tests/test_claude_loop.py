@@ -13,7 +13,8 @@ from aiohttp import web
 
 APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP))
-import server  # noqa: E402
+import server
+from pixel.keys import THEMES  # noqa: E402
 from pixel.claude import Claude  # noqa: E402
 from pixel.hue import Hue  # noqa: E402
 from pixel.state import Hub  # noqa: E402
@@ -78,7 +79,7 @@ async def main():
     port = site._server.sockets[0].getsockname()[1]
 
     datadir = Path(tempfile.mkdtemp())
-    hub = Hub({}, demo=True)                 # demo lamps, real Claude loop below
+    hub = Hub({"ui": {"themes": list(THEMES)}}, demo=True)   # demo lamps, every theme on, real Claude loop below
     server.core_actions(hub, datadir)        # theme.set and friends, saved in datadir
     Hue(hub, {}, datadir)
     c = Claude(hub, {})

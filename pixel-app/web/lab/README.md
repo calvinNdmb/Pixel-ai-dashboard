@@ -46,7 +46,7 @@ chromium-browser --kiosk "http://localhost:8080/lab?kiosk=1"
 
 | Partie | Ce que ça fait |
 | --- | --- |
-| **Thème** | Tous les thèmes de `themes.js`. Les touches et la barre de commande prennent ses couleurs. |
+| **Thème** | Comme sur Pixel, le Rétro seulement pour le moment (réglage `[ui] themes` de `config.toml`). **Voir les 6 thèmes** montre tous les thèmes de `themes.js`, le temps de les essayer ; tu peux aussi ajouter `?themes=all` à l'adresse. Les touches et la barre de commande prennent les couleurs du thème. |
 | **Humeur** | Toutes les humeurs du visage. **Garder** la laisse, **3 s** la fait durer 3 secondes. |
 | **Écran** | Les 10 écrans. Sur l'écran, tu peux aussi toucher et glisser. |
 | **Stream Deck** | Les 15 touches. Rangées 1 et 2 : les écrans. Rangée 3 : les actions de l'écran ouvert. |

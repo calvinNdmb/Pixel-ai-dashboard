@@ -38,9 +38,13 @@ def core_actions(hub, datadir):
     v = hub.s["view"]
     ui_file = datadir / "ui.json"
     saved = json.loads(ui_file.read_text()) if ui_file.exists() else {}
-    v["theme"] = saved.get("theme") or hub.cfg.get("ui", {}).get("theme", "retro")
-    if v["theme"] not in THEMES:
-        v["theme"] = "retro"
+    ui = hub.cfg.get("ui", {})
+    # the themes Pixel offers: [ui] themes in config.toml; only Rétro for now when the line is missing
+    on = [t for t in ui.get("themes", ["retro"]) if t in THEMES] or ["retro"]
+    hub.s["settings"]["themes"] = on
+    v["theme"] = saved.get("theme") or ui.get("theme", on[0])
+    if v["theme"] not in on:
+        v["theme"] = on[0]
     v["face"] = saved.get("face") or hub.cfg.get("ui", {}).get("face", "pack")      # the animation pack, or the living face
     if v["face"] not in FACES:
         v["face"] = "pack"
@@ -52,10 +56,13 @@ def core_actions(hub, datadir):
 
     @hub.action("theme.set")
     async def theme(name):
-        if name in THEMES:
+        if name in on:
             v["theme"] = name
             save()
             hub.toast("THÈME " + THEMES[name].upper())
+        elif name in THEMES:
+            hub.toast(f"Pour le moment, seul le thème {THEMES[on[0]]} est activé." if len(on) == 1
+                      else "Ce thème n'est pas activé. Les thèmes : " + ", ".join(THEMES[t] for t in on) + ".", 5000)
 
     @hub.action("face.set")
     async def face(name):
@@ -89,9 +96,10 @@ def core_actions(hub, datadir):
     @hub.action("theme.step")
     async def theme_step(d=1):
         """Next (d=1) or previous (d=-1) theme, for the "Thème −" / "Thème +" keys. Saved like theme.set."""
-        ids = list(THEMES)
-        i = ids.index(v["theme"]) if v["theme"] in ids else 0
-        await theme(ids[(i + int(d)) % len(ids)])
+        if len(on) < 2:
+            return hub.toast(f"Pour le moment, seul le thème {THEMES[on[0]]} est activé.", 4000)
+        i = on.index(v["theme"]) if v["theme"] in on else 0
+        await theme(on[(i + int(d)) % len(on)])
 
     @hub.action("screen.show")
     async def show(screen):

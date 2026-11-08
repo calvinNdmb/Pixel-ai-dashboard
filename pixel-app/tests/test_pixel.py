@@ -43,7 +43,7 @@ def start_server(port, datadir):
     except OSError:
         pass
     cfg = Path(datadir) / "config.toml"
-    cfg.write_text(f'data_dir = "{datadir}"\n')
+    cfg.write_text(f'data_dir = "{datadir}"\n[ui]\nthemes = {json.dumps(list(THEMES))}\n')   # every theme on: the theme checks below need them
     p = subprocess.Popen([sys.executable, str(APP / "server.py"), "--demo", "--port", str(port), "--config", str(cfg)],
                          cwd=APP, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(100):
@@ -93,6 +93,43 @@ def static_checks():
           and "poisson" in tools["play_scene"]["scene"]["enum"] and "bonjour" not in tools["play_scene"]["scene"]["enum"])
     check("the app and the lab load persona.js between themes.js and screens.js", all(
         (web / f).read_text().index("themes.js\"") < (web / f).read_text().index("persona.js") < (web / f).read_text().index("screens.js") for f in ("index.html", "lab/index.html")))
+
+
+async def retro_only():
+    """Without [ui] themes in config.toml (the Pi's config), Pixel offers Rétro only: nowhere to pick another theme."""
+    import server
+    from pixel import commands, keys
+    from pixel.claude import tools_for
+    from pixel.state import Hub
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        (d / "ui.json").write_text(json.dumps({"theme": "neon"}))        # a theme picked before Rétro became the only one
+        hub = Hub({}, demo=True)
+        server.core_actions(hub, d)
+        v = hub.s["view"]
+        check("default config: Rétro only, even if Néon was saved before", hub.s["settings"]["themes"] == ["retro"] and v["theme"] == "retro",
+              f"{hub.s['settings'].get('themes')} {v['theme']}")
+        await hub.dispatch("theme.set", {"name": "neon"})
+        check("theme.set néon is refused, with the reason", v["theme"] == "retro" and "seul le thème Rétro" in hub.s["toast"]["msg"], hub.s["toast"]["msg"])
+        hub.s["toast"] = None
+        await hub.dispatch("theme.step", {"d": 1})
+        check("Thème + changes nothing and says so", v["theme"] == "retro" and "seul le thème Rétro" in (hub.s["toast"] or {}).get("msg", ""))
+        for text in ("thème néon", "thème suivant", "thème bidule"):
+            hub.s["toast"] = None
+            await commands.run(hub, text)
+            check(f"'{text}': Rétro stays, with a message", v["theme"] == "retro" and "Rétro" in (hub.s["toast"] or {}).get("msg", ""), str(hub.s["toast"]))
+        row = [k["label"] if k else None for k in keys.row3("reglages", hub.s)]
+        check("Stream Deck, Réglages: no theme keys, the face and the CRT effect instead",
+              row == ["Associer\nHue", "Clavier", "Effet\nCRT", "Visage\nPack 52", "Visage\nVivant"], str(row))
+    names = [t["name"] for t in tools_for(["retro"])]
+    check("Claude: no theme tool with Rétro only, every other tool still there", "set_theme" not in names and len(names) == len(TOOLS) - 1, str(names))
+    two = {t["name"]: t for t in tools_for(["retro", "neon"])}["set_theme"]
+    check("Claude: the theme tool lists only the themes that are on", two["input_schema"]["properties"]["theme"]["enum"] == ["retro", "neon"]
+          and "manga" not in two["description"] and "neon" in two["description"], two["description"])
+    every = {t["name"]: t for t in tools_for(list(THEMES))}["set_theme"]
+    check("Claude: with every theme on, every theme", every["input_schema"]["properties"]["theme"]["enum"] == list(THEMES))
+    example = (APP / "config.example.toml").read_text()
+    check("config.example.toml: Rétro only, and how to bring the others back", 'themes = ["retro"]' in example and '"lcd"]' in example)
 
 
 async def main(args):
@@ -337,5 +374,6 @@ if __name__ == "__main__":
             finally:
                 srv.terminate()
                 srv.wait()
+    asyncio.run(retro_only())
     print("\n%d failure(s)" % len(fails))
     sys.exit(1 if fails else 0)

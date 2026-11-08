@@ -49,6 +49,9 @@ def row3(screen, s):
         return [K("Lumi. −", "sys.bright", d=-0.1), K("Lumi. +", "sys.bright", d=0.1), K("Effet\nCRT", "view.toggle", key="crt_off"),
                 K("Démar-\nrage", "sys.boot"), K("Veille", "screen.show", screen="veille")]
     if screen == "reglages":
+        if len(s.get("settings", {}).get("themes") or THEMES) < 2:       # one theme only: the face and the CRT effect instead
+            return [K("Associer\nHue", "lights.pair"), K("Clavier", "view.toggle", key="osk"), K("Effet\nCRT", "view.toggle", key="crt_off"),
+                    K("Visage\nPack 52", "face.set", name="pack"), K("Visage\nVivant", "face.set", name="vivant")]
         name = THEMES.get(s["view"].get("theme"), "Rétro")
         return [K("Associer\nHue", "lights.pair"), K("Clavier", "view.toggle", key="osk"), K("Thème −", "theme.step", d=-1),
                 K("Thème\n" + name, "theme.step", d=1), K("Thème +", "theme.step", d=1)]

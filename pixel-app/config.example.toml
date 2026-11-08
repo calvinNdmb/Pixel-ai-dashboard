@@ -28,7 +28,10 @@ brightness = 70             # 0 à 100
 
 [ui]
 sleep_minutes = 10          # Pixel s'endort sur le visage après ce temps sans rien
-theme = "retro"             # retro, moderne, manga, neon, croquis ou lcd (se change aussi dans Réglages)
+theme = "retro"             # le thème au démarrage
+# Les thèmes que Pixel propose (Réglages, touches Thème − / +, commande « thème »). Pour le moment : Rétro seulement.
+# Pour les retrouver tous : themes = ["retro", "moderne", "manga", "neon", "croquis", "lcd"]
+themes = ["retro"]
 
 # [security]
 # token = "..."             # code d'accès des téléphones ; créé tout seul sinon

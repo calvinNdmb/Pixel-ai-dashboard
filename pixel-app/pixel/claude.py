@@ -52,6 +52,24 @@ TOOLS = [
 ]
 
 
+THEME_DESC = {"retro": "retro (écran vert des années 90)", "moderne": "moderne (yeux lumineux qui rebondissent)",
+              "manga": "manga (grands yeux brillants)", "neon": "neon (nuit synthwave, néons roses et bleus)",
+              "croquis": "croquis (dessin au crayon sur un cahier)", "lcd": "lcd (console de poche, quatre tons de vert)"}
+
+
+def tools_for(themes):
+    """The tools Claude gets: set_theme only offers the themes that are on, and is left out when there is only one."""
+    out = []
+    for t in TOOLS:
+        if t["name"] == "set_theme":
+            if len(themes) < 2:
+                continue
+            t = {**t, "description": "Change le style de l'écran de Pixel : " + ", ".join(THEME_DESC.get(i, i) for i in themes) + ".",
+                 "input_schema": {**t["input_schema"], "properties": {"theme": {"type": "string", "enum": list(themes)}}}}
+        out.append(t)
+    return out
+
+
 def check(name, a):
     """Validate a (possibly truncated) streamed tool input. Returns an error string or None."""
     if not isinstance(a, dict):
@@ -135,6 +153,8 @@ class Claude:
             self.end_mood = a["mood"]                  # keep it once the answer is done
             return "ok"
         if name == "set_theme":
+            if a["theme"] not in (h.s["settings"].get("themes") or THEMES):
+                return "ce thème n'est pas activé sur Pixel"
             await h.dispatch("theme.set", {"name": a["theme"]})
             return "ok"
         if name == "play_animation":
@@ -182,7 +202,7 @@ class Claude:
             for _ in range(10):
                 try:
                     async with self.client.beta.messages.stream(
-                        model=self.model, max_tokens=16000, system=SYSTEM, tools=TOOLS, messages=self.history,
+                        model=self.model, max_tokens=16000, system=SYSTEM, tools=tools_for(self.hub.s["settings"].get("themes") or list(THEMES)), messages=self.history,
                         output_config={"effort": self.effort}, cache_control={"type": "ephemeral"},
                         betas=["server-side-fallback-2026-07-01"], fallbacks="default",
                     ) as stream:

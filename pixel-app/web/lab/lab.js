@@ -81,7 +81,14 @@ for (const t of hub.THEMES) {
   if (t.c && t.c.bg && t.c.fg) { const s = el('i', 'sw'); s.style.background = `linear-gradient(135deg,${t.c.bg} 52%,${t.c.fg} 52%)`; b.prepend(s); }
   $('themeChips').append(b); themeChips.push(b);
 }
-setT($('themeNote'), `${hub.THEMES.length} thèmes trouvés dans themes.js.`);
+{ // only the themes switched on, like on Pixel ([ui] themes in config.toml); the button brings back the others, for a look
+  const all = hub.ALLT || hub.THEMES, few = hub.THEMES.length < all.length, btn = $('allThemesBtn');
+  setT($('themeNote'), few ? `Pour le moment, Pixel n'a que le thème ${hub.THEMES.map(t => t.name).join(', ')} (comme sur l'écran : réglage [ui] themes de config.toml). ${all.length} thèmes existent dans themes.js.`
+    : `${all.length} thèmes trouvés dans themes.js.`);
+  setT(btn, few ? `Voir les ${all.length} thèmes` : 'Rétro seulement, comme Pixel'); press(btn, !few);
+  if (all.length < 2) btn.hidden = true;
+  btn.addEventListener('click', () => { remember('allThemes', few); if (!few) remember('theme', 'retro'); location.reload(); });
+}
 for (const m of hub.MOODS) { const b = chip(m.name, () => pickMood(m.id)); b.dataset.id = m.id; if (m.desc) b.title = m.desc; $('moodChips').append(b); moodChips.push(b); }
 for (const id of hub.NAV) { const b = chip(hub.NAMES[id], () => pickScreen(id)); b.dataset.id = id; $('screenChips').append(b); screenChips.push(b); }
 
