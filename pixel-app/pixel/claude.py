@@ -9,6 +9,7 @@ from .commands import norm
 from . import anims, caractere, nourrir, scenes
 from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
+from . import exos                    # start_exercise: a little math exercise on Pixel's screen
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (
@@ -52,6 +53,7 @@ TOOLS = [
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
 TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (pixel/nourrir.py)
+TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
 
 # ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
 TOOLS.append(tool(
@@ -113,6 +115,7 @@ def check(name, a):
         "play_scene": a.get("scene") in scenes.BY_ID,
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
         "set_character": caractere.tool_ok(a),
+        "start_exercise": exos.check_tool(a),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
 
@@ -211,6 +214,8 @@ class Claude:
             c = h.s["caractere"]
             return (f"ok : {caractere.PRESETS.get(c['preset'], ('sur mesure',))[0]}, tu t'appelles {c['nom']}"
                     + (f", tu l'appelles {c['surnom']}" if c["surnom"] else ""))
+        if name == "start_exercise":
+            return await exos.run_tool(h, a)
         return "outil inconnu"
 
     # ---- conversation ----

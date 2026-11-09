@@ -515,6 +515,278 @@ const NOUR = (() => {
   return { N, tick, publish, find, roll };
 })();
 
+/* ---------- the math exercises (pixel/exos.py): a smaller port for the lab ----------
+   The same 15 kinds (pixel/exos.py KINDS), 5 levels, modes (exo, serie, table, chrono), flow (a hint and a second try, then the
+   correction; no second try in the challenge), levels that adapt, daily goal, trophies, snapshot "exos" and typed commands.
+   What differs: fewer templates and simpler mistakes per kind, 6 riddles, and the stats live in this page only (no file).
+   Lab-only: lab.exos { juste } answers right or wrong for you. */
+const EXK = [['addition', 'Additions'], ['soustraction', 'Soustractions'], ['table', 'Tables de multiplication'], ['division', 'Divisions'], ['complement', 'Compléments'],
+  ['double', 'Doubles et moitiés'], ['mental', 'Calcul mental'], ['comparaison', 'Comparaisons'], ['suite', 'Suites logiques'], ['probleme', 'Petits problèmes'],
+  ['heure', 'Heures et durées'], ['fraction', 'Fractions'], ['pourcentage', 'Pourcentages'], ['carre', 'Carrés'], ['enigme', 'Énigmes']];
+const EXL = Object.fromEntries(EXK), EXI = EXK.map(x => x[0]), EXMIN = { division: 2, carre: 2, pourcentage: 3, fraction: 2 };
+const EXCALC = ['addition', 'soustraction', 'table', 'division', 'complement', 'double', 'mental'];
+const EXTR = [['premier', 'Premier exo', s => s.total >= 1], ['serie5', '5 d\'affilée', s => s.serie_max >= 5], ['serie10', '10 d\'affilée', s => s.serie_max >= 10],
+  ['serie20', '20 d\'affilée', s => s.serie_max >= 20], ['objectif', 'Objectif du jour', s => s.coupes >= 1], ['semaine', '7 objectifs', s => s.coupes >= 7],
+  ['chrono10', '10 en 1 minute', s => s.record_chrono >= 10], ['cent', '100 exos', s => s.total >= 100], ['niveau5', 'Niveau 5', s => Object.values(s.niveaux).includes(5)],
+  ['enigmes', '5 énigmes', s => ((s.par_type.enigme || {}).ok || 0) >= 5], ['tables', 'As des tables', s => ((s.par_type.table || {}).ok || 0) >= 50]];
+const EXNB = String.fromCharCode(160), exRi = (a, b) => a + Math.floor(Math.random() * (b - a + 1)), exPk = a => a[Math.floor(Math.random() * a.length)];
+const exFmt = v => {
+  if (typeof v === 'string') return v;
+  const x = Math.round(v * 1000) / 1000, a = Math.abs(x), w = Math.floor(a), f = String(Math.round((a - w) * 1000) / 1000).slice(2);
+  return (x < 0 ? '−' : '') + (w >= 1000 ? String(w).replace(/\B(?=(\d{3})+(?!\d))/g, EXNB) : String(w)) + (f ? ',' + f : '');
+};
+const exHm = m => { const h = Math.floor(m / 60) % 24, mn = m % 60; return `${h}${EXNB}h` + (mn ? `${EXNB}${String(mn).padStart(2, '0')}` : ''); };
+const exCanon = s => {
+  let t = norm(s).replace(/−/g, '-').replace(/[\s'’]+/g, '').replace(/[!.?]+$/, '').replace(/^(?:=|lareponseest|lareponse|reponse|cest)/, '');
+  let m = /^(\d{1,2})(?:h|:)(\d{0,2})$/.exec(t); if (m) return `${+m[1]}h${String(+(m[2] || 0)).padStart(2, '0')}`;
+  m = /^(-?\d+(?:[.,]\d+)?)(?:minutes?|mn|min|euros?|€|%|kg|jours?|pattes?|roues?|ans?)?$/.exec(t); if (m) return String(Number(m[1].replace(',', '.')));
+  return t;
+};
+const exSame = (v, a) => { const x = exCanon(v), y = exCanon(a); return x === y || (/^\d{1,2}h00$/.test(y) && x === y.slice(0, -3)); };
+function exChoices(ans, wrong) {
+  const seen = new Set([exCanon(exFmt(ans))]), out = [];
+  for (const w of [...wrong, ...(typeof ans === 'number' ? [1, -1, 10, -10, 2, -2, 5, -5, 3, -3].map(d => ans + d) : [])]) {
+    if (w == null || (typeof ans === 'number' && (typeof w !== 'number' || (w < 0 && ans >= 0)))) continue;
+    const k = exCanon(exFmt(w)); if (seen.has(k)) continue; seen.add(k); out.push(exFmt(w)); if (out.length === 3) break;
+  }
+  const ch = [exFmt(ans), ...out]; for (let i = ch.length - 1; i > 0; i--) { const j = exRi(0, i); [ch[i], ch[j]] = [ch[j], ch[i]]; }
+  return [exFmt(ans), ch];
+}
+const EXRID = [[1, 'Dans le jardin, 3 poules et 2 lapins. Combien de pattes en tout ?', '14', ['10', '20', '5'], 'Une poule a 2 pattes, un lapin 4.', '3 × 2 + 2 × 4 = 14 pattes.'],
+  [2, 'Hier, c\'était lundi. Quel jour serons-nous demain ?', 'Mercredi', ['Mardi', 'Jeudi', 'Dimanche'], 'Si hier était lundi, aujourd\'hui, c\'est…', 'Aujourd\'hui mardi, donc demain mercredi.'],
+  [3, 'Le père de Léa a 5 filles : Lala, Lélé, Lili, Lolo… et la cinquième ?', 'Léa', ['Lulu', 'Lyly', 'Lala'], 'Relis bien le début de la phrase !', 'C\'est le père de Léa : la cinquième, c\'est Léa.'],
+  [3, 'Un kilo de plumes ou un kilo de plomb : lequel est le plus lourd ?', 'Pareil', ['Le plomb', 'Les plumes', 'On ne sait pas'], 'Regarde bien les quantités.', 'Un kilo, c\'est un kilo : ils pèsent pareil.'],
+  [4, 'Dans une course, tu doubles le deuxième. Quelle est ta place ?', 'Deuxième', ['Premier', 'Troisième', 'Dernier'], 'Tu prends la place de celui que tu doubles.', 'Tu passes devant le deuxième : tu es deuxième.'],
+  [5, '5 amis se serrent tous la main une fois. Combien de poignées de main ?', '10', ['25', '20', '5'], 'Le premier en serre 4, le deuxième 3 de plus…', '4 + 3 + 2 + 1 = 10 poignées de main.']];
+function exTimes(n, m) {                                   // pixel/exos.py _times_help, shorter
+  const p = n * m;
+  if (m === 10) return ['Ajoute un zéro à droite.', `${n} × 10 = ${p}.`];
+  if (m === 9) return [`Fais ${n} × 10, puis enlève ${n}.`, `${n} × 9 = ${p} : ${n * 10} − ${n} = ${p}.`];
+  if (m % 2 === 0 && m > 2) return [`Calcule ${n} × ${m / 2}, puis double.`, `${n} × ${m} = ${p} : ${n} × ${m / 2} = ${n * m / 2}, et ${n * m / 2} × 2 = ${p}.`];
+  return [`Calcule ${n} × ${m - 1}, puis ajoute ${n}.`, `${n} × ${m} = ${p} : ${n * (m - 1)} + ${n} = ${p}.`];
+}
+function exGen(kind, lv, table, k) {
+  const R = (q, ans, wrong, hint, ex) => ({ q, ans, wrong, hint, ex });
+  let o;
+  switch (kind) {
+    case 'addition': { const [a, b] = [[exRi(1, 5), exRi(1, 5)], [exRi(11, 79), exRi(2, 9)], [exRi(15, 69), exRi(12, 29)], [exRi(120, 699), exRi(45, 299)], [exRi(1200, 4800), exRi(350, 2900)]][lv - 1];
+      o = R(`${exFmt(a)} + ${exFmt(b)} = ?`, a + b, [a + b - 10, a + b + 10, a + b + 1, a + b - 1], 'Ajoute d\'abord les dizaines, puis les unités.', `${exFmt(a)} + ${exFmt(b)} = ${exFmt(a + b)}.`); break; }
+    case 'soustraction': { const a = [exRi(3, 10), exRi(11, 20), exRi(31, 98), exRi(300, 999), exRi(2000, 9000)][lv - 1], b = exRi(1, Math.max(1, Math.floor(a * 0.8)));
+      o = R(`${exFmt(a)} − ${exFmt(b)} = ?`, a - b, [a - b + 10, a - b - 10, a - b + 1, a + b], 'Enlève d\'abord les dizaines, puis les unités.', `${exFmt(a)} − ${exFmt(b)} = ${exFmt(a - b)} : car ${exFmt(a - b)} + ${exFmt(b)} = ${exFmt(a)}.`); break; }
+    case 'table': { const n = table || [exPk([2, 5, 10]), exPk([2, 3, 4, 5, 10]), exRi(2, 9), exRi(6, 9), exRi(12, 25)][lv - 1], m = k || exRi(2, 10), [h, ex] = exTimes(n, m);
+      o = R(`${n} × ${m} = ?`, n * m, [n * (m + 1), n * (m - 1), (n + 1) * m, n + m], h, ex); break; }
+    case 'division': { const d = [2, exPk([2, 5, 10]), exRi(3, 9), exRi(3, 9), exPk([4, 6, 7, 8, 9])][lv - 1], q = [exRi(1, 10), exRi(2, 10), exRi(2, 10), exRi(11, 25), exRi(12, 40)][lv - 1];
+      o = R(`${exFmt(d * q)} ÷ ${d} = ?`, q, [q + 1, q - 1, d * q - d], `Cherche dans la table de ${d} : ${d} × ? = ${d * q}.`, `${d * q} ÷ ${d} = ${q} : car ${d} × ${q} = ${d * q}.`); break; }
+    case 'complement': { const t = [10, 20, 100, 1000, 1000][lv - 1], a = t === 10 ? exRi(1, 9) : t === 20 ? exRi(11, 19) : t === 100 ? 10 * exRi(1, 8) + exRi(1, 9) : 5 * exRi(21, 179), c = t - a;
+      o = R(`${exFmt(a)} + ? = ${exFmt(t)}`, c, [t === 100 ? c + 10 : c + 100, c - 10, c + 1, c - 1], `Va d'abord jusqu'à la dizaine suivante, puis jusqu'à ${exFmt(t)}.`, `${exFmt(a)} + ${exFmt(c)} = ${exFmt(t)}.`); break; }
+    case 'double': { const x = [exRi(1, 10), exRi(11, 30), exRi(26, 99), exRi(105, 499), exRi(500, 2500)][lv - 1];
+      o = Math.random() < 0.5 ? R(`Le double de ${exFmt(x)} ?`, 2 * x, [x % 2 ? null : x / 2, 2 * x + 10, 2 * x + 1, x + 2], `Le double, c'est ${exFmt(x)} + ${exFmt(x)}.`, `Le double de ${exFmt(x)} = ${exFmt(2 * x)} : ${exFmt(x)} + ${exFmt(x)}.`)
+        : R(`La moitié de ${exFmt(2 * x)} ?`, x, [4 * x, x + 10, x + 1, x - 1], `Cherche le nombre qui, ajouté à lui-même, fait ${exFmt(2 * x)}.`, `La moitié de ${exFmt(2 * x)} = ${exFmt(x)} : ${exFmt(x)} + ${exFmt(x)} = ${exFmt(2 * x)}.`); break; }
+    case 'mental': { const a = exRi(2, 9), b = exRi(2, 6), c = exRi(2, 6), d = exRi(1, 9);
+      o = [R(`${a} + ${b} + ${c} = ?`, a + b + c, [a + b, a + b + c + 1, a + b + c + 10], 'Ajoute deux nombres, puis le troisième.', `${a} + ${b} = ${a + b}, puis + ${c} = ${a + b + c}.`),
+        R(`${a + 10} − ${b} + ${c} = ?`, a + 10 - b + c, [a + 10 - b - c, a + 10 + b + c, a + 10 - b + c + 1], 'Calcule de gauche à droite.', `${a + 10} − ${b} = ${a + 10 - b}, puis + ${c} = ${a + 10 - b + c}.`),
+        R(`${a} + ${b} × ${c} = ?`, a + b * c, [(a + b) * c, a + b + c, a + b * c + 1], 'D\'abord les ×, ensuite les +.', `d'abord ${b} × ${c} = ${b * c}, puis ${a} + ${b * c} = ${a + b * c}.`),
+        R(`${40 + a} − ${b} × ${c} = ?`, 40 + a - b * c, [(40 + a - b) * c, 40 + a - b - c, 40 + a - b * c + 1], 'D\'abord les ×, ensuite les −.', `d'abord ${b} × ${c} = ${b * c}, puis ${40 + a} − ${b * c} = ${40 + a - b * c}.`),
+        R(`(${a + 6} − ${b}) × ${c} + ${d} = ?`, (a + 6 - b) * c + d, [a + 6 - b * c + d, (a + 6 - b) * (c + d), (a + 6 - b) * c + d + 1], 'D\'abord les parenthèses, puis ×, enfin +.', `(${a + 6} − ${b}) = ${a + 6 - b}, × ${c} = ${(a + 6 - b) * c}, + ${d} = ${(a + 6 - b) * c + d}.`)][lv - 1]; break; }
+    case 'comparaison': { const big = Math.random() < 0.5; let xs;
+      do {
+        if (lv === 4) { const i = exRi(0, 3), a = exRi(3, 8), b = exRi(1, 9), c = exRi(1, 9); xs = [i + a / 10, i + (a - 1) / 10 + b / 100, i + a / 10 + c / 1000, i + (a - 1) / 10 + b / 100 + c / 1000]; }
+        else if (lv === 5) xs = [-exRi(1, 9), -exRi(1, 9), exRi(1, 9), -exRi(1, 8) - 0.5];
+        else xs = [0, 0, 0, 0].map(() => lv === 1 ? exRi(1, 20) : lv === 2 ? exRi(10, 99) : exRi(100, 999));
+      } while (new Set(xs.map(x => exFmt(x))).size < 4);
+      const ans = big ? Math.max(...xs) : Math.min(...xs), ord = [...xs].sort((p, q) => big ? q - p : p - q);
+      o = R(`Le plus ${big ? 'grand' : 'petit'} ?`, exFmt(ans), xs.filter(x => x !== ans).map(exFmt), lv === 4 ? 'Écris-les avec autant de chiffres après la virgule.' : lv === 5 ? 'Avec les nombres négatifs, plus on est loin de zéro, plus on est petit.' : 'Compare d\'abord le nombre de chiffres.',
+        `Le plus ${big ? 'grand' : 'petit'}, c'est ${exFmt(ans)} : ${ord.map(exFmt).join(big ? ' > ' : ' < ')}.`); break; }
+    case 'suite': { const s0 = exRi(1, 9), st = [exPk([1, 2, 10]), exPk([3, 4, 5]), 2, 0, 0][lv - 1];
+      const ts = lv <= 2 ? [0, 1, 2, 3, 4].map(i => s0 + st * i) : lv === 3 ? [0, 1, 2, 3, 4].map(i => s0 * 2 ** i) : lv === 4 ? [0, 1, 2, 3, 4].map(i => (s0 + i) ** 2) : [1, s0, 1 + s0, 1 + 2 * s0, 2 + 3 * s0];
+      const last = ts[4], prev = ts[3];
+      o = R(ts.slice(0, 4).map(exFmt).join(', ') + ', ?', last, [prev + (prev - ts[2]), last + 1, last - 1], lv <= 2 ? 'On ajoute toujours le même nombre.' : lv === 3 ? 'On ajoute, ou on multiplie ?' : lv === 4 ? 'Pense à 1 × 1, 2 × 2, 3 × 3…' : 'Chaque nombre vient des deux d\'avant.',
+        lv <= 2 ? `On ajoute ${st} à chaque fois : ${prev} + ${st} = ${last}.` : lv === 3 ? `On double à chaque fois : ${prev} × 2 = ${last}.` : lv === 4 ? `Ce sont des carrés : ${s0 + 4} × ${s0 + 4} = ${last}.` : `La somme des deux d'avant : ${ts[2]} + ${prev} = ${last}.`); break; }
+    case 'probleme': { const a = exRi(6, 10 + lv * 8), b = exRi(2, a - 2), n = exRi(2, 6), m = exPk([2, 4, 5, 10]);
+      const tpl = exPk(lv < 3 ? [0, 1] : lv < 5 ? [0, 1, 2, 3] : [2, 3]);
+      o = [R(`Pixel a ${a} piles. Il en mange ${b}. Combien lui en reste-t-il ?`, a - b, [a + b, a - b + 1, a - b - 1], 'Il en enlève : c\'est une soustraction.', `${a} − ${b} = ${a - b}.`),
+        R(`Pixel a ${a} autocollants. On lui en donne ${b}. Combien en a-t-il ?`, a + b, [a - b, a + b + 1, a + b - 1], 'Il en ajoute : c\'est une addition.', `${a} + ${b} = ${a + b}.`),
+        R(`Pixel achète ${n} paquets de ${m} piles. Combien de piles en tout ?`, n * m, [n + m, n * m + m, n * m - m], 'La même quantité plusieurs fois : c\'est une multiplication.', `${n} × ${m} = ${n * m}.`),
+        R(`Pixel partage ${n * m} bonbons entre ${n} amis. Combien chacun en reçoit-il ?`, m, [n * m - n, m + 1, m - 1], 'Partager en parts égales : c\'est une division.', `${n * m} ÷ ${n} = ${m}.`)][tpl]; break; }
+    case 'heure': { const h = exRi(7, 19), mn = exPk([35, 40, 45, 50]), d = exPk([20, 25, 30]), t = h * 60 + (lv < 3 ? 0 : mn), dd = lv < 3 ? exPk([15, 30, 45]) : d + (mn + d < 60 ? 60 : 0);
+      o = lv === 5 ? R('1,5 heure, c\'est combien de minutes ?', `90${EXNB}min`, [`110${EXNB}min`, `150${EXNB}min`, `60${EXNB}min`], '0,5 h, c\'est une demi-heure.', '1 h = 60 min, et 0,5 h = 30 min : 90 min.')
+        : R(`Il est ${exHm(t)}. Dans ${dd} minutes, quelle heure est-il ?`, exHm(t + dd), [exHm(t + dd + 60), exHm(t + dd - 60), exHm(t + dd + 5), exHm(t + dd - 5)], 'Une heure = 60 minutes (pas 100 !).', `${exHm(t)} + ${dd} min = ${exHm(t + dd)}.`); break; }
+    case 'fraction': { const den = [2, 4, 3, 4, 8][lv - 1], num = lv >= 4 ? (den === 4 ? 3 : 5) : 1, x = den * exRi(2, 12), r = x / den * num;
+      o = R(num > 1 ? `Les ${num}/${den} de ${x} ?` : `${{ 2: 'La moitié', 3: 'Le tiers', 4: 'Le quart' }[den]} de ${x} ?`, r, [x / den, x - x / den, r + 1, x / 2], `Partage ${x} en ${den} parts égales${num > 1 ? `, puis prends-en ${num}` : ''}.`, `${x} ÷ ${den} = ${x / den}${num > 1 ? `, et ${num} × ${x / den} = ${r}` : ''}.`); break; }
+    case 'pourcentage': { const r = [50, exPk([50, 10]), exPk([25, 10, 20]), exPk([75, 20, 5]), exPk([15, 30, 40])][lv - 1], u = { 50: 2, 10: 10, 25: 4, 20: 5, 75: 4, 5: 20, 15: 20, 30: 10, 40: 5 }[r], x = u * exRi(2, 10), a = x * r / 100;
+      o = R(`${r} % de ${x} ?`, a, [r, x - r, x - a, a * 10], { 50: '50 %, c\'est la moitié.', 10: '10 %, c\'est diviser par 10.', 25: '25 %, c\'est le quart.' }[r] || '10 %, c\'est diviser par 10 : pars de là.',
+        `${r} % de ${x} = ${a} : ${x} × ${r} ÷ 100 = ${a}.`); break; }
+    case 'carre': { const n = [exRi(1, 5), exRi(2, 10), exRi(2, 12), exRi(11, 20), exPk([15, 25, 30, 13, 14])][lv - 1];
+      o = R(lv <= 2 ? `${n} × ${n} = ?` : `${n}² = ?`, n * n, [2 * n, n * n + n, n * n - n, (n + 1) ** 2], `${n}², c'est ${n} × ${n} (pas ${n} × 2 !).`, `${n} × ${n} = ${n * n}.`); break; }
+    default: { const pool = EXRID.filter(e => e[0] === lv), e = exPk(pool.length ? pool : EXRID); o = R(e[1], e[2], e[3], e[4], e[5]); }
+  }
+  const [answer, choices] = exChoices(o.ans, o.wrong), num = choices.every(c => /^−?[\d\s]+(?:,\d+)?(?:\smin)?$/.test(c)), hour = choices.every(c => /^\d{1,2}\sh(?:\s\d\d)?$/.test(c));
+  return { kind, niveau: lv, q: o.q, answer, choices, hint: o.hint, explication: o.ex, num, clavier: num ? 'num' : hour ? 'heure' : '' };
+}
+const EXS = { total: 0, justes: 0, serie: 0, serie_max: 0, jour: '', aujourdhui: 0, justes_jour: 0, coupes: 0, coupe_jour: '', record_chrono: 0, trophees: [], par_type: {}, niveaux: {}, niveau: 2, montee: {} };
+const EXR = { niveau: 2, auto: true, types: EXI.slice(), objectif: 5, propose: false };
+const EX = { cur: null, run: null, last: null, ev: null, again: null, ended: -1e15, id: 100, recent: [] };
+const exStop = user => { if (EX.cur) EX.ended = Date.now(); EX.cur = null; EX.run = null; if (user) EX.again = null; };   // user: « encore » is Claude's again
+const exWantsAgain = () => !!EX.cur || (!!EX.again && Date.now() - EX.ended < 120000);
+const exDay = () => { const d = new Date().toDateString(); if (EXS.jour !== d) Object.assign(EXS, { jour: d, aujourdhui: 0, justes_jour: 0 }); };
+const exLevel = k => (EXR.auto ? EXS.niveaux[k] || EXS.niveau || EXR.niveau : EXR.niveau), exG = () => (EXR.auto ? EXS.niveau || EXR.niveau : EXR.niveau);
+const exEvent = (kind, data = {}) => { EX.ev = { id: ((EX.ev && EX.ev.id) || 0) + 1, kind, t0: Date.now(), ...data }; };
+function exNext() {
+  const r = EX.run, ok = (r.pool || EXR.types).filter(k => EXL[k] && (EXMIN[k] || 1) <= exG()), last = (EX.cur || EX.last || {}).kind;
+  const kind = r.kind || exPk(ok.length > 1 ? ok.filter(k => k !== last) : ok.length ? ok : EXI), lv = r.niveau || exLevel(kind);
+  let ex; for (let i = 0; i < 8; i++) { ex = exGen(kind, lv, kind === 'table' ? r.table : null, r.ks ? r.ks[r.i % r.ks.length] : null); if (!EX.recent.includes(ex.q)) break; }
+  EX.recent = [...EX.recent, ex.q].slice(-14);
+  EX.cur = { ...ex, id: ++EX.id, mode: r.mode, t0: Date.now(), tries: 0, faux: [], hint_on: false, etat: 'question', i: r.i + 1, n: r.total, force: !!r.niveau, table: kind === 'table' ? r.table : null };
+}
+function exNouveau({ kind = null, niveau = null, mode = 'exo', n = null, table = null, source = null, pool = null } = {}) {
+  mode = ['exo', 'serie', 'table', 'chrono'].includes(mode) ? mode : 'exo'; kind = EXL[kind] ? kind : null;
+  table = table == null ? null : Math.max(2, Math.min(12, Math.trunc(num(table, 7))));
+  if (mode === 'table') { kind = 'table'; table = table || exRi(2, 9); } else if (kind !== 'table') table = null;
+  const lv = niveau == null ? null : Math.max(1, Math.min(5, Math.trunc(num(niveau, 2)))), total = mode === 'chrono' ? 0 : n ? Math.max(1, Math.min(20, Math.trunc(num(n, 5)))) : { exo: 1, serie: 5, table: 10 }[mode];
+  EX.run = { mode, kind, pool: Array.isArray(pool) ? pool : null, table, niveau: lv, total, i: 0, bons: 0, ends_at: mode === 'chrono' ? Date.now() + 60000 : 0 };
+  if (mode === 'table') EX.run.ks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].sort(() => Math.random() - 0.5);
+  EX.again = { kind, niveau: lv, mode, n, table, pool: EX.run.pool };
+  exDay(); exNext(); exEvent('propose', { mode, source: source || '' });
+  S.anim = null; S.screen = 'visage';
+}
+function exAdapt(kind, ok, clean) {
+  if (!EXR.auto || EX.cur.force) return false; let up = false;
+  for (const key of [kind, '*']) {
+    let lv = key === '*' ? exG() : exLevel(kind), n = EXS.montee[key] || 0;
+    if (ok && clean) { if (++n >= 3) { if (lv < 5) { lv++; up = up || key === kind; } n = 0; } } else if (ok) n = 0; else { lv = Math.max(1, lv - 1); n = 0; }
+    EXS.montee[key] = n; if (key === '*') EXS.niveau = lv; else EXS.niveaux[kind] = lv;
+  }
+  return up;
+}
+function exResolve(ok, value, first, passe = false) {
+  const c = EX.cur, r = EX.run; exDay(); let up = false, ev = null;
+  if (!passe) {
+    EXS.total++; EXS.aujourdhui++; const pt = EXS.par_type[c.kind] || (EXS.par_type[c.kind] = { n: 0, ok: 0 }); pt.n++;
+    if (ok) { EXS.justes++; EXS.justes_jour++; pt.ok++; }
+    if (ok && first) { EXS.serie++; EXS.serie_max = Math.max(EXS.serie_max, EXS.serie); if ([5, 10, 15, 20, 30, 40, 50, 75, 100].includes(EXS.serie)) ev = ['serie', { n: EXS.serie }]; } else EXS.serie = 0;
+    up = exAdapt(c.kind, ok, ok && first && !c.hint_on);
+    if (EXS.aujourdhui >= EXR.objectif && EXS.coupe_jour !== EXS.jour) { EXS.coupe_jour = EXS.jour; EXS.coupes++; ev = ['objectif', { objectif: EXR.objectif }]; toast(`Objectif du jour atteint : ${EXR.objectif} exos !`, 5000); }
+  } else EXS.serie = 0;
+  if (ok && r) r.bons++;
+  Object.assign(c, { etat: 'resultat', ok: !!ok, valeur: value, passe, monte: up });
+  EX.last = { id: c.id, ok: !!ok, answer: c.answer, explication: c.explication, value, kind: c.kind, q: c.q, passe, t: Date.now(), monte: up };
+  if (ev) exEvent(...ev); else if (c.mode !== 'chrono' && !passe) exEvent(ok ? 'juste' : 'faux', { essai: first ? 1 : 2, serie: EXS.serie });
+  for (const [id, lab, cond] of EXTR) if (!EXS.trophees.includes(id) && cond(EXS)) { EXS.trophees.push(id); toast(`Trophée : ${lab} !`, 5000); }
+  let wait = (c.mode === 'serie' || c.mode === 'table') && c.n > 1 ? (ok ? 2000 : 5000) : (ok ? 6000 : 11000);
+  if ((c.mode === 'serie' || c.mode === 'table') && c.i >= c.n) wait = Math.max(wait, 3000);   // the last one: his cheer ends before the summary
+  if (ev) wait = Math.max(wait, 5000);                                                           // a milestone: his celebration is not cut
+  if (c.mode === 'chrono') exAdvance(); else c.next_at = Date.now() + wait;
+}
+function exAdvance() {
+  const r = EX.run; if (!r) { exStop(); return; }
+  r.i++;
+  if (r.mode === 'chrono') return Date.now() >= r.ends_at ? exBilan() : exNext();
+  if (r.i >= r.total) { if (r.total > 1) exBilan(); else exStop(); return; }
+  exNext();
+}
+function exBilan() {
+  const r = EX.run, chrono = r.mode === 'chrono', total = chrono ? r.i : r.total, rec = EXS.record_chrono, nw = chrono && r.bons > rec;
+  if (nw) EXS.record_chrono = r.bons;
+  EX.cur = { id: ++EX.id, mode: r.mode, kind: r.kind || '', type: r.mode === 'table' ? `Table de ${r.table}` : EXL[r.kind] || 'Mélange', etat: 'bilan', bons: r.bons, total, record: chrono ? Math.max(rec, r.bons) : 0, nouveau_record: !!nw, t0: Date.now(), next_at: Date.now() + 14000 };
+  EX.run = null; exEvent('serie', { fin: true, bons: r.bons, total, chrono, record: !!nw });
+}
+function exPub() {
+  const c = EX.cur; let cur = null;
+  if (c && c.etat === 'bilan') cur = { ...c }, delete cur.next_at;
+  else if (c) {
+    cur = { id: c.id, kind: c.kind, mode: c.mode, q: c.q, choices: c.choices, num: c.num, clavier: c.clavier, t0: c.t0, tries: c.tries, faux: c.faux, niveau: c.niveau, i: c.i, n: c.n, etat: c.etat, table: c.table,
+      type: c.table ? `Table de ${c.table}` : EXL[c.kind] };
+    if (c.hint_on) cur.hint = c.hint;
+    if (c.etat === 'resultat') Object.assign(cur, { ok: c.ok, answer: c.answer, explication: c.explication, valeur: c.valeur, passe: c.passe, monte: c.monte });
+    if (EX.run && EX.run.mode === 'chrono') Object.assign(cur, { ends_at: EX.run.ends_at, left: Math.max(0, Math.ceil((EX.run.ends_at - Date.now()) / 1000)), bons: EX.run.bons });
+  }
+  const exPt = Object.fromEntries(Object.entries(EXS.par_type).map(([k, v]) => [k, [v.n, v.ok, exLevel(k)]]));
+  S.exos = { cur, last: EX.last, ev: EX.ev, niveau: exG(), reglages: { ...EXR, types: EXR.types.slice() },
+    stats: { total: EXS.total, justes: EXS.justes, serie: EXS.serie, serie_max: EXS.serie_max, aujourdhui: EXS.aujourdhui, justes_jour: EXS.justes_jour, objectif: EXR.objectif,
+      coupes: EXS.coupes, fait: EXS.coupe_jour === EXS.jour, record_chrono: EXS.record_chrono, trophees: EXS.trophees.slice(), par_type: exPt },
+    kinds: EXK.map(([id, label]) => ({ id, label })), trophees: EXTR.map(([id, label]) => ({ id, label })) };
+}
+function exAnswer(value, id = null) {                     // id: the exercise it answers; another one's (a double tap) is ignored
+  const c = EX.cur, v = String(value ?? '').trim().slice(0, 40); if (!c || c.etat !== 'question' || !v || (id != null && String(id) !== String(c.id))) return;
+  const ok = exSame(v, c.answer), pickd = c.choices.find(x => exSame(v, x)) || v;
+  if (!ok && c.faux.some(f => exSame(v, f))) return;     // a wrong answer already given
+  if (!ok && c.tries === 0 && c.mode !== 'chrono') { c.tries = 1; c.hint_on = true; c.faux.push(pickd); exEvent('faux', { essai: 1 }); return; }
+  const first = c.tries === 0; if (!ok) c.faux.push(pickd); c.tries++;
+  exResolve(ok, v, first);
+}
+function exSummary() {
+  const pct = EXS.total ? Math.round(100 * EXS.justes / EXS.total) : 0;
+  return `Aujourd'hui : ${EXS.aujourdhui} exo${EXS.aujourdhui > 1 ? 's' : ''} sur ${EXR.objectif} (${EXS.justes_jour} juste${EXS.justes_jour > 1 ? 's' : ''}). En tout : ${EXS.total}, ${pct} % de justes. Meilleure série : ${EXS.serie_max}. Record du défi chrono : ${EXS.record_chrono}.`;
+}
+Object.assign(A, {
+  'exos.nouveau': a => { exNouveau(a); exPub(); },
+  'exos.encore': () => { exNouveau(EX.again || {}); exPub(); },
+  'exos.repondre': ({ value = '', id = null } = {}) => { exAnswer(value, id); exPub(); },
+  'exos.indice': () => { if (EX.cur && EX.cur.etat === 'question') EX.cur.hint_on = true; exPub(); },
+  'exos.passer': ({ id = null, etat = null } = {}) => {
+    const c = EX.cur; if (!c || (id != null && String(id) !== String(c.id)) || (etat && etat !== c.etat)) return;   // a double tap does not skip the correction too
+    if (c.etat === 'question') exResolve(false, '', false, true); else if (c.etat === 'resultat') exAdvance(); else exStop(); exPub();
+  },
+  'exos.stop': () => { exStop(true); exPub(); },
+  'exos.reglages': ({ niveau = null, auto = null, types = null, objectif = null, propose = null } = {}) => {
+    const lv = niveau == null ? 0 : Math.max(1, Math.min(5, Math.trunc(num(niveau, 2)))); if (lv && lv !== EXR.niveau) { EXR.niveau = lv; Object.assign(EXS, { niveau: lv, niveaux: {}, montee: {} }); }
+    if (typeof auto === 'boolean') EXR.auto = auto; if (Array.isArray(types)) EXR.types = EXI.filter(k => types.includes(k)).length ? EXI.filter(k => types.includes(k)) : EXI.slice();
+    if (objectif != null) EXR.objectif = Math.max(1, Math.min(50, Math.trunc(num(objectif, 5)))); if (typeof propose === 'boolean') EXR.propose = propose; exPub();
+  },
+  'lab.exos': ({ juste = true } = {}) => { const c = EX.cur; if (!c || c.etat !== 'question') return; exAnswer(juste ? c.answer : c.choices.find(x => !exSame(x, c.answer) && !c.faux.includes(x)) || 'x'); exPub(); },
+});
+const exCmd0 = A.cmd;                                      // the typed commands: pixel/exos.py command(), first
+A.cmd = ({ text }) => {
+  const raw = String(text).slice(0, 2000).trim(), t = kw(raw).replace(/\s+/g, ' ').replace(/[ !?.]+$/, ''), c = EX.cur;
+  const go = a => { A['exos.nouveau'](a); return true; };
+  const done = (() => {
+    let m;
+    const num = /^(?:(?:la )?reponse(?: est)?|rep|=|c'est|c est)?\s*(−?-?(?:\d{1,3}(?: \d{3})+|\d+)(?:[.,]\d+)?(?:\s*h\s*\d{0,2})?)\s*(?:min|minutes|€|euros?|%|h)?$/.exec(t);
+    if (c && c.etat !== 'question' && (num || /^(?:la )?reponse\b/.test(t))) {   // open, but waiting for no answer: not Claude's either
+      toast(c.etat === 'resultat' && EX.run && c.i < c.n ? 'La question suivante arrive !' : 'Cet exo est fini. Tape « encore » pour un autre !', 3000); return true;
+    }
+    if (c && c.etat === 'question') {
+      if ((m = num)) { A['exos.repondre']({ value: m[1], id: c.id }); return true; }
+      if ((m = /^(?:la )?reponse(?: est)?\s*:?\s*(.+)$/.exec(t))) { A['exos.repondre']({ value: m[1], id: c.id }); return true; }
+      if (c.choices.some(x => exSame(t, x)) && !/^[a-z]{1,2}$/.test(t)) { A['exos.repondre']({ value: t, id: c.id }); return true; }
+      if (['indice', 'un indice', 'aide moi', 'je sais pas', 'je ne sais pas'].includes(t)) { A['exos.indice'](); return true; }
+    }
+    if (c && (['passe', 'je passe', 'passer', 'joker'].includes(t) || (c.etat !== 'question' && ['suivant', 'ok', 'la suite', 'continue'].includes(t)))) { A['exos.passer'](); return true; }
+    if (c && ['stop', 'fini', 'arrete', 'on arrete'].includes(t) && !T.running) { A['exos.stop'](); return true; }
+    if (/^(?:stop|arrete|arreter|fini|finis|termine)(?: les| l'| le)? ?(?:exo|exos|exercice|exercices|maths?)$/.test(t)) { A['exos.stop'](); return true; }
+    if (['mes scores', 'scores', 'mon score', 'mes stats', 'mes resultats', 'mes trophees'].includes(t)) { exPub(); toast(exSummary(), 9000); return true; }
+    if (['encore', 'encore un', 'encore une', 'un autre', 'une autre', 'on continue', 'on recommence'].includes(t) && exWantsAgain()) { A['exos.encore'](); return true; }
+    if ((m = /^(?:revise |la |les )?tables? (?:de |du |des )?(\d{1,2})$/.exec(t)) && +m[1] >= 2 && +m[1] <= 12) return go({ mode: 'table', table: +m[1] });
+    if (/^(?:un |le )?(?:defi chrono|defi|defi maths?|chrono maths?)$/.test(t)) return go({ mode: 'chrono' });
+    if ((m = /^(?:une |la )?serie(?: de (\d{1,2}))?(?: (?:exos|exercices|questions|calculs))?$/.exec(t))) return go({ mode: 'serie', n: +(m[1] || 5) });
+    if (/^(?:une |une petite )?question (?:de )?(?:maths?|calcul)$/.test(t)) return go({});
+    if (/^(?:une |des )?(?:enigme|enigmes|devinette|devinettes)$/.test(t)) return go({ kind: 'enigme' });
+    if (/^(?:un |des )?(?:petit )?calculs?$/.test(t)) return go({ pool: EXCALC });
+    if ((m = /^(?:un |une |des |mon |un petit |une petite )?(?:exo|exos|exercice|exercices)(?: de maths?| maths?| de calcul)?(?: (facile|difficile|dur))?$/.exec(t))) {
+      const lv = exG(); return go({ niveau: !m[1] ? null : m[1] === 'facile' ? Math.max(1, lv - 2) : Math.min(5, lv + 2) });
+    }
+    if ((m = /^(?:un |une |des )?(?:exo|exos|exercice|exercices) (?:de |d'|sur les |sur )?(.+?)$/.exec(t))) {
+      const w = { additions: 'addition', soustractions: 'soustraction', multiplications: 'table', tables: 'table', divisions: 'division', fractions: 'fraction', pourcentages: 'pourcentage',
+        carres: 'carre', enigmes: 'enigme', heures: 'heure', durees: 'heure', problemes: 'probleme', suites: 'suite', comparaisons: 'comparaison', doubles: 'double', moities: 'double',
+        complements: 'complement', 'calcul mental': 'mental' }[m[1]] || (EXL[m[1]] ? m[1] : null);
+      if (w) return go({ kind: w });
+    }
+    return false;
+  })();
+  if (!done) exCmd0({ text });
+};
+setInterval(() => {                                        // pixel/exos.py tick(): the result shown long enough, the challenge over, left alone
+  const c = EX.cur, t = Date.now(); if (!c) return;
+  if (c.mode === 'chrono' && EX.run && t >= EX.run.ends_at && c.etat !== 'bilan') exBilan();
+  else if (c.etat === 'resultat' && t >= c.next_at) exAdvance();
+  else if (c.etat === 'bilan' && t >= c.next_at) exStop();
+  else if (c.etat === 'question' && t - c.t0 > 8 * 60000) exStop();
+  else return;
+  exPub(); mark();
+}, 250);
+exPub();
+/* ---------- end of the math exercises ---------- */
+
 return {
   NAV, NAMES, THEMES, ALLT, MOODS, KINDS, ANIMS, AGROUPS, FACES, PSCENES, S, norm, row3, snapshot, findScene,
   themeName: id => TNAME[id] || id, moodName: id => MNAME[id] || id,

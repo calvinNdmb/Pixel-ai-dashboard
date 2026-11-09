@@ -288,6 +288,13 @@ const EVENTS = {
   'poche-revoila': 'Pixel de poche : le téléphone ressort de la poche',
   'nourrir-repas': 'Nourrir : il mange',                              // data.plat, data.reaction, data.rot (web/scenes/nourrir.js, pixel/nourrir.py)
   'nourrir-faim': 'Nourrir : son ventre gargouille',                  // data.niveau: 1 a little hungry, 2 very hungry
+  // the math exercises (web/exos.js, pixel/exos.py)
+  'exo-propose': 'Exos : une question commence',
+  'exo-juste': 'Exos : une bonne réponse',                         // data.essai: 1 at once, 2 on the second try
+  'exo-faux': 'Exos : une mauvaise réponse',                       // data.essai: 1 (a hint, a second try) or 2 (the correction)
+  'exo-serie': 'Exos : une belle série, ou la fin d’une série',   // data.n: right in a row; or data.fin, bons, total, chrono
+  'exo-objectif': 'Exos : l’objectif du jour est atteint',
+  'exo-attente': 'Exos : tu réfléchis depuis un moment',
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the
@@ -623,8 +630,8 @@ function paint(box, m, fn) {                         // fn(D): props drawn with 
 /* what he wears, drawn after his face, scene or not: his Santa hat all December, and in the Christmas scenes */
 const hatOn = () => new Date().getMonth() === 11 || (!!st.cur && ['neige', 'joyeux-noel'].includes(st.cur.sc.id));
 function decor(box, m) { if (hatOn()) paint(box, m, D => D.santa()); }
-function drawOver(box, m) {
-  const cur = st.cur; if (!cur) return;
+function drawOver(box, m, opt) {                    // opt.noBubble: the caller shows the line itself (web/exos.js); returns the line of the moment
+  const cur = st.cur; if (!cur) return '';
   const T = H.theme(), e = H.now() - cur.t0, sc = cur.sc, p = clamp(e / sc.dur, 0, 1);
   if (sc.props) paint(box, m, D => sc.props(D, e, p, cur.o));
   // speech bubble: the line of the moment, or a retort while sulking
@@ -633,7 +640,8 @@ function drawOver(box, m) {
   if (cur.extra && e - cur.extra.t < 1800) line = cur.extra.line;
   if (line && !CAR.parle && CAR_CHIT.includes(sc.group)) line = null;        // « Il parle » off: no chit-chat (reminders, news, his answers stay)
   if (line && line !== cur.spoke) { cur.spoke = line; if (H.onSay) try { H.onSay(line, sc.id); } catch (err) { /* his voice must never stop him */ } }
-  if (line) bubble(line, box, m, T, sc.side);
+  if (line && !(opt && opt.noBubble)) bubble(line, box, m, T, sc.side);
+  return line || '';
 }
 function bubble(text, box, m, T, side) {
   const X = H.X, c = T.c, size = T.faceFps ? 30 : 26;
