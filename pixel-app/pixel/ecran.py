@@ -2,7 +2,8 @@
 
     GET  /ecran               the sender page (web/ecran.html, with Pixel's addresses in it): « Partager mon écran »
     GET  /ecran/lanceur.html  the same page as a file to download, then open from the computer: a file:// page is a secure
-                              context, so the browser lets it share the screen without https. It holds addresses, no code.
+                              context, so the browser lets it share the screen without https. It holds addresses and the
+                              launcher's key (datadir/ecran-lanceur.key, not the access code: delete the file to change it).
     GET  /ecran/ws            the signalling WebSocket. A sender needs the one-time code shown on Pixel's screen (or the
                               access code); only Pixel's own screen (the Pi itself) can be the receiver. The server only
                               relays the offer, the answer and the ICE candidates: the picture goes straight to Pixel's screen.
@@ -15,8 +16,9 @@ the home network. The state's "cast" is then {kind: "screen", via: "webrtc" | "m
 code?, session?, src?}, drawn by web/screens.js like the other casts, without any CRT effect, and stopped like them (a touch
 on Pixel, the phone's Arrêter, another screen, another cast): this module notices and tells the computer.
 The one-time code: 6 digits, 3 minutes, 5 tries, then a new one must be asked (it shows on Pixel's screen again); a page
-stays paired while it is open. The [ecran] settings of config.toml: https_port (the optional https address), kiosk_wait,
-live_wait. AirPlay is pixel/airplay.py.
+stays paired while it is open, one that is not is closed a minute after its code. 30 wrong codes in an hour from one
+device, and that device gets no more codes for a while (the phone app's « Afficher un code » always works). The [ecran]
+settings of config.toml: https_port (the optional https address), kiosk_wait, live_wait, idle_wait. AirPlay is pixel/airplay.py.
 """
 import asyncio
 import ipaddress
@@ -25,11 +27,13 @@ import logging
 import os
 import re
 import secrets
+import socket
 import ssl
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import psutil
 from aiohttp import WSMsgType, web
 
 from .cast import has_access, local_page
@@ -38,10 +42,12 @@ log = logging.getLogger("pixel")
 CODE_S = 180                # a code lasts 3 minutes
 TRIES = 5                   # wrong codes before that code is thrown away
 SPACING = 5                 # seconds between two new codes
-MAX_FAILS = 30              # wrong codes in an hour, then no more codes for a while
+MAX_FAILS = 30              # wrong codes in an hour from one device, then no more codes for it for a while
 PAIRED_S = 60               # the "ready" card, while the computer picks what to share
 QUIET_S = 30                # a code card closed on Pixel: no new one for a page without the access code, for that long
-MAX_SOCKETS = 12
+MAX_SOCKETS = 12            # connections from other devices (Pixel's own screen is never refused)
+PER_DEVICE = 3              # connections without a code yet, from one device
+IDLE_S = 60                 # a connection without a code: closed this long after it opened, or after the code it waited for
 MAX_MSG = 256 * 1024        # an SDP is a few kilobytes
 BAD_NAME = re.compile(r"[^\w .'()+-]")
 WHY = {"mjpeg": "Pixel ne trouve pas ScreenStream sur ton téléphone. Lance-le en mode Local, sans code PIN, sur le même Wi-Fi.",
@@ -52,6 +58,29 @@ WHY = {"mjpeg": "Pixel ne trouve pas ScreenStream sur ton téléphone. Lance-le 
 
 class AddressError(ValueError):
     """Why a phone's address cannot be used, in French."""
+
+
+def device(remote):
+    """What connections and wrong codes are counted by: the device's IPv4 address, or its IPv6 /64 (a phone has many IPv6 addresses)."""
+    try:
+        ip = ipaddress.ip_address((remote or "").split("%")[0])
+    except ValueError:
+        return str(remote or "")
+    ip = getattr(ip, "ipv4_mapped", None) or ip
+    return str(ipaddress.ip_network(f"{ip}/64", strict=False)) if ip.version == 6 else str(ip)
+
+
+def own_addresses():
+    """The Pi's IP addresses, as they are now (its Wi-Fi's can change)."""
+    out = {ipaddress.ip_address("127.0.0.1"), ipaddress.ip_address("::1")}
+    for addrs in psutil.net_if_addrs().values():
+        for a in addrs:
+            if a.family in (socket.AF_INET, socket.AF_INET6):
+                try:
+                    out.add(ipaddress.ip_address(a.address.split("%")[0]))
+                except ValueError:
+                    pass
+    return out
 
 
 def clean_name(s):
@@ -84,7 +113,8 @@ def clean_ice(c):
 def phone_address(remote, typed=""):
     """(ip, port or None) of the phone's ScreenStream: the address it typed (as ScreenStream shows it, "192.168.1.23:8080"),
     or else the one its request came from. An IP address of the home network only: no name, no loopback, no IPv6 link-local
-    address (a browser cannot use one), no public address."""
+    address (a browser cannot use one), no public address. A phone seen by IPv6 is asked for the IPv4 address ScreenStream
+    shows: its own IPv6 address is often a public one, and ScreenStream may not serve it."""
     s, port = str(typed or "").strip(), None
     if s:
         if len(s) > 100:
@@ -106,8 +136,10 @@ def phone_address(remote, typed=""):
     ip = getattr(ip, "ipv4_mapped", None) or ip
     if ip.is_loopback or ip.is_unspecified:
         raise AddressError("Ce bouton marche depuis le téléphone qui partage son écran, pas depuis l'écran de Pixel.")
+    if ip.version == 6 and not s:
+        raise AddressError("Pixel voit ton téléphone par son adresse IPv6 : tape dans Adresse l'adresse IPv4 que ScreenStream affiche (192.168…).")
     if ip.version == 6 and ip.is_link_local:
-        raise AddressError("Pixel voit ton téléphone par une adresse IPv6 locale : tape l'adresse que ScreenStream affiche (192.168…).")
+        raise AddressError("Une adresse IPv6 locale (fe80…) ne s'ouvre pas dans un navigateur : tape l'adresse IPv4 que ScreenStream affiche (192.168…).")
     if ip.is_multicast or not (ip.is_private or ip.is_link_local):
         raise AddressError("Cette adresse n'est pas sur le réseau de la maison.")
     return ip, port
@@ -123,9 +155,11 @@ class Ecran:
         self.key = Path(os.path.expanduser(str(cfg.get("key") or tls / "pixel.key")))
         self.kiosk_wait = float(cfg.get("kiosk_wait", 10))       # seconds for Pixel's screen to answer
         self.live_wait = float(cfg.get("live_wait", 30))         # seconds for the first picture
+        self.idle = float(cfg.get("idle_wait", IDLE_S))          # seconds before a connection without a code is closed
+        self.launch_key = self._key(Path(datadir) / "ecran-lanceur.key")
         self.code = None            # {code, until, tries, id (of its card)}
-        self.last_code, self.fails, self.quiet = 0.0, [], 0.0    # quiet: no code for a page without the access code until then
-        self.socks = {}             # WebSocket -> {role, authed, name, t0, local, asked}
+        self.last_code, self.fails, self.quiet = 0.0, {}, 0.0    # fails: device -> times; quiet: no code for a page without the access code until then
+        self.socks = {}             # WebSocket -> {role, authed, name, t0, local, asked, who, until}
         self.sess = None            # {id, sender, kiosk, t0, live}
         self.https_on = False
         hub.s["settings"]["ecran"] = self.settings()
@@ -151,6 +185,42 @@ class Ecran:
                 hub.s["cast"] = None
             hub.toast(msg, 6000)
 
+    @staticmethod
+    def _key(f):
+        """The launcher's key: what lets a page opened from the disk (Origin: null) connect. Not the access code: it only lets
+        a page ask for a one-time code, which a sandboxed frame of any web page (Origin: null too) must not do."""
+        try:
+            k = f.read_text().strip()
+            if re.fullmatch(r"[A-Za-z0-9_-]{16,64}", k):
+                return k
+        except OSError:
+            pass
+        k = secrets.token_urlsafe(18)
+        try:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(k + "\n")
+            f.chmod(0o600)
+        except OSError as e:
+            log.warning("pas de clé du lanceur dans %s : %s", f, e)
+        return k
+
+    def own_host(self, request):
+        """The Host a browser came with is one of Pixel's names or addresses, on its port: not the name of another site that
+        leads to the Pi (DNS rebinding)."""
+        try:
+            u = urlsplit("//" + (request.host or ""))
+            name, port = (u.hostname or "").lower(), u.port or (443 if request.secure else 80)
+        except ValueError:
+            return False
+        if port not in {self.port, self.https_port} - {0}:
+            return False
+        if name in ("localhost", self.host.lower(), f"{self.host.lower()}.local"):
+            return True
+        try:
+            return ipaddress.ip_address(name) in own_addresses()
+        except ValueError:
+            return False
+
     # ---- what the phone app and the sender page are told ----
     def settings(self):
         return {"page": f"http://{self.host}.local:{self.port}/ecran", "ip_page": f"http://{self.ip}:{self.port}/ecran",
@@ -159,7 +229,8 @@ class Ecran:
     def _page(self, launcher=False):
         cfg = {**self.settings(), "origins": [f"http://{self.host}.local:{self.port}", f"http://{self.ip}:{self.port}"]}
         if launcher:                # opened from the computer's disk: where to find Pixel (by its name, else by its address)
-            cfg.update(file=True, ws=[f"ws://{self.host}.local:{self.port}/ecran/ws", f"ws://{self.ip}:{self.port}/ecran/ws"])
+            k = f"?k={self.launch_key}"
+            cfg.update(file=True, ws=[f"ws://{self.host}.local:{self.port}/ecran/ws{k}", f"ws://{self.ip}:{self.port}/ecran/ws{k}"])
         js = json.dumps(cfg, ensure_ascii=False).replace("</", "<\\/")
         return self.page_file.read_text(encoding="utf-8").replace("<!-- PIXEL:CONFIG -->", f"<script>window.PIXEL_ECRAN = {js};</script>", 1)
 
@@ -174,13 +245,19 @@ class Ecran:
     def _addr(self):
         return f"{self.host}.local:{self.port}/ecran"
 
-    def _pair(self, app=False):
+    def _locked(self, who):
+        """Too many wrong codes from this device in the last hour."""
+        t = time.time()
+        self.fails = {w: k for w, k in ((w, [f for f in k if t - f < 3600]) for w, k in self.fails.items()) if k}
+        return len(self.fails.get(who, ())) >= MAX_FAILS
+
+    def _pair(self, app=False, who=""):
         """A one-time code on Pixel's screen (the same one while it is there). None, or why not, in French.
         Asked by a page without the access code (app=False), it never covers what is cast, nor comes back at once after
-        a touch closed it on Pixel: someone on the Wi-Fi without the code cannot take Pixel's screen."""
+        a touch closed it on Pixel, nor comes for a device that typed too many wrong codes: someone on the Wi-Fi without
+        the code cannot take Pixel's screen, nor keep the others from sharing theirs."""
         t, c = time.time(), self.hub.s.get("cast")
-        self.fails = [f for f in self.fails if t - f < 3600]
-        if len(self.fails) >= MAX_FAILS:
+        if not app and self._locked(who):
             return "Trop de codes faux cette heure-ci : réessaie plus tard."
         if self.code and t < self.code["until"] and c and c.get("id") == self.code["id"]:
             return None
@@ -198,11 +275,10 @@ class Ecran:
         self.code = {"code": code, "until": t + CODE_S, "tries": 0, "id": card["id"]}
         return None
 
-    def _check(self, given):
-        """The code typed on the computer: (True, "") or (False, why)."""
+    def _check(self, given, who=""):
+        """The code typed on the computer (who: its device): (True, "") or (False, why)."""
         given = re.sub(r"\D", "", str(given or ""))[:12]
-        self.fails = [f for f in self.fails if time.time() - f < 3600]
-        if len(self.fails) >= MAX_FAILS:
+        if self._locked(who):
             return False, "Trop de codes faux cette heure-ci : réessaie plus tard."
         if not self.code or time.time() > self.code["until"]:
             return False, "Pas de code en cours : demande-en un à Pixel."
@@ -210,7 +286,7 @@ class Ecran:
             self.code = None
             return True, ""
         self.code["tries"] += 1
-        self.fails.append(time.time())
+        self.fails.setdefault(who, []).append(time.time())
         left = TRIES - self.code["tries"]
         if left > 0:
             return False, f"Ce n'est pas le bon code. Encore {left} essai{'s' if left > 1 else ''}."
@@ -263,8 +339,12 @@ class Ecran:
         elif s and not s["live"] and t - s["t0"] > self.live_wait:
             self._end("reseau", "L'image n'arrive pas jusqu'à Pixel. L'ordinateur et Pixel sont-ils sur le même réseau (pas un Wi-Fi invité) ?")
             self.hub.toast("Partage d'écran : l'image n'arrive pas.", 4000)
-        for ws, info in list(self.socks.items()):        # a page left open without a code, for 10 minutes
-            if not info["authed"] and info["role"] != "kiosk" and t - info["t0"] > 600 and not info.get("closing"):
+        for ws, info in list(self.socks.items()):        # a page without a code: closed a minute after its code (or its opening)
+            if info["authed"] or info["local"] or info.get("closing"):
+                continue
+            if info["asked"] and self.code:
+                info["until"] = max(info["until"], self.code["until"] + self.idle)
+            if t > info["until"]:
                 info["closing"] = True
                 asyncio.ensure_future(ws.close())
 
@@ -315,7 +395,9 @@ class Ecran:
         # ---- a computer (or a phone) that shares its screen ----
         if typ == "pair":
             info["asked"] = True
-            why = self._pair()
+            why = self._pair(who=info["who"])
+            if not why:
+                info["until"] = max(info["until"], self.code["until"] + self.idle)
             return await say({"type": "error", "msg": why} if why else {"type": "code", "until": self.code["until"] * 1000})
         if typ == "hello":
             if not info["authed"]:
@@ -323,7 +405,7 @@ class Ecran:
                 if isinstance(t, str) and t and secrets.compare_digest(t.encode(), self.token.encode()):
                     info["authed"] = True
                 else:
-                    ok, why = self._check(m.get("code"))
+                    ok, why = self._check(m.get("code"), info["who"])
                     if not ok:
                         return await say({"type": "bad", "msg": why, "left": TRIES - self.code["tries"] if self.code else 0})
                     info["authed"] = True
@@ -369,20 +451,32 @@ class Ecran:
         return web.Response(text=self._page(), content_type="text/html", headers={"Cache-Control": "no-cache"})
 
     async def launcher(self, request):
+        if not self.own_host(request):                  # its key, to another site's page by a name of its own (DNS rebinding)
+            raise web.HTTPForbidden(text="Télécharge le lanceur depuis pixel.local ou l'adresse IP de Pixel.")
         return web.Response(text=self._page(launcher=True), content_type="text/html",
                             headers={"Content-Disposition": 'attachment; filename="Pixel-ecran.html"', "Cache-Control": "no-store"})
 
     async def ws(self, request):
-        """The signalling. Pixel's own pages, the downloaded page (Origin: null) and programs; another site's page is refused
-        (it could not do anything without the code, but it must not even put a code on Pixel's screen)."""
-        origin = request.headers.get("Origin")
-        if origin and origin not in ("null", "file://") and urlsplit(origin).netloc.lower() != (request.host or "").lower():
+        """The signalling. Pixel's own pages (by one of its names or addresses), the downloaded launcher (Origin: null, with
+        its key) and programs (no Origin). Refused: another site's page, by its Origin or by its Host (a name of its own that
+        leads to the Pi: DNS rebinding), and a sandboxed frame of any page (Origin: null, no key). It could not do anything
+        without the code, but it must not even put a code on Pixel's screen."""
+        origin, host = request.headers.get("Origin"), (request.host or "").lower()
+        if origin in ("null", "file://"):
+            k = request.query.get("k", "")
+            if not (k and secrets.compare_digest(k.encode(), self.launch_key.encode())):
+                raise web.HTTPForbidden(text="Ce lanceur ne vient pas de ce Pixel : télécharge-le de nouveau sur sa page /ecran.")
+        elif origin and not (origin.lower() in (f"http://{host}", f"https://{host}") and self.own_host(request)):
             raise web.HTTPForbidden(text="Pas depuis une autre page que celles de Pixel.")
-        if len(self.socks) >= MAX_SOCKETS:
-            raise web.HTTPServiceUnavailable(text="Trop de connexions.")
+        local, who = local_page(request), device(request.remote)
+        if not local:                                   # Pixel's own screen always connects: only the others are counted
+            others = [i for i in self.socks.values() if not i["local"]]
+            if len(others) >= MAX_SOCKETS or sum(1 for i in others if i["who"] == who and not i["authed"]) >= PER_DEVICE:
+                raise web.HTTPServiceUnavailable(text="Trop de connexions.")
         ws = web.WebSocketResponse(heartbeat=20, max_msg_size=MAX_MSG)
         await ws.prepare(request)
-        info = {"role": "", "authed": False, "name": "", "t0": time.time(), "local": local_page(request), "asked": False}
+        t = time.time()
+        info = {"role": "", "authed": False, "name": "", "t0": t, "local": local, "asked": False, "who": who, "until": t + self.idle}
         self.socks[ws] = info
         try:
             async for msg in ws:
@@ -415,9 +509,9 @@ class Ecran:
                 raise ValueError
             ip, typed = phone_address(request.remote, d.get("address"))
         except AddressError as e:
-            return web.json_response({"ok": False, "error": str(e)}, status=400)
+            return web.json_response({"ok": False, "error": str(e), "field": "address"}, status=400)
         except (TypeError, ValueError):
-            return web.json_response({"ok": False, "error": "Le port est un nombre, 8080 par défaut."}, status=400)
+            return web.json_response({"ok": False, "error": "Le port est un nombre, 8080 par défaut.", "field": "port"}, status=400)
         host = f"[{ip}]" if ip.version == 6 else str(ip)
         src = f"http://{host}:{typed or port}/stream.mjpeg"
         self._show("connecting", "Écran du téléphone", "Connexion à ScreenStream… (mode Local, sans code PIN)", via="mjpeg", src=src)

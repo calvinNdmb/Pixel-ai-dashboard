@@ -138,6 +138,7 @@ function panel(P, send, token) {
           body: JSON.stringify({ port, address }), credentials: 'same-origin' });
         const j = await r.json().catch(() => ({}));
         say(j.ok ? "C'est sur l'écran de Pixel !" : j.error || `Erreur ${r.status}.`);
+        const f = !j.ok && j.field && $(j.field === 'port' ? 'ecranPort' : 'ecranAddr'); if (f) f.focus();   // what to type (an IPv6 phone: its IPv4 address)
       } catch (e) { say('Pixel ne répond pas. Ton téléphone est-il sur le même Wi-Fi ?'); }
     });
   }

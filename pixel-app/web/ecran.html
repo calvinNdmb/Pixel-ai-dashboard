@@ -149,7 +149,7 @@ $('copy').addEventListener('click', () => {
 /* ---------- the connection to Pixel: its own address, or (the downloaded page) its name, then its IP address ---------- */
 function connect(i = 0) {
   const list = CFG.ws && CFG.ws.length ? CFG.ws : [(location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ecran/ws'];
-  if (i >= list.length) { say("Pixel ne répond pas. L'ordinateur est-il sur le même Wi-Fi que Pixel, et Pixel allumé ?", true); show('retry'); return; }
+  if (i >= list.length) { say("Pixel ne répond pas. L'ordinateur est-il sur le même Wi-Fi que Pixel, et Pixel allumé ?" + (file ? ' Sinon, télécharge de nouveau ce lanceur sur la page /ecran de Pixel.' : ''), true); show('retry'); return; }
   say('Connexion à Pixel…');
   let w, up = false;
   try { w = new WebSocket(list[i]); } catch (e) { connect(i + 1); return; }

@@ -3,16 +3,19 @@
 // - Pixel's screen (the kiosk, ?kiosk=1 from 127.0.0.1) and a computer's page (/ecran) whose getDisplayMedia gives a test
 //   pattern (a canvas stream: red, green, blue and white bands, a moving square);
 // - pairing with the one-time code (read from the state, like the phone app shows it); the WebRTC picture drawn on Pixel's
-//   canvas in its true colours with no CRT effect (no scanlines, no grain on the black bars), at 60 im/s; then the stops:
+//   canvas in its true colours with no CRT effect (no scanlines, no grain on the black bars), 30 im/s at most, as its
+//   pictures come; then the stops:
 //   from the computer, from the phone, by a tap on Pixel, by closing the computer's page; wrong codes; the access code;
 // - the downloaded launcher, opened as file://: a secure context, it finds Pixel by its address and pairs too;
+// - another site's page on this machine gets nothing without the code: a sandboxed frame (Origin: null) on /ws and
+//   /ecran/ws, and a name of its own that leads to Pixel (DNS rebinding, here Chromium's --host-resolver-rules);
 // - Android: a fake ScreenStream (MJPEG, portrait) on this machine, shown on Pixel's screen from the phone's own address,
 //   its download ended with the cast; a phone without ScreenStream gets a clear message.
 // Screenshots go to $PIXEL_SHOTS (default: a folder in the system's temp folder), never into the repo.
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const fs = require('fs'), os = require('os'), path = require('path'), http = require('http'), net = require('net');
-const APP = path.join(__dirname, '..'), PORT = 8153, MJPEG = 8154, TOKEN = 'le-code-de-test';
+const APP = path.join(__dirname, '..'), PORT = 8153, MJPEG = 8154, EVIL = 8156, TOKEN = 'le-code-de-test';
 const SHOTS = process.env.PIXEL_SHOTS || path.join(os.tmpdir(), 'pixel-ecran-shots');
 let fails = 0;
 const check = (name, ok, info = '') => { console.log((ok ? 'OK   ' : 'FAIL ') + name + (!ok && info ? `  [${info}]` : '')); if (!ok) fails++; };
@@ -74,8 +77,9 @@ const after = page => page.evaluate(() => getComputedStyle(document.getElementBy
   fs.mkdirSync(SHOTS, { recursive: true });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-ecran-'));
   const srv = await startServer(dir);
-  const browser = await chromium.launch({ args: ['--proxy-server=direct://'] });   // the house's network, straight (a proxy set here would take the WebSockets)
-  let mj = null;
+  const browser = await chromium.launch({ args: ['--proxy-server=direct://',   // the house's network, straight (a proxy set here would take the WebSockets)
+    '--host-resolver-rules=MAP evil.example 127.0.0.1'] });                      // another site's name that leads to Pixel (DNS rebinding)
+  let mj = null, evil = null;
   try {
     const ph = phone(); await ph.ready;
     check('state: the screen-sharing addresses for the phone app, AirPlay off', ph.state.settings.ecran && /\/ecran$/.test(ph.state.settings.ecran.page) && ph.state.airplay && ph.state.airplay.status === 'off', JSON.stringify([ph.state.settings.ecran, ph.state.airplay]));
@@ -107,12 +111,18 @@ const after = page => page.evaluate(() => getComputedStyle(document.getElementBy
     check('the capture asks for 1280 x 720 at 30 im/s at most', asked && asked.video.width.max === 1280 && asked.video.height.max === 720 && asked.video.frameRate.max === 30, JSON.stringify(asked));
     const shown = await until(() => kiosk.evaluate(() => Screens.cast.ready && Screens.cast.playing), 10000);
     await sleep(1200);
-    check('Pixel draws the computer\'s picture from its <video>, at 60 im/s', shown && await kiosk.evaluate(() => Screens.local.fpsWant === 60));
+    check('Pixel draws the computer\'s picture from its <video>, 30 im/s at most, as its pictures come (requestVideoFrameCallback)',
+      shown && !!(await until(() => kiosk.evaluate(() => Screens.local.fpsWant <= 30 && Screens.cast.frames), 4000)), await kiosk.evaluate(() => [Screens.local.fpsWant, Screens.cast.frames].join()));
     const [red, green, blue, white] = await px(kiosk, [[100, 120], [300, 120], [500, 120], [700, 120]]);
     const near = (c, want) => c.every((v, i) => Math.abs(v - want[i]) < 60);
     check('true colours on Pixel: red, green, blue and white stay so (no green tint)', near(red, [255, 0, 0]) && near(green, [0, 255, 0]) && near(blue, [0, 0, 255]) && near(white, [255, 255, 255]), JSON.stringify([red, green, blue, white]));
     check('no CRT effect over it: the black bar above the picture is pure black, the scanlines hidden', (await barDirt(kiosk)) === 0 && (await after(kiosk)) === 'none' && await kiosk.evaluate(() => document.getElementById('screen').classList.contains('casting')), `${await barDirt(kiosk)} ${await after(kiosk)}`);
     check("the computer's page says it is on Pixel", /sur Pixel/.test(await pc.textContent('#msg')), await pc.textContent('#msg'));
+    const calm = await until(() => kiosk.evaluate(() => Screens.cast.peek === 0 && Screens.local.fpsWant === 10), 12000);
+    const square = async () => (await px(kiosk, Array.from({ length: 70 }, (_, i) => [10 + i * 11, 305]))).findIndex(c => c[0] + c[1] + c[2] < 60);
+    const sq1 = await square(); await sleep(700); const sq2 = await square();
+    check('... once the little Pixel has gone (10 im/s asked), the picture still follows the computer, frame by frame', calm && sq1 >= 0 && sq2 >= 0 && sq1 !== sq2,
+      `${await kiosk.evaluate(() => Screens.local.fpsWant)} ${sq1} ${sq2}`);
     await kiosk.screenshot({ path: path.join(SHOTS, 'ecran-kiosk-pc.png') });
     await pc.screenshot({ path: path.join(SHOTS, 'ecran-pc-page.png') });
 
@@ -177,6 +187,32 @@ const after = page => page.evaluate(() => getComputedStyle(document.getElementBy
       await lp.close();
     } else console.log('SKIP launcher: no network address here');
 
+    // ---- another site's page on this machine, without the code ----
+    const probe = `const out = {}, go = (k, url, m) => new Promise(r => { let w; try { w = new WebSocket(url); } catch (e) { out[k] = 'refused'; return r(); }
+      w.onopen = () => { out[k] = 'open'; w.send(m); setTimeout(r, 600); }; w.onerror = () => { out[k] = out[k] || 'refused'; r(); }; });`;
+    const tries = host => `Promise.all([go('ws', 'ws://${host}/ws', JSON.stringify({ action: 'cast.text', args: { text: 'piège' } })), go('ecran', 'ws://${host}/ecran/ws', JSON.stringify({ type: 'pair' }))])`;
+    evil = http.createServer((req, res) => {          // a page with a sandboxed frame: its WebSockets come with Origin: null
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!doctype html><iframe sandbox="allow-scripts" srcdoc="<script>${probe} ${tries('127.0.0.1:' + PORT)}.then(() => parent.postMessage(out, '*'));</script>"></iframe>`
+        + "<script>addEventListener('message', e => { window.__res = e.data; });</script>");
+    }).listen(EVIL, '127.0.0.1');
+    await sleep(5200);                                // codes are spaced: a code now would be this page's
+    const ectx = await browser.newContext(), ep = await ectx.newPage();
+    await ep.goto(`http://127.0.0.1:${EVIL}/`);
+    const res = await until(() => ep.evaluate(() => window.__res), 5000);
+    await sleep(300);
+    check("a sandboxed frame on another site's page (Origin: null): refused on /ws and /ecran/ws, nothing cast, no code",
+      res && res.ws === 'refused' && res.ecran === 'refused' && !(ph.state.cast && (ph.state.cast.text === 'piège' || ph.state.cast.phase === 'code')), JSON.stringify([res, ph.state.cast]));
+    const rp = await ectx.newPage();
+    await rp.goto(`http://evil.example:${PORT}/ecran`);   // Pixel answers it, under that name: its own page asks for a code at once
+    const rres = await rp.evaluate(`(async () => { ${probe} await ${tries('evil.example:' + PORT)}; return out; })()`);
+    await sleep(500);
+    check('another site\'s name that leads to Pixel (DNS rebinding): refused on /ws and /ecran/ws, nothing cast, no code',
+      rres.ws === 'refused' && rres.ecran === 'refused' && !(ph.state.cast && (ph.state.cast.text === 'piège' || ph.state.cast.phase === 'code')), JSON.stringify([rres, ph.state.cast]));
+    const lr = await rp.evaluate(() => fetch('/ecran/lanceur.html').then(r => r.status));
+    check('... nor can it download the launcher (its key)', lr === 403, String(lr));
+    await ectx.close();
+
     // ---- the help, where the page cannot share (plain http from another machine) ----
     const hctx = await browser.newContext(); const hp = await hctx.newPage();
     await hp.addInitScript(() => { Object.defineProperty(window, 'isSecureContext', { get: () => false }); });
@@ -216,7 +252,7 @@ const after = page => page.evaluate(() => getComputedStyle(document.getElementBy
     ph.ws.close();
   } catch (e) { console.log('CRASH', e && e.stack || e); fails++; }
   finally {
-    await browser.close(); srv.kill(); if (mj) mj.close();
+    await browser.close(); srv.kill(); if (mj) mj.close(); if (evil) evil.close();
     fs.rmSync(dir, { recursive: true, force: true });
   }
   console.log(`\n${fails} failure(s)   (screenshots: ${SHOTS})`);

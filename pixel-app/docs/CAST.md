@@ -115,7 +115,7 @@ keep = 8          # les derniers fichiers gardés, à réafficher
 ### Sécurité
 
 - **Le même code d'accès** que le reste de l'appli : `?t=`, l'en-tête `X-Pixel-Token`, ou le cookie que pose l'appli (`SameSite=Strict` : une page d'un autre site ne l'envoie jamais). Seul le Pi lui-même passe sans code. Et seulement les appareils de la maison, comme avant.
-- **Une page d'un autre site affichée sur le Pi** (le lecteur YouTube) n'est pas Pixel : elle n'a pas accès au WebSocket ni au cast sans le code.
+- **Une page d'un autre site affichée sur le Pi** (le lecteur YouTube, ses publicités) n'est pas Pixel : elle n'a pas accès au WebSocket ni au cast sans le code. Ni depuis un cadre « sandbox » (`Origin: null`), ni par un nom à elle qui mène au Pi (« DNS rebinding ») : sans le code, seule la page de Pixel ouverte par `localhost`, `127.0.0.1` ou `[::1]` passe.
 - **Les fichiers :** leur type vient de leurs premiers octets, jamais de leur nom. Un fichier qui n'est pas une image ou une vidéo est refusé tout de suite. Ils arrivent sur la carte SD au fil de l'envoi, s'arrêtent à la limite de taille, et prennent un nom tiré au sort dans `~/.config/pixel/cast/`. Seuls les 8 derniers restent.
 - **Les liens :** le serveur n'en ouvre **aucun**. Sinon, quiconque peut caster pourrait fouiller le réseau de la maison depuis le Pi. Une image ou une vidéo en lien est chargée par le navigateur de l'écran, comme sur n'importe quelle page. YouTube et Vimeo jouent dans leur propre lecteur. Une autre page n'est jamais ouverte sur le Pi : juste une carte avec un QR code.
 
@@ -139,7 +139,7 @@ Pixel montre **en direct** l'écran d'un ordinateur, d'un téléphone ou d'une t
 
 ### Depuis un ordinateur
 
-1. Sur l'ordinateur, ouvre **`http://pixel.local:8080/ecran`**. (Ou l'adresse IP du Pi, avec `/ecran` au bout. L'appli du téléphone l'affiche dans **Caster sur Pixel → Partager un écran**.)
+1. Sur l'ordinateur, ouvre **`http://pixel.local:8080/ecran`**. (Ou l'adresse IP du Pi, avec `/ecran` au bout. L'appli du téléphone l'affiche dans **Caster sur Pixel → Partager un écran**.) Un autre nom, comme celui que la box donne au Pi (`pixel.home`…), est refusé : c'est ce qui empêche un autre site de se faire passer pour Pixel.
 2. Pixel affiche un **code à 6 chiffres**. Tape-le dans la page, puis **Valider**. Le bouton **Afficher un code** de l'appli du téléphone en affiche un aussi, sur Pixel et sur le téléphone.
 3. Touche **Partager mon écran**. Le navigateur demande quoi partager : un onglet, une fenêtre ou tout l'écran. L'image arrive sur Pixel en une ou deux secondes.
    - **Fluide** pour une vidéo ou un jeu, **Net** pour du texte ou des diapos.
@@ -152,7 +152,7 @@ Tant que la page reste ouverte, elle reste reconnue : pour partager une autre fe
 
 Les navigateurs ne partagent l'écran que depuis une adresse **sécurisée** : en https, ou un fichier ouvert depuis le disque. Or Pixel répond en `http://`. Sur `http://pixel.local:8080/ecran`, la page le voit et propose trois façons, de la plus simple à la plus technique :
 
-1. **Le lanceur (conseillé).** Le bouton **Télécharger le lanceur** donne un fichier `Pixel-ecran.html`. Ouvre-le d'un double-clic : il s'ouvre dans le navigateur, depuis le disque, et ça suffit pour partager l'écran. Il trouve Pixel par son nom, sinon par son adresse IP. Garde-le, sur le bureau par exemple : il resservira. Il ne contient aucun code secret. Si Chrome demande s'il faut garder le fichier, choisis **Conserver**.
+1. **Le lanceur (conseillé).** Le bouton **Télécharger le lanceur** donne un fichier `Pixel-ecran.html`. Ouvre-le d'un double-clic : il s'ouvre dans le navigateur, depuis le disque, et ça suffit pour partager l'écran. Il trouve Pixel par son nom, sinon par son adresse IP. Garde-le, sur le bureau par exemple : il resservira. Il ne contient pas le code d'accès, seulement une clé à lui, qui lui permet de demander un code à Pixel. Si Chrome demande s'il faut garder le fichier, choisis **Conserver**.
 2. **L'adresse https de Pixel.** `install.sh` a fait un certificat dans `~/.config/pixel/tls/`. Pour l'ouvrir, ajoute `https_port = 8443` sous `[ecran]` dans `config.toml`, puis `sudo systemctl restart pixel@$USER`. Ouvre `https://pixel.local:8443/ecran`. Le navigateur prévient que « la connexion n'est pas privée » : c'est normal, le certificat est fait par Pixel. **Paramètres avancés → Continuer vers pixel.local**. Chrome le redemande une fois par semaine. C'est aussi l'adresse pour Safari sous iOS 27.
 3. **Le réglage de Chrome ou d'Edge**, en dernier recours. Ouvre `chrome://flags/#unsafely-treat-insecure-origin-as-secure` (Edge : `edge://flags/#unsafely-treat-insecure-origin-as-secure`). Colle les adresses de Pixel que la page affiche (`http://pixel.local:8080,http://192.168.1.42:8080`), choisis **Enabled**, puis **Relaunch**. Si l'adresse IP du Pi change, il faut la remettre.
 
@@ -167,11 +167,11 @@ Les navigateurs ne partagent l'écran que depuis une adresse **sécurisée** : e
 
 Chrome sur Android ne sait pas partager l'écran. L'appli libre **ScreenStream** le fait, et Pixel affiche ce qu'elle diffuse.
 
-1. Installe **ScreenStream** (F-Droid ou Play Store). Choisis le mode **Local (MJPEG)**. Dans ses réglages, laisse le **code PIN** désactivé.
+1. Installe **ScreenStream** (F-Droid ou Play Store). Choisis le mode **Local (MJPEG)**. Dans ses réglages, laisse le **code PIN** désactivé. Dans ses réglages d'image, réduis sa taille à peu près à celle de l'écran de Pixel (800 × 480) : le Pi décode chaque image, et une image plus grande ne se voit pas mieux.
 2. Touche **Démarrer**, et accepte qu'elle enregistre l'écran.
 3. Dans l'appli de Pixel, sur ce même téléphone : **Caster sur Pixel → Afficher l'écran du téléphone**. Pixel trouve l'adresse du téléphone tout seul.
    - Si ScreenStream utilise un autre port que 8080, change **Port**.
-   - Si Pixel ne trouve pas le téléphone (par exemple s'il le voit par une adresse IPv6), tape dans **Adresse** celle que ScreenStream affiche (`192.168.1.23:8080`).
+   - Si Pixel voit le téléphone par une adresse IPv6 (c'est souvent le cas avec les box françaises), il le dit et demande l'adresse : tape dans **Adresse** celle que ScreenStream affiche (`192.168.1.23:8080`). Pareil si Pixel ne trouve pas le téléphone.
 4. **Pour arrêter :** **Arrêter** dans l'appli, ou touche l'écran de Pixel. Arrête aussi ScreenStream sur le téléphone.
 
 C'est l'écran de Pixel qui charge l'image (`http://<le téléphone>:8080/stream.mjpeg`). Le serveur de Pixel ne s'y connecte jamais. Pas de son, et un peu de retard : c'est une suite d'images JPEG.
@@ -199,7 +199,7 @@ C'est l'écran de Pixel qui charge l'image (`http://<le téléphone>:8080/stream
 **Bon à savoir :**
 
 - Pas de service à créer : Pixel lance UxPlay lui-même. Il attend que le bureau (Wayland) soit là, le relance s'il plante, et l'arrête avec lui. L'appli du téléphone dit où il en est : **prêt**, **connecté**, **pas installé**…
-- Ses options : `-n Pixel -nh -fs -vs waylandsink -s 1280x720@60 -fps 30 -p -reset 5 -nohold -srgb no -pin -hls`. Sur un Pi 4, `args = ["-bt709"]` si les couleurs sont fausses, `["-avdec"]` si la vidéo bloque.
+- Ses options : `-n Pixel -nh -fs -vs waylandsink -s 1280x720@60 -fps 30 -p -reset 5 -nohold -nofreeze -srgb no -pin -hls`. Avec `-nofreeze`, un iPhone perdu (le Wi-Fi coupé) ne laisse pas sa dernière image en plein écran par-dessus Pixel ; et Pixel relance alors UxPlay. Sur un Pi 4, `args = ["-bt709"]` si les couleurs sont fausses, `["-avdec"]` si la vidéo bloque.
 - Ses ports : TCP 7000, 7001, 7100 et UDP 6000, 6001, 7011. Pi OS n'a pas de pare-feu par défaut. L'iPhone trouve Pixel par Bonjour (`avahi-daemon`, déjà sur Pi OS) : sur un Wi-Fi invité, il ne le voit pas.
 - Les vidéos protégées (Netflix, Apple TV+…) restent noires.
 - Un service systemd à toi plutôt que Pixel ? Laisse `enabled = false` et crée un service **utilisateur** (`~/.config/systemd/user/pixel-uxplay.service`, avec `Environment=WAYLAND_DISPLAY=wayland-0` et la ligne `ExecStart` de UxPlay, puis `systemctl --user enable --now pixel-uxplay`). Mais alors Pixel ne sait pas quand un iPhone se connecte, et ne passe pas en mode cast.
@@ -223,7 +223,7 @@ pin = true
 
 ### Pour les curieux : comment ça marche
 
-- **WebRTC :** la page de l'ordinateur capture l'écran (`getDisplayMedia`) et l'envoie directement à l'écran de Pixel : Chromium, sur `http://localhost`, qui est une adresse sécurisée. Le serveur ne voit pas l'image. Il relaie seulement la mise en relation sur `/ecran/ws` : l'offre, la réponse, les candidats ICE. Pas de serveur STUN : sur le Wi-Fi de la maison, ce n'est pas utile. H.264 d'abord (le Pi 4 le décode avec sa puce, le Pi 5 avec le processeur), 1280 × 720 et 30 images par seconde au plus. L'écran de Pixel dessine la vidéo 60 fois par seconde.
+- **WebRTC :** la page de l'ordinateur capture l'écran (`getDisplayMedia`) et l'envoie directement à l'écran de Pixel : Chromium, sur `http://localhost`, qui est une adresse sécurisée. Le serveur ne voit pas l'image. Il relaie seulement la mise en relation sur `/ecran/ws` : l'offre, la réponse, les candidats ICE. Pas de serveur STUN : sur le Wi-Fi de la maison, ce n'est pas utile. H.264 d'abord (le Pi 4 le décode avec sa puce, le Pi 5 avec le processeur), 1280 × 720 et 30 images par seconde au plus. L'écran de Pixel la dessine 30 fois par seconde au plus, et seulement quand une nouvelle image arrive (`requestVideoFrameCallback`) : un bureau immobile ne coûte presque rien au Pi.
 - **Routes :** `GET /ecran` (la page), `GET /ecran/lanceur.html` (le lanceur à télécharger), `GET /ecran/ws` (la mise en relation), `POST /ecran/telephone` (`{port, address}` : ScreenStream).
 - **Messages de `/ecran/ws` :** l'ordinateur envoie `pair` (un code sur Pixel), `hello` (`code` ou `t`, et `name`), `start`, `offer`, `ice`, `stop`. L'écran de Pixel envoie `kiosk` (`session`), `answer`, `ice`, `live`, `fail`. Le serveur répond `code`, `code-off`, `ok`, `bad`, `ready`, `offer`, `answer`, `ice`, `live`, `stopped` (`why`, `msg`) et `error`.
 - **Actions WebSocket :** `ecran.code` (un code, depuis l'appli), `ecran.fail` (l'écran de Pixel n'y arrive pas), `airplay.stop`. `cast.stop` arrête tout.
@@ -232,11 +232,12 @@ pin = true
 
 ### Sécurité
 
-- **Le code à usage unique :** 6 chiffres, sur l'écran de Pixel (et dans l'appli du téléphone, qui a déjà le code d'accès), valables 3 minutes. 5 essais, puis il faut en demander un autre. Un nouveau code au plus toutes les 5 secondes, et plus aucun après 30 codes faux dans l'heure. Il faut donc **voir l'écran de Pixel** pour y partager le sien. Sans ce code, ou le code d'accès de l'appli, le serveur ne relaie rien. Et une page sans le code d'accès ne peut faire afficher un code que si rien n'est casté, ni dans les 30 secondes après qu'on l'a fermé sur Pixel : quelqu'un du Wi-Fi ne peut pas prendre l'écran de Pixel.
+- **Le code à usage unique :** 6 chiffres, sur l'écran de Pixel (et dans l'appli du téléphone, qui a déjà le code d'accès), valables 3 minutes. 5 essais, puis il faut en demander un autre. Un nouveau code au plus toutes les 5 secondes. Après 30 codes faux dans l'heure, l'appareil qui les a tapés n'a plus de code pour un moment (en IPv6, compté par son réseau /64) ; les autres en ont toujours, et le bouton **Afficher un code** de l'appli marche toujours. Il faut donc **voir l'écran de Pixel** pour y partager le sien. Sans ce code, ou le code d'accès de l'appli, le serveur ne relaie rien. Et une page sans le code d'accès ne peut faire afficher un code que si rien n'est casté, ni dans les 30 secondes après qu'on l'a fermé sur Pixel : quelqu'un du Wi-Fi ne peut pas prendre l'écran de Pixel.
 - **Seul l'écran de Pixel reçoit l'image :** le rôle de récepteur n'est accepté que du Pi lui-même, depuis la page de Pixel.
-- **Une page d'un autre site** ne peut même pas se connecter à `/ecran/ws`, ni faire afficher un code. Seuls les pages de Pixel, le lanceur ouvert depuis le disque et les programmes sont acceptés.
-- **Le lanceur** ne contient aucun secret : seulement les adresses de Pixel.
-- **ScreenStream :** l'adresse du téléphone doit être une adresse IP de la maison : pas un nom, pas le Pi lui-même, pas Internet. C'est l'écran de Pixel qui charge le flux, jamais le serveur.
+- **Une page d'un autre site** ne peut même pas se connecter à `/ecran/ws`, ni faire afficher un code : ni par son adresse (son `Origin`), ni par un nom à elle qui mène au Pi (le « DNS rebinding » : Pixel ne répond qu'à `pixel.local`, `pixel`, `localhost` et ses adresses IP), ni depuis un cadre « sandbox » (`Origin: null`, comme le lanceur, mais sans sa clé). Seuls les pages de Pixel, le lanceur ouvert depuis le disque et les programmes sont acceptés.
+- **Les connexions :** au plus 3 sans code par appareil (12 en tout), fermées une minute après leur code, ou après une minute sans en demander. L'écran de Pixel n'est jamais compté : il se connecte toujours.
+- **Le lanceur** ne contient pas le code d'accès : seulement les adresses de Pixel et une clé à lui (`~/.config/pixel/ecran-lanceur.key`), qui ne sert qu'à demander un code. Pour la changer, efface ce fichier et redémarre Pixel : les anciens lanceurs ne marchent plus, il faut le retélécharger.
+- **ScreenStream :** l'adresse du téléphone doit être une adresse IP de la maison : pas un nom, pas le Pi lui-même, pas Internet. Un téléphone vu en IPv6 doit taper son adresse IPv4. C'est l'écran de Pixel qui charge le flux, jamais le serveur.
 - **AirPlay :** avec `pin = true`, l'iPhone doit taper le code affiché par Pixel. Sans lui, n'importe quel appareil du Wi-Fi pourrait s'afficher.
 - **La vraie adresse du Pi** n'est donnée qu'à la page de Pixel (`http://localhost:8080`), pas aux autres sites que l'écran peut montrer (le lecteur YouTube).
 
@@ -246,7 +247,7 @@ Tout a été testé sur un ordinateur : `test_ecran.py` (le serveur), `test_ecra
 
 - **WebRTC :** le décodage sur le Pi 4 (avec sa puce ? `chrome://webrtc-internals`, `decoderImplementation`) et le processeur du Pi 5 en 720p ; le vrai retard ; le lanceur ouvert sous Windows 11, avec Chrome et Edge (l'avertissement de téléchargement, `pixel.local` sous Windows) ; Firefox et Safari ; la règle `pixel-ecran.json` avec le Chromium de Pi OS.
 - **AirPlay :** UxPlay 1.73.7 compilé sur Bookworm ; sa fenêtre plein écran **au-dessus** de Chromium sous labwc (si elle reste derrière, une règle de fenêtre de labwc peut la mettre devant) ; le nom du socket Wayland (`wayland-0`) ; les lignes qu'écrit UxPlay avec un vrai iPhone (celles des tests viennent de son code source) ; `-hls` avec l'appli YouTube.
-- **ScreenStream :** le nombre d'images par seconde sur le Wi-Fi de la maison ; un téléphone vu en IPv6.
+- **ScreenStream :** le nombre d'images par seconde sur le Wi-Fi de la maison, et ce que coûte au Pi le décodage de ses images JPEG (sinon : poser l'image au-dessus du canevas, redimensionnée par le navigateur) ; un téléphone vu en IPv6.
 - **iOS 27 :** Safari et `getDisplayMedia`.
 
 ---

@@ -464,11 +464,12 @@ function drawBanner() {
    The picture keeps its true colours, sharp, letterboxed on black: while anything is cast, no CRT effect in any theme
    (frame(): no theme.fg, and the "casting" class hides the page's scanlines, style.css); all of it is back when it ends.
    A little Pixel peeks in from the corner and reacts. A shared screen (kind "screen": a computer by WebRTC, Android with
-   ScreenStream, AirPlay) is received by ecran.js, and drawn here like a video.
+   ScreenStream, AirPlay) is received by ecran.js, and drawn here like a video, but 30 times a second at most (what the
+   computer sends) and, where the browser tells when a new picture comes (requestVideoFrameCallback), only then.
    A video plays in a hidden <video>, drawn every frame (60 im/s: wantFps); a GIF is decoded frame by frame (ImageDecoder:
    a canvas only ever draws the first frame of a GIF); YouTube and Vimeo play in their own player over the canvas, on
    Pixel's screen only (a phone shows a card). The sound plays on Pixel's screen only (kiosk.sh lets it start alone). */
-const CA = { id: null, kind: '', t: 0, img: null, vid: null, gif: null, frame: null, ifr: null, err: '', ended: false, peek: 0, fps: 0 };   // fps: ecran.js's own rate
+const CA = { id: null, kind: '', t: 0, img: null, vid: null, gif: null, frame: null, ifr: null, err: '', ended: false, peek: 0, fps: 0, rvfc: false };   // fps: ecran.js's own rate
 const PEEK = PackPlayer(), PEEKLIFE = PixelLife();
 const EMB = { x: 16, y: 58, w: 584, h: 328 };          // where YouTube and Vimeo play (16:9), Pixel beside them
 const caps = s => T.upper ? s.toUpperCase() : s;
@@ -487,8 +488,16 @@ function castLoad(c) {                // a new cast: its picture, its animation,
   if (c.kind === 'gif') castGif(c);
   else if (c.kind === 'video') castVideo(c);
   else if (c.kind === 'link' && c.embed && L.kiosk) castFrame(c);
-  else if (c.kind === 'screen' && window.PixelEcran) window.PixelEcran.open(c, CA, { kiosk: L.kiosk, send, redraw: () => { L.dirty = true; },
-    muted: !!(SON() && SON().on && SON().volume === 0) });   // a shared screen: its <video> or <img> lands in CA.vid / CA.img
+  else if (c.kind === 'screen' && window.PixelEcran) {
+    window.PixelEcran.open(c, CA, { kiosk: L.kiosk, send, redraw: () => { L.dirty = true; },
+      muted: !!(SON() && SON().on && SON().volume === 0) });   // a shared screen: its <video> or <img> lands in CA.vid / CA.img
+    castFrames(c.id);
+  }
+}
+function castFrames(id) {             // a shared screen: drawn when a new picture comes (the computer sends fewer when nothing moves)
+  const v = CA.vid; if (!v || typeof v.requestVideoFrameCallback !== 'function') return;
+  const next = () => { if (CA.id !== id || CA.vid !== v) return; L.dirty = true; v.requestVideoFrameCallback(next); };
+  CA.rvfc = true; v.requestVideoFrameCallback(next);
 }
 async function castGif(c) {
   const id = c.id;
@@ -546,7 +555,7 @@ function castDrop() {                 // the cast is over: its video, its decode
   try { if (CA.gif) CA.gif.dec.close(); if (CA.frame) CA.frame.close(); } catch (e) { /* already closed */ }
   if (CA.ifr) CA.ifr.remove();
   if (CA.id && L.kiosk) L.lastInput = now;
-  Object.assign(CA, { id: null, kind: '', img: null, vid: null, gif: null, frame: null, ifr: null, err: '', peek: 0, fps: 0 });
+  Object.assign(CA, { id: null, kind: '', img: null, vid: null, gif: null, frame: null, ifr: null, err: '', peek: 0, fps: 0, rvfc: false });
 }
 function castSync() {                 // every frame: what is cast now (null: nothing, or Pixel is starting up)
   const c = L.boot >= 0 ? null : castLive();
@@ -567,7 +576,8 @@ function castMedia(c) {               // a photo, a GIF, a video or a shared scr
   if (!s) { glow(); txt(CA.err ? caps("Impossible de l'afficher") : caps('Chargement') + '.'.repeat(1 + Math.floor(now / 400) % 3), 400, 214, 36, CA.err ? AM : D, 'center'); return; }
   const [src, w, h] = s, k = Math.min(W / w, H / h), r = { w: w * k, h: h * k };
   r.x = (W - r.w) / 2; r.y = (H - r.h) / 2;
-  X.imageSmoothingEnabled = true; X.imageSmoothingQuality = 'high'; X.drawImage(src, r.x, r.y, r.w, r.h);
+  X.imageSmoothingEnabled = true; X.imageSmoothingQuality = !(CA.vid || c.kind === 'screen') ? 'high' : k < 0.5 ? 'medium' : 'low';   // a moving picture: cheaper on the Pi
+  X.drawImage(src, r.x, r.y, r.w, r.h);
   if (CA.vid && CA.vid.duration > 0 && CA.vid.duration < Infinity) { X.globalAlpha = 0.8; X.fillStyle = D; X.fillRect(0, H - 3, W * CA.vid.currentTime / CA.vid.duration, 3); X.globalAlpha = 1; }   // how far the video is
   glow();
 }
@@ -718,8 +728,10 @@ Object.assign(L, { full: typeof location !== "undefined" && /[?&]fps=full\b/.tes
 function fast(ms = 150) { L.fastUntil = Math.max(L.fastUntil, realNow() + ms); }
 function wantFps() {
   const r = realNow();
-  if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (PV.id && L.scr === 'visage') || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
-  if (CA.id) return CA.vid || CA.gif || now - CA.t < 1500 ? 60 : CA.fps || Math.min(T.faceFps || 30, 30);   // a cast: a video, a GIF, a shared screen at full speed
+  if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (PV.id && L.scr === 'visage' && !CA.id) || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
+  if (CA.id && now - CA.t < 1500) return 60;
+  if (CA.id && CA.kind === 'screen') return CA.fps || (!castSrc() ? Math.min(T.faceFps || 30, 30) : CA.rvfc && !CA.peek ? 10 : 30);   // a shared screen: 30 im/s at most, as the computer sends them
+  if (CA.id) return CA.vid || CA.gif ? 60 : Math.min(T.faceFps || 30, 30);   // a cast: a video or a GIF at full speed
   const calm = T.calmFps || 10;                       // still screens: the clock, a blinking cursor
   switch (L.scr) {
     case 'visage': {
@@ -824,7 +836,7 @@ return {
   },
   get menuOpen() { return !!L.menu; },
   get buddy() { return { x: BUD.x, act: BUD.act, dir: BUD.dir }; },
-  get cast() { return { id: CA.id, kind: CA.kind, ready: !!castSrc(), err: CA.err, frame: CA.gif ? CA.gif.i : -1, video: !!CA.vid, playing: !!(CA.vid && !CA.vid.paused), player: !!CA.ifr, peek: CA.peek }; },   // tests, lab   // the little Pixel of the Minuteur screen (tests, lab)
+  get cast() { return { id: CA.id, kind: CA.kind, ready: !!castSrc(), err: CA.err, frame: CA.gif ? CA.gif.i : -1, video: !!CA.vid, playing: !!(CA.vid && !CA.vid.paused), player: !!CA.ifr, peek: CA.peek, frames: CA.rvfc }; },   // tests, lab   // the little Pixel of the Minuteur screen (tests, lab)
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

@@ -102,8 +102,9 @@ async def manager(tmp):
     await until(lambda: hub.s["airplay"]["status"] == "pret" and runs())
     r = runs()[0]
     argv = r["argv"]
-    want = ["-n", "Pixel", "-nh", "-fs", "-vs", "waylandsink", "-s", "1280x720@60", "-fps", "30", "-p", "-reset", "5", "-nohold", "-srgb", "no", "-pin", "-hls"]
-    check("the desktop is there: UxPlay starts, with its options (full screen on Wayland, -srgb no, -pin, -hls)", argv == want, str(argv))
+    want = ["-n", "Pixel", "-nh", "-fs", "-vs", "waylandsink", "-s", "1280x720@60", "-fps", "30", "-p", "-reset", "5", "-nohold", "-nofreeze",
+            "-srgb", "no", "-pin", "-hls"]
+    check("the desktop is there: UxPlay starts, with its options (full screen on Wayland, -nofreeze, -srgb no, -pin, -hls)", argv == want, str(argv))
     check("... in the desktop's session (WAYLAND_DISPLAY, XDG_RUNTIME_DIR)", r["wayland"] == "wayland-0" and r["runtime"] == str(run), str(r))
 
     cast = lambda: hub.s.get("cast") or {}                         # noqa: E731
@@ -144,14 +145,18 @@ async def manager(tmp):
     await until(lambda: hub.s["airplay"]["status"] == "pret")
     say("Accepted IPv4 client on socket 50", "connection request from Marie's iPhone (iPhone14,2) with deviceID = 4A", "raop_rtp_mirror starting mirroring")
     await until(lambda: cast().get("phase") == "live")
-    say("ERROR lost connection with client")
+    pid = runs()[-1]["pid"]
+    say("*** ERROR lost connection with client (network problem?)")
     await until(lambda: not hub.s.get("cast"))
-    check("a client lost (-reset 5): back to Pixel", not hub.s.get("cast") and len(runs()) == 3)
+    check("a client lost (-reset 5): back to Pixel", not hub.s.get("cast"))
+    await until(lambda: len(runs()) == 4, 6)
+    check("... and UxPlay starts again, so that no frozen picture of the iPhone stays over Pixel", len(runs()) == 4 and not alive(pid), str(len(runs())))
+    await until(lambda: hub.s["airplay"]["status"] == "pret")
 
     pid = runs()[-1]["pid"]
     os.kill(pid, 9)                                                  # UxPlay crashes
-    await until(lambda: len(runs()) == 4, 6)
-    check("UxPlay crashes: it starts again", len(runs()) == 4)
+    await until(lambda: len(runs()) == 5, 6)
+    check("UxPlay crashes: it starts again", len(runs()) == 5)
     await asyncio.sleep(1.0)                                          # it has been running for a while: this is not "at once"
     (d / "crash").write_text("")
     os.kill(runs()[-1]["pid"], 9)

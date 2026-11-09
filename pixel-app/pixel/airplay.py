@@ -14,7 +14,9 @@ writes, line by line. UxPlay has no other way to say what happens: no callback, 
     on_video_play: location = http://...                   -hls: a video from the YouTube app
     on_video_stop / hls video has sent EOS                 that video is over
     Connection closed on socket 23 / Removing connection for socket 23
-    ERROR lost connection with client                      the iPhone went away (-reset 5: after 5 s of silence)
+    ERROR lost connection with client                      the iPhone went away (-reset 5: after 5 s of silence): UxPlay is
+                                                           started again, and -nofreeze closes its window (else it keeps the
+                                                           last picture full screen over Pixel)
 
 The state's "cast" becomes {kind: "screen", via: "airplay", phase: pin | connecting | live, title, note, code}; UxPlay's own
 window, full screen, covers Pixel's while the picture is there. Stopping the cast on Pixel (a touch, the phone's Arrêter,
@@ -117,8 +119,9 @@ class AirPlay:
         exe = shutil.which(self.exe) or (self.exe if Path(self.exe).is_file() and os.access(self.exe, os.X_OK) else None)
         if not exe:
             return None
+        # -nofreeze: a client lost (its connection reset) must not leave its last picture full screen over Pixel's touchscreen
         args = [exe, "-n", self.name, "-nh", "-fs", "-vs", "waylandsink", "-s", self.size, "-fps", "30", "-p", "-reset", "5", "-nohold",
-                "-srgb", "no"] + (["-pin"] if self.pin else []) + (["-hls"] if self.hls else []) + self.extra
+                "-nofreeze", "-srgb", "no"] + (["-pin"] if self.pin else []) + (["-hls"] if self.hls else []) + self.extra
         sb = shutil.which("stdbuf")                                 # UxPlay writes with printf: line by line through a pipe
         return [sb, "-oL"] + args if sb else args
 
@@ -243,3 +246,5 @@ class AirPlay:
             if self.st.feed(line):
                 log.info("AirPlay : %s %s", self.st.phase, self.st.client)
                 self._show()
+            if (parse(line) or ("",))[0] == "lost":              # and UxPlay starts again: no window of the lost client left over Pixel
+                self.kick()

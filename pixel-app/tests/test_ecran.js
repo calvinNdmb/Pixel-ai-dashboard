@@ -8,7 +8,8 @@
 // - a shared screen in every phase (the code, paired, connecting, live; WebRTC, ScreenStream, AirPlay, the lab's demo)
 //   draws in every theme, on Pixel's screen and on a phone;
 // - WebRTC on Pixel's screen: it joins the session on /ecran/ws, answers the offer with H.264 first, relays its ICE
-//   candidates, shows the stream at 60 im/s with the lowest delay, says when it is live, reports a lost connection,
+//   candidates, shows the stream with the lowest delay (30 im/s at most, then only as its pictures come:
+//   requestVideoFrameCallback; its 'connecting' card slower), says when it is live, reports a lost connection,
 //   and lets it all go at the end; a phone never receives anything;
 // - ScreenStream: Pixel's screen loads the phone's stream itself (30 im/s), says when it cannot, stops the download at the end;
 // - AirPlay: a slow card under UxPlay's window; the little Pixel looks at a shared screen once, then leaves it alone.
@@ -33,7 +34,7 @@ const videos = [];
 function makeVideo() {                               // a <video>: 640 x 360, ready once it has a source
   const v = { ...el('video'), readyState: 0, videoWidth: 0, videoHeight: 0, duration: 10, currentTime: 0, paused: true, muted: false, srcObject: null,
     play() { this.paused = false; if (this.srcObject) { this.readyState = 4; this.videoWidth = 1280; this.videoHeight = 720; this.duration = Infinity; } return Promise.resolve(); },
-    pause() { this.paused = true; }, load() {} };
+    pause() { this.paused = true; }, load() {}, requestVideoFrameCallback(cb) { this.frameCb = cb; return 1; } };
   videos.push(v); return v;
 }
 const classes = new Set();
@@ -171,7 +172,8 @@ const SCREENS = {
   // ---- 3. WebRTC on Pixel's screen ----
   sockets.length = 0; pcs.length = 0; videos.length = 0; sent.length = 0;
   const opened = () => new Promise(r => setTimeout(r, 5));         // the fake socket opens on the next turn, like a real one
-  let c = SCREENS.connecting(); set({ cast: c }); tick(); await opened();
+  L.inputAt = -1e9; let c = SCREENS.connecting(); set({ cast: c }); tick(); await opened(); tick(1600);   // no touch lately
+  check("the 'connecting' card, before any picture: not at 60 im/s", L.fpsWant <= 30, String(L.fpsWant));
   const ws = sockets[0], pc = pcs[0];
   check("Pixel's screen joins the session on /ecran/ws, with no STUN server", ws && ws.url === 'ws://localhost:8080/ecran/ws' && ws.sent[0] && ws.sent[0].type === 'kiosk' && ws.sent[0].session === c.session
     && pc && Array.isArray(pc.cfg.iceServers) && pc.cfg.iceServers.length === 0, JSON.stringify([ws && ws.url, ws && ws.sent, pc && pc.cfg]));
@@ -186,13 +188,18 @@ const SCREENS = {
   const v = videos[videos.length - 1];
   v.onloadeddata(); tick(16); tick(1600);
   check('the stream plays in a <video> drawn on the canvas, with the lowest delay, with its sound on Pixel', v.srcObject === stream && !v.paused && !v.muted && recv.jitterBufferTarget === 0 && Screens.cast.ready && Screens.cast.video);
-  check('... at 60 im/s, and Pixel says it is live', L.fpsWant === 60 && ws.sent.some(m => m.type === 'live'), String(L.fpsWant));
+  check('... at 30 im/s (what the computer sends), and Pixel says it is live', L.fpsWant === 30 && ws.sent.some(m => m.type === 'live'), String(L.fpsWant));
   for (let e = 0; e < 40000; e += 500) tick(500);
   check('the little Pixel looked once, then leaves the shared screen alone (no peek every 30 s)', Screens.cast.peek === 0, String(Screens.cast.peek));
+  check('... then Pixel draws it as its pictures come (requestVideoFrameCallback), hardly more', L.fpsWant === 10 && typeof v.frameCb === 'function', String(L.fpsWant));
+  L.dirty = false; let cb = v.frameCb; v.frameCb = null; cb();
+  check('... a new picture: drawn at once, and the next one asked for', L.dirty === true && typeof v.frameCb === 'function');
   pc.connectionState = 'failed'; pc.onconnectionstatechange();
   check('a lost connection is told to the server', ws.sent.some(m => m.type === 'fail' && m.why === 'reseau'));
   set({ cast: null }); tick();
   check('the end: the connection, the socket and the video let go', pc.closed && ws.closed && v.srcObject === null && E.status === null && Screens.cast.id === null);
+  cb = v.frameCb; v.frameCb = null; cb();
+  check('... and no more pictures asked for', v.frameCb === null);
   set({ cast: SCREENS.connecting() }); tick(); await opened();
   const ws2 = sockets[sockets.length - 1]; ws2.readyState = 3; ws2.onclose(); tick();
   check('the signalling lost before the picture: Pixel says so through its main connection (ecran.fail)', sent.some(([a, g]) => a === 'ecran.fail' && g.why === 'signal'), JSON.stringify(sent));

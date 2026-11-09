@@ -27,6 +27,7 @@ from aiohttp import web
 
 log = logging.getLogger("pixel")
 LOCAL = {"127.0.0.1", "::1"}
+LOCAL_NAMES = {"localhost", "127.0.0.1", "::1"}     # the Host of a page of the Pi itself
 MB = 1024 * 1024
 # the ISO media (MP4) brands of phone and camera videos ("qt  ": an iPhone's .mov), not the still pictures in the same box (HEIC, AVIF)
 MP4 = {b"isom", b"iso2", b"iso4", b"iso5", b"iso6", b"mp41", b"mp42", b"avc1", b"M4V ", b"M4VH", b"M4VP", b"dash", b"mmp4", b"MSNV",
@@ -65,11 +66,18 @@ def sniff(head):
 
 
 def local_page(request):
-    """The Pi itself, from Pixel's own page: a page of another site shown on the screen (a video player) is not Pixel."""
+    """The Pi itself, from Pixel's own page (http://localhost:8080) or a program without a page (no Origin). A page of another
+    site shown on the screen (a video player, its ads) is not Pixel: its Origin is that site's, or "null" (a sandboxed frame),
+    and a name of its own that leads to the Pi (DNS rebinding) comes as the Host: only localhost, 127.0.0.1 and [::1] are the Pi's."""
     if request.remote not in LOCAL:
         return False
+    host = (request.host or "").lower()
+    try:
+        name = urlsplit("//" + host).hostname
+    except ValueError:
+        return False
     origin = request.headers.get("Origin")
-    return not origin or origin == "null" or urlsplit(origin).netloc.lower() == (request.host or "").lower()
+    return name in LOCAL_NAMES and (origin is None or origin.lower() in (f"http://{host}", f"https://{host}"))
 
 
 def has_access(request, token):

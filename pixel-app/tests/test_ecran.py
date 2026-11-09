@@ -5,9 +5,11 @@
 - its pieces: ICE candidates and SDPs cleaned, the sender's name, the phone's address for ScreenStream;
 - the signalling: nothing is relayed before the one-time code (or the access code); the code is shown on Pixel and in the
   state, never told to the computer; wrong codes are counted and burn the code; codes are spaced, and a page without the
-  access code cannot cover a cast nor reopen a code closed on Pixel; only Pixel's own screen
-  can receive; another site's page cannot even connect; the downloaded page (Origin: null) can; the offer, the answer and
-  the ICE candidates relayed with their own fields only;
+  access code cannot cover a cast nor reopen a code closed on Pixel; too many wrong codes lock out that device only, never
+  the phone app's code; only Pixel's own screen can receive; another site's page cannot even connect, by its Origin or by
+  a name of its own that leads to Pixel (DNS rebinding), nor a sandboxed frame (Origin: null); the downloaded page
+  (Origin: null, with the launcher's key) can; the offer, the answer and the ICE candidates relayed with their own fields only;
+- the connections: a few without a code per device, never counting Pixel's own screen; one without a code is closed soon;
 - the session: connecting, live, then every way it ends (the computer, a touch or Arrêter, another screen, another cast,
   Pixel's screen not answering, no picture, a lost connection, the page closed, another computer);
 - Android's ScreenStream: the phone's address from its request, a typed one checked, the server never connects to it;
@@ -22,16 +24,19 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import aiohttp
 
 APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP))
 from pixel import ecran  # noqa: E402
+from pixel.state import Hub  # noqa: E402
 from pixel.system import local_ip  # noqa: E402
 
 PORT, HTTPS, TRAP = 8152, 8158, 8157
 TOKEN = "le-code-de-test"
+IDLE = 2                    # [ecran] idle_wait here: a connection without a code is closed after 2 s
 fails = []
 
 
@@ -48,7 +53,8 @@ def start_server(datadir, tls):
     except OSError:
         pass
     cfg = Path(datadir) / "config.toml"
-    cfg.write_text(f'data_dir = "{datadir}"\n[security]\ntoken = "{TOKEN}"\n[ecran]\nkiosk_wait = 1.5\nlive_wait = 3\n' + (f"https_port = {HTTPS}\n" if tls else ""))
+    cfg.write_text(f'data_dir = "{datadir}"\n[security]\ntoken = "{TOKEN}"\n[ecran]\nkiosk_wait = 1.5\nlive_wait = 3\nidle_wait = {IDLE}\n'
+                   + (f"https_port = {HTTPS}\n" if tls else ""))
     p = subprocess.Popen([sys.executable, str(APP / "server.py"), "--demo", "--port", str(PORT), "--config", str(cfg)], cwd=APP,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(100):
@@ -109,6 +115,54 @@ def pieces():
             if not str(e):
                 refused.append(f"{r} {t}: no reason")
     check("phone_address: the Pi itself, a name, a public or loopback address, a password, https, another path, IPv6 link-local: refused, in French", not refused, str(refused))
+    why = []
+    for r in ("2a01:e0a:1f2:3a40::5", "fd00::5", "fe80::1%wlan0"):
+        try:
+            pa(r, "")
+            why.append(f"{r}: accepted")
+        except ecran.AddressError as e:
+            why.append("" if "IPv4" in str(e) and "Adresse" in str(e) else f"{r}: {e}")
+    check("phone_address: a phone seen by IPv6 (a public one too, as on French boxes): asked to type the IPv4 address ScreenStream shows", not any(why), str(why))
+
+
+def lockout():
+    """In one process: wrong codes counted per device, the launcher's key, Pixel's own names."""
+    with tempfile.TemporaryDirectory() as tmp:
+        hub = Hub({})
+        e = ecran.Ecran(hub, {"https_port": 8443}, APP / "web", tmp, TOKEN, host="pixel", port=8080)
+        bad, good = ecran.device("192.168.1.66"), ecran.device("192.168.1.20")
+        for _ in range(ecran.MAX_FAILS // ecran.TRIES):
+            e.last_code, hub.s["cast"] = 0, None                # no spacing between codes here
+            e._pair(who=bad)
+            wrong = f"{(int(e.code['code']) + 1) % 10 ** 6:06d}"
+            for _ in range(ecran.TRIES):
+                e._check(wrong, bad)
+        e.last_code = 0
+        check(f"{ecran.MAX_FAILS} wrong codes from one device: no more codes for it", "Trop de codes faux" in (e._pair(who=bad) or ""))
+        check("... but the phone app's « Afficher un code » still shows one", e._pair(app=True) is None and e.code is not None)
+        code = e.code["code"]
+        ok, why = e._check(code, bad)
+        check("... that the locked device cannot even try", not ok and "Trop de codes faux" in why and e.code["tries"] == 0, why)
+        check("... and another device pairs with it", e._check(code, good) == (True, ""))
+        e.last_code, hub.s["cast"] = 0, None
+        check("another device still gets codes from its page", e._pair(who=good) is None)
+        check("a device: its IPv4 address, or its IPv6 /64 (a phone has many IPv6 addresses)", ecran.device("::ffff:192.168.1.66") == bad
+              and ecran.device("2a01:e0a:1f2:3a40::5") == ecran.device("2a01:e0a:1f2:3a40:aaaa::9") == "2a01:e0a:1f2:3a40::/64")
+        k = e.launch_key
+        again = ecran.Ecran(Hub({}), {}, APP / "web", tmp, TOKEN)
+        check("the launcher's key: random, not the access code, kept in the data folder (delete the file for a new one)",
+              len(k) >= 16 and k != TOKEN and again.launch_key == k and (Path(tmp) / "ecran-lanceur.key").read_text().strip() == k)
+
+        class Req:
+            def __init__(self, host, secure=False):
+                self.host, self.secure = host, secure
+        ip = local_ip()
+        yes = ["pixel.local:8080", "PIXEL.local:8080", "pixel:8080", "localhost:8080", "127.0.0.1:8080", "[::1]:8080"] + ([f"{ip}:8080"] if ip else [])
+        no = ["evil.example:8080", "pixel.evil.example:8080", "pixel.local.evil.example:8080", "localhost:9000", "pixel.local", "8.8.8.8:8080", "[2001:db8::1]:8080", ""]
+        check("own_host: Pixel's names and addresses, on its port (and https_port)", all(e.own_host(Req(h)) for h in yes) and e.own_host(Req("pixel.local:8443", True)),
+              str([h for h in yes if not e.own_host(Req(h))]))
+        check("own_host: another site's name that leads to Pixel (DNS rebinding), another port: refused", not any(e.own_host(Req(h)) for h in no),
+              str([h for h in no if e.own_host(Req(h))]))
 
 
 class Ws:
@@ -180,17 +234,30 @@ async def main(tls):
             check("state: AirPlay off by default", state.get("airplay", {}).get("status") == "off" and state["airplay"]["on"] is False, str(state.get("airplay")))
 
             # ---- who may connect ----
-            for origin, why in (("https://evil.example", "another site"), ("https://www.youtube-nocookie.com", "a video player on the Pi")):
+            async with http.get(f"{base}/ecran/lanceur.html") as r:
+                lcfg = json.loads((await r.text()).split("window.PIXEL_ECRAN = ", 1)[1].split(";</script>", 1)[0])
+            key = parse_qs(urlsplit(lcfg["ws"][1]).query).get("k", [""])[0]
+            launcher = f"{wsurl}?k={key}"
+            rebind = {"Host": f"evil.example:{PORT}", "Origin": f"http://evil.example:{PORT}"}
+            for url, headers, why in ((wsurl, {"Origin": "https://evil.example"}, "another site"), (wsurl, {"Origin": "https://www.youtube-nocookie.com"}, "a video player on the Pi"),
+                                      (wsurl, {"Origin": "null"}, "a sandboxed frame of any page (Origin: null, without the launcher's key)"),
+                                      (wsurl + "?k=faux", {"Origin": "null"}, "the same, with a wrong key"),
+                                      (wsurl, rebind, "another site's name that leads to Pixel (DNS rebinding)"),
+                                      (wsurl, {"Host": f"evil.example:{PORT}", "Origin": "null"}, "the same, from a sandboxed frame")):
                 try:
-                    async with http.ws_connect(wsurl, headers={"Origin": origin}):
+                    async with http.ws_connect(url, headers=headers):
                         check(f"/ecran/ws from {why}: refused", False)
                 except aiohttp.WSServerHandshakeError as e:
                     check(f"/ecran/ws from {why}: refused (403)", e.status == 403, str(e.status))
+            await pump()
+            check("... so none of them can put a code on Pixel's screen", not state.get("cast"), str(state.get("cast")))
+            async with http.get(f"{base}/ecran/lanceur.html", headers={"Host": f"evil.example:{PORT}"}) as r:
+                check("the launcher (its key) is not given to another site's name that leads to Pixel (DNS rebinding)", r.status == 403, str(r.status))
 
-            pc = Ws(await http.ws_connect(wsurl, headers={"Origin": "null"}))    # the downloaded page (file://)
+            pc = Ws(await http.ws_connect(launcher, headers={"Origin": "null"}))    # the downloaded page (file://), with its key
             await pc.send(type="offer", sdp="v=0 x")
             m = await pc.wait("error")
-            check("from file:// (Origin: null): connected, but nothing before the code", m and "code" in m["msg"], str(m))
+            check("from file:// (Origin: null, the launcher's key): connected, but nothing before the code", m and "code" in m["msg"], str(m))
             await pc.send(type="start")
             check("... not even a start", (await pc.wait("error")) is not None and cast().get("kind") != "screen")
 
@@ -236,6 +303,11 @@ async def main(tls):
                 await lan.ws.close()
             else:
                 print("SKIP the receiver from another device: the server only answers on 127.0.0.1 here")
+            fake = Ws(await http.ws_connect(launcher, headers={"Origin": "null"}))
+            await fake.send(type="kiosk", session=c["session"])
+            m = await fake.wait("error")
+            check("a page opened from the disk on the Pi cannot be the receiver either", m and "Seul l'écran de Pixel" in m["msg"], str(m))
+            await fake.ws.close()
             await pc.drain()
             kiosk = Ws(await http.ws_connect(wsurl, headers=pixel_origin))
             await kiosk.send(type="kiosk", session=c["session"])
@@ -362,6 +434,24 @@ async def main(tls):
             await kiosk.ws.close()
             await pc.ws.close()
 
+            # ---- the connections: a few without a code per device; Pixel's own screen always connects ----
+            waiting = [Ws(await http.ws_connect(launcher, headers={"Origin": "null"})) for _ in range(ecran.PER_DEVICE)]
+            try:
+                async with http.ws_connect(launcher, headers={"Origin": "null"}):
+                    check(f"{ecran.PER_DEVICE} connections without a code from one device: no more", False)
+            except aiohttp.WSServerHandshakeError as e:
+                check(f"{ecran.PER_DEVICE} connections without a code from one device: no more (503)", e.status == 503, str(e.status))
+            async with http.ws_connect(wsurl, headers=pixel_origin) as k2:
+                await k2.send_str(json.dumps({"type": "kiosk", "session": "x"}))
+                m = json.loads((await k2.receive(timeout=3)).data)
+                check("... Pixel's own screen still connects (it is never counted)", m.get("type") == "stop", str(m))
+            for w in waiting:
+                await w.wait("nothing", IDLE + 3)
+            check(f"a connection that never asked for a code is closed soon (idle_wait, {IDLE} s here)", all(w.ws.closed for w in waiting))
+            again = Ws(await http.ws_connect(launcher, headers={"Origin": "null"}))
+            check("... which frees its place", not again.ws.closed)
+            await again.ws.close()
+
             # ---- Android: ScreenStream ----
             hits = []
 
@@ -407,9 +497,10 @@ async def main(tls):
             async with http.get(f"{base}/ecran/lanceur.html") as r:
                 page = await r.text()
                 cfg = json.loads(page.split("window.PIXEL_ECRAN = ", 1)[1].split(";</script>", 1)[0])
-                check("the launcher: a download (Pixel-ecran.html), Pixel's WebSocket by name then by IP, no secret in it",
+                check("the launcher: a download (Pixel-ecran.html), Pixel's WebSocket by name then by IP, with its key, not the access code",
                       'attachment; filename="Pixel-ecran.html"' == r.headers.get("Content-Disposition") and cfg["file"] is True
-                      and cfg["ws"][0].endswith(f".local:{PORT}/ecran/ws") and cfg["ws"][1].endswith(f":{PORT}/ecran/ws") and TOKEN not in page, str(cfg))
+                      and cfg["ws"][0].endswith(f".local:{PORT}/ecran/ws?k={key}") and cfg["ws"][1].endswith(f":{PORT}/ecran/ws?k={key}")
+                      and len(key) >= 16 and TOKEN not in page, str(cfg))
             if tls:
                 async with http.get(f"https://127.0.0.1:{HTTPS}/ecran", ssl=False) as r:
                     check(f"https on {HTTPS} (the certificate install.sh makes): the same page", r.status == 200 and "Partager mon écran" in await r.text())
@@ -424,6 +515,7 @@ async def main(tls):
 
 if __name__ == "__main__":
     pieces()
+    lockout()
     with tempfile.TemporaryDirectory() as tmp:
         tls = make_cert(tmp)
         srv = start_server(tmp, tls)
