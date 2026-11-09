@@ -9,6 +9,7 @@ from .commands import norm
 from . import anims, scenes
 from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
+from . import exos                    # start_exercise: a little math exercise on Pixel's screen
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (
@@ -51,6 +52,7 @@ TOOLS = [
          {"scene": {"type": "string", "enum": [i for i, _, g in scenes.SCENES if g in ("vie", "tap", "fache", "calin")]}}, ["scene"]),
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
+TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
 
 
 THEME_DESC = {"retro": "retro (écran vert des années 90)", "moderne": "moderne (yeux lumineux qui rebondissent)",
@@ -87,6 +89,7 @@ def check(name, a):
         "play_animation": a.get("animation") in anims.BY_ID,
         "play_scene": a.get("scene") in scenes.BY_ID,
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
+        "start_exercise": exos.check_tool(a),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
 
@@ -176,6 +179,8 @@ class Claude:
         if name == "run_codex":
             await h.dispatch("codex.run", {"task": a["task"]})
             return "tâche lancée : " + h.s["codex"]["status"]
+        if name == "start_exercise":
+            return await exos.run_tool(h, a)
         return "outil inconnu"
 
     # ---- conversation ----

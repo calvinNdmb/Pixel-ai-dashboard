@@ -290,6 +290,39 @@ Sur une tablette, ou si la rotation de ton téléphone est bloquée, touche **Pi
 
 Dans Pixel Lab, le panneau **Pixel de poche** montre le téléphone en paysage, et ses boutons font comme si on secouait, penchait ou caressait l'un ou l'autre des deux Pixels.
 
+<!-- exos de maths -->
+## Les exos de maths
+
+Pixel te pose de petits exercices, du CP au collège : additions, soustractions, tables de multiplication, divisions, compléments à 10 ou à 100, doubles et moitiés, calcul mental avec les priorités, comparaisons, suites logiques (2, 4, 6, ?), petits problèmes (« Pixel a 12 piles, il en mange 5… »), heures et durées, fractions, pourcentages, carrés, et des énigmes.
+
+**Pour en lancer un :**
+- tape `exo`, `exo de maths`, `un calcul`, `table de 7`, `défi chrono`, `série de 5`, `une énigme`, `exo de fractions`, `exo difficile` ;
+- sur ton téléphone, touche **Exos** sous les touches : un exo, une série, le défi chrono, une énigme, une table ou un type d'exo ;
+- demande à Claude « pose-moi une question de maths » ;
+- si tu le lui permets (réglage **Il te propose des questions**, éteint au départ), Pixel te propose de temps en temps, dans la journée : « Une petite question ? ». Touche **Oui !**.
+
+**L'exo s'affiche sur l'écran du Pi**, à la place de son grand visage : la question en gros, 4 grandes réponses, et Pixel en petit à côté, qui écoute, réfléchit avec toi et réagit. Ça marche dans les 6 thèmes.
+
+**Pour répondre :**
+- touche une des 4 réponses, sur le Pi ou dans l'appli ;
+- sur ton téléphone, le pavé de chiffres, puis **OK** ;
+- tape le nombre dans la barre de commande : `42` ou `réponse 42`. Seulement quand un exo est ouvert : sinon, un nombre part à Claude, comme avant ;
+- avec un clavier branché sur le Pi : les chiffres, puis Entrée ; pour une énigme, les touches 1 à 4 ; Échap range l'exo ;
+- touche Pixel : il te donne un indice.
+
+**Une erreur ?** Pixel t'encourage, te donne un indice et un deuxième essai. Deuxième erreur : il montre la bonne réponse et comment la trouver (« 7 × 8 = 56 : 7 × 4 = 28, et 28 × 2 = 56 »). Il ne se moque jamais. Si tu réfléchis longtemps, il te demande gentiment si tu veux un indice.
+
+**Les modes :** un exo seul ; une série de 5, avec un bilan ; une table, ses 10 multiplications dans le désordre ; le défi chrono, le plus de bonnes réponses en 60 secondes, sans deuxième essai.
+
+**Il s'adapte :** trois bonnes réponses de suite, du premier coup, font monter le niveau de ce type d'exo ; une erreur le fait baisser. Niveau 1 : CP, CE1 ; niveau 5 : collège. Dans le panneau **Exos**, partie **Réglages** : le niveau de départ, le niveau fixe (« S'adapte tout seul » sur Non), les types des exos au hasard, l'objectif du jour (5 exos au départ) et ses propositions.
+
+**Ses récompenses :** une étoile par exo fait aujourd'hui ; l'objectif du jour atteint, il danse avec une coupe ; des trophées (premier exo, 5, 10 ou 20 d'affilée, 100 exos, 10 en une minute…). Tape `mes scores` pour un résumé. Tout est gardé sur le Pi, dans `~/.config/pixel/exos.json`.
+
+**Son caractère :** plus Pixel est studieux (si son caractère est réglé), plus il propose de questions et plus il fait la fête quand tu as juste.
+
+Dans Pixel Lab, le panneau **Exos de maths** lance chaque mode et chaque type, répond juste ou faux à ta place, et lui fait proposer une question.
+<!-- fin des exos de maths -->
+
 ## Tes agendas (Google et Samsung)
 
 Sur ton téléphone, dans l'appli, touche **Agendas** (sous le clavier). La page te guide.
@@ -409,6 +442,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 
   `test_pixel.py` vérifie `scene.play`, les commandes `fais …` et `scènes`, et l'outil de Claude.
 - **Pixel de poche** (`test_poche.js`, dans Chromium) : en paysage, sur un Pixel 7 et un iPhone 14 simulés, il s'affiche en plein écran, net et sans erreur dans les 6 thèmes ; l'écran reste allumé ; une tape le fait réagir, un appui long le câline ; secoué, penché, sa batterie, le Pi arrêté puis relancé (et la page rechargée sans le Pi), la sortie de la poche ; en portrait, la télécommande revient ; ni un écran partagé, ni le clavier, ni un aller-retour rapide ne le font apparaître. L'iPhone est imité dans Chromium (pas de plein écran, la permission des mouvements seulement sur une touche, ses axes à l'envers, `window.orientation`). Une adresse en http sans aucune imitation : il vit sans les sens du téléphone et le dit ; dans l'appli Android, il lui demande de garder l'écran allumé. À côté, l'écran du Pi : le Pixel jaloux, le jumeau qui remarque, le voyage aller et retour. Et le cadre de Pixel Lab. `test_poche.py` vérifie les actions `poche.touch` et `poche.voyage` du serveur.
+- **Exos de maths** (`test_exos.py`, `test_exos.js`) : chaque type d'exo à chaque niveau (9 000 exercices) a sa bonne réponse parmi 4 choix différents, vérifiée en refaisant le calcul ; les erreurs classiques sont dans les choix ; la même graine donne le même exo. Le jeu, sur une fausse horloge : l'indice et le deuxième essai, la correction, une série, une table, le défi chrono, les niveaux qui montent, descendent ou restent fixes, l'objectif du jour, les trophées, l'exo oublié qui se range, le fichier `exos.json`. La réponse n'arrive jamais aux écrans avant que tu aies répondu. Les commandes (un nombre seul ne va à l'exo que s'il y en a un d'ouvert) et l'outil de Claude. Dans Chromium : l'écran du Pi dans les 6 thèmes (une réponse fausse touchée, puis la bonne, et ses réactions), le clavier, l'indice en touchant Pixel, son petit rappel, le bilan d'une série, les images par seconde, aucun moment de vie pendant un exo, sa proposition et le bouton **Oui !** ; le panneau du téléphone (réponses, pavé, réglages, scores) et la barre de commande.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
@@ -424,6 +458,8 @@ node tests/test_pack.js
 node tests/test_persona.js
 python3 tests/test_poche.py
 node tests/test_poche.js             # il faut Playwright ; --shots DOSSIER pour les captures
+python3 tests/test_exos.py           # son serveur de démo sur le port 8181
+node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -442,6 +478,7 @@ Pas encore testé avec le vrai matériel :
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
 | `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`) |
+| `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |

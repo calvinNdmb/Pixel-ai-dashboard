@@ -521,6 +521,24 @@ function drawMenu() {
   X.globalAlpha = 0.8; txt('Glisse vers le haut pour fermer', x + MENU.w / 2, yy + 162, 22, D, 'center'); X.globalAlpha = 1;
 }
 
+/* ---------- add-ons (web/exos.js): a view drawn over a screen, or instead of it, with the screens' own helpers ----------
+   Screens.addon({ on(scr), instead(), draw(k, dt), state(p, prev), fps(calm), busy() }) returns k, the kit: the canvas and
+   the theme, text and boxes, touch zones, a face in any box (the pack or the living face), his personality, the state, send.
+   on: drawn on that screen now; instead: in place of the screen; fps: its frame rate (0: the screen's); busy: no moments
+   of life meanwhile; state: every snapshot, before it is drawn. */
+const ADDONS = [], AFACE = {};
+function addonOn() { for (const a of ADDONS) { try { if (a.on(L.scr)) return a; } catch (e) { /* an add-on must never stop the screen */ } } return null; }
+function addonBusy() { return ADDONS.some(a => { try { return !!(a.busy && a.busy()); } catch (e) { return false; } }); }
+function addonDraw(a, dt) { X.save(); try { a.draw(KIT, dt); } catch (e) { console.warn('Pixel: an add-on failed', e); } X.restore(); glow(); }
+function addonFace(key, want, md, x, y, w, h, m) {   // his face in a box: the pack's animation `want` (null: the idle), or the living face's mood
+  const f = AFACE[key] || (AFACE[key] = { play: PackPlayer(), life: PixelLife() });
+  if (packMode()) return packDraw(f.play, want, x, y, w, h, null, m);
+  X.save(); moveFace(m, x, y, w, h); live(f.life, x + w / 2, y + h / 2, w / 42, md || 'neutre', { calm: true }); X.restore();
+  return null;
+}
+const KIT = { X, W, H, L, PER, txt, wrap, fit, para, box, bar, hit, fast, glow, header, clock, srv, mood, packMode, face: addonFace,
+  send: (a, x) => send(a, x), get T() { return T; }, get c() { return { G, D, DK, B, AM, PK, WH }; }, get now() { return now; }, get P() { return P; }, get PV() { return PV; } };
+
 /* ---------- loop and API ---------- */
 const DRAW = { visage: drawVisage, lumieres: drawLights, claude: drawClaude, codex: drawCodex, meteo: drawMeteo, minuteur: drawTimer,
   agenda: drawAgenda, systeme: drawSys, reglages: drawSettings, veille: drawVeille };
@@ -537,6 +555,7 @@ function wantFps() {
   const r = realNow();
   if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (PV.id && L.scr === 'visage') || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
   const calm = T.calmFps || 10;                       // still screens: the clock, a blinking cursor
+  const ad = addonOn(); if (ad && ad.fps) { const f = ad.fps(calm); if (f) return f; }   // an add-on's view (web/exos.js)
   switch (L.scr) {
     case 'visage': {
       if (!packMode()) return mood() === 'neutre' ? 30 : 60;            // the living face: its idle is slow
@@ -556,7 +575,7 @@ function personaCtx() {               // what the personality needs to know abou
   const vis = L.scr === 'visage' && L.boot < 0, rooms = P.lights && P.lights.rooms || [], h = new Date().getHours();
   const free = vis && !L.sleepy && mood() === 'neutre' && !serverAnim() && P.chat.phase === 'idle' && !(P.codex && P.codex.running) && !L.banner
     && !(L.packEv && now < L.packEv.until) && !(L.kiosk && (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) < 20000);
-  return { visage: vis, canLive: free, idle: now - L.lastInput, weather: P.weather && P.weather.now ? P.weather.now.kind : '',
+  return { visage: vis, canLive: free && !addonBusy(), idle: now - L.lastInput, weather: P.weather && P.weather.now ? P.weather.now.kind : '',
     lightsOn: rooms.length ? rooms.some(r => r.on) : null, night: h >= 23 || h < 6, rm: RM,
     events: ((P.agenda && P.agenda.events) || []).filter(e => e.day === 0 && !e.allday),           // today's, for his reminders
     temp: P.sys && P.sys.temp != null ? P.sys.temp : null, wifi: P.sys && 'wifi' in P.sys ? P.sys.wifi : undefined };
@@ -579,7 +598,7 @@ function frame(t) {
   X.setTransform(S, 0, 0, S, 0, 0); X.globalAlpha = 1; X.shadowBlur = 0; T.bg(dt); glow();
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
-  else { if (PER) PV = PER.update(dt, personaCtx()); (DRAW[L.scr] || drawVisage)(dt); }
+  else { if (PER) PV = PER.update(dt, personaCtx()); const ad = addonOn(); if (!ad || !ad.instead()) (DRAW[L.scr] || drawVisage)(dt); if (ad) addonDraw(ad, dt); }
   if (P && L.menu && L.boot < 0) drawMenu();
   drawBanner();
   if (T.fg) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }
@@ -608,7 +627,7 @@ return {
       if (P.lights && p.lights && lit(P.lights.rooms) !== lit(p.lights.rooms) && anyOn(P.lights.rooms) && anyOn(p.lights.rooms)) ev('lights-change');
       const wk = w => w && w.now && w.now.kind;
       if (wk(P.weather) && wk(p.weather) && wk(P.weather) !== wk(p.weather)) ev('weather', { kind: wk(p.weather) });
-      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|poche\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
+      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|exos\.|poche\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
     }
     if (p.toast && p.toast.id !== L.lastToast) {
       L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now };
@@ -622,6 +641,7 @@ return {
     if (p.anim && p.anim.t0 !== (P && P.anim && P.anim.t0)) { L.pack = null; L.local = null; if (PER && PER.busy()) PER.stop(); }   // a new animation asked for takes over at once
     if (PER && P && p.scene && p.scene.t0 !== (P.scene && P.scene.t0) && p.server_now - p.scene.t0 < 10000) PER.play(p.scene.id);   // "fais le poisson"
     if (p.boot_at > L.lastBootAt) { L.lastBootAt = p.boot_at; L.boot = now; }
+    for (const a of ADDONS) if (a.state) try { a.state(p, P); } catch (e) { console.warn('Pixel: an add-on failed', e); }   // web/exos.js
     P = p; L.dirty = true;
   },
   input() {
@@ -638,6 +658,7 @@ return {
   },
   get menuOpen() { return !!L.menu; },
   get buddy() { return { x: BUD.x, act: BUD.act, dir: BUD.dir }; },   // the little Pixel of the Minuteur screen (tests, lab)
+  addon(a) { ADDONS.push({ on: () => false, instead: () => false, ...a }); L.dirty = true; return KIT; },   // web/exos.js
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

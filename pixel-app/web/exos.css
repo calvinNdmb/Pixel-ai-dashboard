@@ -1,0 +1,72 @@
+/* Pixel's math exercises on a phone (exos.js): the « Exos » panel under the keys, in the theme's colours (style.css sets
+   --k-* and --c-* per theme). Touch targets of 56 px at least. Not on the Pi's own screen, nor in the Pixel de poche. */
+.exos-go.live{background:var(--amber);border-color:#a8641a;color:#141713;animation:exo-pulse 1.6s ease-in-out infinite}
+@keyframes exo-pulse{50%{box-shadow:0 0 0 4px rgba(255,179,71,.35)}}
+@media (prefers-reduced-motion:reduce){.exos-go.live{animation:none}}
+.exos{width:min(100%,600px);background:linear-gradient(180deg,var(--plastic-hi),var(--plastic) 30%,var(--plastic-lo));border-radius:16px;padding:12px 14px 14px;
+  box-shadow:inset 0 2px 0 var(--plastic-hi),inset 0 -4px 0 var(--plastic-lo),0 18px 26px -18px #000}
+body[data-mode="pixel"] .exos,body.kiosk .exos,body.poche .exos{display:none!important}
+.ex-head{display:flex;align-items:center;gap:10px;margin:0 2px 10px}
+.ex-head h2{flex:1;margin:0;font:600 13px var(--f-ui);letter-spacing:.3em;text-transform:uppercase;color:var(--ink)}
+.ex-day{font:600 15px var(--f-ui);color:#7a5a12;letter-spacing:.06em;white-space:nowrap}
+.exos-go[aria-expanded="true"]{background:var(--ink);color:var(--plastic-hi)}
+.exos .ex-x{width:56px;min-height:56px;flex:none;padding:0;border-radius:50%;border:1px solid var(--ink);background:transparent;color:var(--ink);font:28px/1 var(--f-ui);cursor:pointer}
+.ex-body,.ex-more{background:var(--c-bg);border:2px solid var(--c-line);border-radius:12px;padding:14px;color:var(--c-fg);font:calc(20px*var(--k-size)) / 1.3 var(--c-font);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.35)}
+.ex-more{margin-top:10px;padding:4px 14px}
+.exos button{min-height:56px;border:2px solid var(--c-line);border-radius:12px;background:var(--k-bg);color:var(--k-fg);font:calc(22px*var(--k-size)) / 1.05 var(--k-font);
+  padding:6px 10px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.exos button:active{transform:translateY(1px);background:var(--k-cur);color:var(--k-curfg)}
+.exos button:focus-visible,.exos summary:focus-visible{outline:2px solid var(--k-cur);outline-offset:2px}
+.exos button:disabled{opacity:.45;cursor:default}
+.exos button.main,.exos button[aria-pressed="true"]{background:var(--k-cur);color:var(--k-curfg);border-color:var(--k-cur)}
+.exos h3{margin:14px 0 8px;font:600 12px var(--f-ui);letter-spacing:.2em;text-transform:uppercase;color:var(--c-dim)}
+.ex-big{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ex-big button{min-height:72px;font-size:calc(26px*var(--k-size))}
+.ex-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ex-chips button{flex:1 1 auto;min-width:56px}
+.exos .ex-chips button.pick[aria-pressed="true"]{background:var(--k-bg);color:var(--k-fg);border-color:var(--k-cur);box-shadow:inset 0 0 0 2px var(--k-cur)}
+.exos .ex-chips button.pick[aria-pressed="true"]::before{content:"✓ "}
+.exos .ex-chips button.pick[aria-pressed="false"]{opacity:.55}
+.ex-meta{margin:0 0 6px;color:var(--c-dim);font-size:calc(17px*var(--k-size))}
+.ex-bar{height:14px;border-radius:7px;background:rgba(127,127,127,.25);overflow:hidden}
+.ex-bar i{display:block;height:100%;background:var(--k-act);transition:width .25s linear}
+.ex-left{display:block;margin:4px 0 0;color:var(--k-act);font-size:calc(18px*var(--k-size))}
+.ex-question{margin:10px 0 12px;font:calc(34px*var(--k-size)) / 1.15 var(--k-font);color:var(--c-fg);overflow-wrap:anywhere}
+.ex-hint{margin:0 0 12px;padding:8px 10px;border-left:4px solid var(--k-act);color:var(--k-act)}
+.ex-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ex-choices button{min-height:68px;font-size:calc(28px*var(--k-size));overflow-wrap:anywhere}
+.ex-choices button.wrong{text-decoration:line-through;border-color:var(--k-act);color:var(--k-act)}
+.ex-choices button.right{background:var(--k-cur);color:var(--k-curfg);border-color:var(--k-cur);opacity:1}
+.ex-typed{display:block;min-height:1.4em;margin:12px 0 8px;padding:6px 12px;border-bottom:2px solid var(--c-line);font:calc(34px*var(--k-size)) / 1.2 var(--k-font);text-align:right}
+.ex-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ex-pad button{font-size:calc(30px*var(--k-size))}
+.ex-pad button.ok{grid-column:1/-1;background:var(--k-cur);color:var(--k-curfg);border-color:var(--k-cur)}
+.ex-actions{display:flex;gap:8px;margin-top:12px}
+.ex-actions button{flex:1}
+.ex-result{margin:0 0 12px;padding:10px 12px;border-radius:10px;border:2px solid var(--k-act)}
+.ex-result.ok{border-color:var(--k-cur)}
+.ex-verdict{margin:0 0 4px;font:calc(30px*var(--k-size)) / 1.1 var(--k-font);color:var(--k-act)}
+.ex-result.ok .ex-verdict{color:var(--c-fg)}
+.ex-score{margin:4px 0;font:calc(48px*var(--k-size)) / 1 var(--k-font)}
+.ex-expl{margin:0}
+.ex-more details{border-top:1px solid var(--c-line)}
+.ex-more details:first-child{border-top:0}
+.ex-more summary{min-height:52px;display:flex;align-items:center;cursor:pointer;font:calc(22px*var(--k-size)) var(--k-font);color:var(--c-fg)}
+.ex-stats{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:4px 0 0}
+.ex-stats dt{color:var(--c-dim)}
+.ex-stats dd{margin:0;text-align:right}
+.ex-troph{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.ex-troph li{padding:4px 10px;border-radius:999px;border:1px dashed var(--c-line);color:var(--c-dim);font-size:calc(16px*var(--k-size))}
+.ex-troph li.got{border-style:solid;background:var(--k-cur);color:var(--k-curfg)}
+.ex-kinds{margin:0 0 12px;padding:0;list-style:none;display:grid;gap:6px}
+.ex-kinds li{display:grid;grid-template-columns:1fr 30% auto;align-items:center;gap:8px;font-size:calc(17px*var(--k-size))}
+.ex-acc{height:10px;border-radius:5px;background:rgba(127,127,127,.25);overflow:hidden}
+.ex-acc i{display:block;height:100%;background:var(--k-cur)}
+.ex-n{color:var(--c-dim);white-space:nowrap}
+.ex-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;flex-wrap:wrap}
+.ex-l{flex:1 1 140px}
+.ex-seg{display:flex;align-items:center;gap:6px}
+.ex-seg button{min-width:56px}
+.ex-seg output{min-width:44px;text-align:center;font:calc(26px*var(--k-size)) var(--k-font)}
+.ex-note{margin:10px 0 12px;color:var(--c-dim);font-size:calc(16px*var(--k-size))}

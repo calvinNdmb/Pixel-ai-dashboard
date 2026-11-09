@@ -6,6 +6,7 @@ import re
 import unicodedata
 
 from . import anims, scenes
+from . import exos                    # math exercises: « exo », « table de 7 », a number while one is open
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -55,6 +56,8 @@ async def run(hub, text):
         return
     if t in ("/effacer", "/clear", "effacer"):
         return await hub.dispatch("chat.clear")
+    if await exos.command(hub, raw, t):                     # pixel/exos.py: its own words only; a bare number only while an exercise is open
+        return
 
     if t.startswith("codex ") and len(raw) > 6:
         await hub.dispatch("screen.show", {"screen": "codex"})
