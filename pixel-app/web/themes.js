@@ -366,27 +366,37 @@ function lookA(cx, cy, u, ex, ey, ew, eh, my, chin, top) {
 }
 /* a big face (his own screen): what he wears stops above the info line (y 434), whatever his moves */
 function lookClip(k) { if (k < 5) return; const m = X.getTransform(), S = SC(); X.setTransform(S, 0, 0, S, 0, 0); X.beginPath(); X.rect(-400, -400, 1600, 834); X.clip(); X.setTransform(m); }
-function lookWear(lk, layer, A, pen, kind) { if (!lk) return; X.save(); try { lookClip(A.k); lk.L.paint(lk.C, layer, A, pen, kind, lk.ph, lk.t); } finally { X.restore(); } }
-const lpath = (pts, close = true) => { X.beginPath(); for (let i = 0; i < pts.length; i += 2) i ? X.lineTo(pts[i], pts[i + 1]) : X.moveTo(pts[i], pts[i + 1]); if (close) X.closePath(); };
-/* the pens: how each theme draws what he wears */
-const MODPEN = {                    // Moderne: soft flat colours, a light rim, a shine
-  shape(pts, c, pr, a) { X.globalAlpha = a; lpath(pts); X.fillStyle = c; X.fill(); X.globalAlpha = a * 0.3; X.strokeStyle = '#ffffff'; X.lineWidth = 1.2; X.stroke(); X.globalAlpha = 1; },
-  line(pts, c, w, pr, a) { X.globalAlpha = a; lpath(pts, pr[0] === 'c'); X.strokeStyle = c; X.lineWidth = w; X.lineCap = X.lineJoin = 'round'; X.stroke(); X.globalAlpha = 1; },
-  glint(pts, a) { X.globalAlpha = a * 0.55; lpath(pts, false); X.strokeStyle = '#ffffff'; X.lineWidth = 2; X.lineCap = 'round'; X.stroke(); X.globalAlpha = 1; },
-};
-const kanPen = lw => ({             // Manga: flat colours in an ink outline, a white shine
-  shape(pts, c, pr, a) { X.globalAlpha = a; lpath(pts); X.fillStyle = c; X.fill(); X.strokeStyle = INK; X.lineWidth = lw; X.lineJoin = 'round'; X.stroke(); X.globalAlpha = 1; },
-  line(pts, c, w, pr, a) { X.globalAlpha = a; lpath(pts, pr[0] === 'c'); X.lineCap = X.lineJoin = 'round'; X.strokeStyle = INK; X.lineWidth = w + lw * 1.3; X.stroke(); X.strokeStyle = c; X.lineWidth = w; X.stroke(); X.globalAlpha = 1; },
-  glint(pts, a) { X.globalAlpha = a * 0.9; lpath(pts, false); X.strokeStyle = '#ffffff'; X.lineWidth = lw * 1.3; X.lineCap = 'round'; X.stroke(); X.globalAlpha = 1; },
+function lookWear(lk, layer, A, penOf, kind) {        // penOf(g): the theme's pen on a canvas (X, or a cached drawing's: look.js wear)
+  if (!lk) return;
+  X.save();
+  try { lookClip(A.k); lk.L.wear(X, lk.C, layer, A, penOf, kind, lk.ph, lk.t, kind === 'croquis' ? boil() % 2 : '', SC()); } finally { X.restore(); }
+}
+const lpath = (pts, close = true, g = X) => { g.beginPath(); for (let i = 0; i < pts.length; i += 2) i ? g.lineTo(pts[i], pts[i + 1]) : g.moveTo(pts[i], pts[i + 1]); if (close) g.closePath(); };
+/* the pens: how each theme draws what he wears (on g) */
+const modPen = g => ({              // Moderne: soft flat colours, a light rim, a shine
+  shape(pts, c, pr, a) { g.globalAlpha = a; lpath(pts, true, g); g.fillStyle = c; g.fill(); g.globalAlpha = a * 0.3; g.strokeStyle = '#ffffff'; g.lineWidth = 1.2; g.stroke(); g.globalAlpha = 1; },
+  line(pts, c, w, pr, a) { g.globalAlpha = a; lpath(pts, pr[0] === 'c', g); g.strokeStyle = c; g.lineWidth = w; g.lineCap = g.lineJoin = 'round'; g.stroke(); g.globalAlpha = 1; },
+  glint(pts, a) { g.globalAlpha = a * 0.55; lpath(pts, false, g); g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.lineCap = 'round'; g.stroke(); g.globalAlpha = 1; },
 });
-const neoPen = lw => ({             // Néon: a tube of light along each outline, a faint glow inside
-  shape(pts, c, pr, a) { X.globalAlpha = a * (pr[1] === 'L' ? 0.75 : 0.16); lpath(pts); X.fillStyle = c; X.fill(); X.globalAlpha = a; if (pr[1] !== 'L') tube(c, lw, () => lpath(pts)); X.globalAlpha = 1; },
-  line(pts, c, w, pr, a) { X.globalAlpha = a; tube(c, Math.max(lw * 0.8, w * 0.65), () => lpath(pts, pr[0] === 'c')); X.globalAlpha = 1; },
+const kanPen = lw => g => ({        // Manga: flat colours in an ink outline, a white shine
+  shape(pts, c, pr, a) { g.globalAlpha = a; lpath(pts, true, g); g.fillStyle = c; g.fill(); g.strokeStyle = INK; g.lineWidth = lw; g.lineJoin = 'round'; g.stroke(); g.globalAlpha = 1; },
+  line(pts, c, w, pr, a) { g.globalAlpha = a; lpath(pts, pr[0] === 'c', g); g.lineCap = g.lineJoin = 'round'; g.strokeStyle = INK; g.lineWidth = w + lw * 1.3; g.stroke(); g.strokeStyle = c; g.lineWidth = w; g.stroke(); g.globalAlpha = 1; },
+  glint(pts, a) { g.globalAlpha = a * 0.9; lpath(pts, false, g); g.strokeStyle = '#ffffff'; g.lineWidth = lw * 1.3; g.lineCap = 'round'; g.stroke(); g.globalAlpha = 1; },
+});
+function ltube(g, c, w, path) {       // tube() on g: soft halo, coloured tube, white-hot core
+  const ga = g.globalAlpha; path(); g.strokeStyle = c; g.lineCap = g.lineJoin = 'round';
+  g.globalAlpha = ga * 0.2; g.lineWidth = w * 3.4; g.stroke();
+  g.globalAlpha = ga; g.lineWidth = w; g.stroke();
+  g.globalAlpha = ga * 0.75; g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(0.8, w * 0.32); g.stroke(); g.globalAlpha = ga;
+}
+const neoPen = lw => g => ({        // Néon: a tube of light along each outline, a faint glow inside
+  shape(pts, c, pr, a) { g.globalAlpha = a * (pr[1] === 'L' ? 0.75 : 0.16); lpath(pts, true, g); g.fillStyle = c; g.fill(); g.globalAlpha = a; if (pr[1] !== 'L') ltube(g, c, lw, () => lpath(pts, true, g)); g.globalAlpha = 1; },
+  line(pts, c, w, pr, a) { g.globalAlpha = a; ltube(g, c, Math.max(lw * 0.8, w * 0.65), () => lpath(pts, pr[0] === 'c', g)); g.globalAlpha = 1; },
   glint() {},
 });
-const quiPen = (lw, amp) => ({      // Croquis: coloured-pencil hatching on white paper, a wobbly graphite outline
-  shape(pts, c, pr, a) { X.globalAlpha = a; lpath(pts); X.fillStyle = pr[1] === 'L' ? 'rgba(40,40,48,0.55)' : '#fffdf6'; X.fill(); if (pr[1] !== 'L') { X.fillStyle = hexA(c, 0.42); X.fill(); X.fillStyle = hatchPat(c, Math.max(3, lw * 2.4)); X.fill(); } pencil(pts, true, amp, boil() + pts.length, lw); X.globalAlpha = 1; },
-  line(pts, c, w, pr, a) { X.globalAlpha = a; pencil(pts, pr[0] === 'c', amp, boil() + 3, Math.max(lw, w * 0.75), pr[1] === 'F' || pr[1] === 'K' ? Q.fg : c); X.globalAlpha = 1; },
+const quiPen = (lw, amp) => g => ({ // Croquis: coloured-pencil hatching on white paper, a wobbly graphite outline
+  shape(pts, c, pr, a) { g.globalAlpha = a; lpath(pts, true, g); g.fillStyle = pr[1] === 'L' ? 'rgba(40,40,48,0.55)' : '#fffdf6'; g.fill(); if (pr[1] !== 'L') { g.fillStyle = hexA(c, 0.42); g.fill(); g.fillStyle = hatchPat(c, Math.max(3, lw * 2.4)); g.fill(); } pencil(pts, true, amp, boil() + pts.length, lw, Q.fg, undefined, g); g.globalAlpha = 1; },
+  line(pts, c, w, pr, a) { g.globalAlpha = a; pencil(pts, pr[0] === 'c', amp, boil() + 3, Math.max(lw, w * 0.75), pr[1] === 'F' || pr[1] === 'K' ? Q.fg : c, undefined, g); g.globalAlpha = 1; },
   glint() {},
 });
 /* the pixel faces (Rétro, LCD): what he wears in blocks of A.k px, one cached sprite per drawing, theme and size */
@@ -604,14 +614,14 @@ function modFace(cx, cy, u, md, lx = 0, ly = 0, a) {
   cy += a.breath * 0.25 * u;                                        // floats gently
   X.save(); body(cx, cy, u, a);
   const ex = a.lx * 1.35 * u, ey = a.ly * 1.15 * u, Ey = cy - 2.5 * u + ey + p.eyeY * u, LA = lk && lookA(cx, cy, u, 8.5, 2.5, 3.5, 4.5, 4.3, 7.6);
-  if (lk) { X.shadowBlur = 0; lookWear(lk, 'under', LA, MODPEN, 'moderne'); }
+  if (lk) { X.shadowBlur = 0; lookWear(lk, 'under', LA, modPen, 'moderne'); }
   if (p.blush > 0.02) {
     const cc = ccol ? hexA(ccol, 0.62).replace(/[^,]+\)$/, '') : 'rgba(255,143,177,', ck = cached('mod-cheek-' + u + (ccol || ''), 6 * u, 6 * u, (q, w) => { const r = q.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, cc + '0.6)'); r.addColorStop(1, cc + '0)'); q.fillStyle = r; q.fillRect(0, 0, w, w); });
     X.globalAlpha = p.blush; for (const s of [-1, 1]) X.drawImage(ck, cx + s * 13.4 * u - 3 * u, cy + 0.4 * u, 6 * u, 6 * u); X.globalAlpha = 1;
   }
   for (const side of [-1, 1]) modEye(cx + side * 8.5 * u + ex, Ey, u, p, side, t, col, g, lk);
   FX.shades(cx - 8.5 * u + ex * 0.7, cx + 8.5 * u + ex * 0.7, Ey, u, p.shades, t, MPEN);
-  if (lk) { X.shadowBlur = 0; lookWear(lk, 'over', LA, MODPEN, 'moderne'); }
+  if (lk) { X.shadowBlur = 0; lookWear(lk, 'over', LA, modPen, 'moderne'); }
   const mx = cx + a.lx * 0.6 * u, my = cy + 5.3 * u + ey * 0.4, pts = mouthPts(mx, my, u, p, t), la = 1 - p.mbars, mc = p.tint > 0.01 ? mixC(M.fg, '#b8f27c', 0.85 * p.tint) : M.fg;
   X.lineCap = X.lineJoin = 'round'; X.strokeStyle = X.fillStyle = X.shadowColor = mc; X.shadowBlur = g * 0.5; X.lineWidth = 0.95 * u;
   if (la > 0.02) {
@@ -710,11 +720,11 @@ function screentone() {                       // paper with halftone dots in two
 function speedLines(cx, cy) { X.save(); X.strokeStyle = INK; for (let i = 0; i < 44; i++) { const a = i / 44 * TAU + (i % 3) * 0.03, r = 230 + (i * 13) % 60; X.lineWidth = 1 + (i * 7) % 4; X.beginPath(); X.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); X.lineTo(cx + Math.cos(a) * 900, cy + Math.sin(a) * 900); X.stroke(); } X.restore(); }
 function mEye(x, y, u, o) {           // a big shiny anime eye; o = {open, iris, lx, ly, heart, star, side, wide, lid, slant}
   const rx = 3.6 * u * (1 + 0.1 * o.wide), ry = 4.7 * u * (1 + 0.1 * o.wide) * o.open, cover = clamp(o.lid * 0.87 + Math.abs(o.slant) * 0.2, 0, 1);
-  const shp = lookPts(o.lk, x, y, 2 * rx, 2 * ry, o.side), ec = o.ec, outline = () => (shp ? poly(shp) : ell(x, y, rx, ry));   // « Son look »
+  const sp = Math.max(o.heart, o.star), shp = sp > 0.5 ? null : lookPts(o.lk, x, y, 2 * rx, 2 * ry, o.side), ec = o.ec, outline = () => (shp ? poly(shp) : ell(x, y, rx, ry));   // « Son look » (hearts and stars: his own eyes)
   X.save(); if (cover > 0.01) lidClip(x, y, 2 * rx, 2 * ry, o.lid, o.slant, 0, o.side);
   X.fillStyle = '#ffffff'; outline(); X.fill();
   X.save(); outline(); X.clip();
-  const ix = x + o.lx * 0.9 * u, iy = y + o.ly * 0.8 * u + 0.3 * u, irx = 2.9 * u * o.iris, iry = 3.9 * u * o.iris, sp = Math.max(o.heart, o.star);
+  const ix = x + o.lx * 0.9 * u, iy = y + o.ly * 0.8 * u + 0.3 * u, irx = 2.9 * u * o.iris, iry = 3.9 * u * o.iris;
   if (sp < 0.98) {
     const g = X.createLinearGradient(ix, iy - iry, ix, iy + iry);
     if (ec === 'arc') { g.addColorStop(0, '#3a1d6e'); g.addColorStop(1, '#ffffff'); } else if (ec) { g.addColorStop(0, mixC(ec, '#000000', 0.6)); g.addColorStop(0.55, ec); g.addColorStop(1, mixC(ec, '#ffffff', 0.55)); }
@@ -1287,8 +1297,8 @@ function lcdFace(cx, cy, u, md, lx = 0, ly = 0, a) {
   if (!hat) lpx(bx, by, s * 2, on ? S3 : S2);
   const fx = Math.round(cx) + tilt, fy = Math.round(cy - s) - lift;
   if (!lk) return pixMorph(fx, fy, s, a, lput, S3, LL);
-  const z = Math.max(2, Math.round(s / 2));                                          // « Son look »: on the creature's head, in half dots
-  const A = { k: z, x0: fx, eye: fy - 2 * s, eyeL: fx - 6 * s, eyeR: fx + 6 * s, top: hy + 6.6 * s, mouth: fy + LL.my * s, chin: hy + (6.5 + hh) * s,
+  const z = Math.max(2, Math.round(s / 2)), fl = pixLift(a, s);                     // « Son look »: on the creature's head, in half dots
+  const A = { k: z, x0: fx, eye: fy - 2 * s, eyeY: fy - fl - 2 * s, eyeL: fx - 6 * s, eyeR: fx + 6 * s, top: hy + 6.6 * s, mouth: fy - fl + LL.my * s, chin: hy + (6.5 + hh) * s,
     ew: 2.5 * s / z, eh: 3 * s / z, side: (hw / 2) * s / z, topF: (hy + 6.6 * s - (fy - 2 * s)) / z, hs: 1 };
   PLK = pixLook(lk, 'lcd');
   try { lookPix(lk, 'under', A, 'lcd'); pixMorph(fx, fy, s, a, lput, S3, LL); lookPix(lk, 'over', A, 'lcd'); } finally { PLK = null; }
@@ -1416,9 +1426,8 @@ function pkPixels(x, y, w, h, st, o) {
 function pkVector(x, y, w, h, st, theme, post) {
   const V = window.Pixel52Themes; if (!V) return;
   const c = pkCanvas('v' + Math.round(w) + 'x' + Math.round(h), w, h), lk = look();
-  let tint = null;                                   // « Son look » in Croquis: its colours, laid over the graphite afterwards
-  if (lk && post === 'graphite') { const tc = pkCanvas('vt' + Math.round(w) + 'x' + Math.round(h), w, h); tint = tc.getContext('2d'); tint.setTransform(1, 0, 0, 1, 0, 0); tint.clearRect(0, 0, tc.width, tc.height); }
-  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from, look: lk ? lk.L.hookVec(lk.C, lk.ph, H.now, tint) : undefined });
+  const rec = lk && post === 'graphite' ? [] : null;  // « Son look » in Croquis: its coloured drawings, laid over the graphite afterwards
+  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from, look: lk ? lk.L.hookVec(lk.C, lk.ph, H.now, rec) : undefined });
   const ga = X.globalAlpha, op = X.globalCompositeOperation, b = X.shadowBlur; X.shadowBlur = 0;
   if (post === 'glow') {                             // cheap bloom: a small copy, blown up and added
     const sc = pkCanvas('vb' + Math.round(w) + 'x' + Math.round(h), w / 6, h / 6), g = sc.getContext('2d');
@@ -1427,7 +1436,12 @@ function pkVector(x, y, w, h, st, theme, post) {
   }
   if (post === 'graphite') X.globalCompositeOperation = 'luminosity';      // the drawing takes the paper's colour: graphite
   X.drawImage(c, x, y, w, h);
-  if (tint) { X.globalCompositeOperation = 'color'; X.drawImage(tint.canvas, x, y, w, h); }                   // coloured pencil over it
+  if (rec && rec.length) {                           // coloured pencil over it, only where he has colours
+    X.save(); X.globalCompositeOperation = 'color';
+    const base = X.getTransform().translate(x, y).scale(w / c.width, h / c.height);
+    for (const [m, a, f] of rec) { X.setTransform(base.multiply(m)); X.globalAlpha = ga * a; f(X); }
+    X.restore();
+  }
   X.globalCompositeOperation = op; X.shadowBlur = b;
 }
 const PK_RETRO = [null, R.fg, R.hi, R.pink, R.accent, R.hi, R.dim, '#2c6e46'].map(c => c && rgb(c));

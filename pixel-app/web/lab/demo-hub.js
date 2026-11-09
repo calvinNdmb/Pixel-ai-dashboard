@@ -458,7 +458,7 @@ Object.assign(A, {
 });
 
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
-const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · mets ton chapeau · yeux de chat · sinon : Claude";
+const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
 ALLT.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });   // every theme: a disabled one gets the "not on" message

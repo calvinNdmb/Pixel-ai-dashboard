@@ -163,7 +163,7 @@
       case 'idle-luciole':{const a=envelope(p,.1,.2,.73,.88);ex=3*wave(p-.16)*a;ey=-1.5*a;tilt=.025*wave(p)*a;break;}
       case 'idle-impatient':{const a=envelope(p,.22,.35,.65,.78);ex=-1.5*a;mouth=a>.7?'flat':'smile';mouthW=a>.7?3:4;oy=.25*wave(p);break;}
     }
-    const K=look&&{dot,rect,line,ellipse,sprite};   // « Son look »: what its hooks draw with
+    const K=look&&{dot,rect,line,ellipse,sprite,pose:()=>({ox,oy,tilt})};   // « Son look »: what its hooks draw with, and how the head moves
     function drawEye(x,kind){
       x+=ex;const y=eyesY+ey;
       if(look&&look.eye&&look.eye(x,y,kind,rx,ry,lid,color,p,K))return;

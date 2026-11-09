@@ -79,11 +79,12 @@ def clean(d):
     """A complete, valid look from anything (the saved file, a request): every bad field gets its default."""
     d = d if isinstance(d, dict) else {}
     out = json.loads(json.dumps(DEFAULT))
-    if d.get("yeux") in SHAPES:
+    word = lambda k: d.get(k) if isinstance(d.get(k), str) else None  # noqa: E731 - a list or a dict is no id (and not hashable)
+    if word("yeux") in SHAPES:
         out["yeux"] = d["yeux"]
-    if d.get("couleur_yeux") in EYE_COLORS:
+    if word("couleur_yeux") in EYE_COLORS:
         out["couleur_yeux"] = d["couleur_yeux"]
-    if d.get("couleur_joues") in CHEEK_COLORS:
+    if word("couleur_joues") in CHEEK_COLORS:
         out["couleur_joues"] = d["couleur_joues"]
     for k in ("mono", "saisons", "nuit"):
         if isinstance(d.get(k), bool):
@@ -293,7 +294,7 @@ EYES_ADJ = {"bleu": "bleus", "turquoise": "turquoise", "vert": "verts", "jaune":
 CHEEKS_ADJ = {"bleu": "bleues", "turquoise": "turquoise", "vert": "vertes", "jaune": "jaunes", "orange": "orange", "rouge": "rouges",
               "rose": "roses", "violet": "violettes", "marron": "marron"}
 SHAPE_WORDS_OUT = {"rond": "ronds", "carre": "carrés", "amande": "en amande", "etoile": "en étoile", "coeur": "en cœur", "chat": "de chat",
-                   "lunettes": "ronds, avec des lunettes"}
+                   "lunettes": "ronds"}
 
 
 def describe(look, porte=None, il=False):
@@ -301,14 +302,15 @@ def describe(look, porte=None, il=False):
     look = clean(look)
     a, p, n = ("Il a", "Il porte", "Il ne porte") if il else ("Tu as", "Tu portes", "Tu ne portes")
     shape, ce = look["yeux"], look["couleur_yeux"]
-    eyes = "des yeux " + SHAPE_WORDS_OUT[shape] + ("" if ce == "theme" else (", " if shape == "lunettes" else " ") + EYES_ADJ[ce])
+    eyes = "des yeux " + SHAPE_WORDS_OUT[shape] + ("" if ce == "theme" else " " + EYES_ADJ[ce]) + (", avec des lunettes" if shape == "lunettes" else "")
     parts = [eyes] + ([f"les joues {CHEEKS_ADJ[look['couleur_joues']]}"] if look["couleur_joues"] != "theme" else [])
     porte = porte if isinstance(porte, dict) else resolve(look, {"date": dt.datetime.now()})
     worn = [it for s in SLOTS if isinstance(it := porte.get(s), str) and it in ITEMS]
     mine = [it for it in worn if look["accessoires"].get(ITEMS[it][1]) == it]
     out = f"{a} " + " et ".join(parts) + "."
     if worn:
-        why = " pour dormir" if porte.get("nuit") else (f" ({SAISONS.get(porte.get('saison'), 'la saison')})" if porte.get("saison") and len(mine) < len(worn) else "")
+        sa = porte.get("saison") if isinstance(porte.get("saison"), str) else None
+        why = " pour dormir" if porte.get("nuit") else (f" ({SAISONS.get(sa, 'la saison')})" if sa and len(mine) < len(worn) else "")
         out += f" {p} " + ", ".join(_article(it) for it in worn) + why + "."
     else:
         out += f" {n} rien de spécial."
@@ -386,11 +388,14 @@ def command(hub, t, raw=""):
         args = {"yeux": "lunettes"} if m.group(1) == "lunettes" else {"porte": ITEM_WORDS[m.group(1)]}
     elif (m := _OFF.match(t)) and (m.group(1) in ITEM_WORDS or m.group(1) == "lunettes"):
         w = m.group(1)
-        if w == "lunettes":                          # his own glasses, or else his sunglasses
-            args = {"enleve": "lunettes"} if look["yeux"] == "lunettes" else {"enleve": "lunettes-soleil"}
+        porte = (hub.s.get("look") or {}).get("porte") or {}
+        if w == "lunettes":                          # his own glasses, or else his sunglasses (when he wears them)
+            if look["yeux"] == "lunettes":
+                args = {"enleve": "lunettes"}
+            elif "lunettes-soleil" in (porte.get("yeux"), look["accessoires"].get("yeux")):
+                args = {"enleve": "lunettes-soleil"}
         else:
             it = ITEM_WORDS[w]
-            porte = (hub.s.get("look") or {}).get("porte") or {}
             if porte.get(ITEMS[it][1]) == it or look["accessoires"].get(ITEMS[it][1]) == it:
                 args = {"enleve": it}
             elif w in ("chapeau", "bonnet") and porte.get("tete"):
@@ -473,7 +478,7 @@ class Look:
         try:
             look = clean(saved)
             hist = saved.get("historique") if isinstance(saved, dict) else None
-            self.history = [clean(h) for h in hist[-HISTORY:] if isinstance(h, dict)] if isinstance(hist, list) else []
+            self.history = [clean(h) for h in [h for h in hist if isinstance(h, dict)][-HISTORY:]] if isinstance(hist, list) else []
         except Exception as e:                       # noqa: BLE001 - whatever the file holds, Pixel starts
             log.warning("look.json: %r, the look of every day", e)
             look, self.history = clean({}), []

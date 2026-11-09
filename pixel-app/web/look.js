@@ -22,6 +22,7 @@ const PI = Math.PI, TAU = PI * 2, clamp = (v, a, b) => Math.max(a, Math.min(b, v
 const out3 = x => 1 - (1 - clamp(x, 0, 1)) ** 3;
 const has = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
 const copy = o => JSON.parse(JSON.stringify(o));
+const canon = v => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(j => [j, x[j]])) : x));
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const isInt = v => typeof v === 'number' && Number.isInteger(v);
 const num = v => typeof v === 'number' && isFinite(v);
@@ -146,7 +147,7 @@ function apply(look, a = {}, today = ymd(new Date())) {   // look.set: [new, cha
     if (typeof a[k] === 'string' && allowed.includes(a[k])) { n[k] = a[k]; quoi.push('couleur'); ex.couleur = a[k]; ex.ou = k === 'couleur_yeux' ? 'yeux' : 'joues'; }
   }
   for (const k of ['mono', 'saisons', 'nuit']) if (typeof a[k] === 'boolean' && a[k] !== n[k]) { n[k] = a[k]; quoi.push('reglage'); ex.what = k; ex.value = a[k]; }
-  const nn = clean(n), same = SAVED.every(k => JSON.stringify(nn[k]) === JSON.stringify(look[k]));
+  const nn = clean(n), same = SAVED.every(k => canon(nn[k]) === canon(look[k]));      // as look.py compares dicts: whatever their keys' order
   if (!quoi.length || same) return [nn, null];
   const first = ['normal', 'tenue', 'porte', 'enleve', 'yeux', 'couleur', 'reglage'].find(q => quoi.includes(q));
   const keep = { normal: [], tenue: ['tenue'], porte: ['item', 'slot'], enleve: ['item', 'slot'], yeux: ['yeux'], couleur: ['couleur', 'ou'], reglage: ['what', 'value'] }[first];
@@ -156,7 +157,7 @@ function apply(look, a = {}, today = ymd(new Date())) {   // look.set: [new, cha
 /* words: for the lab's toast (« look ? ») and the panel */
 const EYES_ADJ = { bleu: 'bleus', turquoise: 'turquoise', vert: 'verts', jaune: 'jaunes', orange: 'orange', rouge: 'rouges', rose: 'roses', violet: 'violets', marron: 'marron', arc: 'arc-en-ciel' };
 const CHEEKS_ADJ = { bleu: 'bleues', turquoise: 'turquoise', vert: 'vertes', jaune: 'jaunes', orange: 'orange', rouge: 'rouges', rose: 'roses', violet: 'violettes', marron: 'marron' };
-const SHAPE_OUT = { rond: 'ronds', carre: 'carrés', amande: 'en amande', etoile: 'en étoile', coeur: 'en cœur', chat: 'de chat', lunettes: 'ronds, avec des lunettes' };
+const SHAPE_OUT = { rond: 'ronds', carre: 'carrés', amande: 'en amande', etoile: 'en étoile', coeur: 'en cœur', chat: 'de chat', lunettes: 'ronds' };
 function article(it) {
   const n = ITEM[it].name.toLowerCase();
   return (['antenne', 'lunettes-soleil'].includes(it) ? 'des ' : ['casquette', 'couronne', 'citrouille', 'moustache', 'echarpe'].includes(it) ? 'une ' : 'un ') + n;
@@ -165,13 +166,14 @@ function describe(look, porte, il = false) {   // look.py describe()
   look = clean(look);
   const [a, p, n] = il ? ['Il a', 'Il porte', 'Il ne porte'] : ['Tu as', 'Tu portes', 'Tu ne portes'];
   const sh = look.yeux, ce = look.couleur_yeux;
-  const eyes = 'des yeux ' + SHAPE_OUT[sh] + (ce === 'theme' ? '' : (sh === 'lunettes' ? ', ' : ' ') + EYES_ADJ[ce]);
+  const eyes = 'des yeux ' + SHAPE_OUT[sh] + (ce === 'theme' ? '' : ' ' + EYES_ADJ[ce]) + (sh === 'lunettes' ? ', avec des lunettes' : '');
   const parts = [eyes, ...(look.couleur_joues !== 'theme' ? [`les joues ${CHEEKS_ADJ[look.couleur_joues]}`] : [])];
   porte = porte && typeof porte === 'object' ? porte : resolve(look, { date: new Date() });
   const worn = SLOT_IDS.map(s => porte[s]).filter(it => has(ITEM, it)), mine = worn.filter(it => look.accessoires[ITEM[it].slot] === it);
   let o = `${a} ${parts.join(' et ')}.`;
   if (worn.length) {
-    const why = porte.nuit ? ' pour dormir' : porte.saison && mine.length < worn.length ? ` (${SAISONS[porte.saison] || 'la saison'})` : '';
+    const sa = typeof porte.saison === 'string' ? porte.saison : '';
+    const why = porte.nuit ? ' pour dormir' : sa && mine.length < worn.length ? ` (${has(SAISONS, sa) ? SAISONS[sa] : 'la saison'})` : '';
     o += ` ${p} ${worn.map(article).join(', ')}${why}.`;
   } else o += ` ${n} rien de spécial.`;
   return o;
@@ -222,7 +224,10 @@ function command(raw, L) {
   else if ((m = RX.put.exec(t)) && (has(ITEM_WORDS, m[1]) || m[1] === 'lunettes')) a = m[1] === 'lunettes' ? { yeux: 'lunettes' } : { porte: ITEM_WORDS[m[1]] };
   else if ((m = RX.off.exec(t)) && (has(ITEM_WORDS, m[1]) || m[1] === 'lunettes')) {
     const w = m[1];
-    if (w === 'lunettes') a = look.yeux === 'lunettes' ? { enleve: 'lunettes' } : { enleve: 'lunettes-soleil' };   // his own glasses, or his sunglasses
+    if (w === 'lunettes') {                     // his own glasses, or else his sunglasses (when he wears them)
+      if (look.yeux === 'lunettes') a = { enleve: 'lunettes' };
+      else if (porte.yeux === 'lunettes-soleil' || look.accessoires.yeux === 'lunettes-soleil') a = { enleve: 'lunettes-soleil' };
+    }
     else {
       const it = ITEM_WORDS[w], s = ITEM[it].slot;
       if (porte[s] === it || look.accessoires[s] === it) a = { enleve: it };
@@ -497,28 +502,61 @@ function shapeOf(pr, ox, oy, k) {
   const o = []; for (let i = 0; i < pr[3].length; i += 2) o.push(...P(pr[3][i], pr[3][i + 1])); return o;
 }
 /* anchors A: { k (px per f), x0, eye (y), eyeL, eyeR (x), top, mouth, chin (y), ew, eh, side, topF (f), hs (a hat's scale) } */
-function origins(at, A) {
-  if (at === 'eyes') return [[A.eyeL, A.eye, -1], [A.eyeR, A.eye, 1]];
+function origins(at, A) {                     // eyeY: where his eyes are when they jump higher than his head (LCD's creature)
+  if (at === 'eyes') return [[A.eyeL, A.eyeY ?? A.eye, -1], [A.eyeR, A.eyeY ?? A.eye, 1]];
   if (at === 'face') return [[A.x0, A.eye, 1]];
   return [[A.x0, A[at], 1]];
 }
 /* the vector faces: pen = { shape(pts, hex, pr, alpha), line(pts, hex, width px, pr, alpha), glint(pts, alpha) } */
-function paint(C, layer, A, pen, kind, ph, t = 0) {
-  for (const w of layerItems(C, layer, ph)) {
-    if (w.k <= 0.01) continue;
-    for (const g of geoC(w.item, A)) for (const [ox, oy] of origins(g.at, A)) {
-      const k = A.k * (g.at === 'top' ? A.hs || 1 : 1), y0 = oy + w.dy * k;
-      for (const pr of g.prims) {
-        const role = pr[1], o = pr[pr.length - 1] || {}, alpha = w.k * (o && o.a ? o.a : 1);
-        if (o && o.under && layer === 'under') continue;
-        const pts = shapeOf(pr, ox, y0, k);
-        if (pr[0] === 'g') pen.glint(pts, alpha);
-        else if (pr[0] === 'l' || pr[0] === 'c') pen.line(pts, roleHex(role, kind, C.mono), pr[2] * k, pr, alpha);
-        else pen.shape(pts, roleHex(role, kind, C.mono), pr, alpha);
-      }
+function paintItem(w, layer, A, pen, kind, mono) {
+  for (const g of geoC(w.item, A)) for (const [ox, oy] of origins(g.at, A)) {
+    const k = A.k * (g.at === 'top' ? A.hs || 1 : 1), y0 = oy + w.dy * k;
+    for (const pr of g.prims) {
+      const role = pr[1], o = pr[pr.length - 1] || {}, alpha = w.k * (o && o.a ? o.a : 1);
+      if (o && o.under && layer === 'under') continue;
+      const pts = shapeOf(pr, ox, y0, k);
+      if (pr[0] === 'g') pen.glint(pts, alpha);
+      else if (pr[0] === 'l' || pr[0] === 'c') pen.line(pts, roleHex(role, kind, mono), pr[2] * k, pr, alpha);
+      else pen.shape(pts, roleHex(role, kind, mono), pr, alpha);
     }
   }
 }
+function paint(C, layer, A, pen, kind, ph, t = 0) {
+  for (const w of layerItems(C, layer, ph)) if (w.k > 0.01) paintItem(w, layer, A, pen, kind, C.mono);
+}
+/* the same, each drawing at rest made once into a canvas of its own (per theme, item, size and anchors; Croquis: per step of
+   its boiling lines), then only copied: wear(ctx, C, layer, A, penOf, kind, ph, t, extra, scale), penOf(g) the theme's pen on
+   a canvas g, scale the canvas pixels per unit. What drops in or flies off is drawn as it moves. */
+const SPR = new Map(), SPR_MAX = 24;                   // at most 24 drawings kept (the oldest goes), at most 2 pixels per unit
+const rel = A => ({ ...A, x0: 0, eye: 0, eyeL: A.eyeL - A.x0, eyeR: A.eyeR - A.x0, top: A.top - A.eye, mouth: A.mouth - A.eye, chin: A.chin - A.eye,
+  eyeY: A.eyeY === undefined ? undefined : A.eyeY - A.eye });
+function wear(ctx, C, layer, A, penOf, kind, ph, t = 0, extra = '', scale = 1) {
+  const items = layerItems(C, layer, ph); if (!items.length) return;
+  const R = rel(A), sc = Math.min(2, Math.max(0.25, Math.round(scale * 4) / 4));
+  const ak = ['k', 'ew', 'eh', 'side', 'topF', 'hs', 'eyeL', 'eyeR', 'top', 'mouth', 'chin', 'eyeY'].map(k => (R[k] === undefined ? '' : Math.round(R[k] * 8))).join(',');
+  for (const w of items) {
+    if (w.k <= 0.01) continue;
+    if (w.k < 1 || w.dy || w.leaving || typeof document === 'undefined') { paintItem(w, layer, A, penOf(ctx), kind, C.mono); continue; }
+    const key = `${kind}|${w.item}|${layer}|${C.mono ? 1 : 0}|${ak}|${extra}|${sc}`;
+    let s = SPR.get(key);
+    if (!s) {
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const g of geoC(w.item, R)) for (const [ox, oy] of origins(g.at, R)) {
+        const k = R.k * (g.at === 'top' ? R.hs || 1 : 1);
+        for (const pr of g.prims) { const pts = shapeOf(pr, ox, oy, k); for (let i = 0; i < pts.length; i += 2) { x0 = Math.min(x0, pts[i]); x1 = Math.max(x1, pts[i]); y0 = Math.min(y0, pts[i + 1]); y1 = Math.max(y1, pts[i + 1]); } }
+      }
+      if (x1 < x0) continue;
+      const pad = 6 + R.k * 2.6, bx = x0 - pad, by = y0 - pad, bw = x1 - x0 + 2 * pad, bh = y1 - y0 + 2 * pad;
+      const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(bw * sc)); c.height = Math.max(1, Math.ceil(bh * sc));
+      const g = c.getContext('2d'); g.scale(sc, sc); g.translate(-bx, -by);
+      paintItem(w, layer, R, penOf(g), kind, C.mono);
+      s = { c, x: bx, y: by, w: bw, h: bh };
+      SPR.set(key, s); if (SPR.size > SPR_MAX) SPR.delete(SPR.keys().next().value);
+    } else { SPR.delete(key); SPR.set(key, s); }       // the most recent last: the oldest goes first
+    ctx.drawImage(s.c, A.x0 + s.x, A.eye + s.y, s.w, s.h);
+  }
+}
+const scaleOf = g => { try { const m = g.getTransform(); return Math.hypot(m.a, m.b) || 1; } catch { return 1; } };
 /* the pixel art: each drawing rasterised once at 1 pixel per f (its silhouette's edge marked, for an outline) */
 function raster(prims) {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
@@ -583,11 +621,16 @@ function hookPix(C, ph, t, kind) {
   const e = eyeHex(C, kind), shape = C.shape === 'lunettes' ? 'rond' : C.shape;
   const ci = (x, color) => (color !== 1 || !e ? color : e === 'arc' ? IDX.arc + rainbowIndex(x, t) : IDX.eye);
   const stamp = (layer, k) => {
-    const A = PACK_A.pix;
+    const A = PACK_A.pix, P = k.pose ? k.pose() : { ox: 0, oy: 0, tilt: 0 }, ta = -Math.tan(P.tilt / 2), sn = Math.sin(P.tilt);
+    const put = (x, y, c) => {                 // the head's tilt in three shears of whole pixels (Paeth): a big hat leans without a hole
+      if (!P.tilt) { k.dot(x, y, c, true); return; }
+      const u = x - 48, v = y - 28, u1 = u + Math.round(ta * v), v1 = v + Math.round(sn * u1), u2 = u1 + Math.round(ta * v1);
+      k.dot(48 + u2 + P.ox, 28 + v1 + P.oy, c, false);
+    };
     for (const b of bitmaps(C, layer, A, ph)) {
       for (const p of b.bm.px) {
         if (b.lens ? !p[4] : p[4]) continue;                                 // a lens only under his eyes, from its own entry
-        k.dot(b.ox + p[0], b.oy + p[1] + b.dy, p[3] && kind === 'lcd' && !b.lens ? IDX.edge : IDX.role[p[2]], true);
+        put(b.ox + p[0], b.oy + p[1] + b.dy, p[3] && kind === 'lcd' && !b.lens ? IDX.edge : IDX.role[p[2]]);
       }
     }
   };
@@ -628,9 +671,10 @@ const PACK_A = {   // chin: the top of what he wears at his neck, under his wide
 };
 /* pixel52-themes.js draw(canvas, id, t, { look }): look.eye(ctx, kind, lid, side, manga, o) draws an eye in its own place
    (true), look.cheek(ctx, x, s, manga) a cheek, look.under / look.over(ctx, s, manga) what he wears, in the face's frame.
-   tint: a second canvas for Croquis (the pack's Manga drawing turned to graphite): the colours, laid over the pencil. */
-function hookVec(C, ph, t, tint) {
-  const both = (ctx, f) => { f(ctx); if (tint) { tint.setTransform(ctx.getTransform()); tint.globalAlpha = ctx.globalAlpha; f(tint); } };
+   rec: for Croquis (the pack's Manga drawing turned to graphite), a list that keeps each coloured drawing with its transform
+   and alpha: themes.js draws them again over the pencil in « color » (only where he has colours: no full-size layer). */
+function hookVec(C, ph, t, rec) {
+  const both = (ctx, f) => { f(ctx); if (rec) rec.push([ctx.getTransform(), ctx.globalAlpha, f]); };
   const fill = (g, pts) => { g.beginPath(); for (let i = 0; i < pts.length; i += 2) i ? g.lineTo(pts[i], pts[i + 1]) : g.moveTo(pts[i], pts[i + 1]); g.closePath(); };
   const eyeFill = (g, w, h, manga) => {       // a gradient of his eye colour (rainbow: across the eye, gently moving)
     const e = eyeHex(C, manga ? 'manga' : 'moderne');
@@ -691,8 +735,8 @@ function hookVec(C, ph, t, tint) {
       });
       return true;
     },
-    under(ctx, s, manga) { both(ctx, g => paint(C, 'under', PACK_A[manga ? 'manga' : 'modern'], vecPen(g, manga), manga ? 'manga' : 'moderne', ph, t)); },
-    over(ctx, s, manga) { both(ctx, g => paint(C, 'over', PACK_A[manga ? 'manga' : 'modern'], vecPen(g, manga), manga ? 'manga' : 'moderne', ph, t)); },
+    under(ctx, s, manga) { const sc = scaleOf(ctx); both(ctx, g => wear(g, C, 'under', PACK_A[manga ? 'manga' : 'modern'], q => vecPen(q, manga), manga ? 'manga' : 'moderne', ph, t, '', sc)); },
+    over(ctx, s, manga) { const sc = scaleOf(ctx); both(ctx, g => wear(g, C, 'over', PACK_A[manga ? 'manga' : 'modern'], q => vecPen(q, manga), manga ? 'manga' : 'moderne', ph, t, '', sc)); },
   };
 }
 /* the pens of the pack's drawings: Moderne flat, with a soft shine; Manga with an ink outline */
@@ -723,7 +767,11 @@ function screen(PER, before, p, ctx = {}) {
     PER.event(name, data, { visage: ctx.visage !== false, force: true });
   };
   let changed = false;
-  if (ch && ch.t0 !== seen.change) { seen.change = ch.t0; changed = true; if (fresh(ch.t0)) ev('look', { ...ch, nuit }); }
+  if (ch && ch.t0 !== seen.change) {                    // car: his traits (persona.js), for the scenes only a character brings
+    seen.change = ch.t0; changed = true;
+    let car = null; try { car = PER.traits || null; } catch { car = null; }
+    if (fresh(ch.t0)) ev('look', { ...ch, nuit, car });
+  }
   if (nuit !== seen.nuit) { seen.nuit = nuit; if (!changed) ev(nuit ? 'look-nuit' : 'look-jour', {}); }
   else if (!changed && !nuit && L.porte && L.porte.saison) {
     const fresh2 = SLOT_IDS.find(s => wear[s] && wear[s] !== seen.wear[s] && (L.accessoires || {})[s] !== wear[s]);
@@ -890,11 +938,12 @@ function app(o = {}) {
   x.addEventListener('click', () => close());
   sheet.addEventListener('click', e => { if (e.target === sheet) close(); });
   sheet.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) close(); });   // the focus left the sheet (a tap on its preview)
   if (typeof MutationObserver === 'function') new MutationObserver(() => { if (document.body.classList.contains('poche')) close(false); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   opener = btn('follow look-go', 'Son look'); opener.title = 'Ses yeux, ses couleurs, ses accessoires';
   opener.addEventListener('click', open);
-  const where = document.querySelector('.kfoot .car-go') || document.querySelector('.kfoot a[href$="reglages.html"]') || document.querySelector('.kfoot .follow');
-  if (where) where.after(opener); else document.body.append(opener);
+  const foot = document.querySelector('.kb .kfoot > span');            // with Caractère, Nourrir and Exos: last (after the Android app's link, shown only there)
+  if (foot) foot.append(opener); else document.body.append(opener);
   if (typeof Screens !== 'undefined' && Screens.setState) {            // the theme and face of the moment, for the preview
     const s0 = Screens.setState; Screens.setState = p => { s0(p); lastP = p; if (panelUI.shown()) ui.render(null, p.view && p.view.theme, p.view && p.view.face); };
   }
@@ -905,7 +954,7 @@ const api = {
   SHAPES, COLORS, HEX, EYE_COLORS, CHEEK_COLORS, SLOTS, ITEMS, ITEM, TENUES, SAISONS, DEFAULT, SAVED, HISTORY,
   clean, resolve, season, isNight, hotSun, context, apply, describe, command, isDefault, norm,
   get: get, with: withLook, cur, compile, tracker, screen,
-  shapePts, inside, pixEye, eyeHex, cheekHex, rainbow, rainbowIndex, roleHex, forTheme, mix, paint, bitmaps, raster, geo, pixRole, layerItems,
+  shapePts, inside, pixEye, eyeHex, cheekHex, rainbow, rainbowIndex, roleHex, forTheme, mix, paint, wear, bitmaps, raster, geo, pixRole, layerItems,
   hookPix, hookVec, palette, IDX, PACK_A,
   build, app, open, close, get isOpen() { return !!sheet && !sheet.hidden; },
 };
