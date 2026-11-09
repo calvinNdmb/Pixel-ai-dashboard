@@ -6,7 +6,7 @@ import logging
 import re
 
 from .commands import norm
-from . import anims, scenes
+from . import anims, caractere, scenes
 from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
 
@@ -52,6 +52,28 @@ TOOLS = [
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
 
+# ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
+TOOLS.append(tool(
+    "set_character", "Change ton propre caractère (celui de Pixel) quand la personne le demande : un caractère tout fait (preset), "
+    "ou des traits de 0 à 100 (50 = ton caractère habituel), ton nom (nom), ou le surnom que tu lui donnes (surnom, vide : aucun). "
+    "Les caractères : " + " ; ".join(f"{i} ({n} : {d})" for i, (n, d, _) in caractere.PRESETS.items()) + ". Les traits : "
+    + ", ".join(f"{t} ({a} à {b})" for t, (a, b) in caractere.ENDS.items()) + ".",
+    {"preset": {"type": "string", "enum": list(caractere.PRESETS)},
+     "traits": {"type": "object", "properties": {t: {"type": "integer", "minimum": 0, "maximum": 100} for t in caractere.TRAITS}, "additionalProperties": False},
+     "nom": {"type": "string", "maxLength": caractere.NOM_MAX}, "surnom": {"type": "string", "maxLength": caractere.SURNOM_MAX}}))
+
+
+def system_for(hub):
+    """The system prompt: Pixel's own (the cached prefix, unchanged), then his character of the moment in a block of its own."""
+    note = caractere.describe(hub.s.get("caractere"))
+    return [{"type": "text", "text": SYSTEM}, {"type": "text", "text": note}] if note else SYSTEM
+
+
+def system_text(hub):
+    """The same, as one string (the Claude Agent SDK, abonnement.py)."""
+    note = caractere.describe(hub.s.get("caractere"))
+    return SYSTEM + "\n" + note if note else SYSTEM
+
 
 THEME_DESC = {"retro": "retro (écran vert des années 90)", "moderne": "moderne (yeux lumineux qui rebondissent)",
               "manga": "manga (grands yeux brillants)", "neon": "neon (nuit synthwave, néons roses et bleus)",
@@ -87,6 +109,7 @@ def check(name, a):
         "play_animation": a.get("animation") in anims.BY_ID,
         "play_scene": a.get("scene") in scenes.BY_ID,
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
+        "set_character": caractere.tool_ok(a),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
 
@@ -176,6 +199,13 @@ class Claude:
         if name == "run_codex":
             await h.dispatch("codex.run", {"task": a["task"]})
             return "tâche lancée : " + h.s["codex"]["status"]
+        if name == "set_character":
+            if "caractere" not in h.s:
+                return "le caractère n'est pas disponible"
+            await h.dispatch("caractere.set", {k: a[k] for k in ("preset", "traits", "nom", "surnom") if k in a})
+            c = h.s["caractere"]
+            return (f"ok : {caractere.PRESETS.get(c['preset'], ('sur mesure',))[0]}, tu t'appelles {c['nom']}"
+                    + (f", tu l'appelles {c['surnom']}" if c["surnom"] else ""))
         return "outil inconnu"
 
     # ---- conversation ----
@@ -212,7 +242,7 @@ class Claude:
             for _ in range(10):
                 try:
                     async with self.client.beta.messages.stream(
-                        model=self.model, max_tokens=16000, system=SYSTEM, tools=tools_for(self.hub.s["settings"].get("themes") or list(THEMES)), messages=self.history,
+                        model=self.model, max_tokens=16000, system=system_for(self.hub), tools=tools_for(self.hub.s["settings"].get("themes") or list(THEMES)), messages=self.history,
                         output_config={"effort": self.effort}, cache_control={"type": "ephemeral"},
                         betas=["server-side-fallback-2026-07-01"], fallbacks="default",
                     ) as stream:

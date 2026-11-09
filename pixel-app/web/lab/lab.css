@@ -198,3 +198,40 @@ body.kiosk .screen canvas#crt{touch-action:none}
 .lab.poche .screen canvas#crt{width:auto;height:100%;max-width:100%;aspect-ratio:5/3;touch-action:none}
 .lab.poche .mfoot{display:none}
 @media (max-width:860px){.lab.poche .monitor{width:100%;border-radius:6%/13%;padding:1.4% 3%}}
+
+/* ---------- Caractère (../caractere.js through caractere-lab.js): presets, sliders, names, habits ---------- */
+.car-lab .car-body{display:flex;flex-direction:column;gap:8px}
+.car-lab .car-now{margin:0;color:var(--ink)}
+.car-lab .car-now-name{color:var(--accent);font-weight:600}
+.car-lab .car-h{margin:6px 0 0;font:600 12px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.car-lab .car-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.car-lab .car-preset{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:58px;padding:7px 10px;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--card-hi);cursor:pointer}
+.car-lab .car-preset b{font-weight:600;font-size:14px}
+.car-lab .car-preset span{font-size:12px;line-height:1.25;color:var(--muted)}
+.car-lab .car-preset:hover{border-color:var(--accent)}
+.car-lab .car-preset[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.car-lab .car-preset[aria-pressed="true"] span{color:var(--accent-ink)}
+.car-lab .car-traits{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 16px}
+.car-lab .car-ends{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.car-lab .car-val{font:400 18px/1 var(--f-crt);color:var(--ink);font-variant-numeric:tabular-nums}
+.car-lab .car-trait.off .car-val{color:var(--accent)}
+.car-lab .car-trait input[type=range]{width:100%;height:30px;margin:0;accent-color:var(--accent)}
+.car-lab .car-jour{margin:0;font-size:13px;color:var(--amber)}
+.car-lab .car-names{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px}
+.car-lab .car-field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.car-lab .car-field input{min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--card-hi);color:var(--ink);font-size:16px}
+.car-lab .car-opts{display:flex;flex-wrap:wrap;gap:6px}
+.car-lab .car-sw{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:10px;flex:1 1 200px;min-height:52px;padding:6px 10px;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--card-hi);cursor:pointer}
+.car-lab .car-sw small{grid-column:1;font-size:12px;color:var(--muted);line-height:1.2}
+.car-lab .car-knob{grid-column:2;grid-row:1/span 2;position:relative;width:40px;height:24px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.car-lab .car-knob::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:transform .15s}
+.car-lab .car-sw[aria-checked="true"] .car-knob{background:var(--accent);border-color:var(--accent)}
+.car-lab .car-sw[aria-checked="true"] .car-knob::after{transform:translateX(16px);background:var(--accent-ink)}
+.car-lab .car-calme{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;flex:1 1 100%;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card-hi)}
+.car-lab .car-hour{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.car-lab .car-hour select{min-height:44px;min-width:76px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);padding:0 8px}
+.car-lab .car-calme-n{flex:1 1 100%;font-size:13px;color:var(--muted)}
+.car-lab .car-actions{display:flex;flex-wrap:wrap;gap:6px}
+.car-lab .car-actions button{min-height:44px;min-width:120px;padding:0 16px;border:1px solid var(--accent);border-radius:9px;background:var(--card-hi);cursor:pointer;font-weight:500}
+.car-lab .car-actions .car-try{background:var(--accent);color:var(--accent-ink)}
+.car-lab .car-lab-k{font-size:12px}

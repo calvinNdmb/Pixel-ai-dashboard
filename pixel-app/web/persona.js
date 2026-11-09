@@ -15,7 +15,9 @@
      on: ['notif', ...]   it can answer these events (persona.event(name, data); EVENTS below lists them), weight w,
                           when(data) to filter (data.msg, data.name, data.kind...)
      pool: ['calm', ...]  it joins a touch pool: calm, love, annoyed, angry, pet, or zone:oeil / zone:tete / zone:bouche /
-                          zone:cote / zone:ailleurs (where the finger lands) */
+                          zone:cote / zone:ailleurs (where the finger lands)
+   His character (see "his character" below) weighs every scene by itself; traits: { gourmand: 1 } says which traits a scene
+   is about (else they are guessed), caractere: true makes a scene that only a character brings (it weighs nothing at 50). */
 window.PixelPersona = H => {
 const TAU = Math.PI * 2, W = 800, HT = 480;
 const rnd = H.rnd || Math.random, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -271,6 +273,7 @@ const EVENTS = {
   weather: 'La météo change',           // data.kind: soleil, nuage, pluie, neige, orage
   typing: 'Tu écris au clavier',
   action: 'Une touche du Stream Deck ou une action du téléphone',   // data.name: the action (lights.set, timer.start...)
+  caractere: 'Son caractère change',     // data.kind: what he became (pixel/caractere.py KINDS), quoi, adj, what (web/scenes/caractere.js)
   'jumeau-bonjour': 'Son jumeau de poche s’allume sur le téléphone',   // the two Pixels (web/poche.js, pixel/poche.py)
   'jumeau-tape': 'On touche son jumeau, l’autre Pixel',              // data.ici: 'poche' on the phone, else the Pi
   'jumeau-caresse': 'On caresse son jumeau, l’autre Pixel',          // data.ici: 'poche' on the phone, else the Pi
@@ -299,12 +302,90 @@ for (const pack of (typeof window !== 'undefined' && window.PixelScenePacks) || 
 const LIFE = SC.filter(s => s.group === 'vie');
 const TAP = { calm: ['coucou', 'content', 'saut', 'pirouette', 'timide', 'bisou', 'idee'], zones: { bouche: ['chatouilles'], oeil: ['oeil'], tete: ['bonk'], cote: ['pousse'], ailleurs: ['ou'] },
   love: ['amour', 'bisou', 'timide'], annoyed: ['he', 'he', 'impatient', 'esquive'], angry: ['colere', 'colere', 'panique', 'esquive'], pet: ['caresse', 'caresse'] };
+const CAR_TAPX = {};                                    // pool scenes that only a character brings (caractere: true, see "his character")
 for (const sc of SC) for (const pl of [].concat(sc.pool || [])) {
-  if (pl.startsWith('zone:')) (TAP.zones[pl.slice(5)] ||= []).push(sc.id); else if (TAP[pl]) TAP[pl].push(sc.id);
+  if (sc.caractere) (CAR_TAPX[pl] ||= []).push(sc.id);
+  else if (pl.startsWith('zone:')) (TAP.zones[pl.slice(5)] ||= []).push(sc.id); else if (TAP[pl]) TAP[pl].push(sc.id);
 }
 const ON = {};                                          // event -> the scenes that can answer it
 for (const sc of SC) for (const ev of [].concat(sc.on || [])) (ON[ev] ||= []).push(sc);
 const MOOD = id => (BY[id] && BY[id].mood) || 'neutre';
+
+/* ---------- his character (pixel/caractere.py, web/caractere.js): 8 traits, 0..100, 50 = this very Pixel ----------
+   One mechanism: a scene's weight (moments of life, events, touch pools) is multiplied by its affinity with his traits,
+   4 ^ (sum over traits of profile x (trait - 50) / 50), exactly 1 when every trait is 50. The profile comes from what the scene
+   is (its group, mood, the pack anims it plays, a few words of its id and label), or from its own traits: { farceur: 1, ... },
+   so every pack, present or future, is covered. A scene with caractere: true weighs nothing at 50: only a character brings it.
+   And a few knobs, each exactly its old value at 50: how fast taps annoy him and how long he sulks (grognon), how much a
+   cuddle counts (calin), how often a bubble comes (bavard), how often he lives his life and how fast he moves (energique),
+   whether he minds what happens around him (curieux: only the world's news, CAR_WORLD; what you do to him or for him is always
+   answered). Plus his name, yours, his quiet hours, may he sulk, does he speak (off: no chit-chat; reminders, news and his
+   answers to you still show). */
+const CAR_TRAITS = ['calin', 'grognon', 'bavard', 'farceur', 'energique', 'curieux', 'gourmand', 'studieux'];
+const CAR_BY_ANIM = { colere: { grognon: 1 }, boudeur: { grognon: 1 }, 'idle-impatient': { grognon: 0.6 }, rire: { farceur: 1 }, 'clin-oeil': { farceur: 1 },
+  amoureux: { calin: 1 }, bisou: { calin: 1 }, timide: { bavard: -0.6, calin: 0.3 }, sommeil: { energique: -1 }, 'idle-somnole': { energique: -1 },
+  baille: { energique: -1 }, fatigue: { energique: -1 }, reve: { energique: -0.6 }, zen: { energique: -0.6, grognon: -0.6 }, danse: { energique: 1 },
+  etoiles: { energique: 0.6 }, chante: { energique: 0.4, bavard: 0.5 }, parle: { bavard: 1 }, curieux: { curieux: 1 }, recherche: { curieux: 1 },
+  'idle-regard': { curieux: 0.5 }, ecoute: { curieux: 0.5 }, reflechit: { studieux: 0.5, curieux: 0.3 }, idee: { studieux: 0.4, curieux: 0.3 }, code: { studieux: 0.8 } };
+const CAR_BY_MOOD = { fache: { grognon: 1 }, amoureux: { calin: 1 }, endormi: { energique: -1 }, baille: { energique: -0.8 }, excite: { energique: 0.6 }, ecoute: { curieux: 0.5 }, clin: { farceur: 1 } };
+const CAR_BY_GROUP = { calin: { calin: 1 }, fache: { grognon: 1 } };
+const CAR_BY_WORD = [[/faim|mang|miam|pizza|gateau|gouter|nourri|croqu|bonbon|dessert|gourmand/, { gourmand: 1 }], [/exo|calcul|math|lecon|devoir|etud|ecole|livre|lecture/, { studieux: 1 }]];
+const CAR_PROF = new Map(SC.map(sc => {
+  if (sc.traits) return [sc, sc.traits];
+  const p = {}, add = o => { for (const k in o) p[k] = (p[k] || 0) + o[k]; };
+  add(CAR_BY_GROUP[sc.group] || {}); add(CAR_BY_MOOD[sc.mood] || {}); for (const a of new Set((sc.anim || []).map(x => x[1]))) add(CAR_BY_ANIM[a] || {});
+  if (sc.quiet) add({ energique: -0.5 });
+  const words = `${sc.id} ${sc.label}`.normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
+  for (const [re, o] of CAR_BY_WORD) if (re.test(words)) add(o);
+  for (const k in p) p[k] = clamp(p[k], -1, 1);
+  return [sc, p];
+}));
+const CAR_WORLD = new Set(['notif', 'weather', 'lights-change', 'action', 'typing', 'codex-start', 'codex-ok', 'codex-fail']);   // the only events curieux weighs
+const CAR_CHIT = ['tap', 'fache', 'calin', 'vie', 'retour'];                     // his chit-chat (bavard, « Il parle »)
+const CAR = { base: {}, t: {}, d: {}, on: false, nom: 'Pixel', surnom: '', parle: true, boude: true, calme: null, jour: false, day: '',
+  k: { annoy: 1, decay: 1, love: 1, life: 1, speed: 1, cool: 1, deaf: 0, sulk: 0 } };
+for (const k of CAR_TRAITS) { CAR.base[k] = CAR.t[k] = 50; CAR.d[k] = 0; }
+const carLean = sc => { const p = CAR_PROF.get(sc) || {}; let s = 0; for (const k in p) s += p[k] * (CAR.d[k] || 0); return s; };
+function carAffinity(sc) { if (!CAR.on) return sc.caractere ? 0 : 1; const s = carLean(sc); return sc.caractere ? Math.max(0, s) * 4 : 4 ** clamp(s, -1.5, 1.5); }
+const carPick = (ids, pool) => {                        // a touch pool's pick: uniform at 50 (the old pick), weighted by affinity otherwise
+  if (!CAR.on) return pick(ids);
+  const all = ids.concat(CAR_TAPX[pool] || []), ws = all.map(id => (BY[id] ? carAffinity(BY[id]) : 1)), tot = ws.reduce((a, b) => a + b, 0);
+  let r = rnd() * tot; for (let i = 0; i < all.length; i++) { r -= ws[i]; if (r < 0) return all[i]; }
+  return all[all.length - 1];
+};
+const carFnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0; return h; };
+const carYmd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function carToday() {                                  // his traits of today (with the mood of the day, if on), then the knobs
+  const d = new Date(); CAR.day = d.toDateString();
+  for (const k of CAR_TRAITS) { CAR.t[k] = CAR.jour ? clamp(CAR.base[k] + carFnv(`${carYmd(d)}:${k}`) % 21 - 10, 0, 100) : CAR.base[k]; CAR.d[k] = (CAR.t[k] - 50) / 50; }
+  CAR.on = CAR_TRAITS.some(k => CAR.t[k] !== 50);
+  const g = CAR.d.grognon, e = CAR.d.energique, c = CAR.d.curieux;
+  CAR.k = { annoy: 2 ** g, decay: 2 ** (0.6 * g), sulk: g > 0 ? 20000 * g : 13000 * g, love: 2 ** CAR.d.calin, life: 2 ** -e, speed: 2 ** (0.25 * e), cool: 2 ** -c, deaf: Math.max(0, -c) * 0.7 };
+}
+function carSetTraits(c = {}) {                        // the snapshot's "caractere" (or just { calin: 80, ... })
+  const t = c.traits && typeof c.traits === 'object' ? c.traits : c, num = v => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : 50);
+  for (const k of CAR_TRAITS) CAR.base[k] = clamp(Math.round(num(t[k])), 0, 100);
+  CAR.nom = typeof c.nom === 'string' && c.nom.trim() ? c.nom.trim() : 'Pixel'; CAR.surnom = typeof c.surnom === 'string' ? c.surnom.trim() : '';
+  CAR.parle = c.parle !== false; CAR.boude = c.boude !== false; CAR.jour = c.humeur_jour === true;
+  const q = c.calme || {}, de = clamp(Math.round(num(q.de ?? 23)), 0, 23), a = clamp(Math.round(num(q.a ?? 6)), 0, 23);
+  CAR.calme = de === 23 && a === 6 ? null : [de, a];
+  carToday();
+}
+const carNight = h => (!CAR.calme ? h >= 23 || h < 6 : CAR.calme[0] > CAR.calme[1] ? h >= CAR.calme[0] || h < CAR.calme[1] : h >= CAR.calme[0] && h < CAR.calme[1]);
+/* what he says: his name where he says "Pixel", your nickname in a few greetings, more or fewer bubbles (bavard) */
+const CAR_CHAT = { content: L('Hé hé !', 'Trop bien !', 'J’adore ce moment.'), excite: L('Waouh !', 'Trop cool !', 'Encore !'), amoureux: L('Je t’aime bien !', 'Trop mignon…'),
+  triste: L('Bof…', 'Snif…'), fache: L('Grrr…', 'Pff…'), confus: L('Hein ?', 'Euh…'), surpris: L('Oh !', 'Ça alors !'), baille: L('Mmh…', 'Quelle heure il est ?'),
+  endormi: L('Zzz… blabla…'), ecoute: L('Tiens ?', 'C’est quoi, ça ?'), reflechit: L('Hmm…', 'Voyons voir…'), fier: L('Pas mal, hein ?', 'Je suis doué.'),
+  neutre: L('Tu sais quoi ?', 'Dis donc…', 'Bon, bon, bon…') };
+const carNamed = (s, n) => { const m = s.match(/^(.*?)\s*([!?.…]+)$/); const out = m ? `${m[1]}, ${n} ${m[2]}` : `${s}, ${n}`; return out.length <= 34 ? out : s; };
+function carVoice(sc, lines) {
+  if (CAR.nom !== 'Pixel') for (const l of lines) if (typeof l[2] === 'string') l[2] = l[2].replace(/\bPixel\b/g, CAR.nom);
+  if (CAR.surnom && (sc.group === 'retour' || sc.id === 'coucou') && lines[0] && lines[0][2]) lines[0][2] = carNamed(lines[0][2], CAR.surnom);
+  if (!CAR.on || !CAR_CHIT.includes(sc.group)) return;                          // the events say something useful
+  const b = CAR.d.bavard;
+  if (b < 0) { for (const l of lines) if (rnd() < -b * 0.85) l[2] = ''; }                 // a quiet one: most bubbles stay unsaid
+  else if (b > 0 && sc.dur > 2600 && !lines.some(l => l[2] && l[0] < 2600) && rnd() < b * 0.7) lines.unshift([300, 2300, pick(CAR_CHAT[sc.mood] || CAR_CHAT.neutre)]);   // a chatterbox: one more, never two
+}
 
 /* ---------- state ---------- */
 const st = { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], life: true, every: [45000, 150000], lights: null, darkAt: 0, hour: -1, seen: 0,
@@ -315,9 +396,10 @@ function seen(now) { st.seen = Date.now(); if (now - savedAt > 20000) { savedAt 
 
 function start(id, opts = {}) {
   const sc = BY[id]; if (!sc) return false;
-  const o = { side: opts.side || 1, tx: opts.tx || 0, ty: opts.ty || 0, ...(opts.data || {}) };
+  const o = { side: opts.side || 1, tx: opts.tx || 0, ty: opts.ty || 0, nom: CAR.nom, surnom: CAR.surnom, ...(opts.data || {}) };
   if (sc.init) sc.init(o);
   const lines = (sc.say || []).map(([a, b, ls]) => [a, b, typeof ls === 'function' ? ls(o) : ls ? pick(ls) : (id === 'heure' ? `Coucou ! Il est ${new Date().getHours()} h.` : '')]);
+  carVoice(sc, lines);                                 // his name, yours, and more or fewer bubbles (his character)
   st.cur = { sc, t0: H.now(), o, lines, extra: null, forced: !!opts.forced };   // forced: asked for (lab, command), not cut short by the world
   if (sc.group === 'vie') { st.hist.push(id); if (st.hist.length > 5) st.hist.shift(); }
   if (H.onScene) try { H.onScene(id, sc.group); } catch (e) { /* his voice (son.js) must never stop him */ }
@@ -363,42 +445,44 @@ function tap(p, box, ctx = {}) {
     return true;
   }
   if (cur && cur.sc.group === 'vie' && cur.sc.secret && el() > 1500) { start('timide'); st.cur.lines = [[100, 2400, pick(cur.sc.secret)]]; return true; }
-  st.annoy += gapT < 700 ? 1.35 : 1;                // taps in a row annoy him more
-  if (ctx.night && st.annoy < 2.5 && rnd() < 0.6) return start('nuit-tap');
-  if (st.annoy >= 8) { st.annoy = 8; return start('boude'); }
-  if (st.annoy >= 5.5) return start(pick(TAP.angry));
-  if (st.annoy >= 3) return start(pick(TAP.annoyed));
+  st.annoy += (gapT < 700 ? 1.35 : 1) * CAR.k.annoy;  // taps in a row annoy him more (a grumpy one: faster)
+  if ((CAR.calme ? carNight(new Date().getHours()) : ctx.night) && st.annoy < 2.5 && rnd() < 0.6) return start('nuit-tap');
+  if (st.annoy >= 8) { st.annoy = 8; return start(CAR.boude ? 'boude' : carPick(TAP.angry, 'angry')); }
+  if (st.annoy >= 5.5) return start(carPick(TAP.angry, 'angry'));
+  if (st.annoy >= 3) return start(carPick(TAP.annoyed, 'annoyed'));
   if (quick) return start('pirouette');
   if (zone !== 'visage' && TAP.zones[zone] && TAP.zones[zone].length && rnd() < 0.85) {
     const side = zone === 'oeil' ? (q.u < 50 ? -1 : 1) : (q.u < 48 ? -1 : 1), zs = TAP.zones[zone];
-    let id = pick(zs); for (let i = 0; i < 4 && zs.length > 1 && id === st.last; i++) id = pick(zs);
+    let id = carPick(zs, 'zone:' + zone); for (let i = 0; i < 4 && zs.length > 1 && id === st.last; i++) id = carPick(zs, 'zone:' + zone);
     st.last = id; return start(id, { side, tx: p.x - (box.x + box.w / 2), ty: p.y - (box.y + box.h / 2) });
   }
-  const pool = st.love > 2 ? TAP.love : TAP.calm, last = cur ? cur.sc.id : st.last;
-  let id = pick(pool); for (let i = 0; i < 4 && id === last; i++) id = pick(pool);
+  const pool = st.love > 2 ? TAP.love : TAP.calm, last = cur ? cur.sc.id : st.last, pn = st.love > 2 ? 'love' : 'calm';
+  let id = carPick(pool, pn); for (let i = 0; i < 4 && id === last; i++) id = carPick(pool, pn);
   st.last = id; return start(id);
 }
 function pet() {
-  st.love = Math.min(st.love + 1, 8); const wasAnnoyed = st.annoy >= 3; st.annoy = Math.max(0, st.annoy - 3);
+  st.love = Math.min(st.love + CAR.k.love, 8); const wasAnnoyed = st.annoy >= 3; st.annoy = Math.max(0, st.annoy - 3);
   seen(H.now());
   if (st.cur && st.cur.sc.sulk) { if (st.annoy < 4) return start('pardon'); st.cur.extra = { t: el(), line: pick(['…bon, encore un peu.', 'Hmpf… continue.']) }; return true; }
   if (wasAnnoyed) return start('calme');
   if (st.love > 5 && rnd() < 0.6) return start('ronron');
-  let id = pick(TAP.pet); for (let i = 0; i < 4 && TAP.pet.length > 1 && id === st.last; i++) id = pick(TAP.pet);
+  let id = carPick(TAP.pet, 'pet'); for (let i = 0; i < 4 && TAP.pet.length > 1 && id === st.last; i++) id = carPick(TAP.pet, 'pet');
   st.last = id; return start(id);
 }
 /* something happened around him (EVENTS): a scene that answers it plays, if he is free and on his face screen.
    ctx.visage false: kept for 30 s, played when you come back to his face. Same event: not again within 4 s. */
 function event(name, data = {}, ctx = {}) {
-  const now = H.now(), list = (ON[name] || []).filter(sc => !sc.when || sc.when(data));
+  const now = H.now(), list = (ON[name] || []).filter(sc => (!sc.when || sc.when(data)) && (!sc.caractere || carAffinity(sc) > 0));
   if (!list.length) return '';
-  if (!ctx.force && st.evAt[name] && now - st.evAt[name] < 4000) return '';     // force: the lab's buttons
+  const world = CAR_WORLD.has(name);                    // the world's news: a blasé one minds less (his character)
+  if (!ctx.force && st.evAt[name] && now - st.evAt[name] < 4000 * (world ? CAR.k.cool : 1)) return '';     // force: the lab's buttons
   if (ctx.visage === false) { st.pending = { name, data, until: now + 30000 }; return ''; }
   const cur = st.cur;
   if (!ctx.force && cur && (cur.forced || cur.sc.sulk || ['tap', 'fache', 'calin', 'retour'].includes(cur.sc.group)) && !list.some(sc => sc.urgent)) return '';
+  if (world && CAR.k.deaf && !ctx.force && !list.some(sc => sc.urgent) && rnd() < CAR.k.deaf) return '';   // a blasé one lets the world go by
   const pool = list.filter(sc => sc.id !== st.evLast) .length ? list.filter(sc => sc.id !== st.evLast) : list;
-  const tot = pool.reduce((a, sc) => a + (sc.w || 1), 0); let r = rnd() * tot, pickd = pool[pool.length - 1];
-  for (const sc of pool) { r -= sc.w || 1; if (r < 0) { pickd = sc; break; } }
+  const tot = pool.reduce((a, sc) => a + (sc.w || 1) * carAffinity(sc), 0); let r = rnd() * tot, pickd = pool[pool.length - 1];
+  for (const sc of pool) { r -= (sc.w || 1) * carAffinity(sc); if (r < 0) { pickd = sc; break; } }
   st.evAt[name] = now; st.evLast = pickd.id; st.pending = null;
   start(pickd.id, { data: { ...data, event: name } });
   return pickd.id;
@@ -426,7 +510,8 @@ function update(dt, ctx = {}) {
   const now = H.now();
   if (st.pending && ctx.visage && now < st.pending.until && (!st.cur || st.cur.sc.group === 'vie')) { const pd = st.pending; st.pending = null; event(pd.name, pd.data, { visage: true }); }
   if (st.pending && now >= st.pending.until) st.pending = null;
-  st.annoy *= Math.exp(-dt / 16000); st.love *= Math.exp(-dt / 120000);
+  st.annoy *= Math.exp(-dt / (16000 * CAR.k.decay)); st.love *= Math.exp(-dt / (120000 * CAR.k.love));
+  if (st.cur && CAR.k.speed !== 1 && !st.cur.forced && !st.cur.sc.sulk && ['tap', 'fache', 'calin', 'vie'].includes(st.cur.sc.group)) st.cur.t0 -= dt * (CAR.k.speed - 1);   // lively or sluggish
   // the lights go off, or come back
   if (ctx.lightsOn !== undefined && ctx.lightsOn !== null) {
     if (st.lights === true && ctx.lightsOn === false && ctx.visage) { st.darkAt = now; if (!st.cur || st.cur.sc.group === 'vie') start('noir'); }
@@ -435,8 +520,9 @@ function update(dt, ctx = {}) {
   }
   // the cuckoo: once an hour, on the hour, in the day
   const d = new Date(), hr = d.getHours();
+  if (CAR.jour && CAR.day !== d.toDateString()) carToday();                     // a new day, a new mood of the day
   if (st.hour === -1) st.hour = hr;
-  if (hr !== st.hour) { st.hour = hr; if (d.getMinutes() === 0 && hr >= 8 && hr <= 22 && ctx.canLive && !st.cur) start('heure'); }
+  if (hr !== st.hour) { st.hour = hr; if (d.getMinutes() === 0 && hr >= 8 && hr <= 22 && !(CAR.calme && carNight(hr)) && ctx.canLive && !st.cur) start('heure'); }
   // the agenda (ctx.events: today's, with start and end in hours): 10 min before, he taps his watch; a few minutes after, he asks how it went
   const free = !st.cur || st.cur.sc.group === 'vie';
   if (ctx.visage && ctx.events && free) {
@@ -462,19 +548,34 @@ function update(dt, ctx = {}) {
   if (st.cur && now - st.cur.t0 >= st.cur.sc.dur) {
     const was = st.cur.sc; st.cur = null;
     if (was.sulk) { st.annoy = 0; start('pardon'); }
-    st.nextLife = now + st.every[0] + rnd() * (st.every[1] - st.every[0]);
+    st.nextLife = now + st.every[0] * CAR.k.life + rnd() * (st.every[1] - st.every[0]) * CAR.k.life;   // a lively one lives more often
   }
+  if (st.cur && st.cur.sc.sulk && CAR.k.sulk) carSulk(st.cur, now);              // a grumpy one sulks longer, a patient one shorter
   if (st.cur && st.cur.sc.group === 'vie' && ctx.canLive === false && !st.cur.forced) st.cur = null;   // something else needs his face
   if (!st.cur && st.life && !ctx.rm && ctx.canLive && ctx.idle > Math.min(75000, st.every[0]) && now >= st.nextLife) {
-    const c = { wet: /pluie|orage|neige/.test(ctx.weather || ''), sunny: ctx.weather === 'soleil', day: hr >= 9 && hr < 19, night: hr >= 23 || hr < 6, xmas: d.getMonth() === 11,
+    const c = { wet: /pluie|orage|neige/.test(ctx.weather || ''), sunny: ctx.weather === 'soleil', day: hr >= 9 && hr < 19, night: carNight(hr), xmas: d.getMonth() === 11,
       meal: (hr === 12 || (hr === 19 && d.getMinutes() >= 30) || (hr === 13 && d.getMinutes() < 30)),
       h: hr, mn: d.getMinutes(), wd: d.getDay(), mo: d.getMonth(), dd: d.getDate(), kind: ctx.weather || '', date: d };   // wd 0 = Sunday, mo 0 = January
-    const ok = LIFE.filter(s => (!s.when || s.when(c)) && !st.hist.includes(s.id) && (!c.night || s.quiet));      // at night only the quiet ones (quiet: true)
-    const tot = ok.reduce((a, s) => a + s.w, 0); let r = rnd() * tot;
-    for (const s of ok) { r -= s.w; if (r < 0) { start(s.id); break; } }
+    const ok = LIFE.filter(s => (!s.when || s.when(c)) && !st.hist.includes(s.id) && (!c.night || s.quiet) && (!s.caractere || carAffinity(s) > 0));      // at night only the quiet ones (quiet: true)
+    const tot = ok.reduce((a, s) => a + s.w * carAffinity(s), 0); let r = rnd() * tot;
+    for (const s of ok) { r -= s.w * carAffinity(s); if (r < 0) { start(s.id); break; } }
     if (!st.cur) st.nextLife = now + 5000;
   }
   return current();
+}
+/* the sulk's middle is still (he sits in his corner): a longer sulk plays it again, a shorter one skips part of it */
+function carSulk(c, now) {
+  const e = now - c.t0, done = c.ext || 0;
+  if (CAR.k.sulk > 0 && e > c.sc.dur - 6000 && done < CAR.k.sulk) { const s = Math.min(CAR.k.sulk - done, e - 3000); c.ext = done + s; c.t0 += s; }
+  else if (CAR.k.sulk < 0 && !c.ext && e > 3000) { c.ext = -1; c.t0 -= Math.max(0, Math.min(-CAR.k.sulk, c.sc.dur - 6000 - e)); }
+}
+/* « Essayer »: a scene of his own, the more like his character the likelier (any of them at 50) */
+const CAR_OWN = new Set([...Object.values(TAP).filter(Array.isArray).flat(), ...Object.values(TAP.zones).flat(), ...Object.values(CAR_TAPX).flat(), ...LIFE.filter(s => !s.when).map(s => s.id)]);
+function carTypical() {
+  const ok = SC.filter(s => CAR_OWN.has(s.id) && !s.sulk && s.dur <= 13000 && (!s.caractere || carLean(s) > 0));
+  const ws = ok.map(s => Math.exp(4 * (CAR.on ? carLean(s) : 0))), tot = ws.reduce((a, b) => a + b, 0);
+  let r = rnd() * tot; for (let i = 0; i < ok.length; i++) { r -= ws[i]; if (r < 0) return ok[i].id; }
+  return ok.length ? ok[ok.length - 1].id : 'coucou';
 }
 function current() {
   const cur = st.cur; if (!cur) return { id: '', group: '', anim: null, mood: null, m: M0, fast: false };
@@ -526,6 +627,7 @@ function drawOver(box, m) {
   let line = null;
   for (const [a, b, s] of cur.lines) if (e >= a && e < b && s) line = s;
   if (cur.extra && e - cur.extra.t < 1800) line = cur.extra.line;
+  if (line && !CAR.parle && CAR_CHIT.includes(sc.group)) line = null;        // « Il parle » off: no chit-chat (reminders, news, his answers stay)
   if (line && line !== cur.spoke) { cur.spoke = line; if (H.onSay) try { H.onSay(line, sc.id); } catch (err) { /* his voice must never stop him */ } }
   if (line) bubble(line, box, m, T, sc.side);
 }
@@ -690,6 +792,11 @@ return {
     told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '', evAt: {}, evLast: '', pending: null }); },   // tests
   tap, pet, input, update, current, drawOver, decor, play: id => start(id, { forced: true }), stop, busy, project, unproject, zoneOf,
   pools: TAP, quiet: SC.filter(s => s.quiet).map(s => s.id),
+  /* his character (web/caractere.js hands him the snapshot's "caractere") */
+  setTraits: carSetTraits, typical: carTypical, affinity: id => (BY[id] ? carAffinity(BY[id]) : 0), weight: id => (BY[id] ? (BY[id].w || 1) * carAffinity(BY[id]) : 0),
+  profile: id => ({ ...(BY[id] && CAR_PROF.get(BY[id])) }), get traits() { return { ...CAR.t }; },
+  get caractere() { return { nom: CAR.nom, surnom: CAR.surnom, parle: CAR.parle, boude: CAR.boude, calme: CAR.calme ? [...CAR.calme] : [23, 6], jour: CAR.jour, on: CAR.on, k: { ...CAR.k } }; },
+  isNight: carNight, poolx: CAR_TAPX,
   event, events: Object.entries(EVENTS).map(([id, label]) => ({ id, label, scenes: (ON[id] || []).map(x => x.id) })),
 };
 };
