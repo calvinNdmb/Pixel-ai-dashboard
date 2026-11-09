@@ -270,10 +270,11 @@ Depuis ton téléphone, montre quelque chose sur l'écran de Pixel. Ça s'affich
 - **Ce qui s'affiche :** une photo, un GIF ou un texte reste 2 minutes ; une vidéo va jusqu'au bout. Une page devient une carte avec un QR code pour l'ouvrir sur ton téléphone.
 - **Pour arrêter :** touche l'écran de Pixel, le bouton **Arrêter**, ou tape `stop`.
 - **Les derniers :** ils restent sous le panneau, touche-en un pour l'afficher encore.
-- **En Rétro :** l'image prend le vert du tube, avec ses lignes. **Couleurs d'origine** la laisse telle quelle. Un petit Pixel passe la tête dans le coin et réagit.
+- **Dans ses vraies couleurs :** pendant un cast, plus d'effet cathodique (ni vert, ni lignes, ni grain), quel que soit le thème ; il revient à la fin. Un petit Pixel passe la tête dans le coin et réagit.
+- **Partager un écran :** celui d'un ordinateur (la page **Partager mon écran**, `pixel.local:8080/ecran`, et le code que Pixel affiche), d'un téléphone Android (ScreenStream), d'un iPhone, d'un iPad ou d'un Mac (AirPlay, avec UxPlay à installer).
 - **Depuis une autre appli :** **Partager → Pixel** sur Android, si l'appli est installée depuis une adresse sécurisée. Sur iPhone, avec un Raccourci.
 
-Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec les autres façons de caster sur un Raspberry Pi (AirPlay, Google Cast, DLNA, Miracast, partage d'écran).
+Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec le partage d'écran depuis chaque appareil et les autres façons de caster sur un Raspberry Pi.
 
 ## Tes agendas (Google et Samsung)
 
@@ -380,6 +381,11 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
   - la fin toute seule, l'arrêt, « encore », les couleurs, la fin d'une vidéo, un écran qui s'ouvre, les commandes `caste` et `stop`, et le partage Android (`/share`, puis retour à l'appli).
   - l'accès : un appareil sans code est refusé, et une page d'un autre site affichée sur le Pi aussi (un lecteur vidéo) ; avec le code (`?t=`, en-tête, cookie), c'est bon.
   - chaque sorte de cast se dessine dans les 6 thèmes, avec les deux visages, sous le menu. La vidéo tourne à 60 images par seconde, avec le son sur Pixel seulement. L'écran d'avant revient à la fin.
+- **Partage d'écran** (`test_ecran.py`, `test_ecran.js`, `test_ecran_web.js`, `test_airplay.py`) :
+  - pendant un cast, dans les 6 thèmes : pas de couche cathodique, pas de lignes, pas de teinte, l'image sur du noir ; tout revient à la fin. Dans Chromium, les couleurs d'une mire partagée arrivent telles quelles sur l'écran de Pixel ;
+  - le code à usage unique (6 chiffres, 5 essais, espacés), rien n'est relayé sans lui ; seul l'écran de Pixel reçoit ; une page d'un autre site ne peut pas se connecter ; l'offre, la réponse et les candidats ICE sont relayés sans rien d'autre ;
+  - un vrai partage WebRTC entre deux pages, puis chaque façon de l'arrêter (l'ordinateur, le téléphone, l'écran de Pixel, un autre écran, un autre cast, la page fermée) ; le lanceur téléchargé, ouvert depuis le disque ; ScreenStream (un faux flux MJPEG) chargé par l'écran de Pixel, jamais par le serveur ;
+  - UxPlay : ses lignes (le code, la connexion, la recopie, une vidéo YouTube, la fin), et un faux uxplay lancé, relancé après un plantage, renvoyé quand on arrête sur Pixel.
 - **Claude** (`test_claude_loop.py`) : la boucle a tourné face à un faux serveur d'API. Claude règle le salon, change de thème et d'humeur, et un thème inconnu est refusé.
 - **Claude avec l'abonnement** (`test_abonnement.py`) : face à un faux SDK Claude Agent. Le test vérifie :
   - le choix entre clé API et abonnement, et le démarrage seulement au premier message ;
@@ -415,6 +421,10 @@ node tests/test_pack.js
 node tests/test_persona.js
 python3 tests/test_cast.py           # son propre serveur de démo sur le port 8104
 node tests/test_cast.js
+python3 tests/test_ecran.py          # son propre serveur de démo sur le port 8152 (et https sur 8158)
+node tests/test_ecran.js
+node tests/test_ecran_web.js         # Playwright : son serveur sur le port 8153, un faux ScreenStream sur 8154
+python3 tests/test_airplay.py
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -431,12 +441,13 @@ Pas encore testé avec le vrai matériel :
 | Fichier | Rôle |
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
-| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `cast` (caster sur l'écran), `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
+| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `cast` (caster sur l'écran), `ecran` (le partage d'écran : WebRTC, ScreenStream), `airplay` (UxPlay), `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
 | `web/reglages.html` | la page **Agendas** du téléphone |
+| `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |
-| `docs/CAST.md` | caster sur Pixel : le mode d'emploi, et les autres façons de caster sur un Raspberry Pi |
+| `docs/CAST.md` | caster sur Pixel : le mode d'emploi, le partage d'écran depuis chaque appareil, et les autres façons de caster sur un Raspberry Pi |
 | `tests/` | les tests et les captures d'écran |
 | `tools/` | `build_lab_artifact.py` fait du labo une seule page HTML |
 | `deploy/` | installation sur le Pi : script, service systemd, ouverture en plein écran, règles d'accès |
