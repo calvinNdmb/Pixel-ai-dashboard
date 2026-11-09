@@ -286,6 +286,8 @@ const EVENTS = {
   'poche-loin': 'Pixel de poche : le Pi ne répond plus',
   'poche-maison': 'Pixel de poche : le Pi répond à nouveau',
   'poche-revoila': 'Pixel de poche : le téléphone ressort de la poche',
+  'nourrir-repas': 'Nourrir : il mange',                              // data.plat, data.reaction, data.rot (web/scenes/nourrir.js, pixel/nourrir.py)
+  'nourrir-faim': 'Nourrir : son ventre gargouille',                  // data.niveau: 1 a little hungry, 2 very hungry
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the
@@ -299,6 +301,8 @@ for (const pack of (typeof window !== 'undefined' && window.PixelScenePacks) || 
   const n = SC.length;
   try { pack(KIT); } catch (e) { SC.splice(n).forEach(x => { if (BY[x.id] === x) delete BY[x.id]; }); if (typeof console !== 'undefined') console.warn('Pixel: a scene pack failed', e); }
 }
+/* Nourrir (web/scenes/nourrir.js): once the server keeps his belly, on or off, 'faim' gives way (its hints know his belly; off, no hint at all) */
+if (BY.faim && typeof window !== 'undefined') { const w0 = BY.faim.when; BY.faim.when = c => !(window.PixelFoods && window.PixelFoods.state.known) && (!w0 || w0(c)); }
 const LIFE = SC.filter(s => s.group === 'vie');
 const TAP = { calm: ['coucou', 'content', 'saut', 'pirouette', 'timide', 'bisou', 'idee'], zones: { bouche: ['chatouilles'], oeil: ['oeil'], tete: ['bonk'], cote: ['pousse'], ailleurs: ['ou'] },
   love: ['amour', 'bisou', 'timide'], annoyed: ['he', 'he', 'impatient', 'esquive'], angry: ['colere', 'colere', 'panique', 'esquive'], pet: ['caresse', 'caresse'] };

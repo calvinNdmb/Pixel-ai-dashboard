@@ -235,3 +235,10 @@ body.kiosk .screen canvas#crt{touch-action:none}
 .car-lab .car-actions button{min-height:44px;min-width:120px;padding:0 16px;border:1px solid var(--accent);border-radius:9px;background:var(--card-hi);cursor:pointer;font-weight:500}
 .car-lab .car-actions .car-try{background:var(--accent);color:var(--accent-ink)}
 .car-lab .car-lab-k{font-size:12px}
+/* ---------- Nourrir (nourrir-lab.js): the 24 foods, drawn in the theme's colours on its background (--nl-bg) ---------- */
+.nour-lab-menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.nour-lab-menu button{min-width:48px;min-height:52px;display:grid;place-items:center;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--nl-bg,#061009);cursor:pointer}
+.nour-lab-menu button:hover{border-color:var(--accent)}
+.nour-lab-menu button.fav{box-shadow:inset 0 0 0 2px var(--amber)}
+.nour-lab-menu button:disabled{opacity:.4;cursor:default}
+.nour-lab-menu canvas{width:36px;height:36px;image-rendering:pixelated;image-rendering:crisp-edges}

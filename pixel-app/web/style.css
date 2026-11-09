@@ -87,4 +87,5 @@ body.kiosk .screen{width:min(100vw,calc(100vh*5/3));border-radius:0}
 body.kiosk .mfoot,body.kiosk .kb,body.kiosk .modes{display:none}
 body.kiosk .cmd{font-size:26px}
 body.kiosk .cmd.hide{display:none}
+body.kiosk .screen canvas{touch-action:none}   /* the Pi's touch screen: every swipe reaches the page, not Chromium's panning (a finger's swipe down did not open the quick menu before; the food tray's swipe up), as in Pixel Lab's kiosk */
 @media (max-width:420px){.hint{display:none}}

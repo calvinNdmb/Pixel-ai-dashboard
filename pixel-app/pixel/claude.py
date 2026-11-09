@@ -6,7 +6,7 @@ import logging
 import re
 
 from .commands import norm
-from . import anims, caractere, scenes
+from . import anims, caractere, nourrir, scenes
 from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
 
@@ -51,6 +51,7 @@ TOOLS = [
          {"scene": {"type": "string", "enum": [i for i, _, g in scenes.SCENES if g in ("vie", "tap", "fache", "calin")]}}, ["scene"]),
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
+TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (pixel/nourrir.py)
 
 # ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
 TOOLS.append(tool(
@@ -97,6 +98,8 @@ def check(name, a):
     """Validate a (possibly truncated) streamed tool input. Returns an error string or None."""
     if not isinstance(a, dict):
         return "entrée invalide"
+    if name == nourrir.TOOL["name"]:
+        return nourrir.check_tool(a)
     ok = {
         "get_status": True,
         "set_lights": isinstance(a.get("room"), str) and isinstance(a.get("on", True), bool)
@@ -196,6 +199,8 @@ class Claude:
         if name == "play_scene":
             await h.dispatch("scene.play", {"id": a["scene"]})
             return "ok"
+        if name == nourrir.TOOL["name"]:
+            return await nourrir.run_tool(h, a)
         if name == "run_codex":
             await h.dispatch("codex.run", {"task": a["task"]})
             return "tâche lancée : " + h.s["codex"]["status"]

@@ -208,6 +208,68 @@ Tape `humeur triste`, `humeur fier`… pour en voir une. Sur le Stream Deck, la 
 
 ![Les écrans dans les 6 thèmes](preview-themes-screens.png)
 
+## Nourrir Pixel
+
+Pixel a un **ventre**. Il se vide doucement pendant la journée, et tu peux le nourrir : il mange sur son écran, avec ses goûts à lui. C'est un petit animal de compagnie gentil : il ne tombe jamais malade, il ne meurt jamais et il ne te fait pas de reproches. Au pire, il a un petit creux et il te le dit.
+
+**Son ventre :**
+- il se vide d'environ 6 % par heure (réglable : lente, normale, rapide), et un peu plus vite si son caractère est gourmand ;
+- la nuit (de 23 h à 6 h), son ventre dort aussi ;
+- si le Pi a été éteint longtemps, au réveil il a au pire un petit creux, jamais une faim de loup. Pareil si l'horloge du Pi saute en avant au démarrage (il n'a pas de pile pour garder l'heure : il la reprend sur Internet) ;
+- plein, il refuse gentiment ; trop rempli, il gonfle : « Je vais éclater ! ».
+
+**Quand il a faim**, il le dit, sans insister :
+- son ventre gargouille : « J'ai un petit creux… », et il pense à ce qui lui ferait plaisir ;
+- très faim : « J'ai très faim… Tu me donnes un petit quelque chose ? » ;
+- vers l'heure des repas (petit-déj, déjeuner, goûter, dîner) : « C'est l'heure du déjeuner ! On mange quoi ? », avec sa fourchette et son couteau.
+
+Jamais plus d'une fois toutes les 20 minutes, jamais la nuit, et jamais quand il fait déjà autre chose. Son vieux « J'ai faim… » de midi laisse la place à ces envies, qui connaissent son ventre.
+
+**Le menu :** 24 plats dessinés en gros pixels, aux couleurs du thème. Fruits (pomme, banane, fraise), légumes (carotte, brocoli), plats (croissant, baguette, pizza, frites, burger, sushi, pâtes, soupe, fromage), sucreries (glace, gâteau, cookie, bonbon), boissons (chocolat chaud, verre de lait), et pour robots : une pile, un octet croustillant, de l'électricité, et un cookie « accepter les cookies ».
+
+**Ses goûts :** il a un plat préféré, cinq plats qu'il aime et trois qu'il n'aime pas. Ils restent les mêmes au redémarrage. Le bouton **Changer ses goûts** en tire d'autres.
+
+**Ce qu'il fait :**
+
+| Tu lui donnes | Il fait |
+| --- | --- |
+| son plat préféré | il saute de joie et danse : « Mon plat préféré !! » |
+| un plat qu'il aime | il mâche, des cœurs plein les yeux : « Trop bon ! » |
+| un plat qu'il n'aime pas | une grimace : « Beurk… bon, d'accord. » S'il est très grognon, il refuse : « Non. Pas ça. » |
+| un légume | « Fort comme un robot ! », et il montre ses muscles |
+| trois sucreries de suite | il file dans tous les sens, puis il s'écroule : « …je suis tout mou. » |
+| une pile, de l'électricité, un octet | il se recharge en grésillant, puis « 100 % ! » |
+| les cookies | « J'accepte les cookies ! » |
+| quand il est plein | « Merci, mais j'ai plus faim ! » |
+
+Le plat arrive par la droite, il ouvre la bouche, croque en trois bouchées et fait des miettes. Parfois il rote (plus souvent s'il est farceur) : « Burp ! …pardon. »
+
+**Pour le nourrir :**
+- **sur l'écran du Pi :** touche la petite assiette sur le bord droit, en bas (juste au-dessus de la ligne d'infos), ou glisse vers le haut depuis le bas de l'écran. Un plateau monte avec les 24 plats : touche-en un. Pour le ranger : glisse vers le bas, touche au-dessus, ou touche **Fermer**. Il se range tout seul après 20 secondes. L'assiette est en dehors de son visage et de la ligne d'infos : le toucher, les caresses et l'appui long marchent comme avant, et un long titre d'agenda reste lisible en entier. Un point clignote sur l'assiette quand il a faim ;
+- **sur ton téléphone :** touche **Nourrir**, sous les touches (à côté d'**Agendas**). Le panneau s'ouvre sous l'écran de Pixel : tu le vois manger ce que tu lui donnes. Il montre son ventre, le menu, ses goûts, ses derniers repas et les réglages. Touche l'écran de Pixel ou **×** pour le fermer ;
+- **dans ta poche :** le Pixel de poche a la même assiette ;
+- **au clavier :** `mange une pomme`, `donne-lui une pizza`, `bois un verre de lait`, `à table !` ou `nourris Pixel` (il choisit lui-même), `tu as faim ?` (il écoute son ventre et te répond). Ces phrases-là seulement : le reste part toujours à Claude ;
+- **avec Claude :** « Pixel, tu veux une glace ? ».
+
+Un repas toutes les 6 secondes au plus : le temps de mâcher.
+
+**Au doigt, sur l'écran du Pi :** les glissés marchent maintenant au doigt, et plus seulement à la souris. Avant, le navigateur du Pi gardait le geste pour lui : glisser vers le bas pour le menu rapide ne marchait pas toujours. Le plateau de Pixel en a besoin (glisser vers le haut), et le menu rapide en profite.
+
+**Les réglages** (sur le téléphone, dans le panneau) : **Repas activés** active ou coupe tout. Coupé, son ventre ne bouge plus, il ne réclame rien (même pas à midi) et ne mange pas. **Vitesse** : lente, normale ou rapide.
+
+Dans Pixel Lab, le panneau **Nourrir** donne chaque plat, joue chaque réaction, règle son ventre (repu, ça va, petit creux, très faim) et ouvre le plateau du Pi.
+
+**Ses fichiers :** `pixel/nourrir.py` (son ventre, ses goûts, ses repas, gardés dans `nourrir.json` ; un fichier abîmé ou modifié à la main ne bloque jamais le démarrage), `web/scenes/nourrir.js` (le menu, ses dessins et ses scènes), `web/nourrir.js` et `web/nourrir.css` (le plateau du Pi et le panneau du téléphone), `web/lab/nourrir-lab.js` (le panneau de Pixel Lab).
+
+**Vérifié** (`test_nourrir.py`, `test_nourrir.js`) : son ventre se vide le jour seulement (plus vite s'il est gourmand, un caractère absent compte comme aujourd'hui), pas pendant la nuit, et peu pendant que le serveur est arrêté ou quand l'horloge saute (au pire un petit creux) ; une horloge qui recule ne bloque pas ses repas ; un `nourrir.json` plein de valeurs farfelues (une heure d'avant l'an 2000, un ventre infini, des listes à la place des plats…) ne l'empêche ni de démarrer ni de manger ; un repas toutes les 6 s au plus ; chaque réaction (préféré, aime, beurk, refus si grognon, plein, éclate, trois sucreries, légume, robot, le rot plus fréquent s'il est farceur) ; ses goûts gardés au redémarrage et retirés au sort ; les commandes sans prendre les mots des autres commandes ni de Claude ; l'outil de Claude. Dans Chromium : sur l'écran du Pi, l'assiette hors du visage et de la ligne d'infos (même avec un long titre d'agenda), le plateau au toucher et au glissé, le repas joué et le plat dessiné dans les 6 thèmes, le visage qui répond toujours aux tapes, à l'appui long et au menu rapide ; le panneau du téléphone (Pixel visible au-dessus pendant qu'il mange, cibles de 44 px au moins, pas de défilement de côté, aucun mot coupé n'importe où dans les 6 thèmes) ; le Pixel de poche ; dans Pixel Lab, chaque scène dans chaque thème, et les envies de manger : une seule toutes les 20 minutes, jamais la nuit, ni quand c'est coupé (même pas le vieux « J'ai faim… » de midi), ni par-dessus une autre scène.
+
+Pour relancer ses tests :
+
+```
+python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PORT=… pour un autre)
+node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots DOSSIER pour les captures
+```
+
 ## Taper au clavier
 
 Il y a trois façons d'écrire :
