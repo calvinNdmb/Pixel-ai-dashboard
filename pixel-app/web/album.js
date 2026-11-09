@@ -47,10 +47,9 @@ function snap(reason = 'photo', o = {}) {
   if (!HOME || !Sc) return false;
   reason = typeof reason === 'string' && REASON.test(reason) ? reason : 'photo';
   const manual = reason === 'photo';
-  if (!manual && (Date.now() - Q.autoAt < AUTO_GAP || (Q.pending && Q.pending.manual))) return false;
+  if (!manual && (Date.now() - Q.autoAt < AUTO_GAP || (Q.pending && Q.pending.manual))) return false;   // one taken every 20 s at most
   const t = realNow();
   Q.pending = { reason, manual, at: t + Math.max(0, Number(o.delay) || 0), until: t + Math.max(0, Number(o.delay) || 0) + (o.wait || WAIT), scene: o.scene || '', e: o.e || 0 };
-  if (!manual) Q.autoAt = Date.now();
   return true;
 }
 setInterval(() => {                                  // the pending photo: as soon as it can be taken
@@ -62,7 +61,7 @@ setInterval(() => {                                  // the pending photo: as so
     if ((PER.current().e || 0) < p.e) return;
   } else if (t < p.at) return;
   if (why()) { if (t > p.until) Q.pending = null; return; }
-  Q.pending = null; shoot(p.reason);
+  Q.pending = null; if (!p.manual) Q.autoAt = Date.now(); shoot(p.reason);
 }, 60);
 
 /* ---------- the shot: one frame drawn without the info line and the banner, then copied ---------- */

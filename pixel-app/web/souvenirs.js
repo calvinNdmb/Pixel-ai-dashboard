@@ -101,7 +101,7 @@ const isAsleep = s => { const h = s && s.habitudes; return !!h && typeof h === '
 const MONTHS = { janvier: 1, janv: 1, fevrier: 2, fevr: 2, fev: 2, mars: 3, avril: 4, avr: 4, mai: 5, juin: 6, juillet: 7, juil: 7, aout: 8, septembre: 9, sept: 9, octobre: 10, oct: 10, novembre: 11, nov: 11, decembre: 12, dec: 12 };
 const PHOTO = /^(?:prends?|fais|fait)(?:[- ]moi)? (?:une |un )?(?:photo|selfie)(?: de toi)?(?: pixel)?$|^(?:prends?[- ]moi en photo|une photo|photo|clic clac)$/;
 const ALBUM = /^(?:montre|montre[- ]moi|ouvre|affiche|fais[- ]moi voir) (?:l'album(?: photo)?|ton album(?: photo)?|tes photos|les photos|ses photos)$|^(?:l'album|album|album photo|ton album|tes photos)$/;
-const ANNIV = /^(?:mon anniv(?:ersaire)?|ma date d'anniversaire|la date de mon anniversaire)(?: c'est| c est| est|,| :)? (?:le )?(.+)$|^je suis nee? (?:le )?(.+)$/;
+const ANNIV = /^(?:mon anniv(?:ersaire)?|ma date d'anniversaire|la date de mon anniversaire)(?:,? c'est|,? c est|,? est|,| :)? (?:le )?(.+)$|^je suis nee? (?:le )?(.+)$/;
 const QUAND = /^(?:c'est )?quand (?:est |c'est )?mon anniv(?:ersaire)?$|^(?:tu (?:connais|sais) )?(?:la date de )?mon anniversaire$|^tu te souviens de mon anniversaire$/;
 const RACONTE = /^(?:tu te souviens|raconte(?:[- ]moi)? un souvenir|un souvenir|mes souvenirs|nos souvenirs)$/;
 const DATE = /^(1er|premier|\d{1,2})(?: (?:de )?([a-z]+)\.?| ?[/.-] ?(\d{1,2}))(?: ?[/.-]? ?(\d{2}|\d{4}))?$/;
@@ -287,9 +287,9 @@ function hub(api) {
     'souvenirs.demande': () => { if (!F.demande) { F.demande = now(); publish(); keep(); } },
     'souvenirs.ajoute': ({ type = null, texte = null, t = null, epingle = false } = {}) => {
       const tx = cleanText(texte), n = now(); if (typeof type !== 'string' || !TYPE.test(type) || type === 'rencontre' || !tx) return;
-      added = added.filter(x => n - x < 3600e3); if ((added.length && n - added[added.length - 1] < 2000) || added.length >= 30) return;
-      if (F.timeline.some(e => e.type === type && e.texte === tx && Math.abs(n - e.t) < 60000)) return;
-      added.push(n); const tt = typeof t === 'number' && t >= T_MIN && t <= n + 864e5 ? t : null;
+      added = added.filter(x => n - x[0] >= 0 && n - x[0] < 3600e3); if ((added.length && n - added[added.length - 1][0] < 2000) || added.length >= 30) return;
+      if (added.some(x => n - x[0] < 60000 && x[1] === type && x[2] === tx)) return;   // the same memory twice in a minute: once
+      added.push([n, type, tx]); const tt = typeof t === 'number' && t >= T_MIN && t <= n + 864e5 ? t : null;
       const e = add(type, tx, tt, epingle === true && F.timeline.filter(x => x.epingle).length < PINNED_MAX); event('ajoute', { type, texte: e.texte, souvenir: e.id }); publish(); keep();
     },
     'souvenirs.epingle': ({ id = null, on = null } = {}) => {
@@ -465,7 +465,11 @@ function memory() {
 
 /* ---------- Pixel's own screen: when you are there, his initiatives (one at a time) ---------- */
 const STEP = { at: -1e12 };
-function present() { return !!L && !!K && K.now - L.lastInput < 90000 && K.now - L.lastInput > 1200 && (typeof document === 'undefined' || !document.hidden); }
+const realNow = () => (window.PixelClock ? window.PixelClock.real() : performance.now());
+function present() {                                   // a real touch (or key) in the last 90 s, not this very moment (L.inputAt: Screens.input)
+  if (!L || !L.inputAt || (typeof document !== 'undefined' && document.hidden)) return false;
+  const e = realNow() - L.inputAt; return e < 90000 && e > 1200;
+}
 function free() {
   if (!L || !PER || !P || L.scr !== 'visage' || L.boot >= 0 || L.sleepy || Sc.casting || Sc.menuOpen || view() || asleep()) return false;
   const X = window.PixelExos, N = window.PixelNourrir;
@@ -696,8 +700,18 @@ function drawAlbum(k) {                                // « montre l'album »: 
 }
 
 /* ---------- the phone: the « Souvenirs » sheet (tabs Souvenirs, Carnet, Album) ---------- */
-const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+/* the panel's text: a no-break space before ! ? : ; » (French), and every emoji in a span of its own: the themes' fonts
+   (and DejaVu Sans after them) would draw some of them in one colour, the phone's emoji font draws them in colour */
+const EMOJI = /(\p{Extended_Pictographic}[\uFE0F\u200D\p{Extended_Pictographic}]*)/u;
+const nbsp = s => s.replace(/ ([!?:;»])/g, '\u00a0$1').replace(/« /g, '«\u00a0');
+function put(e, text) {
+  const s = nbsp(String(text)), parts = s.split(EMOJI).filter(Boolean);
+  if (e.tagName === 'OPTION' || !parts.some(p => EMOJI.test(p))) { e.textContent = s; return; }
+  e.replaceChildren(...parts.map(p => { if (!EMOJI.test(p)) return document.createTextNode(p); const x = document.createElement('span'); x.className = 'souv-e'; x.textContent = p; return x; }));
+}
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) put(e, text); return e; };
 const bt = (text, cls, fn) => { const b = el('button', cls, text); b.type = 'button'; if (fn) b.addEventListener('click', fn); return b; };
+const legendItem = (emo, label) => { const s = el('span'); s.append(el('i'), el('span', null, `${emo} ${label}`)); return s; };
 let pv = null, tab = 'souvenirs', drawn = {}, viewer = null;
 const PANEL = typeof document !== 'undefined' && !KIOSK && !LAB;
 function sure(b, label, fn) {                           // a second touch within 4 s confirms
@@ -754,6 +768,7 @@ function panel(open, which) {
   if (open) { const r = screenBox(); if (r && r.top < 0) window.scrollBy(0, r.top - 8); show(which || tab); }
   else closeViewer();
   pv.root.hidden = !open; document.body.classList.toggle('souv-on', !!open);
+  if (!open) panelDraw();                              // the buttons under the keys: « Souvenirs • » when he asks
   if (open) { drawn = {}; panelDraw(); place(); pv.sheet.scrollTop = 0; const t = pv.tb[tab]; if (t) t.focus({ preventScroll: true }); }
   else (tab === 'album' ? pv.goA : pv.goS).focus({ preventScroll: true });
   return true;
@@ -839,13 +854,13 @@ function drawSouvenirs() {
 }
 /* -- the Carnet tab -- */
 const COL = { super: '#f2c94c', bien: '#6fcf97', bof: '#b6b6b6', triste: '#56a0e8', colere: '#eb5757' };
-let chipSel = null, chipT = 0;
+let chipSel = null, chipFor = -1, chipT = 0;          // the words chosen here, and the answer they were last taken from
 function drawCarnet() {
   const h = P.humeur; if (!h) return;
   const key = JSON.stringify([h, chipSel]);
   if (drawn.c === key) return; drawn.c = key;
   const pane = pv.panes.carnet, out = [], td = h.aujourdhui;
-  if (chipSel === null) chipSel = td ? [...td.chips] : [];
+  if (chipSel === null || (td ? td.t : 0) !== chipFor) { chipSel = td ? [...td.chips] : chipSel || []; chipFor = td ? td.t : 0; }   // an answer from another screen: its words
   const q = el('section', 'souv-card souv-today'); q.append(el('h3', null, h.question ? '💬 Pixel te demande…' : '🙂 Aujourd’hui'));
   q.append(el('p', 'souv-big', td ? `${MOOD[td.m][2]} ${MOOD[td.m][1]}${td.chips.length ? ' · ' + td.chips.map(c => CHIP[c]).join(', ') : ''}` : named('Comment tu vas aujourd’hui ?')));
   const faces = el('div', 'souv-faces'); faces.setAttribute('role', 'group'); faces.setAttribute('aria-label', 'Comment tu vas');
@@ -879,7 +894,7 @@ function drawCarnet() {
   const grid = el('div', 'souv-month'); for (const n of ['L', 'M', 'M', 'J', 'V', 'S', 'D']) grid.append(el('span', 'souv-mh', n));
   const first = new Date(now.getFullYear(), now.getMonth(), 1); for (let i = 0; i < (first.getDay() + 6) % 7; i++) grid.append(el('span'));
   for (let d = 1; d <= dim(now.getFullYear(), now.getMonth() + 1); d++) grid.append(cell(new Date(now.getFullYear(), now.getMonth(), d), 'small'));
-  const legend = el('div', 'souv-legend'); for (const [m, label, emo] of MOODS) { const s = el('span'); s.style.setProperty('--mood', COL[m]); s.append(el('i'), document.createTextNode(`${emo} ${label}`)); legend.append(s); }
+  const legend = el('div', 'souv-legend'); for (const [m, label, emo] of MOODS) { const s = legendItem(emo, label); s.style.setProperty('--mood', COL[m]); legend.append(s); }
   mo.append(grid, legend); out.push(mo);
   // the settings
   const st = el('section', 'souv-card'); st.append(el('h3', null, '⚙️ Réglages du carnet'));

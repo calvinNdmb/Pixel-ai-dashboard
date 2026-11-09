@@ -52,6 +52,7 @@ body.poche .souv,body.poche .souv-go,body.kiosk .souv-go,body.kiosk .souv{displa
 .souv-tl li{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--c-line)}
 .souv-tl li.pin{background:linear-gradient(90deg,rgba(255,179,71,.14),transparent)}
 .souv-emo{font-size:24px;width:32px;text-align:center;flex:none}
+.souv-e,.souv-emo,.souv-emoji{font-family:"Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji","Twemoji Mozilla",sans-serif;font-style:normal;font-weight:400;letter-spacing:0}
 .souv-tx{flex:1;min-width:0}
 .souv-tx time{display:block;color:var(--c-dim);font-size:max(13px,calc(15px*var(--k-size)))}
 .souv-tx p{margin:0;overflow-wrap:anywhere}

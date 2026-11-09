@@ -528,14 +528,14 @@ class Souvenirs:
         if not typ or not txt:
             return None
         now = self.clock()
-        self.added = [x for x in self.added if now - x < 3600]
-        if (self.added and 0 <= now - self.added[-1] < ADD_GAP_S) or len(self.added) >= ADD_PER_HOUR:
+        self.added = [x for x in self.added if 0 <= now - x[0] < 3600]
+        if (self.added and now - self.added[-1][0] < ADD_GAP_S) or len(self.added) >= ADD_PER_HOUR:
             return None
-        if any(e["type"] == typ and e["texte"] == txt and abs(_ms(self.clock) - e["t"]) < 60000 for e in self.d["timeline"]):
+        if any(now - x[0] < 60 and x[1:] == (typ, txt) for x in self.added):
             return None                                # the same memory twice in a minute: once
         tt = _num(t, None)
         tt = tt if tt is not None and T_MIN <= tt <= _ms(self.clock) + 86400000 else None
-        self.added.append(now)
+        self.added.append((now, typ, txt))
         pins = sum(1 for e in self.d["timeline"] if e["epingle"])
         e = self._add(typ, txt, t=tt, epingle=epingle is True and pins < PINNED_MAX)
         self._event("ajoute", type=typ, texte=e["texte"], souvenir=e["id"])
@@ -736,7 +736,7 @@ MONTHS = {"janvier": 1, "janv": 1, "fevrier": 2, "fevr": 2, "fev": 2, "mars": 3,
 _PHOTO = re.compile(r"^(?:prends?|fais|fait)(?:[- ]moi)? (?:une |un )?(?:photo|selfie)(?: de toi)?(?: pixel)?$|^(?:prends?[- ]moi en photo|une photo|photo|clic clac)$")
 _ALBUM = re.compile(r"^(?:montre|montre[- ]moi|ouvre|affiche|fais[- ]moi voir) (?:l'album(?: photo)?|ton album(?: photo)?|tes photos|les photos|ses photos)$"
                     r"|^(?:l'album|album|album photo|ton album|tes photos)$")
-_ANNIV = re.compile(r"^(?:mon anniv(?:ersaire)?|ma date d'anniversaire|la date de mon anniversaire)(?: c'est| c est| est|,| :)? (?:le )?(.+)$|^je suis nee? (?:le )?(.+)$")
+_ANNIV = re.compile(r"^(?:mon anniv(?:ersaire)?|ma date d'anniversaire|la date de mon anniversaire)(?:,? c'est|,? c est|,? est|,| :)? (?:le )?(.+)$|^je suis nee? (?:le )?(.+)$")
 _QUAND = re.compile(r"^(?:c'est )?quand (?:est |c'est )?mon anniv(?:ersaire)?$|^(?:tu (?:connais|sais) )?(?:la date de )?mon anniversaire$|^tu te souviens de mon anniversaire$")
 _RACONTE = re.compile(r"^(?:tu te souviens|raconte(?:[- ]moi)? un souvenir|un souvenir|mes souvenirs|nos souvenirs)$")
 _DATE = re.compile(r"^(1er|premier|\d{1,2})(?: (?:de )?([a-z]+)\.?| ?[/.-] ?(\d{1,2}))(?: ?[/.-]? ?(\d{2}|\d{4}))?$")
