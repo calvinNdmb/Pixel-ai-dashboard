@@ -40,6 +40,10 @@ const SHIFT = off => {
 };
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-souvenirs-')), cfg = path.join(tmp, 'config.toml'), wrap = path.join(tmp, 'clock.py');
 fs.writeFileSync(cfg, `data_dir = "${tmp}"\n[ui]\nthemes = ${JSON.stringify(THEMES)}\n`);
+/* Pixel first started 40 days ago (his token, the oldest file of his data folder): the day you met is not today, he may ask
+   how you are (never on the very first day); 40 days: no monthly celebration today */
+fs.writeFileSync(path.join(tmp, 'token'), 'souvenirs-test'); { const t = (Date.now() + OFF) / 1000 - 40 * 86400; fs.utimesSync(path.join(tmp, 'token'), t, t); }
+const NO_TALK = () => { try { const d = new Date(), j = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; localStorage.setItem('pixel.souvenirs.rappels', JSON.stringify({ jour: j, n: 9, t: Date.now() })); } catch { /* none */ } };   // no memory told out of the blue meanwhile
 fs.writeFileSync(wrap, `import runpy, sys, time\nreal = time.time\noff = float(sys.argv[1]) / 1000\ntime.time = lambda: real() + off\nsys.argv = [${JSON.stringify(path.join(APP, 'server.py'))}] + sys.argv[2:]\nsys.path.insert(0, ${JSON.stringify(APP)})\nrunpy.run_path(sys.argv[0], run_name="__main__")\n`);
 let srv = null, hub = null, S = null;
 const act = (action, args = {}) => hub.send(JSON.stringify({ action, args }));
@@ -66,12 +70,13 @@ const theme = async name => { act('theme.set', { name }); await until(() => S.vi
   await until(() => hub.readyState === 1 && S, 5000);
   check('the server\'s clock says 15:30 (the test\'s): his questions are for the day', new Date(S.server_now + 0).getHours() === new Date(Date.now() + OFF).getHours());
   check('the snapshot: souvenirs (fete null, today), humeur (private), album (empty)', S.souvenirs && S.souvenirs.fete === null && S.humeur && S.humeur.claude === false && S.album && S.album.photos.length === 0);
+  check('the day you met: Pixel\'s first start, his oldest file (40 days ago)', S.souvenirs.depuis === 40 && S.souvenirs.rencontre_auto === true, JSON.stringify([S.souvenirs.rencontre, S.souvenirs.depuis]));
   const token = fs.readFileSync(path.join(tmp, 'token'), 'utf8').trim();
   const browser = await chromium.launch();
 
   /* ================= the Pi's screen and a phone ================= */
   const kc = await browser.newContext({ viewport: { width: 800, height: 480 }, deviceScaleFactor: 1, hasTouch: true, timezoneId: TZ });
-  await kc.addInitScript(SHIFT, OFF);
+  await kc.addInitScript(SHIFT, OFF); await kc.addInitScript(NO_TALK);
   const k = await kc.newPage(), kErr = errors(k);
   await k.goto(BASE + '/?kiosk=1');
   await until(() => k.evaluate(() => typeof Screens !== 'undefined' && Screens.local.boot < 0 && Screens.local.lastBootAt > 0 && !!window.PixelSouvenirs && !!window.PixelAlbum), 15000);
@@ -97,6 +102,20 @@ const theme = async name => { act('theme.set', { name }); await until(() => S.vi
   check('…so does the phone\'s screen, and its « Carnet »', await until(() => ph.evaluate(() => PixelSouvenirs.view() === 'humeur' && /Pixel te demande/.test(document.querySelector('#souvPane-carnet h3').textContent)), 3000));
   check('…the « Souvenirs » button says so when its sheet is closed', await ph.evaluate(() => { PixelSouvenirs.panel(false); const b = document.querySelector('.souv-go'); const live = b.classList.contains('live') && /•/.test(b.textContent); PixelSouvenirs.panel(true, 'carnet'); return live; }));
   for (const th of THEMES) { await theme(th); await crt(k, `kiosk-humeur-${th}`); }
+  /* one thing at a time: an exercise and a cast come first, the food tray waits; the question waits under them, as it is */
+  check('the question on his face screen, the food tray put away', await k.evaluate(() => PixelSouvenirs.drawn === 'humeur' && (!window.PixelNourrir || (!PixelNourrir.open() && !PixelNourrir.trayOpen))));
+  act('exos.nouveau', { mode: 'exo', kind: 'addition', niveau: 1 });
+  check('…an exercise opened (from the phone): it comes first, the question waits', await until(() => k.evaluate(() => PixelExos.open && PixelSouvenirs.drawn === null && PixelSouvenirs.view() === 'humeur'), 4000));
+  act('exos.stop');
+  check('…put away: the question again, as it was', await until(() => k.evaluate(() => !PixelExos.open && PixelSouvenirs.drawn === 'humeur'), 4000));
+  act('cast.text', { text: 'À table !' });
+  check('…a cast: over everything, the question under it', await until(() => k.evaluate(() => Screens.casting && PixelSouvenirs.drawn === null), 4000));
+  act('cast.stop');
+  check('…the cast over: the question again', await until(() => k.evaluate(() => !Screens.casting && PixelSouvenirs.drawn === 'humeur'), 4000) && !!S.humeur.question);
+  await k.evaluate(() => Screens.menu(true));
+  check('…the quick menu opens over it (its touches are the menu\'s)', await k.evaluate(() => Screens.menuOpen && PixelSouvenirs.drawn === 'humeur'));
+  await k.evaluate(() => Screens.menu(false));
+  check('…his exercise offer « Une petite question ? » waits while he asks', await k.evaluate(() => !PixelExos.canPropose({ day: true })));
   await theme('retro');
   await shot(ph, 'phone-question');
   const F = await k.evaluate(() => PixelSouvenirs.layout.faces.find(f => f.m === 'triste'));

@@ -286,7 +286,11 @@ def record_checks():
 
 # ---------- the mood journal ----------
 def humeur_checks():
-    hub, S, c = make(None, at(2026, 11, 9, 16, 59))
+    hub, S, c = make(None, at(2026, 11, 9, 17, 30))
+    check("the day you met: he does not ask yet (he gets to know you first)", not S.due())
+    S.set_rencontre("2026-10-01")
+    check("…from the next day on, he may", S.due())
+    c.t = at(2026, 11, 9, 16, 59)
     check("before his time (17:00 by default): he does not ask", not S.due())
     c.t = at(2026, 11, 9, 17, 0)
     check("from 17:00: he may ask", S.due())

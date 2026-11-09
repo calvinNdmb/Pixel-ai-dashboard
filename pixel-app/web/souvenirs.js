@@ -180,7 +180,7 @@ function hub(api) {
   function due(t = now()) {                            // souvenirs.py due()
     if (!HF.on || question) return false;
     const d = new Date(t), j = ymd(d), h = d.getHours();
-    if (HF.jours[j] || h * 60 + d.getMinutes() < HF.heure || h >= 21 || h < 7) return false;
+    if (HF.jours[j] || h * 60 + d.getMinutes() < HF.heure || h >= 21 || h < 7 || dayNum(d) <= dayNum(rencontre())) return false;   // not the day you met
     if (inQuiet(h, S.caractere && S.caractere.calme) || isAsleep(S)) return false;
     const a = HF.asks; return !(a.jour === j && (a.n >= ASKS_MAX || t - a.t < ASK_GAP));
   }
@@ -509,7 +509,7 @@ function initiative(force = false) {                   // force: Pixel Lab's but
   }
   let said = 0, last = 0; try { const m = JSON.parse(store.get('pixel.souvenirs.rappels')) || {}; if (m.jour === today()) said = m.n | 0; last = m.t || 0; } catch { /* none */ }
   const bavard = (trait('bavard') - 50) / 25;          // a chatterbox remembers out loud more often (1 to 5 a day), a quiet one less; 3 at 50
-  if (h >= 9 && h < 20 && said < 3 + Math.round(bavard) && t - last > 2 * 3600e3 / 2 ** (bavard / 2) && Math.random() < 2 ** bavard / 90 && memories().length) {   // now and then, a memory
+  if (s.depuis >= 1 && h >= 9 && h < 20 && said < 3 + Math.round(bavard) && t - last > 2 * 3600e3 / 2 ** (bavard / 2) && Math.random() < 2 ** bavard / 90 && memories().length) {   // now and then, a memory (not on the day you met)
     store.set('pixel.souvenirs.rappels', JSON.stringify({ jour: today(), n: said + 1, t })); go(); sc('souvenir-rappel', memory());
   }
 }
@@ -536,9 +536,10 @@ const exosOwns = () => { const X = window.PixelExos; return !!(X && (X.open || X
 function guard() {                                     // the food tray and its plate wait while a view of ours shows (as web/exos.js does)
   const N = window.PixelNourrir;
   if (N && !N.souvGuard && typeof N.over === 'function') {
-    const over = N.over, swipe = N.swipe;
+    const over = N.over, swipe = N.swipe, open = N.open;
     N.over = k => { if (!view()) return over(k); if (N.trayOpen && N.close) N.close(); };
     if (typeof swipe === 'function') N.swipe = (dy, y0) => (view() ? false : swipe(dy, y0));
+    if (typeof open === 'function') N.open = () => (view() ? false : open());
     N.souvGuard = true;
   }
   const X = window.PixelExos;                          // his offer « Une petite question ? » waits for ours, and for the party
@@ -967,6 +968,7 @@ return {
   get mirror() { return mirror; }, get home() { return HOME; },
   panel(open, which) { if (open === false) return panel(false); return panel(true, which === 'album' ? 'album' : which === 'carnet' ? 'carnet' : 'souvenirs'); },
   get isOpen() { return !!pv && !pv.root.hidden; }, get viewer() { return viewer ? viewer.id : null; },
+  get drawn() { return L && ad.on(L.scr) ? view() : null; },   // what his face screen shows of ours now (null: something else comes first)
   diapo, get V() { return { album: V.album && { ...V.album }, anniv: V.anniv && { ...V.anniv }, chips: V.chips && { ...V.chips }, hidden: V.hidden }; },
   layout: { face: FB, faces: MOODS.map((m, i) => ({ m: m[0], x: 16 + i * 154, y: 214, w: 148, h: 188 })), chips: CHIPS.map((c, i) => ({ id: c[0], x: 16 + (i % 4) * 194, y: 216 + Math.floor(i / 4) * 80, w: 186, h: 70 })) },
   ask: () => { if (PER) { play('souvenir-question'); } },   // the lab: he asks your birthday now

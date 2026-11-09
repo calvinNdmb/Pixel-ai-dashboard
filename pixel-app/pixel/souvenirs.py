@@ -13,8 +13,9 @@ Souvenirs (snapshot "souvenirs", file data_dir/souvenirs.json):
   theirs with souvenirs.ajoute {type, texte, t} (a friend's visit...), checked and capped.
 Le carnet d'humeur (snapshot "humeur", file data_dir/humeur.json, private: never in Claude's prompt; get_status and his tool
 see it only when « Claude peut savoir comment je vais » is on, off by default; the phone does not keep it, web/app.js):
-- once a day, from "heure" (17:00 by default), never at night (21 h - 7 h) nor in his quiet hours (caractère "calme"), nor
-  while he sleeps (habitudes "dort", or its state 'coucher'), he asks « Comment tu vas aujourd'hui ? »: Pixel's own screen
+- once a day, from "heure" (17:00 by default), from the day after you met (the first day, he gets to know you), never at
+  night (21 h - 7 h) nor in his quiet hours (caractère "calme"), nor while he sleeps (habitudes "dort", or its state
+  'coucher'), he asks « Comment tu vas aujourd'hui ? »: Pixel's own screen
   asks when someone is there (humeur.pose), at most ASKS_MAX times a day, ASK_GAP apart, QUESTION_S each; an answer from
   any screen, the panel or a typed command (« je suis triste ») is the day's mood: one of MOODS, and a few CHIPS;
 - he reacts (web/scenes/souvenirs.js), and remembers: "hier" (the last day before today, within 2 days) for « Hier… ça va
@@ -598,8 +599,8 @@ class Souvenirs:
             return False
         now = self.clock() if now is None else now
         d = dt.datetime.fromtimestamp(now)
-        if d.date().isoformat() in H["jours"] or d.hour * 60 + d.minute < H["heure"]:
-            return False
+        if d.date().isoformat() in H["jours"] or d.hour * 60 + d.minute < H["heure"] or d.date() <= self.rencontre():
+            return False                               # (the day you met: he gets to know you first)
         if d.hour >= NIGHT[0] or d.hour < NIGHT[1]:
             return False
         car = self.hub.s.get("caractere")
