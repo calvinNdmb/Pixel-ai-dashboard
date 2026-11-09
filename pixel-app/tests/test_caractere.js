@@ -1,10 +1,11 @@
 // Pixel's character on the screens:  node tests/test_caractere.js [--shots DIR]
-//   CARACTERE_PORT=8164 (the demo server), CARACTERE_STRICT=1 (the comparison with git d1451d5 counts, see below)
+//   CARACTERE_PORT=8164 (the demo server), CARACTERE_STRICT=1 (the comparison with the Pixel before him counts, see below),
+//   CARACTERE_BASE=<commit> (that Pixel: by default 36422fd, main just before Pixel OS perso was merged in)
 // 1. In a VM, the real screens.js + persona.js + every scene pack + caractere.js (a stub canvas, seeded random, fake clocks):
 //    - at 50 everywhere the Pixel of every day, byte for byte: the same scenes and lines, for the same random seed, as the same
 //      code with no "caractere" in the snapshot, and as the same code without caractere.js and its pack at all; every affinity
-//      exactly 1, every knob exactly its old value. Also compared with persona.js and screens.js before the feature (git d1451d5,
-//      with that commit's packs): a note only, unless CARACTERE_STRICT=1, since later features may change his default behaviour;
+//      exactly 1, every knob exactly its old value. Also compared with persona.js and screens.js before the feature (git 36422fd,
+//      with that commit's packs; the feature was written on d1451d5, but main had moved on when it came in): a note only, unless CARACTERE_STRICT=1, since later features may change his default behaviour;
 //    - statistically, over many seeded trials: a grumpy Pixel gets angry and sulks more (and longer), a patient one less;
 //      a cuddly one answers cuddles warmly, an independent one shrugs them off; a chatterbox speaks more, a quiet one less, and
 //      « Il parle » off: no chit-chat, but reminders and news still show; a lively one lives more often (and faster), a lazy one
@@ -93,13 +94,13 @@ function scenario(W) {                                // taps, cuddles, a long t
   W.fresh(); W.PER.away(3 * 3600e3); W.Screens.input(); W.run(2600); rec('missed');
   return log;
 }
-const STRICT = process.env.CARACTERE_STRICT === '1';
+const STRICT = process.env.CARACTERE_STRICT === '1', BEFORE = process.env.CARACTERE_BASE || '36422fd';
 let oldFiles = null;
 try {
   const git = (...a) => execFileSync('git', a, { cwd: APP, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
-  const packs = git('ls-tree', '--name-only', 'd1451d5', 'web/scenes/').split('\n').filter(f => f.endsWith('.js')).sort();
-  oldFiles = { persona: git('show', 'd1451d5:pixel-app/web/persona.js'), screens: git('show', 'd1451d5:pixel-app/web/screens.js'),
-    packs: packs.map(f => [f + ' (d1451d5)', git('show', `d1451d5:pixel-app/${f}`)]) };
+  const packs = git('ls-tree', '--name-only', BEFORE, 'web/scenes/').split('\n').filter(f => f.endsWith('.js')).sort();
+  oldFiles = { persona: git('show', `${BEFORE}:pixel-app/web/persona.js`), screens: git('show', `${BEFORE}:pixel-app/web/screens.js`),
+    packs: packs.map(f => [`${f} (${BEFORE})`, git('show', `${BEFORE}:pixel-app/${f}`)]) };
 } catch { oldFiles = null; }
 {
   const W1 = NEW();
@@ -118,20 +119,20 @@ try {
   check('…and as without caractere.js and its scene pack at all', a50.length === aNone.length && diff(a50, aNone) < 0 && none.errs.length === 0,
     diff(a50, aNone) >= 0 ? `${a50[diff(a50, aNone)]}  !=  ${aNone[diff(a50, aNone)]}` : none.errs.slice(0, 2).join(' | '));
   check('…and none of the scenes only a character brings', !a50.some(x => /caractere-/.test(x)), a50.filter(x => /caractere-/.test(x)).slice(0, 3).join());
-  if (oldFiles) {                                   // the Pixel before his character: d1451d5's persona.js, screens.js and packs
+  if (oldFiles) {                                   // the Pixel before his character: BEFORE's persona.js, screens.js and packs
     let a = null, b = null, errs = [];
     try {
-      const OLD = world([...base, ['persona.js (d1451d5)', oldFiles.persona], ...oldFiles.packs, ['screens.js (d1451d5)', oldFiles.screens]], 11);
+      const OLD = world([...base, [`persona.js (${BEFORE})`, oldFiles.persona], ...oldFiles.packs, [`screens.js (${BEFORE})`, oldFiles.screens]], 11);
       const NOW = world([...base, ['persona.js', read('persona.js')], ...oldFiles.packs, [OWN_PACK, read(OWN_PACK)], ['caractere.js', read('caractere.js')], ['screens.js', read('screens.js')]], 11);
       NOW.set({ caractere: car({ preset: 'pixel' }) });
       a = scenario(OLD); b = scenario(NOW); errs = OLD.errs.concat(NOW.errs);
     } catch (e) { errs.push(String(e && e.message || e)); }
     const same = a && b && a.length === b.length && diff(a, b) < 0 && !errs.length;
-    const what = `at 50 everywhere: the same ${a ? a.length : '?'} moments and lines as the Pixel before his character (git d1451d5 and its packs)`;
+    const what = `at 50 everywhere: the same ${a ? a.length : '?'} moments and lines as the Pixel before his character (git ${BEFORE} and its packs)`;
     const why = !a || !b ? errs.slice(0, 2).join(' | ') : diff(a, b) >= 0 ? `${a[diff(a, b)]}  !=  ${b[diff(a, b)]}` : errs.slice(0, 2).join(' | ');
     if (STRICT || same) check(what, same, why);
     else console.log(`NOTE ${what}: differs (${why}). Expected if a later feature changed his default behaviour; CARACTERE_STRICT=1 makes it count.`);
-  } else console.log('SKIP the comparison with git d1451d5 (git or that commit is not here)');
+  } else console.log(`SKIP the comparison with git ${BEFORE} (git or that commit is not here)`);
 }
 
 /* ---------- 2. statistics: each trait does what it says ---------- */

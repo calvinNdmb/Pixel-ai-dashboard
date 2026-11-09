@@ -396,7 +396,11 @@ function carVoice(sc, lines) {
   if (!CAR.on || !CAR_CHIT.includes(sc.group)) return;                          // the events say something useful
   const b = CAR.d.bavard;
   if (b < 0) { for (const l of lines) if (rnd() < -b * 0.85) l[2] = ''; }                 // a quiet one: most bubbles stay unsaid
-  else if (b > 0 && sc.dur > 2600 && !lines.some(l => l[2] && l[0] < 2600) && rnd() < b * 0.7) lines.unshift([300, 2300, pick(CAR_CHAT[sc.mood] || CAR_CHAT.neutre)]);   // a chatterbox: one more, never two
+  else if (b > 0 && sc.dur > 2600) {                                            // a chatterbox: one more, never two, in his first 2 s of silence
+    let at = 300;                                                               // (most scenes talk early: not only at their start)
+    for (const [s0, s1, t] of [...lines].sort((x, y) => x[0] - y[0])) if (t) { if (s0 - at >= 2300) break; at = Math.max(at, s1 + 300); }
+    if (at + 2000 <= sc.dur - 200 && rnd() < b * 0.7) lines.push([at, at + 2000, pick(CAR_CHAT[sc.mood] || CAR_CHAT.neutre)]);
+  }
 }
 
 /* ---------- state ---------- */
