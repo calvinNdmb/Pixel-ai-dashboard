@@ -37,6 +37,9 @@ from pixel import poche                  # Pixel de poche: the phone held sidewa
 from pixel.youtube import Player as YtPlayer
 from pixel.ytcast import YtCast
 from pixel import telephone              # the Android app: the phone's notifications
+from pixel import caractere              # his character: traits, presets, his name and yours
+from pixel import nourrir                # Nourrir: his belly, his tastes, his meals
+from pixel import exos                   # little math exercises (and riddles)
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -173,6 +176,9 @@ async def serve(args, cfg, datadir, token):
     hub = Hub(cfg, args.demo)
     core_actions(hub, datadir)
     poche.setup(hub)                     # Pixel de poche: the two Pixels pass news, the voyage
+    caractere.setup(hub, datadir)        # his character, saved in caractere.json
+    nourrir.setup(hub, datadir)          # Nourrir: feeding Pixel (data_dir/nourrir.json)
+    exos.setup(hub, datadir)             # math exercises: the exos.* actions, data_dir/exos.json
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"

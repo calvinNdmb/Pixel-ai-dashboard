@@ -254,6 +254,7 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 3. Le bouton **Miroir de Pixel** :
    - allumé, ton téléphone montre et change l'écran de Pixel ;
    - éteint, tu navigues de ton côté sans changer l'écran de Pixel.
+4. Sous les touches, **Caractère**, **Nourrir** et **Exos** ouvrent leurs panneaux (voir [Le personnaliser](#le-personnaliser)).
 
 **L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/), version 1.1) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
 - Pose l'APK dans le dossier de données de Pixel, sous le nom `~/.config/pixel/pixel.apk`. Dans Chrome sur Android, un lien **Appli Android** apparaît alors sous le clavier.
@@ -333,6 +334,166 @@ python3 tools/build_app_bundle.py pixel-local.html
 ```
 
 L'appli le refait elle-même avant chaque APK (`npm run bundle:web`, dans `pixel-mobile`).
+
+<!-- personnaliser -->
+## Le personnaliser
+
+Trois façons de faire de Pixel *ton* Pixel. Sur ton téléphone, sous les touches : **Caractère**, **Nourrir** et **Exos**, côte à côte.
+
+- **Son caractère** : câlin, grognon, farceur, gourmand, petit prof… ou huit curseurs. Tape `sois grognon`, `plus câlin`, `appelle-toi Bip`.
+- **Le nourrir** : son ventre se vide dans la journée, donne-lui un des 24 plats. Tape `mange une pomme`, `tu as faim ?`, `à table !`.
+- **Les exos de maths** : il te pose des questions, du CP au collège. Tape `exo`, `table de 7`, `défi chrono`, puis ta réponse (`42`).
+
+**Les trois marchent ensemble :**
+
+| Son caractère | Ce que ça change |
+| --- | --- |
+| Gourmand | Son ventre se vide plus vite, il a encore de la place quand un autre serait plein, il pense plus souvent à manger, et après un bon plat il en redemande (« Encore ! Il en reste ? »). Petit appétit : l'inverse (« Merci, ça me suffit. »). |
+| Grognon (70 et plus) | Il refuse ce qu'il n'aime pas (« Non. Pas ça. ») au lieu de le manger en grimaçant. |
+| Farceur | Il rote plus souvent après manger. |
+| Studieux | Il te propose plus souvent « Une petite question ? » (si tu l'as permis dans **Exos**), et fait plus souvent un feu d'artifice quand tu as juste. |
+| Tous | Ses scènes de repas et d'exos suivent son caractère, comme toutes les autres, celles du Pixel de poche aussi. Avec l'**humeur du jour**, son appétit bouge un peu chaque jour, comme le reste. |
+
+À 50 partout, rien ne change : c'est le Pixel de tous les jours.
+
+**Sur l'écran du Pi, une chose à la fois.** Du plus fort au moins fort : ce que tu envoies sur son écran (**Caster sur Pixel** : une photo, une vidéo, YouTube, un écran partagé), le menu rapide, un exo ouvert, sa question « Une petite question ? », puis l'assiette et le plateau des repas. Ce qui passe derrière attend et revient après : l'assiette se range pendant un exo, il ne réclame pas à manger au milieu d'un exo, et il ne te pose pas de question quand le plateau est ouvert. Pendant un cast, rien de tout ça ne s'affiche ni ne répond au doigt : l'exo ouvert attend dessous, tel quel, et revient quand le cast se termine.
+
+**Les commandes ne se marchent pas dessus.** Un nombre seul (`42`) va à l'exo ouvert ; sans exo, il part à Claude, comme avant. Pendant un exo, `mange une pomme`, `tu as faim ?` ou `sois grognon` marchent toujours. Tape `aide` : la liste donne une commande de chacun.
+
+**Avec Claude :** il connaît son caractère, et il voit son ventre et tes exos du jour quand il lit l'état de Pixel. Il peut changer son caractère, le faire manger et lancer un exo. Si un exo est ouvert, il sait qu'il ne doit pas donner la réponse ; il peut te donner un indice.
+<!-- fin de le personnaliser -->
+
+## Son caractère
+
+Tu peux changer le caractère de Pixel : câlin, grognon, farceur, timide… Et ça change vraiment ce qu'il fait.
+
+**Pour le régler**, sur ton téléphone, touche **Caractère** sous les touches. Tu y trouves :
+- **15 caractères tout prêts**, chacun avec sa phrase : Pixel (équilibré), Câlin, Grognon, Farceur, Timide, Bavard, Paresseux, Pile électrique, Gourmand, Petit prof, Rêveur, Curieux, Zen, Indépendant, et **Surprise**, tiré au hasard ;
+- **les réglages fins** : huit curseurs de 0 à 100. Indépendant ↔ Câlin, Patient ↔ Grognon, Taiseux ↔ Bavard, Sérieux ↔ Farceur, Calme ↔ Énergique, Blasé ↔ Curieux, Petit appétit ↔ Gourmand, Pas scolaire ↔ Studieux. À 50 partout, c'est exactement le Pixel de toujours ;
+- **son nom** (Pixel au départ) et **comment il t'appelle** (rien au départ) ;
+- **ses habitudes** : l'humeur du jour (ses traits bougent un peu chaque jour), s'il peut bouder, s'il parle (éteint, il ne bavarde plus, mais les rappels d'agenda, les nouvelles et ses réponses s'affichent toujours), et ses heures calmes (de 23 h à 6 h au départ) ;
+- **Essayer**, qui lui fait jouer une scène typique de son caractère, et **Réinitialiser** (touche deux fois), qui le remet comme au premier jour.
+
+Le choix est gardé au redémarrage (fichier `caractere.json` dans le dossier de données). Le Pixel du Pi et le Pixel de poche ont le même caractère.
+
+| Trait | Ce qu'il fait |
+| --- | --- |
+| Grognon | Il s'énerve plus vite quand tu l'embêtes, boude plus souvent et plus longtemps, ronchonne parfois à la première tape et rouspète tout seul. Patient : l'inverse. |
+| Câlin | Chaque câlin compte double : il devient vite tout amoureux et te fait de gros câlins. Indépendant : il repousse parfois tes câlins (« Ça va, ça va… »). |
+| Bavard | Plus de bulles, et des histoires. Taiseux : il ne dit presque rien. |
+| Farceur | Plus de rires, de grimaces et de farces, comme la fausse panne « Pixel.exe ne répond pas ». Sérieux : moins de pitreries. |
+| Énergique | Il vit sa vie plus souvent, bouge plus vite et saute partout. Calme : il s'étale et fait la sieste (« Trop la flemme »). |
+| Curieux | Il enquête avec sa loupe et répond à tout. Blasé : il laisse passer une bonne partie des nouvelles du monde (notifications, météo, lumières, Codex). Ce que tu fais pour lui (le minuteur, son jumeau, le nourrir, un exercice…) a toujours sa réponse. |
+| Gourmand, Studieux | Il rêve de gâteaux ; il fait des calculs au tableau, avec ses lunettes. |
+
+Toutes ses scènes suivent son caractère, celles des autres paquets aussi : il choisit plus souvent celles qui lui ressemblent.
+
+**Quand tu changes son caractère, il le montre** : une couronne pour le grognon (« Pff… c'est qui le chef ? »), une ronde de cœurs pour le câlin, des lunettes et un tableau pour le petit prof, un dé pour Surprise, une étiquette « Je m'appelle Bip » pour son nouveau nom…
+
+**En tapant :** `sois grognon`, `caractère câlin`, `caractère surprise`, `caractère normal`, `plus câlin`, `moins bavard`, `un peu plus farceur`, `appelle-toi Bip`, `appelle-moi Max`, `oublie mon surnom`, `tais-toi`, `tu peux parler`. `caractère` (ou `caractère ?`) affiche la liste. Une phrase qui ne change rien (`tu peux parler` quand il parle déjà) ou qui ressemble à une conversation (`tu t'appelles vraiment Pixel ?`) va à Claude, comme avant.
+
+**Avec Claude :** il connaît son caractère, son nom et ton surnom, et répond avec (grognon veut dire râleur mais gentil). Demande-lui « sois plus câlin » ou « appelle-toi Bip » : il peut le changer lui-même. Avec l'abonnement Claude, un changement de caractère ne coupe pas la conversation : Claude l'apprend au message suivant.
+
+Dans Pixel Lab, le panneau **Caractère** fait la même chose.
+
+## Nourrir Pixel
+
+Pixel a un **ventre**. Il se vide doucement pendant la journée, et tu peux le nourrir : il mange sur son écran, avec ses goûts à lui. C'est un petit animal de compagnie gentil : il ne tombe jamais malade, il ne meurt jamais et il ne te fait pas de reproches. Au pire, il a un petit creux et il te le dit.
+
+**Son ventre :**
+- il se vide d'environ 6 % par heure (réglable : lente, normale, rapide), et un peu plus vite si son caractère est gourmand ;
+- la nuit (de 23 h à 6 h), son ventre dort aussi ;
+- si le Pi a été éteint longtemps, au réveil il a au pire un petit creux, jamais une faim de loup. Pareil si l'horloge du Pi saute en avant au démarrage (il n'a pas de pile pour garder l'heure : il la reprend sur Internet) ;
+- plein, il refuse gentiment ; trop rempli, il gonfle : « Je vais éclater ! ».
+
+**Quand il a faim**, il le dit, sans insister :
+- son ventre gargouille : « J'ai un petit creux… », et il pense à ce qui lui ferait plaisir ;
+- très faim : « J'ai très faim… Tu me donnes un petit quelque chose ? » ;
+- vers l'heure des repas (petit-déj, déjeuner, goûter, dîner) : « C'est l'heure du déjeuner ! On mange quoi ? », avec sa fourchette et son couteau.
+
+Jamais plus d'une fois toutes les 20 minutes, jamais la nuit, et jamais quand il fait déjà autre chose. Son vieux « J'ai faim… » de midi laisse la place à ces envies, qui connaissent son ventre.
+
+**Le menu :** 24 plats dessinés en gros pixels, aux couleurs du thème. Fruits (pomme, banane, fraise), légumes (carotte, brocoli), plats (croissant, baguette, pizza, frites, burger, sushi, pâtes, soupe, fromage), sucreries (glace, gâteau, cookie, bonbon), boissons (chocolat chaud, verre de lait), et pour robots : une pile, un octet croustillant, de l'électricité, et un cookie « accepter les cookies ».
+
+**Ses goûts :** il a un plat préféré, cinq plats qu'il aime et trois qu'il n'aime pas. Ils restent les mêmes au redémarrage. Le bouton **Changer ses goûts** en tire d'autres.
+
+**Ce qu'il fait :**
+
+| Tu lui donnes | Il fait |
+| --- | --- |
+| son plat préféré | il saute de joie et danse : « Mon plat préféré !! » |
+| un plat qu'il aime | il mâche, des cœurs plein les yeux : « Trop bon ! » |
+| un plat qu'il n'aime pas | une grimace : « Beurk… bon, d'accord. » S'il est très grognon, il refuse : « Non. Pas ça. » |
+| un légume | « Fort comme un robot ! », et il montre ses muscles |
+| trois sucreries de suite | il file dans tous les sens, puis il s'écroule : « …je suis tout mou. » |
+| une pile, de l'électricité, un octet | il se recharge en grésillant, puis « 100 % ! » |
+| les cookies | « J'accepte les cookies ! » |
+| quand il est plein | « Merci, mais j'ai plus faim ! » |
+
+Le plat arrive par la droite, il ouvre la bouche, croque en trois bouchées et fait des miettes. Parfois il rote (plus souvent s'il est farceur) : « Burp ! …pardon. »
+
+**Pour le nourrir :**
+- **sur l'écran du Pi :** touche la petite assiette sur le bord droit, en bas (juste au-dessus de la ligne d'infos), ou glisse vers le haut depuis le bas de l'écran. Un plateau monte avec les 24 plats : touche-en un. Pour le ranger : glisse vers le bas, touche au-dessus, ou touche **Fermer**. Il se range tout seul après 20 secondes. L'assiette est en dehors de son visage et de la ligne d'infos : le toucher, les caresses et l'appui long marchent comme avant, et un long titre d'agenda reste lisible en entier. Un point clignote sur l'assiette quand il a faim ;
+- **sur ton téléphone :** touche **Nourrir**, sous les touches (à côté d'**Agendas**). Le panneau s'ouvre sous l'écran de Pixel : tu le vois manger ce que tu lui donnes. Il montre son ventre, le menu, ses goûts, ses derniers repas et les réglages. Touche l'écran de Pixel ou **×** pour le fermer ;
+- **dans ta poche :** le Pixel de poche a la même assiette ;
+- **au clavier :** `mange une pomme`, `donne-lui une pizza`, `bois un verre de lait`, `à table !` ou `nourris Pixel` (il choisit lui-même), `tu as faim ?` (il écoute son ventre et te répond). Ces phrases-là seulement : le reste part toujours à Claude ;
+- **avec Claude :** « Pixel, tu veux une glace ? ».
+
+Un repas toutes les 6 secondes au plus : le temps de mâcher.
+
+**Au doigt, sur l'écran du Pi :** les glissés marchent maintenant au doigt, et plus seulement à la souris. Avant, le navigateur du Pi gardait le geste pour lui : glisser vers le bas pour le menu rapide ne marchait pas toujours. Le plateau de Pixel en a besoin (glisser vers le haut), et le menu rapide en profite.
+
+**Les réglages** (sur le téléphone, dans le panneau) : **Repas activés** active ou coupe tout. Coupé, son ventre ne bouge plus, il ne réclame rien (même pas à midi) et ne mange pas. **Vitesse** : lente, normale ou rapide.
+
+Dans Pixel Lab, le panneau **Nourrir** donne chaque plat, joue chaque réaction, règle son ventre (repu, ça va, petit creux, très faim) et ouvre le plateau du Pi.
+
+**Ses fichiers :** `pixel/nourrir.py` (son ventre, ses goûts, ses repas, gardés dans `nourrir.json` ; un fichier abîmé ou modifié à la main ne bloque jamais le démarrage), `web/scenes/nourrir.js` (le menu, ses dessins et ses scènes), `web/nourrir.js` et `web/nourrir.css` (le plateau du Pi et le panneau du téléphone), `web/lab/nourrir-lab.js` (le panneau de Pixel Lab).
+
+**Vérifié** (`test_nourrir.py`, `test_nourrir.js`) : son ventre se vide le jour seulement (plus vite s'il est gourmand, un caractère absent compte comme aujourd'hui), pas pendant la nuit, et peu pendant que le serveur est arrêté ou quand l'horloge saute (au pire un petit creux) ; une horloge qui recule ne bloque pas ses repas ; un `nourrir.json` plein de valeurs farfelues (une heure d'avant l'an 2000, un ventre infini, des listes à la place des plats…) ne l'empêche ni de démarrer ni de manger ; un repas toutes les 6 s au plus ; chaque réaction (préféré, aime, beurk, refus si grognon, plein, éclate, trois sucreries, légume, robot, le rot plus fréquent s'il est farceur) ; ses goûts gardés au redémarrage et retirés au sort ; les commandes sans prendre les mots des autres commandes ni de Claude ; l'outil de Claude. Dans Chromium : sur l'écran du Pi, l'assiette hors du visage et de la ligne d'infos (même avec un long titre d'agenda), le plateau au toucher et au glissé, le repas joué et le plat dessiné dans les 6 thèmes, le visage qui répond toujours aux tapes, à l'appui long et au menu rapide ; le panneau du téléphone (Pixel visible au-dessus pendant qu'il mange, cibles de 44 px au moins, pas de défilement de côté, aucun mot coupé n'importe où dans les 6 thèmes) ; le Pixel de poche ; dans Pixel Lab, chaque scène dans chaque thème, et les envies de manger : une seule toutes les 20 minutes, jamais la nuit, ni quand c'est coupé (même pas le vieux « J'ai faim… » de midi), ni par-dessus une autre scène.
+
+Pour relancer ses tests :
+
+```
+python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PORT=… pour un autre)
+node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots DOSSIER pour les captures
+```
+
+<!-- exos de maths -->
+## Les exos de maths
+
+Pixel te pose de petits exercices, du CP au collège : additions, soustractions, tables de multiplication, divisions, compléments à 10 ou à 100, doubles et moitiés, calcul mental avec les priorités, comparaisons, suites logiques (2, 4, 6, ?), petits problèmes (« Pixel a 12 piles, il en mange 5… »), heures et durées, fractions, pourcentages, carrés, et des énigmes.
+
+**Pour en lancer un :**
+- tape `exo`, `exo de maths`, `un calcul`, `table de 7`, `défi chrono`, `série de 5`, `une énigme`, `exo de fractions`, `exo difficile` ;
+- sur ton téléphone, touche **Exos** sous les touches : un exo, une série, le défi chrono, une énigme, une table ou un type d'exo ;
+- demande à Claude « pose-moi une question de maths » ;
+- si tu le lui permets (réglage **Il te propose des questions**, éteint au départ), Pixel te propose de temps en temps, dans la journée : « Une petite question ? ». Touche **Oui !**.
+
+**L'exo s'affiche sur l'écran du Pi**, à la place de son grand visage : la question en gros, 4 grandes réponses, et Pixel en petit à côté, qui écoute, réfléchit avec toi et réagit. Ça marche dans les 6 thèmes.
+
+**Pour répondre :**
+- touche une des 4 réponses, sur le Pi ou dans l'appli. Un double appui ne compte qu'une fois : il ne te fait jamais perdre ton deuxième essai ;
+- sur ton téléphone, le pavé de chiffres, puis **OK** (avec une touche **−** quand une réponse est négative) ;
+- tape le nombre dans la barre de commande : `42`, `réponse 42`, ou `4 025` avec une espace. Seulement quand un exo est ouvert : sinon, un nombre part à Claude, comme avant. Pendant la correction, un nombre tapé reste pour l'exo : Pixel te dit d'attendre la question suivante ;
+- avec un clavier branché sur le Pi : les chiffres, puis Entrée ; pour une énigme, les touches 1 à 4 ; Échap range l'exo ;
+- touche Pixel : il te donne un indice.
+
+**Encore ?** Pendant un exo, ou juste après, `encore` ou `une autre` en lance un autre. Plus tard, ou après **Fini**, ces mots repartent à Claude, comme avant.
+
+**Une erreur ?** Pixel t'encourage, te donne un indice et un deuxième essai. Deuxième erreur : il montre la bonne réponse et comment la trouver (« 7 × 8 = 56 : 7 × 4 = 28, et 28 × 2 = 56 »). Il ne se moque jamais. Si tu réfléchis longtemps, il te demande gentiment si tu veux un indice.
+
+**Les modes :** un exo seul ; une série de 5, avec un bilan ; une table, ses 10 multiplications dans le désordre ; le défi chrono, le plus de bonnes réponses en 60 secondes, sans deuxième essai.
+
+**Il s'adapte :** trois bonnes réponses de suite, du premier coup, font monter le niveau de ce type d'exo ; une erreur le fait baisser. Niveau 1 : CP, CE1 ; niveau 5 : collège. Dans le panneau **Exos**, partie **Réglages** : le niveau de départ, le niveau fixe (« S'adapte tout seul » sur Non), les types des exos au hasard, l'objectif du jour (5 exos au départ) et ses propositions.
+
+**Ses récompenses :** il réagit à chaque réponse ; une étoile par exo fait aujourd'hui ; l'objectif du jour atteint, il danse avec une coupe (la correction reste alors un peu plus longtemps, pour qu'il fasse la fête jusqu'au bout) ; des trophées (premier exo, 5, 10 ou 20 d'affilée, 100 exos, 10 en une minute…). Tape `mes scores` pour un résumé. Tout est gardé sur le Pi, dans `~/.config/pixel/exos.json`.
+
+**Son caractère :** plus Pixel est studieux (si son caractère est réglé), plus il propose de questions et plus il fait la fête quand tu as juste.
+
+**Avec Nourrir :** si Pixel a aussi son assiette (**Nourrir**), elle se range pendant un exo, pour ne pas cacher les réponses.
+
+Dans Pixel Lab, le panneau **Exos de maths** lance chaque mode et chaque type, répond juste ou faux à ta place, et lui fait proposer une question.
+<!-- fin des exos de maths -->
 
 ## Tes agendas (Google et Samsung)
 
@@ -473,6 +634,9 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
   - le bandeau (« 📱 WhatsApp : Maman », « 📱 Nouveau message WhatsApp ») qui fait jouer ses scènes de notification ;
   - `telephone.last` dans l'état partagé, sans jamais le titre.
 - **Pixel sans Pi** (`test_local.js`, dans Chromium) : le fichier hors ligne de l'appli, ouvert en `file://` sans aucun accès au réseau, sur un téléphone en portrait puis en paysage. Aucune erreur, aucune requête, aucun WebSocket. Il vit et réagit au doigt ; aucune fausse donnée ; les écrans du Pi le disent et leurs touches restent éteintes, les commandes aussi ; Système montre le téléphone, et son Démarrage les pièces du téléphone ; les six thèmes ; le minuteur sonne. Après un rechargement, les réglages, l'humeur et le minuteur sont toujours là, et l'état d'une nouvelle fonction aussi, même gardé dans une variable à elle. Dans l'appli (simulée) : les messages vers l'appli, son état rendu par l'appli, l'image du Pi, la plus récente qui gagne, même quand elle arrive après la météo. La météo, avec et sans réseau, une faute de frappe, une ville tapée pendant que la météo d'une autre arrive. Une notification du téléphone passée par l'appli : le même bandeau que sur le Pi, et il réagit. Le Pixel de poche, sans bouton de voyage, avec les sens de l'appli (secoué, il a le tournis).
+- **Caractère** (`test_caractere.py`, `test_caractere.js`) : les 15 caractères, les valeurs bornées et nettoyées (même 1e400 ou Infinity), le fichier gardé (même abîmé : le serveur démarre toujours), les commandes (et les phrases qui partent toujours à Claude, comme « parle-moi » ou « tu t'appelles vraiment Pixel »), l'outil et la consigne de Claude, la conversation gardée avec l'abonnement, les mêmes règles dans Pixel Lab, des noms de scènes qui ne prennent pas ceux des autres paquets. À 50 partout, exactement les mêmes scènes et les mêmes phrases, pour le même tirage au sort, que sans caractère dans l'état du serveur et que sans `caractere.js` du tout (et qu'avant la fonction, git d1451d5 : comparaison notée, qui compte avec `CARACTERE_STRICT=1`). Sur des centaines d'essais : un Pixel grognon s'énerve et boude plus (et plus longtemps), un câlin devient plus vite amoureux, un indépendant repousse les câlins, un bavard parle plus et un taiseux bien moins, un énergique vit plus souvent et plus vite, un blasé laisse passer des notifications ; mais quel que soit son caractère, ce que tu fais pour lui a toujours sa réponse, et « Il parle » éteint garde les rappels. Aussi : les heures calmes, son nom et ton surnom dans ses phrases, sa réaction à chaque changement, le panneau du téléphone (qui s'efface devant le Pixel de poche), l'écran du Pi et le panneau de Pixel Lab.
+- **Exos de maths** (`test_exos.py`, `test_exos.js`) : chaque type d'exo à chaque niveau (9 000 exercices) a sa bonne réponse parmi 4 choix différents, vérifiée en refaisant le calcul ; les erreurs classiques sont dans les choix ; la même graine donne le même exo. Le jeu, sur une fausse horloge : l'indice et le deuxième essai, la correction, une série, une table, le défi chrono, les niveaux qui montent, descendent ou restent fixes, l'objectif du jour, les trophées, l'exo oublié qui se range, le fichier `exos.json`. La réponse n'arrive jamais aux écrans avant que tu aies répondu. Un double appui, un écran en retard ou la même erreur deux fois ne coûtent jamais le deuxième essai ni ne répondent à la question suivante ; sa fête n'est pas coupée ; un `exos.json` abîmé ou d'une drôle de forme n'empêche pas Pixel de démarrer ; chaque correction explique. Les commandes (un nombre seul ne va à l'exo que s'il y en a un d'ouvert, et jamais à Claude pendant la correction ; `4 025` ; `encore` et `une autre` seulement pendant ou juste après un exo) et l'outil de Claude. Dans Chromium : l'écran du Pi dans les 6 thèmes (un double appui sur une réponse fausse, puis la bonne, et ses réactions), chaque réponse touchée jusqu'à son bord droit, le clavier, l'indice en touchant Pixel, son petit rappel, une série rapide où chaque réponse a sa scène, le bilan d'une série, les images par seconde, aucun moment de vie pendant un exo, sa proposition et le bouton **Oui !** ; le panneau du téléphone (réponses, double appui, pavé et sa touche **−**, le chrono arrêté quand le panneau se ferme, réglages, scores) et la barre de commande ; dans Pixel Lab, les mêmes règles.
+- **Les trois ensemble** (`test_perso.py`, `test_perso.js`) : les commandes de chacun vont au bon endroit (un nombre seul à l'exo ouvert seulement, les repas et le caractère pendant un exo), les trois outils de Claude côte à côte, sa consigne avec son caractère, l'état de Pixel avec son ventre et les exos du jour, jamais la réponse d'un exo ouvert ; gourmand, grognon et farceur (et l'humeur du jour) changent son ventre et ses repas, studieux ses questions et sa fête ; à 50, chaque scène des trois et du Pixel de poche pèse comme avant. Dans Chromium : sur l'écran du Pi, qui passe devant qui (une photo envoyée, imitée, le menu rapide, un exo, sa question, le plateau), un changement de caractère pendant un exo, en Rétro, LCD et Néon ; le Pixel de poche ; les trois boutons du téléphone et leurs panneaux ; dans Pixel Lab, les trois panneaux et les mêmes commandes que le serveur.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
@@ -500,6 +664,14 @@ node tests/test_ecran_web.js         # Playwright : son serveur sur le port 8153
 python3 tests/test_airplay.py
 python3 tests/test_telephone.py
 node tests/test_local.js             # Pixel sans Pi ; il faut Playwright ; --shots DOSSIER pour les captures
+python3 tests/test_caractere.py      # son propre serveur de démo sur le port 8163 (CARACTERE_PY_PORT pour un autre)
+node tests/test_caractere.js         # il faut Playwright ; port 8164 (CARACTERE_PORT) ; --shots DOSSIER pour les captures
+python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PORT=… pour un autre)
+node tests/test_nourrir.js           # port 8175 (NOURRIR_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
+node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+python3 tests/test_perso.py          # les trois ensemble, sans serveur
+node tests/test_perso.js             # les trois ensemble : port 8192 (PERSO_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -518,6 +690,9 @@ Pas encore testé avec le vrai matériel :
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
 | `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `cast` (caster sur l'écran), `youtube` et `ytcast` (YouTube, et le bouton Caster de l'appli YouTube), `ecran` (le partage d'écran : WebRTC, ScreenStream), `airplay` (UxPlay), `poche` (le Pixel de poche), `telephone` (les notifications du téléphone, par l'appli Android), `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `ecran.js` l'écran partagé, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`), `local.js` Pixel sans Pi (l'appli Android sans le Pi) |
+| `pixel/caractere.py`, `web/caractere.js` | son caractère : les caractères tout prêts, les traits, son nom et ton surnom ; le panneau **Caractère** du téléphone (`caractere.css`) ; ses réactions dans `scenes/caractere.js` |
+| `pixel/nourrir.py`, `web/nourrir.js` | le nourrir : son ventre, ses goûts, ses repas ; l'assiette et le plateau du Pi, le panneau **Nourrir** du téléphone (`nourrir.css`) ; le menu, ses dessins et ses scènes dans `scenes/nourrir.js` |
+| `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |

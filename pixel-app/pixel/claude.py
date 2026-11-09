@@ -6,9 +6,10 @@ import logging
 import re
 
 from .commands import norm
-from . import anims, scenes
+from . import anims, caractere, nourrir, scenes
 from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
+from . import exos                    # start_exercise: a little math exercise on Pixel's screen
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (
@@ -29,7 +30,7 @@ def tool(name, description, props=None, required=()):
 
 TOOLS = [
     tool("get_status", "Lit l'état actuel : date et heure, lampes Hue par pièce, scènes, météo sur 5 jours, "
-                       "agenda d'aujourd'hui et de demain, minuteur, tâche Codex."),
+                       "agenda d'aujourd'hui et de demain, minuteur, tâche Codex, ton ventre et les exos de maths du jour."),
     tool("set_lights", "Allume, éteint ou règle une pièce Hue. room : nom de la pièce, ou \"*\" pour toutes. "
                        "brightness : 0 à 100 (0 éteint).",
          {"room": {"type": "string"}, "on": {"type": "boolean"}, "brightness": {"type": "integer", "minimum": 0, "maximum": 100}}, ["room"]),
@@ -51,6 +52,30 @@ TOOLS = [
          {"scene": {"type": "string", "enum": [i for i, _, g in scenes.SCENES if g in ("vie", "tap", "fache", "calin")]}}, ["scene"]),
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
+TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (pixel/nourrir.py)
+TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
+
+# ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
+TOOLS.append(tool(
+    "set_character", "Change ton propre caractère (celui de Pixel) quand la personne le demande : un caractère tout fait (preset), "
+    "ou des traits de 0 à 100 (50 = ton caractère habituel), ton nom (nom), ou le surnom que tu lui donnes (surnom, vide : aucun). "
+    "Les caractères : " + " ; ".join(f"{i} ({n} : {d})" for i, (n, d, _) in caractere.PRESETS.items()) + ". Les traits : "
+    + ", ".join(f"{t} ({a} à {b})" for t, (a, b) in caractere.ENDS.items()) + ".",
+    {"preset": {"type": "string", "enum": list(caractere.PRESETS)},
+     "traits": {"type": "object", "properties": {t: {"type": "integer", "minimum": 0, "maximum": 100} for t in caractere.TRAITS}, "additionalProperties": False},
+     "nom": {"type": "string", "maxLength": caractere.NOM_MAX}, "surnom": {"type": "string", "maxLength": caractere.SURNOM_MAX}}))
+
+
+def system_for(hub):
+    """The system prompt: Pixel's own (the cached prefix, unchanged), then his character of the moment in a block of its own."""
+    note = caractere.describe(hub.s.get("caractere"))
+    return [{"type": "text", "text": SYSTEM}, {"type": "text", "text": note}] if note else SYSTEM
+
+
+def system_text(hub):
+    """The same, as one string (the Claude Agent SDK, abonnement.py)."""
+    note = caractere.describe(hub.s.get("caractere"))
+    return SYSTEM + "\n" + note if note else SYSTEM
 
 
 THEME_DESC = {"retro": "retro (écran vert des années 90)", "moderne": "moderne (yeux lumineux qui rebondissent)",
@@ -75,6 +100,8 @@ def check(name, a):
     """Validate a (possibly truncated) streamed tool input. Returns an error string or None."""
     if not isinstance(a, dict):
         return "entrée invalide"
+    if name == nourrir.TOOL["name"]:
+        return nourrir.check_tool(a)
     ok = {
         "get_status": True,
         "set_lights": isinstance(a.get("room"), str) and isinstance(a.get("on", True), bool)
@@ -87,6 +114,8 @@ def check(name, a):
         "play_animation": a.get("animation") in anims.BY_ID,
         "play_scene": a.get("scene") in scenes.BY_ID,
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
+        "set_character": caractere.tool_ok(a),
+        "start_exercise": exos.check_tool(a),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
 
@@ -136,7 +165,19 @@ class Claude:
         return {"maintenant": now.strftime("%A %d %B %Y, %H:%M"), "lampes": s["lights"]["rooms"], "scenes": s["lights"]["scenes"],
                 "meteo": s["weather"], "agenda": s["agenda"]["events"],
                 "minuteur": {k: s["timer"][k] for k in ("mode", "running", "total")} | {"reste_s": round(self._timer_left())},
-                "codex": {k: s["codex"][k] for k in ("task", "running", "status")}}
+                "codex": {k: s["codex"][k] for k in ("task", "running", "status")}} | self._perso()
+
+    def _perso(self):
+        """His belly (pixel/nourrir.py) and the exercises (pixel/exos.py), when there: never an open exercise's answer."""
+        out, h = {}, self.hub
+        if getattr(h, "nourrir", None) is not None:
+            d = (h.s.get("nourrir") or {}).get("dernier") or {}
+            out["ventre"] = h.nourrir.status() + (f", dernier repas : {nourrir.BY_ID[d['plat']]['nom']}" if d.get("plat") in nourrir.BY_ID else "")
+        if getattr(h, "exos", None) is not None:
+            c = h.exos.cur
+            out["exos"] = h.exos.summary() + (f" Un exo est ouvert sur ton écran ({c.get('type')}) : « {c.get('q')} ». Ne donne pas la réponse ; "
+                                               "un indice si on te le demande." if c and c.get("etat") == "question" else "")
+        return out
 
     def _timer_left(self):
         t = self.hub.s["timer"]
@@ -173,9 +214,20 @@ class Claude:
         if name == "play_scene":
             await h.dispatch("scene.play", {"id": a["scene"]})
             return "ok"
+        if name == nourrir.TOOL["name"]:
+            return await nourrir.run_tool(h, a)
         if name == "run_codex":
             await h.dispatch("codex.run", {"task": a["task"]})
             return "tâche lancée : " + h.s["codex"]["status"]
+        if name == "set_character":
+            if "caractere" not in h.s:
+                return "le caractère n'est pas disponible"
+            await h.dispatch("caractere.set", {k: a[k] for k in ("preset", "traits", "nom", "surnom") if k in a})
+            c = h.s["caractere"]
+            return (f"ok : {caractere.PRESETS.get(c['preset'], ('sur mesure',))[0]}, tu t'appelles {c['nom']}"
+                    + (f", tu l'appelles {c['surnom']}" if c["surnom"] else ""))
+        if name == "start_exercise":
+            return await exos.run_tool(h, a)
         return "outil inconnu"
 
     # ---- conversation ----
@@ -212,7 +264,7 @@ class Claude:
             for _ in range(10):
                 try:
                     async with self.client.beta.messages.stream(
-                        model=self.model, max_tokens=16000, system=SYSTEM, tools=tools_for(self.hub.s["settings"].get("themes") or list(THEMES)), messages=self.history,
+                        model=self.model, max_tokens=16000, system=system_for(self.hub), tools=tools_for(self.hub.s["settings"].get("themes") or list(THEMES)), messages=self.history,
                         output_config={"effort": self.effort}, cache_control={"type": "ephemeral"},
                         betas=["server-side-fallback-2026-07-01"], fallbacks="default",
                     ) as stream:

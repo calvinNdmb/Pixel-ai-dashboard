@@ -5,7 +5,8 @@ Anything that is not a command goes to Claude.
 import re
 import unicodedata
 
-from . import anims, scenes
+from . import anims, caractere, nourrir, scenes
+from . import exos                    # math exercises: « exo », « table de 7 », a number while one is open
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -14,7 +15,8 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
-        "visage vivant · caste <lien ou texte> · stop cast · code tv · sinon : Claude")
+        "visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · "
+        "sinon : Claude")
 # a few words that play an animation on their own
 BARE = {"danse": "danse", "chante": "chante", "coucou": "salut", "bisou": "bisou"}
 FACE_WORDS = {"pack": "pack", "pack 52": "pack", "52": "pack", "animations": "pack", "vivant": "vivant", "anime": "vivant"}
@@ -55,6 +57,8 @@ async def run(hub, text):
         return
     if t in ("/effacer", "/clear", "effacer"):
         return await hub.dispatch("chat.clear")
+    if await exos.command(hub, raw, t):                     # pixel/exos.py: its own words only; a bare number only while an exercise is open
+        return
 
     if t.startswith("codex ") and len(raw) > 6:
         await hub.dispatch("screen.show", {"screen": "codex"})
@@ -147,5 +151,10 @@ async def run(hub, text):
 
     if t in SCREEN_WORDS:
         return await hub.dispatch("screen.show", {"screen": SCREEN_WORDS[t]})
+
+    if await caractere.command(hub, t, raw):              # « sois grognon », « plus câlin », « appelle-toi Bip »… (pixel/caractere.py)
+        return
+    if await nourrir.command(hub, t):                       # « mange une pomme », « tu as faim ? », « à table ! » (pixel/nourrir.py)
+        return
 
     await hub.dispatch("chat.ask", {"text": raw})

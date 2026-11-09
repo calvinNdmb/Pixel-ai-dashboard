@@ -55,6 +55,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && P &
 function send(action, args = {}) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action, args })); }
 Screens.setSend(send);
 const POCHE = window.PixelPoche ? window.PixelPoche.app({ send, kiosk }) : null;   // poche.js: the phone sideways becomes a second Pixel
+if (window.PixelCaractere) window.PixelCaractere.app({ send, kiosk });            // caractere.js: the « Caractère » panel (his snapshot: screens.js)
 
 function show(screen) {
   if (!NAV.includes(screen)) return;
@@ -155,6 +156,7 @@ cv.addEventListener('pointerup', e => {
   // swipe down opens the quick menu (from the top edge even while petting Pixel), swipe up closes it
   const vertical = Math.abs(dy) > 90 && Math.abs(dy) > 1.5 * Math.abs(dx), across = Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy);
   if (Screens.menuOpen) { if ((vertical && dy < 0) || (across && dx > 0)) Screens.menu(false); else if (!vertical && Math.abs(dx) < 20 && Math.abs(dy) < 20) Screens.hit(p.x, p.y); return; }
+  if (vertical && window.PixelNourrir && PixelNourrir.swipe(dy, down0y)) return;   // Nourrir: a swipe up from the bottom edge brings his food tray, down puts it away
   if (vertical && dy > 0 && (!L.petted || down0y < 120)) { L.petted = false; Screens.menu(true); return; }
   // a swipe changes screen (not while petting Pixel); on the Pi's screen, a swipe left on his face shows the QR code to install the app
   if (!L.petted && across) {
