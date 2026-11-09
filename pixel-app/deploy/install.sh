@@ -15,6 +15,15 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 [ -f config.toml ] || cp config.example.toml config.toml
+# Facultatif : Pixel dans le bouton Caster de l'appli YouTube (docs/CAST.md, YouTube), seulement si on le demande :
+#   PIXEL_YTCAST=1 sh deploy/install.sh     puis  enabled = true  dans [ytcast] de config.toml
+if [ "${PIXEL_YTCAST:-0}" = 1 ]; then
+  echo "+ YouTube : Node.js et le module sidecar/ytcast"
+  command -v node >/dev/null || sudo apt-get install -y nodejs     # Bookworm : Node 18, ça suffit (Node 22 LTS, de NodeSource, est mieux)
+  command -v npm >/dev/null || sudo apt-get install -y npm
+  node -e 'process.exit(+process.versions.node.split(".")[0] >= 18 ? 0 : 1)' || echo "Node.js est trop ancien : il faut la version 18 ou plus."
+  (cd sidecar/ytcast && npm ci --omit=dev --no-audit --no-fund) || echo "npm ci a échoué (Internet ?) : relance-le dans sidecar/ytcast."
+fi
 
 echo "3/5 Stream Deck et luminosité de l'écran"
 sudo cp deploy/70-pixel.rules /etc/udev/rules.d/

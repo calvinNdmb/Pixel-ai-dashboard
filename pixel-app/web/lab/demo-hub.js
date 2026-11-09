@@ -213,7 +213,7 @@ const num = (v, d) => Number.isFinite(Number(v)) && v !== null && v !== '' ? Num
 /* ---------- casting (pixel/cast.py): the files stay in this page, as object URLs; nothing is sent anywhere ---------- */
 const CAST_MAX = 40 * 1048576, CAST_SECS = 120, CAST_KEEP = 8, CAST_LIVE = 4 * 3600e3;
 const CAST_MIME = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm' };
-const CAST_ITEM = ['kind', 'src', 'text', 'url', 'title', 'embed', 'site'];
+const CAST_ITEM = ['kind', 'src', 'text', 'url', 'title', 'embed', 'site', 'yt'];
 const CAST_BAD = 'Format non pris en charge. Photos : JPEG, PNG, GIF, WebP. Vidéos : MP4, WebM.';
 const MP4_BRANDS = ['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'M4V ', 'M4VH', 'M4VP', 'dash', 'mmp4', 'MSNV', '3gp4', '3gp5', '3gp6', '3g2a', 'qt  '];
 /* the lab's sample link, and its QR code made by segno like server.qr_rows (the lab has no QR encoder: other links get none) */
@@ -239,22 +239,18 @@ function castClassify(url) {                              // cast.py classify():
   if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return { kind: 'image' };
   if (ext === 'gif') return { kind: 'gif' };
   if (['mp4', 'm4v', 'mov', 'webm'].includes(ext)) return { kind: 'video' };
-  let vid = '';
-  if (['youtube.com', 'music.youtube.com', 'youtube-nocookie.com'].includes(host)) { const m = u.pathname.match(/^\/(?:shorts|embed|live|v)\/([^/]+)/); vid = u.pathname === '/watch' ? u.searchParams.get('v') || '' : m ? m[1] : ''; }
-  else if (host === 'youtu.be') vid = u.pathname.replace(/^\/+/, '').split('/')[0];
-  if (/^[A-Za-z0-9_-]{11}$/.test(vid)) {
-    const t = (u.searchParams.get('t') || u.searchParams.get('start') || '').match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/), start = t ? (+t[1] || 0) * 3600 + (+t[2] || 0) * 60 + (+t[3] || 0) : 0;
-    return { kind: 'link', site: 'YouTube', embed: `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&enablejsapi=1${start ? '&start=' + start : ''}` };
-  }
+  const yt = window.PixelYT && PixelYT.parse(url);       // youtube.py parse() (../ytplayer.js)
+  if (yt) { const it = PixelYT.item(yt); return { kind: 'link', site: it.site, embed: it.embed, yt }; }
   const v = ['vimeo.com', 'player.vimeo.com'].includes(host) && u.pathname.match(/^\/(?:video\/)?(\d{5,12})(?:\/([0-9a-f]{6,20}))?\/?$/);
   if (v) { const h = v[2] || u.searchParams.get('h') || ''; return { kind: 'link', site: 'Vimeo', embed: `https://player.vimeo.com/video/${v[1]}?autoplay=1${/^[0-9a-f]{6,20}$/.test(h) ? '&h=' + h : ''}` }; }
   return { kind: 'link' };
 }
 function castStart(item, { seconds = null, raw = false } = {}) {     // cast.py _start(): over whatever screen is open
   const now = Date.now(), n = Number(seconds), secs = seconds == null || seconds === '' || !Number.isFinite(n) ? CAST_SECS : Math.max(0, Math.min(3600, Math.trunc(n)));
-  const timed = ['image', 'gif', 'text'].includes(item.kind) || (item.kind === 'link' && !item.embed);
+  const timed = ['image', 'gif', 'text', 'ytcode'].includes(item.kind) || (item.kind === 'link' && !item.embed);
   S.cast = { ...item, id: Math.random().toString(36).slice(2, 10), t0: now, until: timed && secs ? now + secs * 1000 : 0, raw: !!raw };
   if (S.cast.kind === 'link' && !S.cast.embed) S.cast.qr = item.url === CAST_SAMPLE ? CAST_SAMPLE_QR : null;
+  if (item.kind === 'ytcode') { mark(); return S.cast; }           // the TV code is not one to show again
   const old = S.cast_recent.find(e => castKey(e) === castKey(item)), entry = { ...Object.fromEntries(CAST_ITEM.filter(k => k in item).map(k => [k, item[k]])), id: old ? old.id : Math.random().toString(36).slice(2, 10), at: now };
   S.cast_recent = [entry, ...S.cast_recent.filter(e => e !== old)].slice(0, CAST_KEEP);
   mark(); return S.cast;
@@ -268,10 +264,11 @@ function castText(text, opts) {
 function castLink(url, title = '', opts = {}) {
   const u = castUrl(url); if (!u) throw new Error("Ce lien n'est pas une adresse web (http:// ou https://).");
   const w = castClassify(u), p = new URL(u), site = w.site || p.hostname.replace(/^www\./, ''), tail = p.pathname.split('/').filter(Boolean);
-  const def = w.embed ? `Vidéo ${site}` : tail.length && w.kind !== 'link' ? tail[tail.length - 1] : site + (tail.length ? '/' + tail[tail.length - 1] : '');
+  const def = w.yt ? PixelYT.item(w.yt).title : w.embed ? `Vidéo ${site}` : tail.length && w.kind !== 'link' ? tail[tail.length - 1] : site + (tail.length ? '/' + tail[tail.length - 1] : '');
   const item = { kind: w.kind, url: u, site, title: String(title || '').trim().slice(0, 200) || def.slice(0, 200) };
   if (w.kind !== 'link') item.src = u;
   if (w.embed) item.embed = w.embed;
+  if (w.yt) item.yt = w.yt;
   return castStart(item, opts);
 }
 async function castFile(blob, { title = '', ...opts } = {}) {    // a file of this computer or phone (the server's POST /api/cast): '' or the error
@@ -324,6 +321,7 @@ async function castSample(what, opts = {}) {
   if (what === 'video') { let clip; try { clip = await castClip(); } catch (e) { toast(e.message, 4000); mark(); return e.message; } return castFile(clip, { ...opts, title: 'Mire du labo' }); }
   if (what === 'text') return castTry(() => castText('À table ! Le dîner est prêt dans 5 minutes.', opts));
   if (what === 'link') return castTry(() => castLink(CAST_SAMPLE, 'Pixel art — Wikipédia', opts));
+  if (what === 'youtube') return castTry(() => castLink('https://youtu.be/aqz-KE-bpKQ?t=30', '', opts));
   return '';
 }
 
@@ -414,9 +412,10 @@ const A = {
   'lab.theme': ({ name }) => { if (TNAME[name]) S.view.theme = name; },          // no toast: used by the theme benchmark
   'lab.settings': ({ sleep_min }) => { if (sleep_min != null && Number(sleep_min) > 0) S.settings.sleep_min = Number(sleep_min); },
 };
+if (window.PixelHubYT) Object.assign(A, PixelHubYT({ S, mark, toast, start: castStart, stop: () => { S.cast = null; } }));   // YouTube (demo-yt.js)
 
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
-const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · sinon : Claude";
+const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · code tv · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
 ALLT.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });   // every theme: a disabled one gets the "not on" message
@@ -448,6 +447,7 @@ function command(raw) {
   if (['aide', 'help', '?', '/aide'].includes(t)) return toast(HELP, 9000);
   if (['/effacer', '/clear', 'effacer'].includes(t)) return A['chat.clear']();
   if (['stop cast', 'arrete le cast', 'arrete de caster', 'fin du cast'].includes(t) || (['stop', 'arrete', 'arreter'].includes(t) && S.cast)) return A['cast.stop']();   // commands.py: casting
+  if (['code tv', 'code tele', 'code youtube', 'code tv youtube'].includes(t)) return A['ytcast.code']?.();
   if (/^(?:cast|caste|caster)\s+\S/.test(t)) { const rest = raw.replace(/^\S+\s+/, '').trim(); return /^https?:\/\//i.test(rest) ? A['cast.link']({ url: rest }) : A['cast.text']({ text: rest }); }
   if (t.startsWith('codex ') && raw.length > 6) { A['screen.show']({ screen: 'codex' }); return A['codex.run']({ task: raw.slice(6).trim() }); }
   if ((m = t.match(/^(minuteur|timer|chrono)(?:\s+(\d+(?:[.,]\d+)?))?\s*(?:min|minutes?)?$/))) { A['screen.show']({ screen: 'minuteur' }); if (m[2]) A['timer.start']({ minutes: parseFloat(m[2].replace(',', '.')) }); return; }

@@ -1,0 +1,15 @@
+{
+  "name": "pixel-ytcast",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pixel OS: Pixel dans le bouton Caster de l'appli YouTube (facultatif, voir docs/CAST.md).",
+  "type": "module",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node index.js" },
+  "license": "MIT",
+  "dependencies": {
+    "ws": "8.18.3",
+    "yt-cast-receiver": "2.1.0"
+  }
+}
