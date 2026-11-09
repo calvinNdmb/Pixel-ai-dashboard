@@ -31,6 +31,7 @@ from pixel.state import Hub
 from pixel.system import System, local_ip
 from pixel.weather import Weather
 from pixel import poche                  # Pixel de poche: the phone held sideways
+from pixel import nourrir                # Nourrir: his belly, his tastes, his meals
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -167,6 +168,7 @@ async def serve(args, cfg, datadir, token):
     hub = Hub(cfg, args.demo)
     core_actions(hub, datadir)
     poche.setup(hub)                     # Pixel de poche: the two Pixels pass news, the voyage
+    nourrir.setup(hub)                   # Nourrir: feeding Pixel (data_dir/nourrir.json)
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"

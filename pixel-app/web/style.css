@@ -87,4 +87,5 @@ body.kiosk .screen{width:min(100vw,calc(100vh*5/3));border-radius:0}
 body.kiosk .mfoot,body.kiosk .kb,body.kiosk .modes{display:none}
 body.kiosk .cmd{font-size:26px}
 body.kiosk .cmd.hide{display:none}
+body.kiosk .screen canvas{touch-action:none}   /* the Pi's screen: vertical swipes reach the page (quick menu, food tray), as in Pixel Lab's kiosk */
 @media (max-width:420px){.hint{display:none}}

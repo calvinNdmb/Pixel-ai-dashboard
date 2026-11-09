@@ -5,7 +5,7 @@ Anything that is not a command goes to Claude.
 import re
 import unicodedata
 
-from . import anims, scenes
+from . import anims, nourrir, scenes
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -135,5 +135,8 @@ async def run(hub, text):
 
     if t in SCREEN_WORDS:
         return await hub.dispatch("screen.show", {"screen": SCREEN_WORDS[t]})
+
+    if await nourrir.command(hub, t):                       # « mange une pomme », « tu as faim ? », « à table ! » (pixel/nourrir.py)
+        return
 
     await hub.dispatch("chat.ask", {"text": raw})

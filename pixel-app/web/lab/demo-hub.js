@@ -379,6 +379,112 @@ setInterval(() => {
   s.temps = [...s.temps, s.temp].slice(-60); s.cpus = [...s.cpus, s.cpu].slice(-60); mark();
 }, 1000);
 
+/* ---------- Nourrir (pixel/nourrir.py): his belly, his tastes, his meals. The menu is web/scenes/nourrir.js's (PixelFoods). ----------
+   Same rules as the server: the belly empties in the day only, the third sweet in a row is a sugar rush, full he refuses...
+   His tastes are kept in this browser (pixel_lab_nourrir), so they stay across reloads like the server's nourrir.json.
+   lab.nourrir { ventre, reaction, plat }: the lab's buttons (set his belly; play a reaction without the rules). */
+const NF = window.PixelFoods;
+const NOUR = (() => {
+  if (!NF) return null;
+  const SPEED = { lente: 3, normale: 6, rapide: 12 }, W_FAV = { plat: 3, sucre: 2, fruit: 1, legume: 0.3, boisson: 0.6, robot: 1.2 },
+    W_LIKE = { plat: 2, sucre: 2, fruit: 1.2, legume: 0.6, boisson: 1, robot: 1 }, W_HATE = { legume: 3, fruit: 1.4, boisson: 1, plat: 1, sucre: 0.4, robot: 0.6 };
+  const OFF = 'Les repas de Pixel sont en pause : réactive-les dans Nourrir, sur ton téléphone.', GAP = 6000;
+  const trait = k => { const t = S.caractere && S.caractere.traits, v = t && t[k]; return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 50; };
+  const level = v => (v >= 55 ? 0 : v >= 25 ? 1 : 2), night = t => { const h = new Date(t).getHours(); return h >= 23 || h < 6; };
+  function roll() {
+    const draw = (pool, w, n) => { pool = [...pool]; const out = []; while (pool.length && out.length < n) { let x = Math.random() * pool.reduce((s, f) => s + w[f.cat], 0), i = 0; for (; i < pool.length - 1; i++) { x -= w[pool[i].cat]; if (x < 0) break; } out.push(pool[i].id); pool.splice(i, 1); } return out; };
+    const prefere = draw(NF.FOODS, W_FAV, 1)[0], aime = draw(NF.FOODS.filter(f => f.id !== prefere), W_LIKE, 5);
+    return { aime, deteste: draw(NF.FOODS.filter(f => f.id !== prefere && !aime.includes(f.id)), W_HATE, 3), prefere };
+  }
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem('pixel_lab_nourrir')) || {}; } catch { saved = {}; }
+  const good = g => g && NF.BY[g.prefere] && Array.isArray(g.aime) && Array.isArray(g.deteste) && [...g.aime, ...g.deteste].every(i => NF.BY[i]);
+  const N = { on: saved.on !== false, vitesse: SPEED[saved.vitesse] ? saved.vitesse : 'normale', ventre: 70, t: Date.now(), gouts: good(saved.gouts) ? saved.gouts : roll(),
+    journal: [], dernier: null, sucres: 0, sucreT: 0, last: -1e9 };
+  const keep = () => { try { localStorage.setItem('pixel_lab_nourrir', JSON.stringify({ on: N.on, vitesse: N.vitesse, gouts: N.gouts })); } catch {} };
+  const rate = () => SPEED[N.vitesse] * (0.6 + 0.8 * trait('gourmand') / 100);
+  function tick(t = Date.now()) {         // minute by minute: the night does not count
+    if (N.on) for (let a = N.t; a < t; a += 60000) if (!night(a)) N.ventre = Math.max(0, N.ventre - Math.min(60000, t - a) / 3.6e6 * rate());
+    N.t = Math.max(N.t, t);
+  }
+  function publish() {
+    S.nourrir = { on: N.on, ventre: Math.round(N.ventre), faim: level(N.ventre), dernier: N.dernier, gouts: { ...N.gouts, aime: [...N.gouts.aime], deteste: [...N.gouts.deteste] },
+      journal: N.journal.map(j => ({ ...j })), reglages: { on: N.on, vitesse: N.vitesse } };
+  }
+  function react(f, t) {
+    const g = N.gouts, v = N.ventre;
+    if (v >= 92 + (trait('gourmand') - 50) / 10) return ['plein', false, N.sucres];
+    if (g.deteste.includes(f.id) && trait('grognon') >= 70) return ['refuse', false, N.sucres];
+    let run = f.cat === 'sucre' ? (t - N.sucreT < 45 * 60000 ? N.sucres + 1 : 1) : 0, r;
+    if (f.id === g.prefere) r = 'prefere';
+    else if (g.deteste.includes(f.id)) r = 'beurk';
+    else if (run >= 3) { r = 'sucre'; run = 0; }
+    else if (v + f.valeur > 104) r = 'eclate';
+    else if (f.cat === 'robot') r = 'robot';
+    else if (f.cat === 'legume') r = 'legume';
+    else r = g.aime.includes(f.id) ? 'aime' : 'miam';
+    return [r, true, run];
+  }
+  function meal(id, r, rot, choisi) {
+    const t = Date.now();
+    N.last = t; N.dernier = { id: ((N.dernier && N.dernier.id) || 0) + 1, plat: id, t, reaction: r, rot: !!rot, choisi: !!choisi };
+    N.journal = [{ plat: id, t, reaction: r }, ...N.journal].slice(0, 10);
+    S.anim = null; S.screen = 'visage'; publish();
+  }
+  function donner(id, choisi) {
+    const f = NF.BY[id]; if (!f) return null;
+    if (!N.on) { toast(OFF, 5000); return null; }
+    const t = Date.now(); if (t - N.last < GAP) return null;
+    tick(t);
+    const [r, eaten, run] = react(f, t);
+    if (eaten) { N.ventre = Math.min(100, N.ventre + f.valeur * (r === 'beurk' ? 0.7 : 1)); N.sucres = run; if (f.cat === 'sucre') N.sucreT = t; }
+    meal(id, r, r === 'eclate' || (['miam', 'aime', 'prefere', 'legume'].includes(r) && Math.random() < 0.04 + 0.26 * trait('farceur') / 100), choisi);
+    return r;
+  }
+  function choisir() {
+    const g = N.gouts, x = Math.random(), any = NF.FOODS.filter(f => !g.deteste.includes(f.id) && f.cat !== 'robot');
+    return x < 0.35 ? g.prefere : x < 0.8 && g.aime.length ? g.aime[Math.floor(Math.random() * g.aime.length)] : (any[Math.floor(Math.random() * any.length)] || NF.FOODS[0]).id;
+  }
+  Object.assign(A, {
+    'nourrir.donner': ({ plat, choisi = false } = {}) => { donner(String(plat), choisi); },
+    'nourrir.reglages': ({ on = null, vitesse = null } = {}) => {
+      tick(); if (on != null && !!on !== N.on) { N.on = !!on; N.t = Date.now(); }
+      if (SPEED[vitesse]) N.vitesse = vitesse; keep(); publish();
+    },
+    'nourrir.gouts': () => { N.gouts = roll(); keep(); publish(); },
+    'lab.nourrir': ({ ventre = null, reaction = null, plat = null } = {}) => {
+      if (ventre != null && Number.isFinite(Number(ventre))) { N.ventre = Math.max(0, Math.min(100, Number(ventre))); N.t = Date.now(); }
+      if (reaction && NF.REACTIONS[reaction]) { const id = NF.BY[plat] ? plat : choisir(); N.last = -1e9; meal(id, reaction, reaction === 'eclate', false); }
+      publish();
+    },
+  });
+  /* the commands (pixel/nourrir.py command()), before the rest of command() */
+  const ART = ['un peu de ', 'un bout de ', 'une part de ', 'un morceau de ', 'un verre de ', 'une tasse de ', 'un bol de ', 'une tranche de ', 'une assiette de ', 'un ', 'une ', 'des ', 'du ', 'de la ', "de l'", 'de ', "d'", 'le ', 'la ', 'les ', "l'", 'ce ', 'cette ', 'ces ', 'ton ', 'ta ', 'tes ', 'mon ', 'ma ', 'mes ', 'son ', 'sa ', 'ses '];
+  const key = s => norm(s).replace(/’/g, "'").replace(/œ/g, 'oe').replace(/[^a-z0-9' -]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const strip = k => { for (let n = 0; n < 2; n++) { const a = ART.find(x => k.startsWith(x)); if (a) k = k.slice(a.length).trim(); } return k; };
+  const WORDS = {};
+  for (const f of NF.FOODS) for (const w of [f.id, f.id.replace(/-/g, ' '), f.label, f.nom]) { const k = strip(key(w)); for (const v of [k, k + 's', key(w)]) WORDS[v] ??= f.id; }
+  for (const [w, id] of Object.entries({ spaghetti: 'pates', spaghettis: 'pates', pate: 'pates', nouilles: 'pates', hamburger: 'burger', cheeseburger: 'burger', chocolat: 'chocolat', lait: 'lait',
+    batterie: 'pile', byte: 'octet', electricite: 'prise', courant: 'prise', jus: 'prise', 'cookies web': 'cookie-web', 'cookie web': 'cookie-web', friandise: 'bonbon', pain: 'baguette', sucette: 'bonbon' })) WORDS[w] ??= id;
+  const find = s => { const k = strip(key(s).replace(/\s+(?:a|pour)\s+(?:pixel|toi|lui)$/, '')); return WORDS[k] || WORDS[/[sx]$/.test(k) ? k.slice(0, -1) : k] || null; };
+  const BELLY = /^(?:pixel[, ]+)?(?:est-ce que )?(?:tu as|t'as|t as|as-tu|as tu|tu n'as pas|t'as pas) (?:faim|un petit creux|un creux)(?: pixel)?$/;
+  const TABLE = /^(?:a table|a la soupe|a manger|on mange|c'est l'heure de manger|nourris(?:-le| le| pixel|-toi| toi)?|nourrir pixel|donne(?:-lui| lui)? a manger(?: a pixel)?|fais(?:-le| le)? manger|mange quelque chose|mange un truc)(?: pixel)?$/;
+  const EAT = /^(?:pixel[, ]+)?(?:mange donc|manges|mange|goute|bois|avale|croque|grignote|tiens,? (?:voila|voici))\s+(.+)$/, GIVE = /^(?:donne-lui|donne lui|donne|file-lui|file lui|offre-lui|offre lui|offre|sers-lui|sers lui|apporte-lui|apporte lui)\s+(.+)$/;
+  function command(text) {
+    const t = key(text).replace(/\s+(?:s'il te plait|s il te plait|stp|svp)$/, '');
+    const busy = () => { if (!N.on) toast(OFF, 5000); else if (Date.now() - N.last < GAP) toast('Doucement, il mâche encore !', 3000); else return false; return true; };
+    if (BELLY.test(t)) { tick(); publish(); A['scene.play']({ id: 'nourrir-ventre' }); return true; }
+    if (TABLE.test(t)) { if (!busy()) donner(choisir(), true); return true; }
+    const m = t.match(EAT) || t.match(GIVE), id = m && find(m[1]);
+    if (!id) return false;
+    if (!busy()) donner(id, false);
+    return true;
+  }
+  const cmd0 = A.cmd; A.cmd = a => { if (!command(String((a && a.text) || '').slice(0, 2000))) cmd0(a); };
+  setInterval(() => { const v = Math.round(N.ventre), f = level(N.ventre); tick(); if (Math.round(N.ventre) !== v || level(N.ventre) !== f) { publish(); mark(); } }, 60000);
+  publish();
+  return { N, tick, publish, find, roll };
+})();
+
 return {
   NAV, NAMES, THEMES, ALLT, MOODS, KINDS, ANIMS, AGROUPS, FACES, PSCENES, S, norm, row3, snapshot, findScene,
   themeName: id => TNAME[id] || id, moodName: id => MNAME[id] || id,

@@ -233,6 +233,7 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 | `anim danse`, `animation fou rire`, `danse`, `coucou`… | joue une des 52 animations |
 | `animations` | affiche la liste des animations |
 | `fais le poisson`, `fais la sieste`, `joue la toupie`… | un de ses moments de vie (voir « Sa personnalité ») |
+| `mange une pomme`, `donne-lui une pizza`, `à table !`, `tu as faim ?` | le nourrir (voir « Nourrir Pixel ») |
 | `scènes` | affiche ses moments de vie |
 | `visage vivant`, `visage pack` | change de visage |
 | `aide` | affiche la liste des commandes |
@@ -289,6 +290,55 @@ Sur une tablette, ou si la rotation de ton téléphone est bloquée, touche **Pi
 - il reste muet. Pour essayer ses bips quand même, ouvre l'appli avec `?son=1` au bout de l'adresse.
 
 Dans Pixel Lab, le panneau **Pixel de poche** montre le téléphone en paysage, et ses boutons font comme si on secouait, penchait ou caressait l'un ou l'autre des deux Pixels.
+
+## Nourrir Pixel
+
+Pixel a un **ventre**. Il se vide doucement pendant la journée, et tu peux le nourrir : il mange sur son écran, avec ses goûts à lui. C'est un petit animal de compagnie gentil : il ne tombe jamais malade, il ne meurt jamais et il ne te fait pas de reproches. Au pire, il a un petit creux et il te le dit.
+
+**Son ventre :**
+- il se vide d'environ 6 % par heure (réglable : lente, normale, rapide), et un peu plus vite si son caractère est gourmand ;
+- la nuit (de 23 h à 6 h), son ventre dort aussi ;
+- si le Pi a été éteint longtemps, au réveil il a au pire un petit creux, jamais une faim de loup ;
+- plein, il refuse gentiment ; trop rempli, il gonfle : « Je vais éclater ! ».
+
+**Quand il a faim**, il le dit, sans insister :
+- son ventre gargouille : « J'ai un petit creux… », et il pense à ce qui lui ferait plaisir ;
+- très faim : « J'ai très faim… Tu me donnes un petit quelque chose ? » ;
+- vers l'heure des repas (petit-déj, déjeuner, goûter, dîner) : « C'est l'heure du déjeuner ! On mange quoi ? », avec sa fourchette et son couteau.
+
+Jamais plus d'une fois toutes les 20 minutes, jamais la nuit, et jamais quand il fait déjà autre chose.
+
+**Le menu :** 24 plats dessinés en gros pixels, aux couleurs du thème. Fruits (pomme, banane, fraise), légumes (carotte, brocoli), plats (croissant, baguette, pizza, frites, burger, sushi, pâtes, soupe, fromage), sucreries (glace, gâteau, cookie, bonbon), boissons (chocolat chaud, verre de lait), et pour robots : une pile, un octet croustillant, de l'électricité, et un cookie « accepter les cookies ».
+
+**Ses goûts :** il a un plat préféré, cinq plats qu'il aime et trois qu'il n'aime pas. Ils restent les mêmes au redémarrage. Le bouton **Changer ses goûts** en tire d'autres.
+
+**Ce qu'il fait :**
+
+| Tu lui donnes | Il fait |
+| --- | --- |
+| son plat préféré | il saute de joie et danse : « Mon plat préféré !! » |
+| un plat qu'il aime | il mâche, des cœurs plein les yeux : « Trop bon ! » |
+| un plat qu'il n'aime pas | une grimace : « Beurk… bon, d'accord. » S'il est très grognon, il refuse : « Non. Pas ça. » |
+| un légume | « Fort comme un robot ! », et il montre ses muscles |
+| trois sucreries de suite | il file dans tous les sens, puis il s'écroule : « …je suis tout mou. » |
+| une pile, de l'électricité, un octet | il se recharge en grésillant, puis « 100 % ! » |
+| les cookies | « J'accepte les cookies ! » |
+| quand il est plein | « Merci, mais j'ai plus faim ! » |
+
+Le plat arrive par la droite, il ouvre la bouche, croque en trois bouchées et fait des miettes. Parfois il rote (plus souvent s'il est farceur) : « Burp ! …pardon. »
+
+**Pour le nourrir :**
+- **sur l'écran du Pi :** touche la petite assiette en bas à droite, ou glisse vers le haut depuis le bas de l'écran. Un plateau monte avec les 24 plats : touche-en un. Pour le ranger : glisse vers le bas, touche au-dessus, ou touche **Fermer**. Il se range tout seul après 20 secondes. L'assiette est en dehors de son visage : le toucher, les caresses et l'appui long marchent comme avant. Un point clignote sur l'assiette quand il a faim ;
+- **sur ton téléphone :** touche **Nourrir**, sous les touches (à côté d'**Agendas**). Le panneau montre son ventre, le menu, ses goûts, ses derniers repas et les réglages ;
+- **dans ta poche :** le Pixel de poche a la même assiette ;
+- **au clavier :** `mange une pomme`, `donne-lui une pizza`, `bois un verre de lait`, `à table !` ou `nourris Pixel` (il choisit lui-même), `tu as faim ?` (il écoute son ventre et te répond) ;
+- **avec Claude :** « Pixel, tu veux une glace ? ».
+
+Un repas toutes les 6 secondes au plus : le temps de mâcher.
+
+**Les réglages** (sur le téléphone, dans le panneau) : **Il a faim** active ou coupe tout. Coupé, son ventre ne bouge plus, il ne réclame rien et ne mange pas. **Vitesse** : lente, normale ou rapide.
+
+Dans Pixel Lab, le panneau **Nourrir** donne chaque plat, joue chaque réaction, règle son ventre (repu, ça va, petit creux, très faim) et ouvre le plateau du Pi.
 
 ## Tes agendas (Google et Samsung)
 
@@ -409,6 +459,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 
   `test_pixel.py` vérifie `scene.play`, les commandes `fais …` et `scènes`, et l'outil de Claude.
 - **Pixel de poche** (`test_poche.js`, dans Chromium) : en paysage, sur un Pixel 7 et un iPhone 14 simulés, il s'affiche en plein écran, net et sans erreur dans les 6 thèmes ; l'écran reste allumé ; une tape le fait réagir, un appui long le câline ; secoué, penché, sa batterie, le Pi arrêté puis relancé (et la page rechargée sans le Pi), la sortie de la poche ; en portrait, la télécommande revient ; ni un écran partagé, ni le clavier, ni un aller-retour rapide ne le font apparaître. L'iPhone est imité dans Chromium (pas de plein écran, la permission des mouvements seulement sur une touche, ses axes à l'envers, `window.orientation`). Une adresse en http sans aucune imitation : il vit sans les sens du téléphone et le dit ; dans l'appli Android, il lui demande de garder l'écran allumé. À côté, l'écran du Pi : le Pixel jaloux, le jumeau qui remarque, le voyage aller et retour. Et le cadre de Pixel Lab. `test_poche.py` vérifie les actions `poche.touch` et `poche.voyage` du serveur.
+- **Nourrir** (`test_nourrir.py`, `test_nourrir.js`) : son ventre se vide le jour seulement (plus vite s'il est gourmand, un caractère absent compte comme aujourd'hui), pas pendant la nuit, et peu pendant que le serveur est arrêté (au pire un petit creux) ; un repas toutes les 6 s au plus ; chaque réaction (préféré, aime, beurk, refus si grognon, plein, éclate, trois sucreries, légume, robot, le rot plus fréquent s'il est farceur) ; ses goûts gardés au redémarrage et retirés au sort ; les commandes (`mange une pomme`, `donne-lui une pizza`, `à table !`, `tu as faim ?`) sans prendre les mots des autres commandes ni de Claude ; l'outil de Claude. Dans Chromium : sur l'écran du Pi, l'assiette, le plateau au toucher et au glissé, le repas joué et le plat dessiné dans les 6 thèmes, le visage qui répond toujours aux tapes, à l'appui long et au menu rapide ; le panneau du téléphone (cibles de 44 px au moins, pas de défilement de côté) ; le Pixel de poche ; dans Pixel Lab, chaque scène dans chaque thème, et les envies de manger : une seule toutes les 20 minutes, jamais la nuit, ni quand c'est coupé, ni par-dessus une autre scène.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
@@ -424,6 +475,8 @@ node tests/test_pack.js
 node tests/test_persona.js
 python3 tests/test_poche.py
 node tests/test_poche.js             # il faut Playwright ; --shots DOSSIER pour les captures
+python3 tests/test_nourrir.py        # lance son propre serveur de démo sur le port 8174
+node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots DOSSIER pour les captures
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -440,8 +493,8 @@ Pas encore testé avec le vrai matériel :
 | Fichier | Rôle |
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
-| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
-| `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`) |
+| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; `nourrir` (son ventre, ses goûts, ses repas, dans `nourrir.json`) ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
+| `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`), `nourrir.js` le plateau du Pi et le panneau Nourrir du téléphone (le menu, ses dessins et ses scènes dans `scenes/nourrir.js`) |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |

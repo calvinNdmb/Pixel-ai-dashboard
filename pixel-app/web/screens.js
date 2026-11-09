@@ -521,6 +521,9 @@ function drawMenu() {
   X.globalAlpha = 0.8; txt('Glisse vers le haut pour fermer', x + MENU.w / 2, yy + 162, 22, D, 'center'); X.globalAlpha = 1;
 }
 
+/* ---------- Nourrir: web/nourrir.js draws his food tray over the face screen, with the screen's own helpers ---------- */
+const NOUR = { X, W, H, RM, L, hit, txt, fit, box, bar, fast: ms => fast(ms), get T() { return T; }, get S() { return S; }, get now() { return now; } };
+
 /* ---------- loop and API ---------- */
 const DRAW = { visage: drawVisage, lumieres: drawLights, claude: drawClaude, codex: drawCodex, meteo: drawMeteo, minuteur: drawTimer,
   agenda: drawAgenda, systeme: drawSys, reglages: drawSettings, veille: drawVeille };
@@ -580,6 +583,7 @@ function frame(t) {
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
   else { if (PER) PV = PER.update(dt, personaCtx()); (DRAW[L.scr] || drawVisage)(dt); }
+  if (P && L.boot < 0 && window.PixelNourrir) window.PixelNourrir.over(NOUR);   // Nourrir: his food tray (web/nourrir.js)
   if (P && L.menu && L.boot < 0) drawMenu();
   drawBanner();
   if (T.fg) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }

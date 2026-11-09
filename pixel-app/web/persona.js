@@ -224,7 +224,8 @@ S('pluie', 'Sous la pluie', 'vie', { dur: 8200, w: 4, side: true, when: c => c.w
 S('soleil', 'Bronzette', 'vie', { dur: 7600, w: 3, side: true, when: c => c.sunny && c.day, anim: [[0, 'fier'], [4600, 'zen']], mood: 'fier', say: [[500, 3500, L('Il fait beau !', 'Quel soleil !', 'Bronzette !')]],
   move: e => ({ r: -0.06 * sm(seg(e, 0, 1000)) * (1 - sm(seg(e, 6600, 7600))), y: -8 * sm(seg(e, 0, 1000)) * (1 - sm(seg(e, 6600, 7600))) }),
   props: (D, e) => D.sun(e, seg(e, 0, 800) * (1 - seg(e, 6800, 7600))) });
-S('faim', 'La faim', 'vie', { dur: 7400, w: 4, side: true, when: c => c.meal, anim: [[0, 'triste'], [4200, 'idee']], mood: 'triste', say: [[500, 3800, L('J’ai faim…', 'C’est l’heure de manger ?', 'Mon ventre gargouille…')], [4300, 7200, L('Une pizza ?', 'On mange quoi ?')]],
+// at meal times; while Nourrir is on (web/scenes/nourrir.js), its hints, which know his belly, take its place
+S('faim', 'La faim', 'vie', { dur: 7400, w: 4, side: true, when: c => c.meal && !(window.PixelFoods && window.PixelFoods.on()), anim: [[0, 'triste'], [4200, 'idee']], mood: 'triste', say: [[500, 3800, L('J’ai faim…', 'C’est l’heure de manger ?', 'Mon ventre gargouille…')], [4300, 7200, L('Une pizza ?', 'On mange quoi ?')]],
   props: (D, e) => { if (e < 7000) D.thought('pizza', seg(e, 0, 600) * (1 - seg(e, 6500, 7000))); } });
 S('nuit', 'Bâillements de nuit', 'vie', { quiet: true, dur: 7200, w: 6, when: c => c.night, anim: [[0, 'baille'], [3600, 'fatigue']], mood: 'baille', say: [[500, 3200, L('Il est tard…', 'Au lit, tout le monde…', 'Mmmh, dodo…')]],
   move: e => ({ y: 16 * sm(seg(e, 0, 4000)) * (1 - sm(seg(e, 6400, 7200))) }), props: (D, e) => { if (e > 3000) D.zzz(e - 3000, 0.7); } });
@@ -283,6 +284,8 @@ const EVENTS = {
   'poche-loin': 'Pixel de poche : le Pi ne répond plus',
   'poche-maison': 'Pixel de poche : le Pi répond à nouveau',
   'poche-revoila': 'Pixel de poche : le téléphone ressort de la poche',
+  'nourrir-repas': 'Nourrir : il mange',                              // data.plat, data.reaction, data.rot (web/scenes/nourrir.js, pixel/nourrir.py)
+  'nourrir-faim': 'Nourrir : son ventre gargouille',                  // data.niveau: 1 a little hungry, 2 very hungry
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the

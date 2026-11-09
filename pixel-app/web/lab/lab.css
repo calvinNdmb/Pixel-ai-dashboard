@@ -198,3 +198,11 @@ body.kiosk .screen canvas#crt{touch-action:none}
 .lab.poche .screen canvas#crt{width:auto;height:100%;max-width:100%;aspect-ratio:5/3;touch-action:none}
 .lab.poche .mfoot{display:none}
 @media (max-width:860px){.lab.poche .monitor{width:100%;border-radius:6%/13%;padding:1.4% 3%}}
+
+/* ---------- Nourrir (nourrir-lab.js): the 24 foods, drawn in the theme's colours on its background (--nl-bg) ---------- */
+.nour-lab-menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.nour-lab-menu button{min-width:48px;min-height:52px;display:grid;place-items:center;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--nl-bg,#061009);cursor:pointer}
+.nour-lab-menu button:hover{border-color:var(--accent)}
+.nour-lab-menu button.fav{box-shadow:inset 0 0 0 2px var(--amber)}
+.nour-lab-menu button:disabled{opacity:.4;cursor:default}
+.nour-lab-menu canvas{width:36px;height:36px;image-rendering:pixelated;image-rendering:crisp-edges}
