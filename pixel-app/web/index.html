@@ -50,7 +50,7 @@
       <form class="cast-form" id="castTextForm" autocomplete="off"><label class="sr" for="castText">Texte à afficher</label>
         <input id="castText" type="text" maxlength="280" enterkeyhint="send" placeholder="Écris un petit mot"><button type="submit" class="cbtn">Afficher</button></form>
       <div class="cast-opts">
-        <label class="ck"><input type="checkbox" id="castRaw"> Couleurs d'origine</label>
+        <label class="ck" hidden><input type="checkbox" id="castRaw"> Couleurs d'origine</label><!-- a cast is always in its own colours now -->
         <label class="ck">Durée <select id="castSecs"><option value="">2 min</option><option value="30">30 s</option><option value="600">10 min</option><option value="0">jusqu'à Arrêter</option></select></label>
       </div>
       <p class="cast-msg" id="castMsg" role="status" aria-live="polite"></p>

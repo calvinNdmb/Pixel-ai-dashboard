@@ -461,8 +461,9 @@ function drawBanner() {
 /* ---------- Cast: a photo, a GIF, a video, a text or a link sent from a phone (pixel/cast.py) ----------
    Drawn over whatever screen is open, which comes back when it ends: pictures and texts after a while (the server's
    [cast] seconds), videos at their end (Pixel's screen tells the server: cast.end), at once on a touch (cast.stop).
-   In Rétro the picture takes the green phosphor of the tube, under the CRT effects of themes.js (LCD: its greens),
-   unless "couleurs d'origine" (cast.raw). A little Pixel peeks in from the corner and reacts.
+   The picture keeps its true colours, sharp, letterboxed on black: while anything is cast, no CRT effect in any theme
+   (frame(): no theme.fg, and the "casting" class hides the page's scanlines, style.css); all of it is back when it ends.
+   A little Pixel peeks in from the corner and reacts.
    A video plays in a hidden <video>, drawn every frame (60 im/s: wantFps); a GIF is decoded frame by frame (ImageDecoder:
    a canvas only ever draws the first frame of a GIF); YouTube and Vimeo play in their own player over the canvas, on
    Pixel's screen only (a phone shows a card). The sound plays on Pixel's screen only (kiosk.sh lets it start alone). */
@@ -555,23 +556,14 @@ function castSrc() {                  // what to draw, and its size: the GIF's f
   if (CA.img && CA.img.complete && CA.img.naturalWidth) return [CA.img, CA.img.naturalWidth, CA.img.naturalHeight];
   return null;
 }
-function castTint(c, r) {             // Rétro: the picture in the tube's green phosphor (its light, the tube's colour); LCD: in its greens
-  const tube = T.id === 'retro' ? !(P.view && P.view.crt_off) : T.id === 'lcd';
-  if (!tube || c.raw) return;
-  X.save(); X.beginPath(); X.rect(r.x, r.y, r.w, r.h); X.clip();
-  X.globalCompositeOperation = 'color'; X.fillStyle = T.id === 'lcd' ? DK : G; X.fillRect(r.x, r.y, r.w, r.h);
-  X.globalCompositeOperation = 'multiply'; X.fillStyle = T.id === 'lcd' ? B : '#b4ffcb'; X.fillRect(r.x, r.y, r.w, r.h);
-  X.restore();
-}
-function castMedia(c) {               // a photo, a GIF or a video: as big as it fits, centred
-  X.shadowBlur = 0; X.fillStyle = B; X.fillRect(0, 0, W, H);
+function castMedia(c) {               // a photo, a GIF or a video: as big as it fits, centred on black, in its own colours
+  X.shadowBlur = 0; X.fillStyle = '#000'; X.fillRect(0, 0, W, H);
   if (CA.gif && now >= CA.gif.next) gifNext();
   const s = castSrc();
   if (!s) { glow(); txt(CA.err ? caps("Impossible de l'afficher") : caps('Chargement') + '.'.repeat(1 + Math.floor(now / 400) % 3), 400, 214, 36, CA.err ? AM : D, 'center'); return; }
   const [src, w, h] = s, k = Math.min(W / w, H / h), r = { w: w * k, h: h * k };
   r.x = (W - r.w) / 2; r.y = (H - r.h) / 2;
-  X.imageSmoothingEnabled = true; X.drawImage(src, r.x, r.y, r.w, r.h);
-  castTint(c, r);
+  X.imageSmoothingEnabled = true; X.imageSmoothingQuality = 'high'; X.drawImage(src, r.x, r.y, r.w, r.h);
   if (CA.vid && CA.vid.duration > 0) { X.globalAlpha = 0.8; X.fillStyle = D; X.fillRect(0, H - 3, W * CA.vid.currentTime / CA.vid.duration, 3); X.globalAlpha = 1; }   // how far the video is
   glow();
 }
@@ -755,12 +747,13 @@ function frame(t) {
   const dt = Math.min(120, t - last); last = t; fdt = dt; update(); hits = [];
   X.setTransform(S, 0, 0, S, 0, 0); X.globalAlpha = 1; X.shadowBlur = 0; T.bg(dt); glow();
   const cast = P ? castSync() : null;                 // a photo, a video... from a phone, over the screen that is open
+  if (!cast !== !L.casting) { L.casting = !!cast; const sc = cv.parentElement; if (sc && sc.classList) sc.classList.toggle('casting', L.casting); }   // style.css: no scanlines over a cast
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
   else { if (PER) PV = PER.update(dt, personaCtx()); if (cast) drawCast(cast); else (DRAW[L.scr] || drawVisage)(dt); }
   if (P && L.menu && L.boot < 0) drawMenu();
   drawBanner();
-  if (T.fg) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }
+  if (T.fg && !cast) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }     // the CRT effects (Rétro), the LCD's glass: never over a cast
 }
 function toCanvas(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; }
 addEventListener('resize', () => { fitAt = 0; });

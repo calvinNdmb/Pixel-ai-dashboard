@@ -34,6 +34,7 @@ body{background:var(--desk);color:var(--plastic);font:15px/1.4 var(--f-ui);-webk
 .screen::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:2;
   background:repeating-linear-gradient(180deg,transparent 0 2px,rgba(0,0,0,.26) 2px 3px),radial-gradient(ellipse at 50% 50%,transparent 58%,rgba(0,0,0,.55) 100%)}
 .screen.flat::after{display:none}
+.screen.casting::after{display:none}          /* a cast (screens.js): its picture in its own colours, no scanlines */
 .mfoot,.kfoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:2.5%}
 .badge{font:600 12px var(--f-ui);letter-spacing:.3em;color:var(--ink)}
 .conn{font:12px var(--f-ui);color:var(--ink)}
