@@ -126,16 +126,22 @@ async function kiosk(browser) {
   check('the quick menu opens over an exercise, and the exercise waits under it', await k.evaluate(() => Screens.menuOpen && PixelExos.open && !PixelNourrir.shown));
   await shot(k, 'kiosk-lcd-menu-over-exercise');
   await k.evaluate(() => Screens.menu(false)); await wait(300);
-  // a cast (pixel/cast.py, when it is there: the snapshot's "cast") comes before all of it
-  await k.evaluate(() => { const s0 = Screens.setState; window.__cast = true; Screens.setState = p => s0(window.__cast ? { ...p, cast: { id: 'essai', kind: 'image', until: Date.now() + 60000 } } : p); window.__uncast = () => { window.__cast = false; }; });
-  act('view.set', { key: 'meteo_day', value: 0 });                 // any snapshot
-  await until(() => k.evaluate(() => PixelExos.open && !PixelNourrir.shown), 3000); await wait(300);
+  // a cast (pixel/cast.py: « Caster sur Pixel », here a text) comes before all of it: drawn instead of the exercise and the plate
+  act('cast.text', { text: 'Coucou Pixel' });
+  const casting = await until(() => k.evaluate(() => Screens.casting && Screens.cast.id && Screens.cast.kind === 'text'), 5000); await wait(300);
   const c0 = S.exos.cur, mark = () => JSON.stringify(S.exos.cur && [S.exos.cur.id, S.exos.cur.etat, S.exos.cur.faux, S.exos.cur.tries]), m0 = mark();
+  check('a cast over everything: the exercise stays open under it, no plate, no tray, no offer, no food hint',
+    !!casting && !!c0 && await k.evaluate(() => PixelExos.open && !PixelNourrir.shown && !PixelNourrir.open() && !PixelNourrir.swipe(-200, 470)
+      && !PixelExos.canPropose({ day: true }) && PixelNourrir.hint(2) === ''));
+  await shot(k, 'kiosk-lcd-cast-over-exercise');
+  await k.keyboard.press('1'); await wait(200);
+  check('…its keys are off: a digit does not go to the hidden exercise', await k.evaluate(() => PixelExos.buffer === '') && mark() === m0 && !!S.cast, `${m0} -> ${mark()}`);
+  await k.evaluate(() => { const i = document.getElementById('cmd'); if (i) { i.value = ''; i.blur(); } });   // the digit went to the command bar instead
   const choice = await k.evaluate(() => { const b = PixelExos.layout.choices[0]; return [b.x + b.w / 2, b.y + b.h / 2]; });
-  await tap(k, ...choice); await wait(800);
-  check('a cast over everything: the exercise stays open but waits (a touch on its answers does nothing), the plate too, no offer',
-    !!c0 && mark() === m0 && await k.evaluate(() => PixelExos.open && !PixelNourrir.shown && !PixelExos.canPropose({ day: true })), `${m0} -> ${mark()}`);
-  await k.evaluate(() => window.__uncast()); act('view.set', { key: 'meteo_day', value: 0 });
+  await tap(k, ...choice);
+  await until(() => !S.cast, 4000); await wait(300);
+  check('…a touch on its answers does not answer it: it ends the cast (a touch anywhere), the exercise is back as it was',
+    mark() === m0 && !S.cast && await k.evaluate(() => !Screens.casting && PixelExos.open), `${m0} -> ${mark()}, cast ${JSON.stringify(S.cast)}`);
   await wait(700);
   await tap(k, ...choice);
   await until(() => mark() !== m0, 3000);
@@ -218,8 +224,9 @@ async function lab(browser) {
   const l = await lc.newPage(), lErr = errors(l);
   await l.goto(BASE + '/app/lab/index.html?themes=all');
   await until(() => l.evaluate(() => !!window.PixelLab && !!document.getElementById('hCaractere') && !!document.getElementById('hNourrir') && !!document.getElementById('hExos')), 10000);
-  const order = await l.evaluate(() => ['hCaractere', 'hNourrir', 'hExos'].map(id => !!document.getElementById(id)));
-  check('Pixel Lab: the three panels, Caractère, Nourrir and Exos de maths', order.every(Boolean), JSON.stringify(order));
+  const order = await l.evaluate(() => [...document.querySelectorAll('#panel > section h2')].map(h => h.id));
+  const at = order.indexOf('hPerso');
+  check('Pixel Lab: the panels side by side, Personnalité, Caractère, Nourrir, Exos de maths', at >= 0 && order.slice(at, at + 4).join() === 'hPerso,hCaractere,hNourrir,hExos', order.join(','));
   // the same commands as the server, in the same order
   const run = text => l.evaluate(t => {
     const H = PixelHub, S0 = JSON.parse(JSON.stringify({ c: H.S.caractere, n: H.S.nourrir && H.S.nourrir.dernier, e: H.S.exos && H.S.exos.cur, sc: H.S.scene }));

@@ -366,6 +366,17 @@ def game(tmp):
     ex.nouveau(kind="suite")
     clk.go(9 * 60)
     check("an exercise left alone 8 minutes is put away", ex.tick() and ex.cur is None)
+    ex.nouveau(kind="suite")
+    q0 = ex.cur["id"]
+    for _ in range(12):                                   # a cast over his face for 12 minutes (pixel/cast.py; server tick hidden=True)
+        clk.go(60)
+        ex.tick(hidden=True)
+    check("under a cast, an open question is not left alone: it waits, the same", ex.cur and ex.cur["id"] == q0 and ex.cur["etat"] == "question")
+    clk.go(7 * 60)
+    ex.tick()
+    check("…the cast over, it stays 8 more minutes", ex.cur and ex.cur["id"] == q0)
+    clk.go(2 * 60)
+    check("…then, left alone, it is put away", ex.tick() and ex.cur is None)
     ex.set_reglages(propose=True, objectif=7)
     again = exos.Exos(path, clock=clk)
     check("stats, levels and settings are kept in exos.json", again.stats["total"] == ex.stats["total"] and again.stats["record_chrono"] == 3

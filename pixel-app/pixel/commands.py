@@ -57,14 +57,8 @@ async def run(hub, text):
         return
     if t in ("/effacer", "/clear", "effacer"):
         return await hub.dispatch("chat.clear")
-    if await exos.command(hub, raw, t):                     # pixel/exos.py: its own words only; a bare number only while an exercise is open
-        return
-
-    if t.startswith("codex ") and len(raw) > 6:
-        await hub.dispatch("screen.show", {"screen": "codex"})
-        return await hub.dispatch("codex.run", {"task": raw[6:].strip()})
-
-    # casting (pixel/cast.py): "caste https://youtu.be/...", "caste À table !"; "stop" ends a cast before it pauses the timer
+    # casting (pixel/cast.py): "caste https://youtu.be/...", "caste À table !"; "stop" ends a cast before it stops an exercise
+    # waiting under it (pixel/exos.py) or pauses the timer
     if t in ("stop cast", "arrete le cast", "arrete de caster", "fin du cast") or (t in ("stop", "arrete", "arreter") and hub.s.get("cast")):
         return await hub.dispatch("cast.stop")
     if t in ("code tv", "code tele", "code youtube", "code tv youtube"):     # the YouTube app's "Link with TV code" (pixel/ytcast.py)
@@ -75,6 +69,13 @@ async def run(hub, text):
         if re.match(r"^https?://", rest, re.I):
             return await hub.dispatch("cast.link", {"url": rest})
         return await hub.dispatch("cast.text", {"text": rest})
+
+    if await exos.command(hub, raw, t):                     # pixel/exos.py: its own words only; a bare number only while an exercise is open
+        return
+
+    if t.startswith("codex ") and len(raw) > 6:
+        await hub.dispatch("screen.show", {"screen": "codex"})
+        return await hub.dispatch("codex.run", {"task": raw[6:].strip()})
 
     m = re.match(r"^(minuteur|timer|chrono)(?:\s+(\d+(?:[.,]\d+)?))?\s*(?:min|minutes?)?$", t)
     if m:

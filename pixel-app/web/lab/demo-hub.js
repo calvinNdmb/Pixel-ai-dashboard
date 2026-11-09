@@ -919,9 +919,10 @@ Object.assign(A, {
   },
   'lab.exos': ({ juste = true } = {}) => { const c = EX.cur; if (!c || c.etat !== 'question') return; exAnswer(juste ? c.answer : c.choices.find(x => !exSame(x, c.answer) && !c.faux.includes(x)) || 'x'); exPub(); },
 });
-const exCmd0 = A.cmd;                                      // the typed commands: pixel/exos.py command(), first
+const exCmd0 = A.cmd;                                      // the typed commands: pixel/exos.py command(), first (after the cast's « stop », as in commands.py)
 A.cmd = ({ text }) => {
   const raw = String(text).slice(0, 2000).trim(), t = kw(raw).replace(/\s+/g, ' ').replace(/[ !?.]+$/, ''), c = EX.cur;
+  if (S.cast && ['stop', 'arrete', 'arreter'].includes(t)) return exCmd0({ text });   // a cast over an exercise: « stop » ends the cast first
   const go = a => { A['exos.nouveau'](a); return true; };
   const done = (() => {
     let m;
@@ -961,10 +962,11 @@ A.cmd = ({ text }) => {
 };
 setInterval(() => {                                        // pixel/exos.py tick(): the result shown long enough, the challenge over, left alone
   const c = EX.cur, t = Date.now(); if (!c) return;
+  if (S.cast && c.etat === 'question') c.hidden_at = t;   // under a cast (exos.py tick hidden): not left alone
   if (c.mode === 'chrono' && EX.run && t >= EX.run.ends_at && c.etat !== 'bilan') exBilan();
   else if (c.etat === 'resultat' && t >= c.next_at) exAdvance();
   else if (c.etat === 'bilan' && t >= c.next_at) exStop();
-  else if (c.etat === 'question' && t - c.t0 > 8 * 60000) exStop();
+  else if (c.etat === 'question' && t - Math.max(c.t0, c.hidden_at || 0) > 8 * 60000) exStop();
   else return;
   exPub(); mark();
 }, 250);

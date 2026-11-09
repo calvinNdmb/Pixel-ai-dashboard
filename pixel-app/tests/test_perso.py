@@ -99,9 +99,18 @@ async def routing(tmp):
         got = await run(text)
         check(f"…an exercise open, « {text} » still goes to {want}", got == want, got)
     check("…and the exercise is still open after a meal and a change of character", bool(hub.exos.cur), json.dumps(c)[:80])
+    # a cast over the open exercise (pixel/cast.py): « stop » ends the cast first, the exercise waits under it; « code tv » stays the cast's
+    hub.s["cast"] = {"id": "essai", "kind": "text", "text": "Coucou", "t0": time.time() * 1000, "until": 0}
+    got = await run("stop")
+    check("a cast over an open exercise: « stop » ends the cast (cast.stop), not the exercise", got == "cast.stop" and bool(hub.exos.cur), got)
+    got = await run("code tv")
+    check("…« code tv » is the YouTube app's code, even with an exercise open", got == "ytcast.code", got)
+    hub.s["cast"] = None
+    got = await run("stop")
+    check("…no cast: « stop » stops the exercise", got == "exos.stop" and not hub.exos.cur, got)
     hub.toast(commands.HELP)
     help_ = hub.s["toast"]["msg"]
-    check("« aide » names one command of each feature", all(w in help_ for w in ("caractère câlin", "mange une pomme", "exo", "table de 7")), help_)
+    check("« aide » names one command of each feature, and the cast's", all(w in help_ for w in ("caractère câlin", "mange une pomme", "exo", "table de 7", "caste", "stop cast")), help_)
 
 
 async def claude_side(tmp):

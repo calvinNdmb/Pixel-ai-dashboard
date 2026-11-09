@@ -1,5 +1,5 @@
 /* Pixel Lab: Nourrir (../nourrir.js, ../scenes/nourrir.js; the fake server demo-hub.js mirrors pixel/nourrir.py). A panel
-   after « Pixel de poche »: the 24 foods to give him (the same drawings, in the theme's colours), each reaction on demand,
+   between « Caractère » and « Exos de maths » (Personnalité, Caractère, Nourrir, Exos: his customisations together): the 24 foods to give him (the same drawings, in the theme's colours), each reaction on demand,
    his belly (full, fine, a little or very hungry, and the hints), his settings and tastes, and the Pi's food tray. */
 (() => {
 const $ = id => document.getElementById(id), hub = window.PixelHub, PF = window.PixelFoods, NR = window.PixelNourrir;
@@ -40,8 +40,8 @@ sec.append(h2, state, menu,
     ['Vitesse', () => { const v = (hub.S.nourrir && hub.S.nourrir.reglages.vitesse) || 'normale'; act('nourrir.reglages', { vitesse: SPEEDS[(SPEEDS.indexOf(v) + 1) % 3] }); }, 'nourLabSpeed'],
     ['Changer ses goûts', () => act('nourrir.gouts')], ['Le plateau du Pi', () => { act('screen.show', { screen: 'visage' }); setTimeout(() => NR && NR.open(), 120); }]]),
   el('p', 'note', 'Touche un plat : Pixel le mange, selon ses goûts et son ventre. Sur l’écran, la petite assiette sur le bord droit, en bas, ouvre son plateau, comme sur le Pi (ou glisse vers le haut depuis le bas de l’écran du Pi). Il réclame à manger quand son ventre se vide, pas plus d’une fois toutes les 20 minutes, jamais la nuit.'));
-const after = $('hPoche') && $('hPoche').closest('section');
-if (after) after.after(sec); else $('panel').append(sec);
+const before = $('hExos') && $('hExos').closest('section');                      // caractere-lab.js puts « Caractère » after « Personnalité »
+if (before) before.before(sec); else $('panel').append(sec);
 let painted = '';
 function render() {
   const n = hub.S.nourrir, th = hub.S.view.theme, t = hub.ALLT.find(x => x.id === th) || hub.ALLT[0];

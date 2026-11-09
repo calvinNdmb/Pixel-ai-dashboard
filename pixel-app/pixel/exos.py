@@ -1142,12 +1142,16 @@ class Exos:
         self._trophies()
         self.save()
 
-    def tick(self):
-        """Called often (4 times a second): the result shown long enough, the challenge over, an exercise left alone."""
+    def tick(self, hidden=False):
+        """Called often (4 times a second): the result shown long enough, the challenge over, an exercise left alone.
+        hidden: something covers his face screen (a cast, pixel/cast.py): a question waiting there is not left alone, it is
+        put away only IDLE_CLOSE_MS after it shows again."""
         changed = self._day()
         c, t = self.cur, self.ms()
         if not c:
             return changed
+        if hidden and c["etat"] == "question":
+            c["hidden_at"] = t
         if c["mode"] == "chrono" and self.run and t >= self.run["ends_at"] and c["etat"] != "bilan":
             self._bilan()
             return True
@@ -1157,7 +1161,7 @@ class Exos:
         if c["etat"] == "bilan" and t >= c.get("next_at", float("inf")):
             self.stop()
             return True
-        if c["etat"] == "question" and t - c["t0"] > IDLE_CLOSE_MS:
+        if c["etat"] == "question" and t - max(c["t0"], c.get("hidden_at", 0)) > IDLE_CLOSE_MS:
             self.stop()
             return True
         return changed
@@ -1383,8 +1387,12 @@ def setup(hub, datadir=None):
         ex.set_reglages(niveau=niveau, auto=auto, types=types, objectif=objectif, propose=propose)
         pub()
 
+    def cast_on():                                    # a cast covers his face (pixel/cast.py): an open exercise waits under it
+        c = hub.s.get("cast")
+        return bool(c and c.get("id") and (not c.get("until") or c["until"] > time.time() * 1000))
+
     async def tick():
-        if ex.tick():
+        if ex.tick(hidden=cast_on()):
             pub()
             hub.mark()
 

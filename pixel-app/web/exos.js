@@ -72,9 +72,10 @@ const FX = 8, FY = 54, FW = 288, FH = 162, RX = 316, RW = 476;   // his face (le
 const CH = [[RX, 292], [RX + 244, 292], [RX, 380], [RX + 244, 380]], CW = 232, CHH = 80;
 const M0 = { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 };
 function offering() { return !!PER && PER.state.cur === 'exo-envie'; }
-/* over his face screen, first come: a cast (pixel/cast.py, when there: snapshot "cast"), the quick menu, then an open exercise,
-   then its offer, then Nourrir's tray and plate (web/nourrir.js gives way to both) */
-function castOn() { const c = P && P.cast; return !!(c && c.id && (!c.until || srv() < c.until)); }
+/* over his face screen, first come: a cast (pixel/cast.py: screens.js draws it instead of the screen and of this view), the
+   quick menu, then an open exercise, then its offer, then Nourrir's tray and plate (web/nourrir.js gives way to both). Under a
+   cast an open exercise waits as it is: not drawn, its answers take no touch nor key, and it comes back when the cast ends. */
+function castOn() { return !!Sc.casting; }
 const ad = {
   on: scr => scr === 'visage' && L.boot < 0 && !!E && !castOn() && (open() || offering()),
   instead: () => open(),

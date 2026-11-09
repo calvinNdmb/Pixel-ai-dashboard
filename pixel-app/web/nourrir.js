@@ -40,13 +40,13 @@ function heard(p) {
   }
   if (n.on && faim > seenFaim) hint(faim);
   seenFaim = faim;
-  if (!n.on && tray.open) closeTray(true);
+  if (tray.open && (!n.on || Sc.casting)) closeTray(true);                         // a cast covers his face: the tray is put away
   panelDraw();
 }
 function hint(niveau) {             // his belly just got emptier: he may say so, if nothing else is going on
   const h = new Date().getHours(), cur = PER && PER.state.cur, g = cur && (PER.scenes.find(s => s.id === cur) || {}).group;
   const night = PER && PER.isNight ? PER.isNight(h) : h >= 23 || h < 6;           // his quiet hours (his character's, 23 h to 6 h by default)
-  if (night || !PF.hintOk() || (g && g !== 'vie') || (window.PixelExos && window.PixelExos.open)) return '';   // nor during an exercise
+  if (night || !PF.hintOk() || (g && g !== 'vie') || Sc.casting || (window.PixelExos && window.PixelExos.open)) return '';   // nor during a cast or an exercise
   return Sc.event('nourrir-faim', { niveau });
 }
 function gourmand() {               // his character's trait of today (web/persona.js, web/caractere.js), 50 without one
@@ -58,11 +58,11 @@ const feed = id => { if (!PF.BY[id]) return; send('nourrir.donner', { plat: id }
 const tray = { open: false, t: -1e9 }, TR = { x: 8, w: 784, h: 196, gx: 19, gy: 62, cell: 58, step: 64 }, HANDLE = { x: 736, y: 352, w: 64, h: 64 };
 const shown = () => !!(P && P.nourrir && P.nourrir.on) && L.scr === 'visage' && L.boot < 0 && !Sc.menuOpen
   && (L.kiosk || !!(window.PixelPoche && window.PixelPoche.on)) && !(PER && PER.state.cur === 'poche-part') && !above();   // not on the Pi's empty screen while he is in your pocket
-/* over his face screen, these come first: a cast (pixel/cast.py, when there: snapshot "cast"), the quick menu, an open exercise
-   and its offer « Une petite question ? » (web/exos.js); the tray and its plate wait, and come back after */
+/* over his face screen, these come first: a cast (pixel/cast.py: screens.js draws it instead, and does not call over()), the
+   quick menu, an open exercise and its offer « Une petite question ? » (web/exos.js); the tray and its plate wait, and come back after */
 function above() {
-  const X = window.PixelExos, c = P && P.cast;
-  return !!(X && (X.open || X.offering)) || !!(c && c.id && (!c.until || Date.now() < c.until));
+  const X = window.PixelExos;
+  return !!Sc.casting || !!(X && (X.open || X.offering));
 }
 function openTray() { if (tray.open || !shown()) return false; tray.open = true; tray.t = realNow(); fastFor(320); return true; }
 function closeTray(quick) { if (!tray.open) return; tray.open = false; tray.t = quick || RM ? -1e9 : realNow(); fastFor(320); }
