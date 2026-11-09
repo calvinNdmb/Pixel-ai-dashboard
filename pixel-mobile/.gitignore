@@ -43,3 +43,6 @@ yarn-error.*
 # the built app and the build logs
 Pixel.apk
 build*.log
+
+# the phone's own Pixel, built from pixel-app/web (npm run bundle:web)
+assets/pixel-local.html

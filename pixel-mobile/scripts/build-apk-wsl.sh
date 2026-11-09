@@ -4,6 +4,7 @@
 set -e
 SRC=$(cd "$(dirname "$0")/.." && pwd)        # the pixel-mobile folder this script sits in
 . ~/pixel-tools/env.sh
+echo "### Pixel sans Pi"; (cd "$SRC" && npm run bundle:web)   # assets/pixel-local.html: the phone's own Pixel, from ../pixel-app/web
 mkdir -p ~/pixel-mobile
 tar -C "$SRC" --exclude=./.git --exclude=./node_modules --exclude=./android --exclude='./build*.log' --exclude=./Pixel.apk -cf - . | tar xf - -C ~/pixel-mobile
 cd ~/pixel-mobile

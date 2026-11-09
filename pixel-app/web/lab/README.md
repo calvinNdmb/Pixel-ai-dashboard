@@ -79,7 +79,7 @@ Pour vérifier le vrai écran 7 pouces dans son boîtier. Lance-le sur le Pi, en
 | Fichier | Rôle |
 | --- | --- |
 | `clock.js` | L'horloge du labo. Chargée avant `screens.js`, elle ralentit ou arrête le temps des animations. L'heure affichée reste la vraie. |
-| `demo-hub.js` | Le faux serveur : le même état et les mêmes actions que `server.py`, avec les données de démo. Les actions propres au labo commencent par `lab.`. |
+| `demo-hub.js` | Le faux serveur : le même état et les mêmes actions que `server.py`, avec les données de démo. Les actions propres au labo commencent par `lab.`. Il sert aussi à l'appli Android sans le Pi : `../local.js` en retire les données de démo (voir « Pixel sans Pi » dans le guide de Pixel). |
 | `testcard.js` | Le test de l'écran. |
 | `lab.js`, `lab.css` | La page : menus, boutons, mises en page ordinateur, téléphone et plein écran. |
 

@@ -368,11 +368,27 @@ function command(raw) {
   A['chat.ask']({ text: raw });
 }
 
+/* ---------- Pixel sans Pi (../local.js: the phone app's own Pixel, window.PIXEL_LOCAL): no fake system graphs, and the
+   parts local.js works with: the actions, the broadcast, the themes his Pi offers ---------- */
+const LOCAL = !!window.PIXEL_LOCAL;
+const local = {
+  A, mark, toast, mood,
+  themes(ids) {                     // in place: row3(), theme.set and the commands read THEMES and TNAME
+    const on = ALLT.filter(t => Array.isArray(ids) && ids.includes(t.id)); if (!on.length) return;
+    THEMES.splice(0, THEMES.length, ...on);
+    for (const k of Object.keys(TNAME)) delete TNAME[k];
+    for (const t of on) TNAME[t.id] = t.name;
+    S.settings.themes = on.map(t => t.id);
+    if (!TNAME[S.view.theme]) S.view.theme = on[0].id;
+  },
+};
+
 /* ---------- background jobs: timer tick (0.25 s), system graphs (1 s) ---------- */
 setInterval(() => {
   if (T.running && tleft() <= 0) { Object.assign(T, { left: 0, running: false }); if (T.mode === 'TRAVAIL') T.done++; toast('MINUTEUR : TERMINÉ !', 5000); mood('surpris', 2500); }
 }, 250);
 setInterval(() => {
+  if (LOCAL) return;                // Pixel sans Pi: Système shows the phone's own measures (local.js)
   const s = S.sys, load = (S.codex.running ? 38 : 0) + (S.chat.phase !== 'idle' ? 22 : 0);
   s.cpu = Math.min(100, 4 + Math.random() * 8 + load); s.temp = 45 + load / 7 + Math.sin(Date.now() / 5000) * 1.2 + Math.random() * 0.8;
   s.ram_used = 1.2e9 + load * 9e6 + Math.random() * 2e7; s.uptime += 1;
@@ -393,5 +409,6 @@ return {
     mark();
   },
   listen(fn) { listeners.push(fn); fn(snapshot()); },
+  local,                            // Pixel sans Pi (../local.js)
 };
 })();

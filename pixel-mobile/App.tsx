@@ -1,42 +1,68 @@
 /* Pixel on your phone: Pixel's own page (his screen, his keys, the Pixel / Clavier / Les deux modes) in a full-screen app.
-   The first time, scan the QR code Pixel shows (swipe left on his face): it holds his address and your access code, kept
-   in the phone's secure storage. In Pixel mode the phone's screen stays on. When the Pi does not answer, the app says so. */
+   Pixel sans Pi: with no Pi linked, Pixel lives on the phone itself (LocalPixel.tsx). To link the Pi, scan the QR code
+   Pixel shows (swipe left on his face): it holds his address and your access code, kept in the phone's secure storage.
+   Linked, the app shows the Pi's page; when the Pi does not answer, the phone's own Pixel (Linked.tsx). The back button
+   opens the app's menu (PixelMenu.tsx). In Pixel mode the phone's screen stays on (webBridge.ts). */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import { Linked, type LinkedHandle, type PiLink } from './Linked';
+import { LocalPixel } from './LocalPixel';
+import { forgetPi, readHome, saveHome, type Home } from './localStore';
+import { PixelMenu } from './PixelMenu';
+import { parseMessage, usePlugs, webProps } from './webBridge';
 
 const KEY = 'pixel_url';                                       // what Pixel's QR code holds: http://pixel.local:8080/?t=<code>
 const C = { desk: '#141713', plastic: '#d9d2bd', ink: '#7c745c', green: '#46ff82' };
 const isPixelUrl = (u: string) => /^https?:\/\/[^/\s?]+\/?\?t=[\w-]+$/.test(u.trim());
-const NO_ANSWER = "Pixel ne répond pas. Vérifie qu'il est allumé et que ton téléphone est sur le même Wi-Fi.";
+const hostOf = (u: string) => u.replace(/^https?:\/\//, '').replace(/\/?\?.*$/, '');
 
 export default function App() {
-  const [url, setUrl] = useState<string | null | undefined>(undefined);   // undefined: reading it, null: not set up yet
-  useEffect(() => { SecureStore.getItemAsync(KEY).then(setUrl, () => setUrl(null)); }, []);
-  const save = useCallback(async (u: string) => { await SecureStore.setItemAsync(KEY, u.trim()); setUrl(u.trim()); }, []);
-  const forget = useCallback(async () => { await SecureStore.deleteItemAsync(KEY); setUrl(null); }, []);
+  const [url, setUrl] = useState<string | null | undefined>(undefined);   // undefined: reading it, null: no Pi linked
+  const [home, setHome] = useState<Home>('pi');                          // linked: Pixel on the Pi, or on the phone (the menu's choice)
+  const [setup, setSetup] = useState(false), [menu, setMenu] = useState(false), [seen, setSeen] = useState<'pi' | 'phone'>('phone');
+  const linked = useRef<LinkedHandle>(null);                             // "Mon Pixel (Pi)" while the phone's Pixel stands in: try him now
+  useEffect(() => {
+    Promise.all([SecureStore.getItemAsync(KEY).catch(() => null), readHome()]).then(([u, h]) => { setHome(h); setUrl(u); });
+  }, []);
+  const save = useCallback(async (u: string) => {
+    await SecureStore.setItemAsync(KEY, u.trim()); await saveHome('pi'); setHome('pi'); setUrl(u.trim()); setSetup(false);
+  }, []);
+  const forget = useCallback(async () => { await SecureStore.deleteItemAsync(KEY); forgetPi(); setHome('pi'); setUrl(null); }, []);
+  const goHome = useCallback((h: Home) => { setHome(h); saveHome(h); }, []);
+  const openMenu = useCallback(() => setMenu(true), []);
+  const piUrl = url && home === 'pi' ? url : null;           // linked, and Pixel lives on the Pi
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <SafeAreaView style={s.fill}>
         {url === undefined ? <ActivityIndicator style={s.fill} color={C.green} />
-          : url ? <PixelPage url={url} onForget={forget} /> : <Setup onDone={save} />}
+          : setup ? <Setup onDone={save} onCancel={() => setSetup(false)} />
+          : piUrl ? <Linked ref={linked} url={piUrl} Page={PixelPage} onMenu={openMenu} onRelink={() => setSetup(true)} onWhere={setSeen} />
+          : <LocalPixel onMenu={openMenu} />}
+        {menu && !setup && url !== undefined ? (
+          <PixelMenu where={piUrl ? seen : 'phone'} host={url ? hostOf(url) : null} onClose={() => setMenu(false)}
+            onPi={() => (home === 'pi' ? linked.current?.retry() : goHome('pi'))} onPhone={() => goHome('phone')} onLink={() => setSetup(true)} onForget={forget} />
+        ) : null}
       </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
-/* the first time: scan Pixel's QR code, or type his address */
-function Setup({ onDone }: { onDone: (u: string) => void }) {
+/* linking the Pi (the menu's "Relier à mon Pixel"): scan Pixel's QR code, or type his address */
+function Setup({ onDone, onCancel }: { onDone: (u: string) => void; onCancel: () => void }) {
   const [perm, ask] = useCameraPermissions();
   const [scan, setScan] = useState(false);
   const [typed, setTyped] = useState('http://pixel.local:8080/?t=');
   const done = useRef(false);
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { if (scan) setScan(false); else onCancel(); return true; });
+    return () => sub.remove();
+  }, [scan, onCancel]);
   if (scan && perm?.granted) {
     return (
       <View style={s.fill}>
@@ -63,45 +89,34 @@ function Setup({ onDone }: { onDone: (u: string) => void }) {
       <Pressable style={[s.btnGhost, !isPixelUrl(typed) && s.off]} disabled={!isPixelUrl(typed)} onPress={() => onDone(typed)}>
         <Text style={s.btnGhostText}>Valider</Text>
       </Pressable>
+      <Pressable style={[s.btnGhost, s.gapTop]} onPress={onCancel}><Text style={s.btnGhostText}>Retour à Pixel</Text></Pressable>
     </View>
   );
 }
 
-/* Pixel's page, full screen */
-function PixelPage({ url, onForget }: { url: string; onForget: () => void }) {
+/* the Pi's page, full screen; when it does not answer, Linked.tsx shows the phone's own Pixel instead (never a dead end) */
+function PixelPage({ url, link }: { url: string; link: PiLink }) {
   const web = useRef<WebView<object>>(null), canGoBack = useRef(false);   // <object>: its default <undefined> types every prop as never
-  const [down, setDown] = useState<string | null>(null);         // why Pixel does not answer
+  const plugs = usePlugs('pi', web);                              // the native features (webBridge.ts), the same on both pages
   const [round, setRound] = useState(0);                          // a new round: the page loads again
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (!canGoBack.current) return false;                       // on Pixel's page: the back button leaves the app
+      if (!canGoBack.current) { link.onMenu(); return true; }     // on Pixel's page: the app's menu
       web.current?.goBack(); return true;
     });
-    return () => { sub.remove(); deactivateKeepAwake('pixel'); };
-  }, []);
-  const onMessage = (e: WebViewMessageEvent) => {                 // the page says which mode is on, or that it has no access
-    try {
-      const m = JSON.parse(e.nativeEvent.data);
-      if (m.mode === 'pixel') activateKeepAwakeAsync('pixel'); else if (m.mode) deactivateKeepAwake('pixel');
-      if (m.access === false) setDown("Pixel ne reconnaît pas ce téléphone : scanne à nouveau son QR code.");
-    } catch { /* not a message for the app */ }
+    return () => sub.remove();
+  }, [link]);
+  const onMessage = (e: WebViewMessageEvent) => {                 // the page says which mode is on, whether the Pi answers, or that it has no access
+    const m = parseMessage(e.nativeEvent.data); if (!m) return;
+    link.onMessage(m); plugs.message(m);
   };
-  if (down) {
-    return (
-      <View style={[s.fill, s.center]}>
-        <Text style={s.face}>:(</Text>
-        <Text style={s.text}>{down}</Text>
-        <Pressable style={s.btn} onPress={() => { setDown(null); setRound(r => r + 1); }}><Text style={s.btnText}>Réessayer</Text></Pressable>
-        <Pressable style={s.btnGhost} onPress={onForget}><Text style={s.btnGhostText}>Scanner un autre QR code</Text></Pressable>
-      </View>
-    );
-  }
   return (
-    <WebView<object> key={round} ref={web} source={{ uri: url }} style={s.web} originWhitelist={['*']}
-      javaScriptEnabled domStorageEnabled setSupportMultipleWindows={false} overScrollMode="never" textZoom={100}
+    <WebView<object> key={round} ref={web} source={{ uri: url }} style={s.web} originWhitelist={['*']} {...webProps}
+      injectedJavaScriptBeforeContentLoaded={plugs.beforeLoad ? plugs.beforeLoad + '\ntrue;' : undefined}
       onMessage={onMessage} onNavigationStateChange={n => { canGoBack.current = n.canGoBack; }}
-      onError={() => setDown(NO_ANSWER)}
-      onHttpError={e => { if (e.nativeEvent.statusCode === 403) setDown("Pixel refuse ce téléphone : il ne répond qu'aux appareils de la maison."); }}
+      onLoad={() => { link.onLoaded(); plugs.ready(); }}
+      onError={() => link.onDown('down')}
+      onHttpError={e => { if (e.nativeEvent.statusCode === 403) link.onDown('refus'); }}   // Pixel only answers the devices at home
       onRenderProcessGone={() => setRound(r => r + 1)} />
   );
 }
@@ -111,7 +126,6 @@ const s = StyleSheet.create({
   web: { flex: 1, backgroundColor: C.desk },
   center: { alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 },
   title: { color: C.plastic, fontSize: 28, fontWeight: '700', letterSpacing: 8, fontFamily: 'monospace' },
-  face: { color: C.green, fontSize: 48, fontFamily: 'monospace' },
   text: { color: C.plastic, fontSize: 16, lineHeight: 23, textAlign: 'center' },
   small: { color: C.ink, fontSize: 13, textAlign: 'center' },
   gapTop: { marginTop: 28 },
