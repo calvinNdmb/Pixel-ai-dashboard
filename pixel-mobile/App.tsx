@@ -6,7 +6,8 @@
    app shows the Pi's page, and the phone's own Pixel whenever the Pi does not answer (src/Linked.tsx). On both pages, the
    same native features (src/plugs.ts): the screen kept on in Pixel mode, Pixel de poche held sideways and full screen with
    the phone's senses, and the menu's « Son caractère », « Le nourrir », « Exos de maths », which open his panels there.
-   The back button goes back in the Pi's page, then opens the app's menu (src/PixelMenu.tsx); once more, it leaves. */
+   The back button closes a panel open on the page, goes back in the Pi's page, then opens the app's menu (src/PixelMenu.tsx);
+   once more, it leaves. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -22,7 +23,7 @@ import { LocalPixel } from './src/LocalPixel';
 import { forgetPi, readHome, saveHome, takeLink, type Home } from './src/localStore';
 import { Notifs } from './src/Notifs';
 import { PixelMenu } from './src/PixelMenu';
-import { openPanel, showOnPhone, usePanels } from './src/plugs';
+import { closeSheet, openPanel, showOnPhone, usePanels } from './src/plugs';
 import { usePoche } from './src/poche';
 import { C } from './src/theme';
 import { parseMessage, sameOrigin, usePlugs, webProps } from './src/webBridge';
@@ -133,6 +134,7 @@ function PixelPage({ url, link }: { url: string; link: PiLink }) {
   const plugs = usePlugs('pi', web, round);                       // the native features (src/plugs.ts), the same on both pages
   const poche = usePoche();
   useBack(LAYER.page, () => {
+    if (closeSheet(plugs.page)) return;                           // a panel open on it (Caractère, Nourrir, Exos): it closes
     if (!canGoBack.current) link.onMenu();                        // on Pixel's page: the app's menu
     else web.current?.goBack();
   });

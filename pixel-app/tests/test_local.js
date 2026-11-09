@@ -16,6 +16,9 @@
 // - his character, his meals and his exercises (caractère, nourrir, exos) with no Pi: seeded from his Pi's snapshot (its
 //   shapes), they work here, survive a restart; his belly counts the time the app was closed as nourrir.py counts the Pi
 //   down; the page tells the app its panels ({panels}) and the app's menu opens them (PixelPanel), even from Pixel mode;
+//   the back button closes an open one first ({sheet}, PixelSheet); a touch in them is use and an open exercise is busy
+//   for the app's ping; his Pi's snapshot as old as the phone's copy does not undo what he lived here; nothing of the
+//   Pi's own (« telephone ») is kept, here or in the app (local.js SKIP = localStore.ts PI_ONLY);
 // - the weather: real (Open-Meteo, here answered by the test), for the city typed, kept; a city typed while another one's
 //   forecast is on its way never gets that one's forecast; a typo keeps the good city; without network, a word, no error;
 // - a phone held sideways: the Pixel de poche, his face alone; a tap, a long press (a cuddle); no voyage button (no Pi);
@@ -51,6 +54,11 @@ check('…nothing it would fetch: no <link>, no src=, no url() but data:', !/<li
 const fonts = JSON.parse(fs.readFileSync(path.join(WEB, 'fonts.json'), 'utf8'));
 check(`…the ${fonts.length} fonts inside (base64 @font-face)`, (html.match(/url\("data:font\/ttf;base64,/g) || []).length >= fonts.length);
 check('…one file, under 6 MB', html.length < 6e6, String(html.length));
+/* the Pi's own parts are kept neither here (local.js SKIP) nor in the app's copy of his Pi's snapshot (localStore.ts PI_ONLY) */
+const listed = (file, name) => { try { const m = new RegExp(`const ${name} = new Set\\(\\[([^\\]]+)\\]`).exec(fs.readFileSync(file, 'utf8')); return m ? [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]) : null; } catch { return null; } };
+const SKIP = listed(path.join(WEB, 'local.js'), 'SKIP'), PI_ONLY = listed(path.join(APP, '..', 'pixel-mobile', 'src', 'localStore.ts'), 'PI_ONLY');
+if (PI_ONLY) check('local.js SKIP and the app\'s PI_ONLY (pixel-mobile localStore.ts) name the same parts of his Pi (« telephone » too)', !!SKIP && SKIP.includes('telephone')
+  && PI_ONLY.every(k => SKIP.includes(k)) && SKIP.every(k => PI_ONLY.includes(k) || ['view', 'settings', 'weather', 'kept_at'].includes(k)), JSON.stringify({ SKIP, PI_ONLY }));
 
 /* ---------- the browser: nothing but the page itself may load ---------- */
 const net = [];
@@ -359,6 +367,32 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   check('…in Pixel mode, the menu\'s « Le nourrir », « Exos de maths », « Son caractère » bring the keys back and open their panel', Object.values(opened).every(Boolean), JSON.stringify(opened));
   check('…an unknown one: nothing', await S(page, () => window.PixelPanel('lampes') === false && document.body.dataset.mode === 'pixel'));
   await page.click('#modes button[data-mode="both"]');
+  /* the app's back button (plugs.ts closeSheet): the page says whether a panel is open ({sheet}); PixelSheet.close() */
+  await page.evaluate(() => { window.__rn.length = 0; window.PixelPanel('exos'); window.PixelPanel('nourrir'); }); await page.waitForTimeout(300);
+  const back1 = await S(page, () => [PixelSheet.close(), document.getElementById('nour').hidden, document.getElementById('exos').hidden]);
+  await page.waitForTimeout(200);
+  const back2 = await S(page, () => [PixelSheet.close(), document.getElementById('exos').hidden, PixelSheet.close()]);
+  await page.waitForTimeout(200);
+  const told = await S(page, () => window.__rn.filter(m => 'sheet' in m).map(m => m.sheet).join());
+  check('the app\'s back button: the topmost panel closes first (Nourrir over Exos), then the other, then none; the page tells the app ({sheet}), again after each',
+    back1.join() === 'true,true,false' && back2.join() === 'true,true,false' && told === 'true,true,false', JSON.stringify({ back1, back2, told }));
+  /* the app's ping (Linked.tsx takes him back to his Pi when nobody uses this one): his panels are use too, an exercise open is busy */
+  await page.evaluate(() => { PixelHub.dispatch('exos.stop'); window.PixelPanel('exos'); Screens.local.lastInput -= 600000; }); await page.waitForTimeout(1500);
+  const idle0 = await S(page, () => PixelLocal.ping());
+  await page.locator('#exBody button').first().click(); await page.waitForTimeout(300);
+  const idle1 = await S(page, () => PixelLocal.ping());
+  await page.evaluate(() => { PixelHub.dispatch('exos.stop'); PixelExos.panel(false); });
+  const idle2 = await S(page, () => PixelLocal.ping());
+  check('the app\'s ping: a touch in his Exos panel is using him, and an exercise open is busy (the app stays on this phone)',
+    idle0.idle >= 1400 && !idle0.busy && idle1.idle < 1000 && idle1.busy && !idle2.busy, JSON.stringify([idle0, idle1, idle2]));
+  /* his Pi's snapshot and the phone's copy of the same time (once seeded, only an action makes the copy newer): the copy wins */
+  const tie = Date.now() + (newer += DAY), k3 = await kept(page);
+  await page.evaluate(([k, p, at]) => PixelLocal.restore({ state: { ...k, at, saved_at: Date.now(), extra: { ...k.extra, nourrir: { ...k.extra.nourrir, ventre: 33 } } },
+    seed: { ...p, kept_at: at, nourrir: { ...p.nourrir, ventre: 90 }, telephone: { last: { app: 'Messages', category: 'msg', t: 1 } } } }), [k3, piPerso, tie]);
+  await page.waitForTimeout(300);
+  const tied = await S(page, () => ({ ventre: PixelHub.S.nourrir.ventre, tel: 'telephone' in PixelHub.S || 'telephone' in PixelLocal.state.extra }));
+  check('his Pi\'s snapshot as old as the phone\'s own copy: what he lived on the phone stays (his belly 33, not the Pi\'s 90); the Pi\'s « telephone » is not kept',
+    tied.ventre === 33 && !tied.tel, JSON.stringify(tied));
   check('his character, his meals, his exercises sans Pi: no page or console errors', errs.length === 0, errs.slice(0, 4).join(' | '));
   await ctx.close();
 

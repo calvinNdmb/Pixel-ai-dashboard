@@ -40,6 +40,8 @@ IDLE_CLOSE_MS = 8 * 60000          # an exercise left alone that long is put awa
 MILESTONES = (5, 10, 15, 20, 30, 40, 50, 75, 100)
 UP_AFTER = 3                       # right answers in a row (first try, no hint) to go up a level
 AGAIN_MS = 2 * 60000               # « encore », « une autre »: an exercise is open, or one ended that recently
+SOURCES = ("claude", "envie")      # who asked for an exercise (exos.nouveau source): Claude's tool, his offer « Une petite question ? »
+CLOCK_BACK_MS = 5000               # the clock set back more than that since it was last read (4 times a second): the times in play move with it
 CHEER_MS = 5000                    # a milestone (the daily goal, a streak): the result stays that long, his scene plays to its end
 NB = "\u00a0"                      # keeps a number or "7 × 8" on one line
 D = Decimal
@@ -802,7 +804,7 @@ def _today(t):
 def _int(v, lo, hi, default=None):
     try:
         return max(lo, min(hi, int(v)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):    # OverflowError: json reads 1e400 as infinity
         return default
 
 
@@ -852,6 +854,7 @@ class Exos:
         self.ev = None              # the last thing Pixel reacts to (web/scenes/exos.js): juste, faux, serie, objectif, propose
         self.again = None           # what « encore » starts again
         self.ended = -1e18          # when the last one was put away (ms): « une autre » means another exercise only shortly after
+        self.seen = None            # the clock when last read (ms): a clock set back is seen there (ms())
         self.recent = []
         self.on_toast = None        # a trophy: hub.toast
         self._id = int(clock()) % 100000 * 100
@@ -889,7 +892,11 @@ class Exos:
 
     # ---- levels ----
     def ms(self):
-        return self.clock() * 1000
+        t = self.clock() * 1000
+        if self.seen is not None and self.seen - t > CLOCK_BACK_MS:   # the clock set back (by hand; NTP after a boot: the Pi has no
+            self._shift(t - self.seen)            # RTC): the times in play move with it, the challenge and a result last as they should
+        self.seen = t
+        return t
 
     def level(self, kind):
         if not self.reglages["auto"]:
@@ -952,6 +959,7 @@ class Exos:
     def nouveau(self, kind=None, niveau=None, mode="exo", n=None, table=None, source=None, pool=None):
         """A new exercise, or the first of a series. Replaces the one in play."""
         mode = mode if mode in MODES else "exo"
+        source = source if source in SOURCES else ""       # it goes out in every snapshot: only a known word
         kind = kind if kind in LABEL else None
         table = _int(table, 2, 12)
         if mode == "table":
@@ -970,7 +978,7 @@ class Exos:
         self.again = {"kind": kind, "niveau": lv, "mode": mode, "n": n, "table": table, "pool": pool}
         self._day()
         self._next()
-        self._event("propose", mode=mode, source=source or "")
+        self._event("propose", mode=mode, source=source)
         return self.cur
 
     def encore(self):
@@ -1050,7 +1058,7 @@ class Exos:
         self._day()
         clean = ok and first and not c["hint_on"]
         up = False
-        events = []
+        events, says = [], []                    # says: one banner for the answer (screens show only the last toast)
         if not passe:
             st["total"] += 1
             st["aujourdhui"] += 1
@@ -1072,7 +1080,8 @@ class Exos:
                 st["coupe_jour"] = st["jour"]
                 st["coupes"] += 1
                 events.insert(0, ("objectif", {"objectif": self.reglages["objectif"]}))
-                self._toast(f"Objectif du jour atteint : {self.reglages['objectif']} exos !")
+                n = self.reglages["objectif"]
+                says.append(f"Objectif du jour atteint : {n} exo{'s' if n > 1 else ''} !")
         else:
             st["serie"] = 0
         if ok and r:
@@ -1085,7 +1094,7 @@ class Exos:
             self._event(events[0][0], **events[0][1])
         elif not chrono and not passe:
             self._event("juste" if ok else "faux", essai=1 if first else 2, serie=st["serie"])
-        self._trophies()
+        self._toast(" · ".join(says + self._trophies()))
         self.save()
         if chrono:
             self._advance()
@@ -1098,18 +1107,20 @@ class Exos:
             c["next_at"] = self.ms() + wait
 
     def _toast(self, msg):
-        if self.on_toast:
+        if msg and self.on_toast:
             try:
                 self.on_toast(msg)
             except Exception:
                 log.exception("toast")
 
     def _trophies(self):
-        got = self.stats["trophees"]
+        """The trophies just won, as one line for the banner ([] when none)."""
+        got, new = self.stats["trophees"], []
         for i, label, cond in TROPHIES:
             if i not in got and cond(self.stats):
                 got.append(i)
-                self._toast(f"Trophée : {label} !")
+                new.append(label)
+        return [f"Trophée{'s' if len(new) > 1 else ''} : {', '.join(new)} !"] if new else []
 
     def _advance(self):
         r = self.run
@@ -1139,7 +1150,7 @@ class Exos:
                     "record": max(record, r["bons"]) if chrono else 0, "nouveau_record": bool(new), "t0": self.ms(), "next_at": self.ms() + 14000}
         self.run = None
         self._event("serie", fin=True, bons=r["bons"], total=total, chrono=chrono, record=bool(new))
-        self._trophies()
+        self._toast(" · ".join(self._trophies()))
         self.save()
 
     def tick(self, hidden=False):
@@ -1165,6 +1176,15 @@ class Exos:
             self.stop()
             return True
         return changed
+
+    def _shift(self, d):
+        c, r = self.cur, self.run
+        for k in ("t0", "next_at", "hidden_at", "fin_at"):
+            if c and k in c:
+                c[k] += d
+        if r and r.get("ends_at"):
+            r["ends_at"] += d
+        self.ended += d
 
     def set_reglages(self, niveau=None, auto=None, types=None, objectif=None, propose=None, save=True, **_):
         g = self.reglages
@@ -1276,7 +1296,7 @@ async def command(hub, raw, t):
     if t in ("encore", "encore un", "encore une", "un autre", "une autre", "on continue", "on recommence") and ex.wants_again():
         await hub.dispatch("exos.encore")
         return True
-    m = re.fullmatch(r"(?:revise |revisons |la |les )?(?:table|tables) (?:de |du |des )?(\d{1,2})", t)
+    m = re.fullmatch(r"(?:(?:revise|revisons) )?(?:la |les )?(?:table|tables) (?:de |du |des )?(\d{1,2})", t)
     if m and 2 <= int(m.group(1)) <= 12:
         return await go(mode="table", table=int(m.group(1)))
     if re.fullmatch(r"(?:un |le |mon )?(?:defi chrono|defi|defi maths?|chrono maths?|defi de maths?)", t):
@@ -1340,7 +1360,7 @@ def setup(hub, datadir=None):
         log.exception("exos.json: starting afresh")
         ex = Exos(None)
         ex.path = datadir / "exos.json"
-    ex.on_toast = lambda msg: hub.toast(msg, 5000)
+    ex.on_toast = lambda msg: hub.toast(msg, 8000 if " · " in msg else 5000)     # two news of one answer: time to read both
     hub.exos = ex
 
     def pub():

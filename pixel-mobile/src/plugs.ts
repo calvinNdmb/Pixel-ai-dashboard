@@ -4,7 +4,8 @@
    - phoneNotifs: no Pi linked, the phone's notifications (only if switched on, only the apps ticked) make the phone's own
      Pixel react while the app is open; nothing leaves the phone (with a Pi linked, the native listener sends them to him);
    - piSeed: while his Pi's page is shown, its last snapshot, so that the phone's Pixel looks and behaves like him;
-   - panels: his Caractère, Nourrir and Exos de maths panels, opened from the app's menu on either page. */
+   - panels: his Caractère, Nourrir and Exos de maths panels, opened from the app's menu on either page;
+   - sheets: the back button closes such a panel when one is open, before it opens the app's menu. */
 import { useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -81,4 +82,19 @@ const panels: Plug = {                                  // no start(): a new doc
   gone(page) { panelPages.delete(page); offer(); },
 };
 
-export const PLUGS: Plug[] = [keepAwake, pochePlug, phoneNotifs, piSeed, panels];
+/* ---------- the back button: a panel open on the page (app.js {sheet}) closes before anything else ----------
+   An older Pi's page says nothing: the button does what it did. */
+const sheetPages = new WeakSet<Page>();
+const sheets: Plug = {
+  start(page) { sheetPages.delete(page); },             // a new document: nothing open on it yet
+  message(m, page) { if (m.sheet === true) sheetPages.add(page); else if (m.sheet === false) sheetPages.delete(page); },
+  gone(page) { sheetPages.delete(page); },
+};
+/* the back button, on a page: true when it closed a panel there (the page says again whether another one is open) */
+export function closeSheet(page: Page): boolean {
+  if (!sheetPages.has(page)) return false;
+  sheetPages.delete(page); page.inject('window.PixelSheet&&window.PixelSheet.close();');
+  return true;
+}
+
+export const PLUGS: Plug[] = [keepAwake, pochePlug, phoneNotifs, piSeed, panels, sheets];

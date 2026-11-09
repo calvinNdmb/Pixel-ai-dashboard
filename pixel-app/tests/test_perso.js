@@ -1,13 +1,15 @@
 // The three customisations together, in Chromium: his character (web/caractere.js), feeding him (web/nourrir.js) and the math
 // exercises (web/exos.js), on a demo server (port 8192, or PERSO_PORT; a temporary data folder, every theme on).
 //   node tests/test_perso.js [--shots DIR]
-// - the Pi's screen (800x480): who comes first over his face (a cast > the quick menu > an open exercise > its offer « Une
-//   petite question ? » > the food tray and its plate), each giving way and coming back; studieux and his offers and cheers;
+// - the Pi's screen (800x480): who comes first over his face (the quick menu, over everything, a cast too > a cast > an open
+//   exercise > its offer « Une petite question ? » > the food tray and its plate), each giving way and coming back; the nudge
+//   « Tu réfléchis ? » counts only the time the question shows; studieux and his offers and cheers;
 //   gourmand and the weights of the food scenes, his words after a meal; the character's weights on the nourrir-, exo- and
 //   poche- scenes, exactly 1 at 50;
 // - the Pixel de poche (a phone held sideways): the same character, the plate, and the plate gone under an exercise;
 // - the phone (390x844): Caractère, Nourrir and Exos side by side under the keys, each opens its own panel, none in « Pixel »;
-// - Pixel Lab: the three panels, the same commands as the server in the same order, grognon refusing, no errors.
+// - Pixel Lab: the three panels, the same commands as the server in the same order (one list of phrases for the exercises
+//   through both: Pixel sans Pi runs the lab's), grognon refusing, no errors.
 const { chromium, devices } = require('playwright');
 const { spawn } = require('child_process');
 const fs = require('fs'), os = require('os'), path = require('path'), net = require('net');
@@ -107,7 +109,7 @@ async function kiosk(browser) {
   await wait(400); await shot(k, 'kiosk-gourmand-meal');
   await character(k, { preset: 'pixel' }, { gourmand: 50, studieux: 50 });
 
-  /* ---- who comes first over his face: cast > quick menu > exercise > its offer > food tray ---- */
+  /* ---- who comes first over his face: quick menu > cast > exercise > its offer > food tray ---- */
   await free(k);
   await until(() => k.evaluate(() => PixelNourrir.shown), 4000);
   check('nothing else: the plate is on his face screen', await k.evaluate(() => PixelNourrir.shown && !PixelNourrir.trayOpen));
@@ -134,6 +136,10 @@ async function kiosk(browser) {
     !!casting && !!c0 && await k.evaluate(() => PixelExos.open && !PixelNourrir.shown && !PixelNourrir.open() && !PixelNourrir.swipe(-200, 470)
       && !PixelExos.canPropose({ day: true }) && PixelNourrir.hint(2) === ''));
   await shot(k, 'kiosk-lcd-cast-over-exercise');
+  await k.evaluate(() => { Screens.local.inputAt = performance.now(); Screens.menu(true); }); await wait(400);   // the quick menu: over the cast too
+  check('the quick menu opens over a cast, which stays on (and the exercise under both)', await k.evaluate(() => Screens.menuOpen && Screens.casting && PixelExos.open) && !!S.cast);
+  await shot(k, 'kiosk-lcd-menu-over-cast');
+  await k.evaluate(() => Screens.menu(false)); await wait(300);
   await k.keyboard.press('1'); await wait(200);
   check('…its keys are off: a digit does not go to the hidden exercise', await k.evaluate(() => PixelExos.buffer === '') && mark() === m0 && !!S.cast, `${m0} -> ${mark()}`);
   await k.evaluate(() => { const i = document.getElementById('cmd'); if (i) { i.value = ''; i.blur(); } });   // the digit went to the command bar instead
@@ -146,6 +152,22 @@ async function kiosk(browser) {
   await tap(k, ...choice);
   await until(() => mark() !== m0, 3000);
   check('…the cast over, the exercise is back and its answers answer again', mark() !== m0, `${m0} -> ${mark()}`);
+  // the nudge « Tu réfléchis ? » after 40 s on a question (web/exos.js): the time under a cast does not count
+  await exercise(k); await k.evaluate(() => Screens.persona.stop()); await wait(300);
+  act('cast.text', { text: 'Un instant' });
+  await until(() => k.evaluate(() => Screens.casting), 5000); await wait(2500);
+  act('cast.stop');
+  await until(() => k.evaluate(() => !Screens.casting), 5000); await wait(300);
+  const nudged = ago => k.evaluate(async t0 => {             // as if the question had opened earlier, whatever snapshot comes
+    Screens.persona.stop();
+    for (let i = 0; i < 16; i++) {
+      const c = PixelExos.state.cur; if (c) c.t0 = Math.min(c.t0, t0); Screens.local.dirty = true;
+      await new Promise(r => setTimeout(r, 50)); if (Screens.persona.state.cur === 'exo-attente') return true;
+    }
+    return false;
+  }, S.exos.cur.t0 - ago);
+  check('after a cast of about 3 s, a question opened 41 s ago that showed about 38 s: no « Tu réfléchis ? » yet', !(await nudged(37500)));
+  check('…once it has shown for 40 s, he asks', await nudged(41500));
   await noExercise(k); await free(k);
   await until(() => k.evaluate(() => PixelNourrir.shown), 4000);
   check('the exercise put away: the plate is back', await k.evaluate(() => PixelNourrir.shown));
@@ -251,6 +273,42 @@ async function lab(browser) {
     if (want && got !== want) bad.push(`${text}: ${got} (${want})`);
   }
   check('Pixel Lab: the commands go where they go on the server (his character, his meals, the exercises, Claude)', bad.length === 0, bad.join(' | '));
+  /* the exercises' words, an exercise open: one list through the server (commands.run) and through the lab (its command(),
+     which Pixel sans Pi runs too): the same outcome. A mixed exercise's kind is drawn by lot: only its mode is compared. */
+  const MIXED = ['exo difficile', 'exo très difficile', 'exo simple', 'un exercice de maths', 'exo de mathématiques', 'une petite question de maths', 'un petit calcul', 'défi de maths', 'mon défi'];
+  const PHRASES = ['termine', 'j\'arrête', 'on arrête', 'fini', 'stop', 'mes exos', 'mes statistiques', 'mes scores', 'aide-moi', 'help', 'indice', 'je sais pas',
+    'passe', 'joker', 'suivante', 'encore', 'révisons la table de 7', 'révise la table de 8', 'la table de 9', 'les tables de 3', 'un défi chrono', 'une énigme logique',
+    'des devinettes', 'calcul mental', '10 questions', 'série de 3 calculs', 'exos sur les fractions', 'exo avec des additions', 'un exo de calcul mental',
+    'exo de fractions facile', 'stop les exos', 'arrête les exercices', 'la réponse est 4', '= 4', 'pizza', ...MIXED];
+  const outcome = (c0, c, toast0, toast1, scr, mixed) => (scr === 'claude' ? 'claude' : !c ? 'stop'
+    : c.id !== c0.id ? `new:${c.mode}/${c.mode === 'table' ? c.table : c.mode === 'serie' ? c.n : c.mode === 'exo' && !mixed ? c.kind : ''}`
+    : c.hint && !c0.hint ? 'hint' : c.etat !== c0.etat || c.tries !== c0.tries ? 'answer' : toast1 !== toast0 ? 'toast' : 'none');
+  const onServer = {}, inLab = {};
+  for (const ph of PHRASES) {
+    const before = S.exos.cur ? S.exos.cur.id : -1;
+    act('exos.nouveau', { mode: 'exo', kind: 'addition', niveau: 1 });
+    await until(() => S.exos.cur && S.exos.cur.id !== before && S.exos.cur.etat === 'question' && S.screen === 'visage', 3000, 30);
+    const c0 = S.exos.cur, t0 = (S.toast || {}).id, sent = Date.now();
+    act('cmd', { text: ph });
+    await until(() => S.act && S.act.t0 >= sent - 5, 3000, 30); await wait(150);
+    onServer[ph] = outcome(c0, S.exos.cur, t0, (S.toast || {}).id, S.screen, MIXED.includes(ph));
+  }
+  act('exos.stop');
+  for (const ph of PHRASES) {
+    inLab[ph] = await l.evaluate(async ([text, mixed, src]) => {
+      const H = PixelHub, S = H.S, outcome = new Function('return ' + src)();   // the same outcome() as above
+      for (let i = 0; i < 100 && H.busy().chat; i++) await new Promise(r => setTimeout(r, 50));
+      H.dispatch('exos.nouveau', { mode: 'exo', kind: 'addition', niveau: 1 }); S.screen = 'visage';
+      const c0 = JSON.parse(JSON.stringify(S.exos.cur)), t0 = (S.toast || {}).id;
+      H.dispatch('cmd', { text });
+      return outcome(c0, S.exos.cur, t0, (S.toast || {}).id, S.screen, mixed);
+    }, [ph, MIXED.includes(ph), outcome.toString()]).catch(e => 'error: ' + e.message);
+  }
+  const differ = PHRASES.filter(p => onServer[p] !== inLab[p]).map(p => `${p}: ${onServer[p]} / lab ${inLab[p]}`);
+  check(`…an exercise open, the same ${PHRASES.length} phrases have the same outcome on the server and in the lab (stop, hint, scores, a table, a series…)`,
+    differ.length === 0 && onServer.termine === 'stop' && onServer['aide-moi'] === 'hint' && onServer['révisons la table de 7'] === 'new:table/7'
+    && onServer['calcul mental'] === 'new:exo/mental' && onServer['10 questions'] === 'new:serie/10' && onServer.pizza === 'claude', differ.join(' | ') || JSON.stringify(onServer));
+  await l.evaluate(() => PixelHub.dispatch('exos.stop'));
   const refused = await l.evaluate(async () => {
     const H = PixelHub; H.dispatch('caractere.set', { preset: 'grognon' }); H.dispatch('lab.nourrir', { ventre: 30 });
     const hate = H.S.nourrir.gouts.deteste[0]; await new Promise(r => setTimeout(r, 6100)); H.dispatch('nourrir.donner', { plat: hate });

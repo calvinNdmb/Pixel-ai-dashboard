@@ -7,7 +7,8 @@ C'est un projet Expo (SDK 58) : une vue web (`react-native-webview`), plus quelq
 ## Nouveau dans la version 1.2
 
 - **Son caractère, le nourrir, les exos de maths, sans Pi.** Le Pixel du téléphone a tout : 15 caractères et huit curseurs, son nom et le tien ; son ventre, ses goûts et les 24 plats ; les exos du CP au collège, avec leurs scores et leurs trophées. Ils sont gardés quand tu fermes l'appli.
-- **Dans le menu de l'appli** (bouton retour) : **Son caractère**, **Le nourrir** et **Exos de maths** ouvrent leur panneau, sur la page de ton Pi comme sur le Pixel du téléphone, même en mode Pixel.
+- **Dans le menu de l'appli** (bouton retour) : **Son caractère**, **Le nourrir** et **Exos de maths** ouvrent leur panneau, sur la page de ton Pi comme sur le Pixel du téléphone, même en mode Pixel. Le bouton retour ferme d'abord le panneau ouvert.
+- **Jamais coupé au milieu d'un jeu :** quand ton Pi répond de nouveau, l'appli n'y retourne que si personne n'a touché le Pixel du téléphone ni ses panneaux depuis une minute, sans minuteur ni exo en cours.
 - **Son ventre suit l'heure,** même appli fermée : comme sur le Pi éteint, rien la nuit, et au pire un petit creux quand tu reviens, jamais une faim de loup.
 - **Le même Pixel que ton Pi :** relié, le Pixel du téléphone reprend son caractère, son ventre, ses goûts et tes progrès en exos.
 - **Le Pixel de poche a son assiette :** tourne le téléphone, touche l'assiette en bas à droite, et donne-lui à manger.
@@ -50,7 +51,7 @@ L'adresse et le code d'accès sont gardés dans le stockage sécurisé du télé
 
 ## Le menu de l'appli
 
-Il s'ouvre avec le **bouton retour** (dans la page du Pi, le bouton retour revient d'abord en arrière dans la page), ou en touchant **Pixel sur ce téléphone ⋯** sous l'écran du Pixel du téléphone. Il ne touche pas l'écran de Pixel, donc il ne gêne aucun de ses gestes : toucher, glisser, appui long pour le câliner, caresse.
+Il s'ouvre avec le **bouton retour** (si un panneau est ouvert, Caractère, Nourrir ou Exos, le bouton retour le ferme d'abord ; dans la page du Pi, il revient ensuite en arrière dans la page), ou en touchant **Pixel sur ce téléphone ⋯** sous l'écran du Pixel du téléphone. Il ne touche pas l'écran de Pixel, donc il ne gêne aucun de ses gestes : toucher, glisser, appui long pour le câliner, caresse.
 
 - **Son caractère**, **Le nourrir**, **Exos de maths** : leurs panneaux, sur le Pixel affiché (ton Pi ou le téléphone). En mode Pixel, les touches reviennent avec. Un Pi pas encore à jour n'a pas ces panneaux : le menu ne les montre pas.
 - **Mon Pixel (Pi)** : revenir à la page de ton Pi (tout de suite, même s'il ne répondait plus).
@@ -221,6 +222,6 @@ Côté Pixel (dossier `pixel-app`) : `node tests/test_local.js` pour le Pixel du
 
 **La carte de partage, sans Pi.** Son bouton **Relier à mon Pixel** ouvre l'appli par son propre écran (une intention adressée à l'appli elle-même, `pixel://relier`, lue par `Linking` de React Native) : aucune autre appli n'est sollicitée, et l'appli ne déclare aucun schéma d'adresse. L'intention porte son heure (`?at=…`) et l'appli ne la suit qu'une fois : quand Android recrée l'appli depuis les applis récentes, il lui redonne sa première intention, et l'écran du QR code ne revient donc pas à chaque démarrage.
 
-**Le bouton retour.** Une seule règle pour toute l'appli (`src/back.ts`) : c'est ce qui est au-dessus qui le prend, l'écran du QR code, puis les notifications, puis le menu, puis la page. React Native, lui, donne le bouton au dernier arrivé : sans cette règle, une page qui change sous le menu (le Pi qui ne répond plus, ou qui revient) lui volerait le bouton.
+**Le bouton retour.** Une seule règle pour toute l'appli (`src/back.ts`) : c'est ce qui est au-dessus qui le prend, l'écran du QR code, puis les notifications, puis le menu, puis la page. Dans la page, un panneau ouvert passe avant : la page dit à l'appli s'il y en a un (`{sheet}`, `pixel-app/web/app.js`), et le bouton le ferme (`PixelSheet.close()`, `src/plugs.ts`). Une page de Pi plus ancienne ne dit rien : le bouton fait ce qu'il faisait. React Native, lui, donne le bouton au dernier arrivé : sans cette règle, une page qui change sous le menu (le Pi qui ne répond plus, ou qui revient) lui volerait le bouton.
 
 **Les fonctions natives et le chargement.** Sous Android, `react-native-webview` 14.0.1 signale le début d'un chargement (`onLoadStart`) à chaque changement de l'historique, même dans la même page : `history.replaceState` (la page du Pi retire `?t=` de son adresse) aussi, et parfois après ses premiers messages. Les fonctions natives ne repartent donc de zéro que pour un nouveau document, ou une nouvelle vue web.

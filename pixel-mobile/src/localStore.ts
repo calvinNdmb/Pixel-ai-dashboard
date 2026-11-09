@@ -45,7 +45,7 @@ export const saveState = (st: unknown) => (validState(st) ? write(STATE, st, MAX
    Pixel takes from it is kept (pixel-app/web/local.js fromPi): his look, two settings, the city, and the state of his features
    (caractère, nourrir…). Not the rest: the access code (settings.url, the QR code), the agenda's titles, the rooms, the chat… */
 const PI_ONLY = new Set(['screen', 'mood', 'timer', 'anim', 'scene', 'toast', 'act', 'boot_at', 'keys', 'server_now', 'lights', 'chat', 'codex',
-  'agenda', 'sys', 'poche', 'cast', 'cast_recent', 'airplay', 'solo', 'yt', 'ytcast']);   // local.js SKIP, and the Pi's own parts
+  'agenda', 'sys', 'poche', 'cast', 'cast_recent', 'airplay', 'solo', 'yt', 'ytcast', 'telephone']);   // local.js SKIP, and the Pi's own parts
 const VIEW = ['theme', 'face', 'units_f', 'crt_off'];
 function strip(s: Obj): Obj {
   const v = s.view as Obj, st = isObj(s.settings) ? s.settings : {}, out: Obj = { view: {}, settings: {}, kept_at: s.kept_at };

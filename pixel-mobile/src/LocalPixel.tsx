@@ -11,6 +11,7 @@ import { Asset } from 'expo-asset';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { LAYER, useBack } from './back';
 import { readLocal, saveState } from './localStore';
+import { closeSheet } from './plugs';
 import { usePoche } from './poche';
 import { C } from './theme';
 import { fromFile, parseMessage, usePlugs, webProps } from './webBridge';
@@ -46,7 +47,7 @@ export function LocalPixel({ ref, onMenu, onIdle }: Props) {
     return () => { alive = false; };
   }, [round]);
   useImperativeHandle(ref, () => ({ ping: () => plugs.page.inject('window.PixelLocal && window.PixelLocal.ping();') }), [plugs]);
-  useBack(LAYER.page, onMenu);                          // no history here: the menu
+  useBack(LAYER.page, () => { if (!closeSheet(plugs.page)) onMenu(); });   // an open panel closes; no history here: then the menu
   const onMessage = (e: WebViewMessageEvent) => {
     const m = page && fromFile(e.nativeEvent.url) ? parseMessage(e.nativeEvent.data) : null; if (!m) return;   // his own page only
     if (m.local_save !== undefined) saveState(m.local_save);

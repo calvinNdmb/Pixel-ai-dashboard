@@ -20,6 +20,7 @@ import os
 import random
 import re
 import time
+import unicodedata
 from pathlib import Path
 
 log = logging.getLogger("pixel")
@@ -81,10 +82,11 @@ def _int(v, lo, hi):
 
 
 def clean_name(v, most):
-    """A name typed anywhere: letters, digits, spaces, - ' . only, trimmed, at most `most` characters."""
+    """A name typed anywhere: letters (with their accents and vowel signs), digits, spaces, - ' . only, trimmed, at most
+    `most` characters. The same as web/caractere.js cleanName() (\\p{L}\\p{M}\\p{N}): Python's \\w has no combining marks."""
     if not isinstance(v, str):
         return None
-    s = re.sub(r"[^\w\s'’.-]|_", "", v)
+    s = "".join(c for c in unicodedata.normalize("NFC", v) if unicodedata.category(c)[0] in "LMN" or c.isspace() or c in "'’.-")
     return re.sub(r"\s+", " ", s).strip(" .-'’")[:most].strip()
 
 

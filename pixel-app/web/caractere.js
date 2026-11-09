@@ -49,8 +49,8 @@ const norm = s => String(s ?? '').toLowerCase().trim().normalize('NFD').replace(
 /* ---------- the rules (pixel/caractere.py) ---------- */
 function cleanName(v, most) {
   if (typeof v !== 'string') return null;
-  const s = v.replace(/[^\p{L}\p{M}\p{N}\s'’.-]/gu, '').replace(/\s+/g, ' ').replace(/^[ .'’-]+|[ .'’-]+$/g, '');
-  return s.slice(0, most).trim();
+  const s = v.normalize('NFC').replace(/[^\p{L}\p{M}\p{N}\s'’.-]/gu, '').replace(/\s+/g, ' ').replace(/^[ .'’-]+|[ .'’-]+$/g, '');
+  return [...s].slice(0, most).join('').trim();          // characters, as Python counts them (never half of one)
 }
 function clean(d) {
   d = d && typeof d === 'object' ? d : {};
