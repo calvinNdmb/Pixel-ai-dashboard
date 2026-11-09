@@ -1,5 +1,5 @@
 // Screen sharing end to end, in Chromium (Playwright):  node tests/test_ecran_web.js
-// Starts its own demo server (port 8153, a temporary data folder), then:
+// Starts its own demo server (port 8153, a temporary data folder; ECRAN_WEB_PORT, ECRAN_MJPEG_PORT, ECRAN_EVIL_PORT for others), then:
 // - Pixel's screen (the kiosk, ?kiosk=1 from 127.0.0.1) and a computer's page (/ecran) whose getDisplayMedia gives a test
 //   pattern (a canvas stream: red, green, blue and white bands, a moving square);
 // - pairing with the one-time code (read from the state, like the phone app shows it); the WebRTC picture drawn on Pixel's
@@ -15,7 +15,8 @@
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const fs = require('fs'), os = require('os'), path = require('path'), http = require('http'), net = require('net');
-const APP = path.join(__dirname, '..'), PORT = 8153, MJPEG = 8154, EVIL = 8156, TOKEN = 'le-code-de-test';
+const APP = path.join(__dirname, '..'), PORT = Number(process.env.ECRAN_WEB_PORT) || 8153, MJPEG = Number(process.env.ECRAN_MJPEG_PORT) || 8154,
+  EVIL = Number(process.env.ECRAN_EVIL_PORT) || 8156, TOKEN = 'le-code-de-test';
 const SHOTS = process.env.PIXEL_SHOTS || path.join(os.tmpdir(), 'pixel-ecran-shots');
 let fails = 0;
 const check = (name, ok, info = '') => { console.log((ok ? 'OK   ' : 'FAIL ') + name + (!ok && info ? `  [${info}]` : '')); if (!ok) fails++; };

@@ -1,6 +1,6 @@
 """Feeding Pixel, the server's side (pixel/nourrir.py): his belly, his tastes, his meals, the commands and Claude's tool.
 
-    python3 tests/test_nourrir.py                  # pure logic on a fake clock, then a demo server on port 8174 (NOURRIR_PORT=…)
+    python3 tests/test_nourrir.py                  # pure logic on a fake clock, then a demo server on port 8174 (NOURRIR_PY_PORT=…)
 
 The belly empties in the day only, faster for a glutton, not much while the server was down or its clock jumped (ticks
 come every minute, as on the Pi); a hand-edited nourrir.json never stops the server; meals are rate-limited and get
@@ -32,7 +32,7 @@ from pixel import commands, nourrir, scenes  # noqa: E402
 from pixel.claude import TOOLS, check as claude_check, tools_for  # noqa: E402
 from pixel.state import Hub  # noqa: E402
 
-PORT = int(os.environ.get("NOURRIR_PORT", "8174"))
+PORT = int(os.environ.get("NOURRIR_PY_PORT") or 8174)   # NOURRIR_PY_PORT=… (test_nourrir.js has NOURRIR_PORT)
 fails = []
 
 
@@ -380,7 +380,7 @@ async def command_checks():
 def start_server(port, datadir):
     try:
         socket.create_connection(("127.0.0.1", port), 0.2).close()
-        raise SystemExit(f"le port {port} est déjà pris (NOURRIR_PORT=… pour un autre)")
+        raise SystemExit(f"le port {port} est déjà pris (NOURRIR_PY_PORT=… pour un autre)")
     except OSError:
         pass
     cfg = Path(datadir) / "config.toml"

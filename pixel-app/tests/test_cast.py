@@ -1,6 +1,7 @@
 """Casting to Pixel's screen (pixel/cast.py): a demo server driven like the phone and the share sheet drive it, and its pieces.
 
     python3 tests/test_cast.py          # starts its own demo server (port 8104, temporary data folder, a 1 Mo limit, 3 files kept)
+    CAST_PY_PORT=8105 python3 tests/test_cast.py     # another port for it
 
 - what a file is comes from its first bytes (PNG, JPEG, GIF, WebP, MP4, WebM), never from its name; anything else is refused;
 - the upload goes to disk as it arrives, under a random name, and stops at the size limit; no path from the phone is used;
@@ -11,6 +12,7 @@
 """
 import asyncio
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -25,7 +27,7 @@ sys.path.insert(0, str(APP))
 from pixel import cast  # noqa: E402
 from pixel.system import local_ip  # noqa: E402
 
-PORT = 8104
+PORT = int(os.environ.get("CAST_PY_PORT") or 8104)   # CAST_PY_PORT=… for another
 fails = []
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0\0\0\rIHDR" + bytes(200)
 JPG = b"\xff\xd8\xff\xe0\0\x10JFIF\0" + bytes(200)
@@ -49,7 +51,7 @@ def check(name, cond, info=""):
 def start_server(port, datadir):
     try:
         socket.create_connection(("127.0.0.1", port), 0.2).close()
-        raise SystemExit(f"le port {port} est déjà pris : arrête ce serveur, ou change PORT")
+        raise SystemExit(f"le port {port} est déjà pris : arrête ce serveur, ou change de port (CAST_PY_PORT=…)")
     except OSError:
         pass
     cfg = Path(datadir) / "config.toml"

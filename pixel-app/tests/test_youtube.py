@@ -2,6 +2,7 @@
 Pixel's player says, and the YouTube app's Cast button through a fake sidecar (tests/fake_ytcast.py) started by the server.
 
     python3 tests/test_youtube.py      # its own demo servers: port 8164 ([ytcast] on, the fake sidecar), 8165 (off)
+    YOUTUBE_PY_PORT=8264 YOUTUBE_PY_PORT_OFF=8265 python3 tests/test_youtube.py   # other ports
 
 - the links (tests/youtube_links.json, the same cases as tests/test_youtube.js for web/ytplayer.js): watch, youtu.be,
   shorts, live, embed, music.youtube.com, playlists, t= / start=, and what is not YouTube;
@@ -31,7 +32,7 @@ APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP))
 from pixel import cast, youtube, ytcast  # noqa: E402
 
-PORT, PORT_OFF = 8164, 8165
+PORT, PORT_OFF = int(os.environ.get("YOUTUBE_PY_PORT") or 8164), int(os.environ.get("YOUTUBE_PY_PORT_OFF") or 8165)
 PHONE = "le-code-du-telephone"
 fails = []
 
@@ -45,7 +46,7 @@ def check(name, cond, info=""):
 def start_server(port, datadir, ytcfg=""):
     try:
         socket.create_connection(("127.0.0.1", port), 0.2).close()
-        raise SystemExit(f"le port {port} est déjà pris : arrête ce serveur, ou change PORT")
+        raise SystemExit(f"le port {port} est déjà pris : arrête ce serveur, ou change de port (YOUTUBE_PY_PORT=…, YOUTUBE_PY_PORT_OFF=…)")
     except OSError:
         pass
     cfg = Path(datadir) / "config.toml"

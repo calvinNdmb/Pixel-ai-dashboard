@@ -1,5 +1,5 @@
 // YouTube on Pixel from end to end, in a real browser, without the Internet:  node tests/test_youtube_e2e.js
-// Starts a demo server (port 8166) with [ytcast] on and the fake sidecar (tests/fake_ytcast.py), opens Pixel's screen
+// Starts a demo server (port 8166, or YOUTUBE_E2E_PORT) with [ytcast] on and the fake sidecar (tests/fake_ytcast.py), opens Pixel's screen
 // (?kiosk=1, 800 x 480) and the phone app (390 x 844) in Chromium (Playwright), YouTube's IFrame API and player replaced by
 // a stub (everything else outside is refused), then:
 // - the phone casts a YouTube link: Pixel's screen makes YouTube's player, with its address, its referrer policy;
@@ -10,7 +10,7 @@
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const fs = require('fs'), path = require('path'), os = require('os'), net = require('net');
-const APP = path.join(__dirname, '..'), PORT = 8166, BASE = `http://127.0.0.1:${PORT}`, PHONE = 'le-code-du-telephone';
+const APP = path.join(__dirname, '..'), PORT = Number(process.env.YOUTUBE_E2E_PORT) || 8166, BASE = `http://127.0.0.1:${PORT}`, PHONE = 'le-code-du-telephone';
 const SHOTS = process.env.PIXEL_SHOTS || path.join(os.tmpdir(), 'pixel-youtube-shots');
 let fails = 0;
 const check = (name, ok, info = '') => { console.log((ok ? 'OK   ' : 'FAIL ') + name + (!ok && info ? `  [${info}]` : '')); if (!ok) fails++; };

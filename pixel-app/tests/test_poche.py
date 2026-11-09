@@ -1,6 +1,7 @@
 """Pixel de poche, the server's side (pixel/poche.py): drives a demo server through its WebSocket like the app does.
 
     python3 tests/test_poche.py                    # starts its own demo server (port 8144, temporary data folder)
+    POCHE_PY_PORT=8145 python3 tests/test_poche.py # another port for it
 
 The news between the two Pixels (poche.touch: who, what, not too often) and the voyage (poche.voyage), and the files that
 must agree: the scene pack web/scenes/poche.js, the events of web/persona.js, the pages that load poche.js.
@@ -8,6 +9,7 @@ The phone itself (landscape, touch, sensors, the two Pixels on screen) is tested
 """
 import asyncio
 import json
+import os
 import re
 import socket
 import subprocess
@@ -23,7 +25,7 @@ sys.path.insert(0, str(APP))
 from pixel import poche, scenes  # noqa: E402
 from pixel.claude import TOOLS  # noqa: E402
 
-PORT = 8144
+PORT = int(os.environ.get("POCHE_PY_PORT") or 8144)   # POCHE_PY_PORT=… for another
 fails = []
 
 

@@ -1,6 +1,7 @@
 """Screen sharing on the server side (pixel/ecran.py): a demo server driven like the computer's page, Pixel's screen and the phone.
 
     python3 tests/test_ecran.py        # starts its own demo server (port 8152, https on 8158 if openssl is there, a temporary data folder)
+    ECRAN_PY_PORT=8252 ECRAN_HTTPS_PORT=8258 ECRAN_TRAP_PORT=8257 python3 tests/test_ecran.py   # other ports (the trap: a fake ScreenStream)
 
 - its pieces: ICE candidates and SDPs cleaned, the sender's name, the phone's address for ScreenStream;
 - the signalling: nothing is relayed before the one-time code (or the access code); the code is shown on Pixel and in the
@@ -17,6 +18,7 @@
 """
 import asyncio
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -34,7 +36,7 @@ from pixel import ecran  # noqa: E402
 from pixel.state import Hub  # noqa: E402
 from pixel.system import local_ip  # noqa: E402
 
-PORT, HTTPS, TRAP = 8152, 8158, 8157
+PORT, HTTPS, TRAP = (int(os.environ.get(k) or d) for k, d in (("ECRAN_PY_PORT", 8152), ("ECRAN_HTTPS_PORT", 8158), ("ECRAN_TRAP_PORT", 8157)))
 TOKEN = "le-code-de-test"
 IDLE = 2                    # [ecran] idle_wait here: a connection without a code is closed after 2 s
 fails = []
@@ -49,7 +51,7 @@ def check(name, cond, info=""):
 def start_server(datadir, tls):
     try:
         socket.create_connection(("127.0.0.1", PORT), 0.2).close()
-        raise SystemExit(f"le port {PORT} est déjà pris : arrête ce serveur, ou change PORT")
+        raise SystemExit(f"le port {PORT} est déjà pris : arrête ce serveur, ou change de port (ECRAN_PY_PORT=…)")
     except OSError:
         pass
     cfg = Path(datadir) / "config.toml"

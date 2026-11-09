@@ -1,12 +1,12 @@
 // YouTube in Pixel Lab (web/lab/demo-yt.js, the lab's stand-in for pixel/youtube.py and pixel/ytcast.py), in a real browser:
-//   node tests/test_youtube_lab.js        (it serves web/ itself on port 8163; screenshots in PIXEL_SHOTS, never in the repo)
+//   node tests/test_youtube_lab.js        (it serves web/ itself on port 8163, or YOUTUBE_LAB_PORT; screenshots in PIXEL_SHOTS, never in the repo)
 // YouTube's IFrame API and player are a stub, everything else outside is refused. The lab's buttons and its hub drive
 // Pixel's screen as the phone and the YouTube app would: the player, its orders, its end, an error card, the pretend app's
 // video and seek, the TV code; and nothing but YouTube's player is asked from outside.
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path'), os = require('os'), fs = require('fs'), net = require('net');
-const WEB = path.join(__dirname, '..', 'web'), PORT = 8163, BASE = `http://127.0.0.1:${PORT}/lab/`;
+const WEB = path.join(__dirname, '..', 'web'), PORT = Number(process.env.YOUTUBE_LAB_PORT) || 8163, BASE = `http://127.0.0.1:${PORT}/lab/`;
 const SHOTS = process.env.PIXEL_SHOTS || path.join(os.tmpdir(), 'pixel-youtube-shots');
 let fails = 0;
 const check = (name, ok, info = '') => { console.log((ok ? 'OK   ' : 'FAIL ') + name + (!ok && info ? `  [${info}]` : '')); if (!ok) fails++; };

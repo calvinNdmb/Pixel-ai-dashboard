@@ -1,6 +1,6 @@
 """Checks pixel/agenda.py: Google-style iCal feeds, imports (Samsung .vcs), errors, dedupe, privacy, persistence.
 
-    python3 tests/test_agenda.py          # serves its test calendars on port 8111; runs in Paris time
+    python3 tests/test_agenda.py          # serves its test calendars on port 8111 (AGENDA_PORT=… for another); runs in Paris time
 """
 import asyncio
 import datetime as dt
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pixel import agenda as A  # noqa: E402
 from pixel.state import Hub  # noqa: E402
 
-PORT = 8111
+PORT = int(os.environ.get("AGENDA_PORT") or 8111)   # AGENDA_PORT=… for another
 fails = []
 
 

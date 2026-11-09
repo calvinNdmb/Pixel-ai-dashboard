@@ -1,6 +1,7 @@
 """The phone's notifications (pixel/telephone.py, POST /api/notif), what the Android app (pixel-mobile) sends.
 
     python3 tests/test_telephone.py                # in-process servers, then a demo server (port 8146, temporary data folder)
+    TELEPHONE_PORT=8147 python3 tests/test_telephone.py   # another port for it
 
 - in-process, with a clock of our own: the access rule (the Pi itself from Pixel's own page, else the code in X-Pixel-Token
   or ?t=, from the home network), what is accepted (JSON only, small, an app's name, a short title, a category word), the
@@ -9,6 +10,7 @@
 """
 import asyncio
 import json
+import os
 import re
 import socket
 import subprocess
@@ -28,7 +30,7 @@ from pixel import telephone  # noqa: E402
 from pixel.state import Hub  # noqa: E402
 from pixel.system import local_ip  # noqa: E402
 
-PORT = 8146
+PORT = int(os.environ.get("TELEPHONE_PORT") or 8146)   # TELEPHONE_PORT=… for another
 TOKEN = "code-secret_42"
 fails = []
 
