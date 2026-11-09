@@ -52,11 +52,12 @@ const FAIT = Object.fromEntries([
   A('ami-photo', 'on a fait une photo souvenir', 'ils ont fait une photo souvenir'),
   A('ami-dodo', 'on s’est endormis côte à côte', 'ils se sont endormis côte à côte'),
 ].map(a => [a.id, a]));
-const story = (fait, n = 2) => {                       // « On a dansé, et on a fait la course ! »: two of them, the most fun first
+const story = (fait, n = 2) => {                       // « On a dansé, et on a fait la course ! »: two of them (one if two make too long a line)
   const order = ['ami-danse', 'ami-course', 'ami-cache', 'ami-tape', 'ami-gouter', 'ami-blague', 'ami-photo', 'ami-dodo', 'ami-bavarde'];
   const got = order.filter(id => (fait || []).includes(id)).slice(0, n).map(id => FAIT[id].nous);
   if (!got.length) return 'On n’a pas eu le temps de jouer beaucoup !';
   const s = got.join(', et ');
+  if (s.length > 42 && got.length > 1) return story(fait, 1);
   return s[0].toUpperCase() + s.slice(1) + ' !';
 };
 /* colours of a theme for the letters (persona.js D.col: fg, acc, pink, dim, hi, bg) */
@@ -142,12 +143,12 @@ DUO['ami-gouter'] = { anim: [[0, 'content'], [4000, 'bisou'], [5600, 'content'],
   move: e => ({ x: -80 * still(e, 3800, 5400), y: 26 * still(e, 3800, 5400), r: -0.1 * still(e, 3800, 5400) }),
   shared: (k, e) => { if (e > 600 && e < 14800) k.gouter(e, seg(e, 600, 1200) * (1 - seg(e, 14200, 14800)), e < 5000 ? 0 : e < 7000 ? 1 : 2); } };
 
-S('ami-cache', 'Cache-cache', 'evt', { dur: 22000, anim: [[0, 'curieux'], [2600, 'sommeil'], [6200, 'recherche'], [14000, 'surpris'], [14400, 'rire'], [19000, 'content']], mood: 'ecoute',
+S('ami-cache', 'Cache-cache', 'evt', { dur: 22000, anim: [[0, 'curieux'], [2600, 'timide'], [6200, 'recherche'], [14000, 'surpris'], [14400, 'rire'], [19000, 'content']], mood: 'ecoute',
   say: [[2600, 4200, L('Je compte : 1… 2… 3…', '1… 2… 3…')], [4300, 6000, L('…4… 5 ! J’arrive !', '…4… 5 ! Prêt ?')], [6400, 8400, L('Où es-tu ?', 'Hou hou ?')], [9000, 11200, o => `Tu es où, ${ami(o)} ?`], [14200, 16200, L('Trouvé !', 'Je t’ai trouvé !')], [19000, 21500, L('À moi de me cacher !', 'Encore une partie ?')]],
   move: e => (e < 6200 ? { y: 6 * still(e, 2600, 6000) } : e < 12000 ? { x: 60 * Math.sin((e - 6200) / 700), r: 0.06 * Math.sin((e - 6200) / 700) } : e > 14000 && e < 18500 ? { y: jumps(e - 14000, 600, 22) } : {}) });
 DUO['ami-cache'] = { anim: [[0, 'clin-oeil'], [2600, 'rire'], [12000, 'clin-oeil'], [13000, 'rire'], [19000, 'content']], mood: 'content',
   say: [[200, 2400, L('Cache-cache ! Tu comptes ?', 'On joue à cache-cache ?')], [12400, 14000, L('Coucou !', 'Bouh !')], [16500, 18700, L('Hihi ! Bien joué !', 'Tu m’as eu !')]],
-  move: e => (e < 2600 ? {} : e < 4400 ? { y: 700 * inn(seg(e, 2600, 4400)) } : e < 12000 ? { y: 700 } : e < 13000 ? { y: 700 - 520 * out(seg(e, 12000, 13000)) } : e < 13800 ? { y: 180 * (1 - out(seg(e, 13000, 13800))) - 30 * bump(seg(e, 13000, 13800)) } : { y: e > 14000 && e < 18500 ? jumps(e - 14000, 600, 22) : 0 }) };
+  move: e => (e < 2600 ? {} : e < 4400 ? { y: 1000 * inn(seg(e, 2600, 4400)) } : e < 12000 ? { y: 1000 } : e < 13000 ? { y: 1000 - 820 * out(seg(e, 12000, 13000)) } : e < 13800 ? { y: 180 * (1 - out(seg(e, 13000, 13800))) - 30 * bump(seg(e, 13000, 13800)) } : { y: e > 14000 && e < 18500 ? jumps(e - 14000, 600, 22) : 0 }) };
 
 /* a joke in two parts: one Pixel asks, the other says « Non ! », the first answers (no free text: these are all of them) */
 const BLAGUES = [['Tu connais la blague du Wi-Fi ?', 'Elle ne capte rien !'], ['Tu connais la blague de la pile ?', 'Elle est super chargée !'],

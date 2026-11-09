@@ -34,6 +34,7 @@ const PI = [
   [/^lights\./, "c'est lui qui allume les lampes."], [/^chat\./, 'Claude te répond depuis ton Pi.'], [/^codex\./, 'Codex travaille sur ton Pi.'],
   [/^agenda\./, 'ton agenda arrive par ton Pi.'], [/^(cast|ytcast|yt|ecran|airplay)\./, "le partage d'écran et YouTube passent par son écran."],
   [/^sys\.power$/, "Pixel n'éteint pas ton téléphone."], [/^poche\.voyage$/, 'Pixel vit déjà sur ce téléphone.'],
+  [/^amis\./, 'les amis de Pixel passent par ton Pi.'],          // amis.js, pixel/amis.py: his Pi keeps his friends and their keys
 ];
 const piSays = name => { for (const [re, why] of PI) if (re.test(name)) return `${PI_SAYS} : ${why}`; return null; };
 for (const name of Object.keys(A)) { const why = piSays(name); if (why) A[name] = () => H.toast(why, 4500); }
@@ -168,6 +169,7 @@ A.cmd = ({ text } = {}) => {
   const raw = String(text ?? '').trim(), t = hub.norm(raw); let m;
   if (['aide', 'help', '?', '/aide'].includes(t)) return H.toast(HELP, 9000);
   if ((m = raw.match(/^(?:m[ée]t[ée]o|ville)\s+(?:(?:à|a|de|pour)\s+)?(.+)$/i)) && !/^(demain|aujourd'?hui|semaine)$/.test(hub.norm(m[1]))) return setCity(m[1]);
+  if (window.PixelAmis && window.PixelAmis.command && window.PixelAmis.command(raw, null)) return H.toast(piSays('amis.'), 4500);   // « mes amis », « mon code d'ami »…
   return cmd0({ text: raw });
 };
 
