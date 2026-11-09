@@ -107,6 +107,17 @@ window.PixelPanel = id => {
   PANELS[id](); return true;
 };
 if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos })[id]) });
+/* the phone app's back button closes an open panel first (PixelSheet.close(): true when one was), the topmost first; the page
+   tells the app whether one is shown ({sheet}), so that the button knows (pixel-mobile src/plugs.ts) */
+const SHEETS = [['#exos', () => PixelExos.panel(false)], ['#nour', () => PixelNourrir.panel(false)], ['.car-sheet', () => PixelCaractere.close()]];
+const openSheets = () => SHEETS.filter(([q]) => { const e = document.querySelector(q); return !!e && !e.hidden && e.getClientRects().length > 0; });
+let sheetTold = null;                                 // what the app was last told
+const tellSheet = () => { const now = openSheets().length > 0; if (now !== sheetTold) { sheetTold = now; toApp({ sheet: now }); } };
+window.PixelSheet = { close() { const s = openSheets().pop(); if (s) { s[1](); sheetTold = null; tellSheet(); } return !!s; } };   // told again: another may be open
+if (!kiosk && window.ReactNativeWebView) {
+  new MutationObserver(tellSheet).observe(document.body, { subtree: true, attributeFilter: ['hidden'] });       // a panel opens or closes
+  new MutationObserver(tellSheet).observe(document.body, { attributeFilter: ['data-mode', 'class'] });          // Pixel mode, the Pixel de poche hide them
+}
 const setT = (el, t) => { if (el.textContent !== t) el.textContent = t; };
 function render() {
   if (!P) return;

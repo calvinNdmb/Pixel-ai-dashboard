@@ -178,7 +178,7 @@ function brightness() { const b = S.sys.bright || 1, f = b < 1 ? `brightness(${b
 /* ---------- what is kept: his look, his settings and brightness, a lasting mood, the timer, the city, and the rest that is not the Pi's ---------- */
 const KEY = 'pixel_local', MAX = 200 * 1024, ITEM = 64 * 1024;
 const SKIP = new Set(['screen', 'mood', 'view', 'settings', 'timer', 'weather', 'anim', 'scene', 'toast', 'act', 'boot_at', 'keys', 'server_now', 'kept_at',
-  'lights', 'chat', 'codex', 'agenda', 'sys', 'poche', 'cast', 'cast_recent', 'airplay', 'solo', 'yt', 'ytcast']);   // live, or the Pi's
+  'lights', 'chat', 'codex', 'agenda', 'sys', 'poche', 'cast', 'cast_recent', 'airplay', 'solo', 'yt', 'ytcast', 'telephone']);   // live, or the Pi's
 const VIEW = ['theme', 'face', 'units_f', 'crt_off'], TIMER = ['mode', 'total', 'left', 'running', 'ends_at', 'done'];
 function pick() {
   const st = { v: 1, at: 0, view: {}, settings: { themes: [...(S.settings.themes || [])], sleep_min: S.settings.sleep_min }, sys: { bright: S.sys.bright }, timer: {}, extra: {} };
@@ -250,7 +250,9 @@ function restore(given) {           // the app's copy, his Pi's last snapshot, l
     if (isObj(given.state) && given.state.v === 1) list.push(given.state);
     const pi = fromPi(given.seed); if (pi) list.push(pi);
   }
-  const at = st => Number(st.at) || 0, fresh = list.filter(st => !stamp || at(st) > stamp).sort((a, b) => at(a) - at(b));
+  /* a tie goes to the phone's own copy: once seeded, it has the seed's time (only an action makes it newer), and it holds
+     what he lived here since (his belly going down, a day of exercises) */
+  const at = st => Number(st.at) || 0, fresh = list.filter(st => !stamp || at(st) > stamp).sort((a, b) => at(a) - at(b) || !!b.pi - !!a.pi);
   if (!fresh.length) return false;
   const city0 = city && city.name;
   for (const st of fresh) { try { apply(st); } catch (e) { console.warn('Pixel sans Pi: a state not restored', e); } }
@@ -340,17 +342,23 @@ function notif(n) {
   return true;
 }
 
+/* any touch or key on the page is someone using him: his panels (Caractère, Nourrir, Exos) are buttons of the page, not of
+   his screen (Screens.input), and the app must not take him back to his Pi in the middle of a series (ping()) */
+let touchedAt = -1e9;
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { touchedAt = performance.now(); }, { capture: true, passive: true });
+
 return {
   socket, restore, save, notif,
   get state() { return pick(); },
   get city() { return city ? { ...city } : null; },
   weather: () => weather(true),
-  /* the app asks before it goes back to the Pi: how long nobody has touched him, and whether something runs here */
+  /* the app asks before it goes back to the Pi: how long nobody has touched him, and whether something runs here (the
+     timer, an exercise open: it lives on this phone only) */
   ping() {                                            // Pixel de poche: the phone tilted or shaken is play too, not just a touch
     const PP = window.PixelPoche, moved = PP && PP.on ? PP.movedAt : -1e9;
-    const idle = Sc ? Math.max(0, performance.now() - Math.max(Sc.local.lastInput, moved)) : 0;
-    post({ local_idle: Math.round(idle), busy: !!S.timer.running });
-    return { idle, busy: !!S.timer.running };
+    const idle = Sc ? Math.max(0, performance.now() - Math.max(Sc.local.lastInput, moved, touchedAt)) : 0, busy = !!S.timer.running || !!(S.exos && S.exos.cur);
+    post({ local_idle: Math.round(idle), busy });
+    return { idle, busy };
   },
 };
 })();
