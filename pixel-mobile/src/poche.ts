@@ -21,7 +21,9 @@ export function usePocheSenses(web: RefObject<WebView<object> | null>, on: boole
     const lock = () => ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
     lock();
 
-    Accelerometer.setUpdateInterval(33);             // about 30 a second: enough for a shake, light on the bridge
+    // about 30 a second: enough for a shake, light on the bridge. On Android 12 and up, expo-sensors asks for more than 5 a
+    // second only with HIGH_SAMPLING_RATE_SENSORS (app.json; a normal permission, never asked to the user)
+    Accelerometer.setUpdateInterval(33);
     const motion = Accelerometer.addListener(({ x, y, z }) => {
       run(`motion(${(x * G).toFixed(2)},${(y * G).toFixed(2)},${(z * G).toFixed(2)})`);
       const side = Math.abs(x) > 0.7 && Math.abs(y) < 0.45, up = Math.abs(y) > 0.7 && Math.abs(x) < 0.45;   // lying flat: neither

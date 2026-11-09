@@ -17,10 +17,11 @@ L'appli Android de Pixel (version 1.1). Elle affiche la page de Pixel en plein �
 ## Partager sur Pixel
 
 - **Ce qui part :** un lien (YouTube et Vimeo se lancent sur Pixel ; une autre page devient une carte avec son QR code), un texte, une photo, un GIF ou une vidéo. Si tu partages plusieurs photos, seule la première part.
-- **Les vidéos :** 40 Mo au plus, sauf si le réglage `max_mb` de la section `[cast]` de Pixel dit autre chose. Au-delà, la carte dit « Fichier trop gros » : envoie plutôt le lien de la vidéo, ou une vidéo plus courte.
+- **Les vidéos :** 40 Mo au plus, sauf si le réglage `max_mb` de la section `[cast]` de Pixel dit autre chose. Au-delà, la carte le dit avant d'envoyer quoi que ce soit : envoie plutôt le lien de la vidéo, ou une vidéo plus courte. Si tu as monté la limite de Pixel, touche **Envoyer quand même** : l'appli retient ce qu'il a pris, et la limite qu'il annonce quand il refuse un fichier.
 - **Si l'appli n'est pas encore reliée à Pixel,** la carte le dit et propose **Scanner le QR code**.
 - **Si Pixel ne répond pas,** la carte le dit et propose **Réessayer**. Si Pixel refuse, la carte affiche sa réponse.
 - Le fichier est lu directement dans l'appli qui le partage, puis envoyé à Pixel au fur et à mesure. L'appli n'en garde aucune copie.
+- L'appli ne lit que ce qu'une autre appli lui confie (une adresse `content://`) : jamais un chemin de fichier (`file://`), ni ses propres fichiers, où est gardé ton code d'accès.
 - Une photo que Pixel ne sait pas lire (HEIC, AVIF…), ou une photo JPEG de plus de 4 Mo, part en JPEG de 1920 pixels au plus : l'écran de Pixel fait 800 × 480. Les GIF, WebP et PNG partent tels quels.
 - Il faut un Pixel qui sait recevoir des partages (`POST /api/cast`, le « cast » de Pixel OS). Sinon, la carte dit de mettre Pixel à jour.
 
@@ -29,6 +30,7 @@ L'appli Android de Pixel (version 1.1). Elle affiche la page de Pixel en plein �
 Dans le menu de l'appli, ouvre **Notifications du téléphone**.
 
 - **Rien ne part tant que tu ne l'as pas activé.** Android demande aussi ton accord une fois (**Accès aux notifications**) : le bouton **Autoriser dans les réglages** y mène.
+- **Désactivé, c'est vraiment éteint.** L'appli demande alors à Android de ne plus du tout lui donner les notifications, même si l'accès reste autorisé, jusqu'à ce que tu réactives.
 - **Seulement les applis que tu coches** dans la liste.
 - **Par défaut, juste le nom de l'appli.** Pixel affiche « 📱 Nouveau message WhatsApp ».
 - **Le titre, si tu le veux.** C'est souvent l'expéditeur : avec **Envoyer aussi le titre**, Pixel affiche « 📱 WhatsApp : Maman ».

@@ -31,7 +31,10 @@ class PixelNativeModule : Module() {
     }
 
     AsyncFunction("setPixel") { url: String? ->
-      PixelStore.update(ctx) { it.copy(url = url?.trim()?.takeIf { u -> u.isNotEmpty() }, castMaxMb = if (it.url == url) it.castMaxMb else 0.0) }
+      PixelStore.update(ctx) {
+        val same = it.url == url                                   // another Pixel: his limit is not known yet
+        it.copy(url = url?.trim()?.takeIf { u -> u.isNotEmpty() }, castMaxMb = if (same) it.castMaxMb else 0.0, castOkMb = if (same) it.castOkMb else 0.0)
+      }
       Unit
     }
 
@@ -47,6 +50,7 @@ class PixelNativeModule : Module() {
 
     AsyncFunction("setNotifOn") { on: Boolean ->
       PixelStore.update(ctx) { it.copy(notifOn = on) }
+      NotificationRelay.follow(ctx, on)                              // off: Android stops feeding the listener too
       Unit
     }
 

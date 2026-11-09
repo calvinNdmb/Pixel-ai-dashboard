@@ -11,6 +11,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import org.json.JSONObject
+import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 
 /** The phone's notifications, for Pixel's notification scenes (pixel-app/pixel/telephone.py, POST /api/notif). Android runs
@@ -18,13 +19,29 @@ import java.util.concurrent.Executors
  *  or not. Privacy first: nothing leaves the phone unless the user switched it on in the app and picked the app; Pixel
  *  gets the app's name, the title only if the user allowed it, never the text. Never the ongoing ones (music, navigation,
  *  downloads), the foreground services, the group summaries, the silent ones, the ones Do Not Disturb hides, nor an
- *  update of a notification already sent. Not too often: one per app every APP_GAP_MS, PER_MIN in all. */
+ *  update of a notification already sent. Not too often: one per app every APP_GAP_MS, PER_MIN in all. Switched off in
+ *  the app, the listener asks Android to unbind it (it then gets nothing, and the process may end) until switched on. */
 class NotificationRelay : NotificationListenerService() {
   private class Seen(val whenMs: Long, val title: Int, val at: Long)
 
   private val seen = LinkedHashMap<String, Seen>()     // notification key -> its last post
   private val lastByApp = HashMap<String, Long>()
   private val sent = ArrayDeque<Long>()
+
+  override fun onListenerConnected() {
+    super.onListenerConnected()
+    live = WeakReference(this)
+    if (!PixelStore.get(this).notifOn) unbind()                                    // allowed by Android, but off in the app
+  }
+
+  override fun onListenerDisconnected() {
+    if (live?.get() === this) live = null
+    super.onListenerDisconnected()
+  }
+
+  private fun unbind() {
+    runCatching { requestUnbind() }.onFailure { Log.i(TAG, "Could not unbind: $it") }
+  }
 
   override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap?) {
     val cfg = PixelStore.get(this)
@@ -85,8 +102,15 @@ class NotificationRelay : NotificationListenerService() {
       Notification.CATEGORY_SYSTEM, Notification.CATEGORY_STATUS, "navigation", "location_sharing", "stopwatch", "workout",
     )
     private val send = Executors.newSingleThreadExecutor()
+    @Volatile private var live: WeakReference<NotificationRelay>? = null      // the listener Android has bound, if any
 
     fun component(ctx: Context) = ComponentName(ctx, NotificationRelay::class.java)
+
+    /** The app's switch: off, the bound listener lets go; on, Android binds it again (only if the user allowed it). */
+    fun follow(ctx: Context, on: Boolean) {
+      if (!on) live?.get()?.unbind()
+      else runCatching { NotificationListenerService.requestRebind(component(ctx)) }.onFailure { Log.i(TAG, "Could not rebind: $it") }
+    }
 
     /** Has the user allowed Pixel to read the notifications (the system's "Accès aux notifications")? */
     fun allowed(ctx: Context): Boolean {

@@ -1,7 +1,9 @@
 package com.mopi.pixelnative
 
 import android.app.Activity
+import android.content.ContentResolver
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -40,7 +42,9 @@ import kotlin.math.roundToInt
 /** "Partager > Pixel" from any app: a link (a YouTube video plays on Pixel's screen), a text, a photo, a GIF or a video
  *  goes to Pixel's POST /api/cast (pixel-app/pixel/cast.py), with the address and code the app keeps (PixelStore). The
  *  file is streamed from the sharing app, with the read permission it granted. A small card over that app says how it
- *  went, then goes away: the user is back where he was. Of several photos, the first one goes. */
+ *  went, then goes away: the user is back where he was. Of several photos, the first one goes. The sharing app's provider
+ *  is only asked on a worker thread (Drive or Photos may download the file first), and only a content:// address of
+ *  another app is read: never a file:// one nor this app's own files, which hold Pixel's access code. */
 class ShareActivity : Activity() {
   private sealed class What {
     class Text(val text: String, val title: String) : What()
@@ -56,8 +60,13 @@ class ShareActivity : Activity() {
   private lateinit var detail: TextView
   private lateinit var bar: ProgressBar
   private lateinit var row: LinearLayout
+  /** a file of the sharing app that cannot be read (no permission, gone), or an address Pixel never reads */
+  private class Unreadable(cause: Throwable?) : Exception(cause)
+
   private var share: What? = null
+  private var unreadable = false
   private var busy = false
+  private var body = -1L                                    // the bytes of the file actually sent (a photo may be made smaller)
   @Volatile private var gone = false
   @Volatile private var conn: HttpURLConnection? = null
 
@@ -65,12 +74,22 @@ class ShareActivity : Activity() {
     super.onCreate(saved)
     behindBars()                                                                     // the scrim under the system bars too
     setContentView(ui())
-    share = try {
-      what(intent)
-    } catch (e: Exception) {
-      null
-    }
-    start(false)
+    if (!PixelStore.get(this).ready) return start(false)                           // nothing to read before he is set up
+    busy = true
+    show("…", "Envoi sur Pixel…", runCatching { guess(intent) }.getOrNull(), Btn("Annuler") { finish() })
+    bar.isIndeterminate = true
+    bar.visibility = View.VISIBLE
+    val i = intent
+    Thread {                                                                         // the provider may be slow: never on the UI thread
+      var bad = false
+      val w = try {
+        what(i)
+      } catch (e: Exception) {
+        bad = e is Unreadable || e is SecurityException || e is FileNotFoundException
+        null
+      }
+      main.post { if (!gone) { share = w; unreadable = bad; start(false) } }
+    }.start()
   }
 
   override fun onDestroy() {
@@ -91,11 +110,13 @@ class ShareActivity : Activity() {
     val title = (i.getStringExtra(Intent.EXTRA_SUBJECT) ?: i.getStringExtra(Intent.EXTRA_TITLE)).orEmpty().trim().take(200)
     val type = i.type.orEmpty().lowercase(Locale.ROOT)
     val many = if (i.action == Intent.ACTION_SEND_MULTIPLE) streams(i) else emptyList()
-    val uri = (if (i.action == Intent.ACTION_SEND_MULTIPLE) many.firstOrNull() else stream(i))
+    val given = (if (i.action == Intent.ACTION_SEND_MULTIPLE) many.firstOrNull() else stream(i))
       ?: i.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
+    val uri = given?.takeIf { readable(it) }
     val text = i.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim().orEmpty()
     if (uri != null && !type.startsWith("text/")) return file(uri, type, title, maxOf(1, many.size))
     if (text.isNotEmpty()) return What.Text(text, title)
+    if (given != null && uri == null) throw Unreadable(null)
     if (uri != null) {                                                    // a text file: its first lines
       val t = contentResolver.openInputStream(uri)?.use { s ->
         val buf = ByteArray(8192)
@@ -132,6 +153,44 @@ class ShareActivity : Activity() {
     return What.File(uri, mime, name, size, title, count)
   }
 
+  /** Only another app's content:// address. A file:// one, or one of this app's providers, would be opened with Pixel's
+   *  own rights: another app could have it send Pixel's private files (his access code) to his screen. */
+  private fun readable(u: Uri): Boolean {
+    if (!ContentResolver.SCHEME_CONTENT.equals(u.scheme, ignoreCase = true)) return false
+    val auth = u.authority?.substringAfterLast('@')?.takeIf { it.isNotEmpty() } ?: return false   // "0@authority": a user's provider
+    return auth !in mine && runCatching { provider(auth) }.getOrNull() != packageName
+  }
+
+  private val mine: Set<String> by lazy {                                          // this app's own providers (its libraries' too)
+    runCatching {
+      val info = if (Build.VERSION.SDK_INT >= 33) {
+        packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(PackageManager.GET_PROVIDERS.toLong()))
+      } else {
+        @Suppress("DEPRECATION")
+        packageManager.getPackageInfo(packageName, PackageManager.GET_PROVIDERS)
+      }
+      info.providers.orEmpty().flatMap { it.authority.orEmpty().split(';') }.filter { it.isNotEmpty() }.toSet()
+    }.getOrDefault(emptySet())
+  }
+
+  @Suppress("DEPRECATION")
+  private fun provider(auth: String): String? =
+    if (Build.VERSION.SDK_INT >= 33) packageManager.resolveContentProvider(auth, PackageManager.ComponentInfoFlags.of(0))?.packageName
+    else packageManager.resolveContentProvider(auth, 0)?.packageName
+
+  /** what the card says while the share is worked out, from the intent alone (no provider call) */
+  private fun guess(i: Intent): String {
+    val type = i.type.orEmpty().lowercase(Locale.ROOT)
+    val text = i.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim().orEmpty()
+    return when {
+      type == "image/gif" -> "GIF"
+      type.startsWith("video/") -> "Vidéo"
+      type.startsWith("image/") -> "Photo"
+      text.isNotEmpty() -> describe(What.Text(text, ""))
+      else -> ""
+    }
+  }
+
   @Suppress("DEPRECATION")
   private fun stream(i: Intent): Uri? =
     if (Build.VERSION.SDK_INT >= 34) i.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else i.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
@@ -166,14 +225,17 @@ class ShareActivity : Activity() {
   private fun start(anyway: Boolean) {
     val cfg = PixelStore.get(this)
     val w = share
+    busy = false                                                                     // send() says otherwise
+    bar.visibility = View.GONE
     when {
       !cfg.ready -> show(
         ":|", "Ce téléphone n’est pas encore relié à Pixel.",
         "Ouvre l’appli et scanne le QR code de Pixel : sur son écran, glisse vers la gauche sur son visage.",
         Btn("Fermer") { finish() }, Btn("Scanner le QR code", true) { openApp() },
       )
+      w == null && unreadable -> show(":(", "Impossible de lire ce fichier.", "L’appli qui le partage ne le laisse pas lire.", Btn("Fermer") { finish() })
       w == null -> show(":(", "Pixel ne sait pas afficher ça.", "Partage une photo, une vidéo, un GIF, un lien ou un texte.", Btn("Fermer") { finish() })
-      w is What.File && !anyway && cfg.castMaxMb > 0 && w.size > cfg.castMaxMb * MB -> tooBig(cfg.castMaxMb, true)
+      w is What.File && !anyway && !shrinks(w) && w.size > limit(cfg) * MB -> tooBig(cfg, w.size, true)   // before sending it for nothing
       else -> send(cfg, w)
     }
   }
@@ -203,6 +265,7 @@ class ShareActivity : Activity() {
   private fun upload(cfg: PixelStore.Config, w: What.File): PixelHttp.Answer {
     val small = shrink(w)
     val size = small?.size?.toLong() ?: w.size
+    body = size
     val mime = if (small != null) "image/jpeg" else w.mime
     val boundary = "PixelPartage" + System.nanoTime()
     val name = (if (small != null) w.name.substringBeforeLast('.') + ".jpg" else w.name).replace(Regex("[\"\\\\\\r\\n]"), "_").take(120)
@@ -220,7 +283,11 @@ class ShareActivity : Activity() {
         var sent = 0L
         var shown = -1
         while (true) {
-          val n = inp.read(buf)
+          val n = try {
+            inp.read(buf)
+          } catch (e: IOException) {
+            throw Unreadable(e)                                                    // the sharing app, not Pixel
+          }
           if (n < 0) break
           if (gone) throw InterruptedIOException("cancelled")
           out.write(buf, 0, n)
@@ -238,9 +305,11 @@ class ShareActivity : Activity() {
 
   /** A photo Pixel cannot read (HEIC, AVIF...) or a big one: a JPEG of MAX_SIDE px at most (his screen is 800 x 480), the
    *  phone's EXIF rotation applied. GIF, WebP (maybe animated) and PNG go as they are. null: send the original. */
+  private fun shrinks(w: What.File) =
+    Build.VERSION.SDK_INT >= 28 && w.mime.startsWith("image/") && w.mime !in AS_IS && !(w.mime in JPEG && w.size in 1..BIG_PHOTO)
+
   private fun shrink(w: What.File): ByteArray? {
-    if (Build.VERSION.SDK_INT < 28 || !w.mime.startsWith("image/") || w.mime in AS_IS) return null
-    if (w.mime in JPEG && w.size in 1..BIG_PHOTO) return null
+    if (!shrinks(w)) return null
     return try {
       val bmp = ImageDecoder.decodeBitmap(ImageDecoder.createSource(contentResolver, w.uri)) { d, info, _ ->
         d.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
@@ -266,10 +335,10 @@ class ShareActivity : Activity() {
     val retry = Btn("Réessayer", true) { start(true) }
     val a = r.getOrNull()
     val e = r.exceptionOrNull()
-    val limit = if (cfg.castMaxMb > 0) cfg.castMaxMb else DEFAULT_MB
+    val over = w is What.File && body > limit(cfg) * MB                     // more than he takes, as far as the app knows
     when {
       a != null && a.ok -> {
-        if (w is What.File && cfg.castMaxMb > 0 && w.size > cfg.castMaxMb * MB) PixelStore.update(this) { it.copy(castMaxMb = 0.0) }   // his limit went up
+        if (over) PixelStore.update(this) { it.copy(castMaxMb = 0.0, castOkMb = maxOf(it.castOkMb, body / MB)) }   // his limit went up
         val title = a.json?.optJSONObject("cast")?.optString("title")?.takeIf { it.isNotBlank() }
         show(":)", "Envoyé sur Pixel ✓", title ?: describe(w))
         main.postDelayed({ if (!isFinishing) finish() }, 1300)
@@ -282,21 +351,33 @@ class ShareActivity : Activity() {
       a != null && a.status == 404 -> show(":(", "Ce Pixel ne sait pas encore recevoir de partage.", "Mets Pixel à jour sur le Pi, puis réessaie.", close)
       a != null && a.status == 403 -> show(":(", a.error ?: "Pixel refuse ce téléphone.", "Ouvre l’appli Pixel : elle te dira quoi faire.", close, Btn("Ouvrir l’appli", true) { openApp() })
       a != null -> show(":(", a.error ?: "Pixel n’a pas pu l’afficher (erreur ${a.status}).", null, *(if (a.status >= 500 || a.status == 429) arrayOf(close, retry) else arrayOf(close)))
-      e is SecurityException || e is FileNotFoundException ->
+      e is Unreadable || e is SecurityException || e is FileNotFoundException ->
         show(":(", "Impossible de lire ce fichier.", "L’appli qui le partage ne le laisse pas lire.", close)
       e is PixelHttp.NoAnswer -> show(":(", "Pixel ne répond pas", NO_ANSWER_HINT, close, retry)
-      e is IOException && w is What.File && w.size > limit * MB -> tooBig(limit, false)   // he refused it and hung up
+      e is PixelHttp.Cut && over -> tooBig(cfg, body, false)                      // he refused it and hung up before the end
+      e is PixelHttp.Cut && w is What.File ->
+        show(":(", "L’envoi a été coupé.", "Le Wi-Fi a peut-être décroché, ou ce fichier est trop gros pour Pixel.", close, retry)
       e is IOException -> show(":(", "Pixel ne répond pas", NO_ANSWER_HINT, close, retry)
       else -> show(":(", "Ça n’a pas marché.", e?.message, close)
     }
   }
 
-  private fun tooBig(mb: Double, before: Boolean) {
-    val n = if (mb % 1.0 == 0.0) mb.toLong().toString() else String.format(Locale.FRANCE, "%.1f", mb)
+  /** Pixel's limit in Mo: the one he gave, else his default, or the biggest file he already took */
+  private fun limit(cfg: PixelStore.Config) = if (cfg.castMaxMb > 0) cfg.castMaxMb else maxOf(DEFAULT_MB, cfg.castOkMb)
+
+  /** before: not sent yet (his limit may have gone up: « Envoyer quand même »); else he hung up on it */
+  private fun tooBig(cfg: PixelStore.Config, bytes: Long, before: Boolean) {
     val close = Btn("Fermer") { finish() }
-    if (before) show(":(", "Fichier trop gros : Pixel prend $n Mo au plus.", HINT_BIG, close, Btn("Envoyer quand même") { start(true) })
-    else show(":(", "Fichier trop gros : Pixel prend $n Mo au plus.", HINT_BIG, close)
+    val again = if (before) Btn("Envoyer quand même") { start(true) } else Btn("Réessayer") { start(true) }
+    if (cfg.castMaxMb > 0) {
+      show(":(", "Fichier trop gros : Pixel prend ${mb(cfg.castMaxMb)} Mo au plus.", HINT_BIG, *(if (before) arrayOf(close, again) else arrayOf(close)))
+    } else {
+      val known = if (cfg.castOkMb > DEFAULT_MB) "Le plus gros qu’il a pris faisait ${mb(cfg.castOkMb)} Mo. " else "D’habitude, il prend ${mb(DEFAULT_MB)} Mo au plus. "
+      show(":(", "Ce fichier fait ${size(bytes)} : sans doute trop pour Pixel.", known + HINT_BIG, close, again)
+    }
   }
+
+  private fun mb(v: Double) = if (v % 1.0 == 0.0) v.toLong().toString() else String.format(Locale.FRANCE, "%.1f", v)
 
   private fun openApp() {
     packageManager.getLaunchIntentForPackage(packageName)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }

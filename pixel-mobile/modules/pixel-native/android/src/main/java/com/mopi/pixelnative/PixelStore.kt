@@ -15,6 +15,7 @@ object PixelStore {
     val notifTitle: Boolean = false,            // the title (often the sender) too: off by default
     val apps: Map<String, String> = emptyMap(), // the apps picked: package -> label
     val castMaxMb: Double = 0.0,                // the biggest file Pixel takes, once it said so (0: not known)
+    val castOkMb: Double = 0.0,                 // the biggest file he took while castMaxMb was not known
   ) {
     private val uri: Uri? get() = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
     val base: String?
@@ -62,6 +63,7 @@ object PixelStore {
       notifTitle = j.optBoolean("notifTitle", false),
       apps = apps?.keys()?.asSequence()?.associateWith { apps.optString(it) } ?: emptyMap(),
       castMaxMb = j.optDouble("castMaxMb", 0.0).takeIf { !it.isNaN() } ?: 0.0,
+      castOkMb = j.optDouble("castOkMb", 0.0).takeIf { !it.isNaN() } ?: 0.0,
     )
   }
 
@@ -71,5 +73,6 @@ object PixelStore {
     put("notifTitle", c.notifTitle)
     put("apps", JSONObject(c.apps))
     put("castMaxMb", c.castMaxMb)
+    put("castOkMb", c.castOkMb)
   }
 }

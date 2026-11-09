@@ -24,8 +24,13 @@ object PixelHttp {
   /** The request could not reach Pixel, or he did not answer (not a refusal: that is an Answer) */
   class NoAnswer(cause: Throwable) : IOException(cause)
 
+  /** Pixel took the request, then the connection broke while it was being sent: the Wi-Fi went, or he refused a body
+   *  too big and hung up before reading it all (aiohttp answers 413 at once, then drops the rest) */
+  class Cut(cause: Throwable) : IOException(cause)
+
   /** POST base+path; length -1: chunked. conn: the connection, as soon as it exists (to cancel it from another thread).
-   *  Throws NoAnswer when Pixel is out of reach, and whatever [write] throws. */
+   *  Throws NoAnswer when Pixel is out of reach, Cut when the body could not all be sent, and whatever else [write]
+   *  throws. */
   fun post(
     cfg: PixelStore.Config, path: String, contentType: String, length: Long, readTimeoutMs: Int,
     conn: (HttpURLConnection) -> Unit = {}, write: (OutputStream) -> Unit,
@@ -53,7 +58,11 @@ object PixelHttp {
       } catch (e: IOException) {
         throw NoAnswer(e)
       }
-      c.outputStream.use(write)
+      try {
+        c.outputStream.use(write)
+      } catch (e: IOException) {
+        throw Cut(e)
+      }
       val status = try {
         c.responseCode
       } catch (e: IOException) {
