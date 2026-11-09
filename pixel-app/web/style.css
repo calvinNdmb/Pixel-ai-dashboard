@@ -121,3 +121,18 @@ body.kiosk .cmd.hide{display:none}
 .cast-hint b{font-weight:600}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 body[data-mode="pixel"] .cast,body.kiosk .cast{display:none}
+/* YouTube on Pixel: the phone's remote control and the YouTube app's side (ytremote.js) */
+.ytremote{display:grid;gap:10px}
+.ytremote:empty,.ytr[hidden],.ytc[hidden],.ytr-open[hidden]{display:none}
+.ytr,.ytc{display:grid;gap:8px;border:1px solid var(--gd);border-radius:10px;padding:10px}
+.ytr-title{margin:0;font:clamp(18px,4.4vw,22px)/1.15 var(--f-crt);color:var(--g);overflow-wrap:anywhere}
+.ytr-from,.ytr-time,.ytc p{margin:0;font:13px/1.4 var(--f-ui);color:var(--plastic)}
+.ytr-from:empty,.ytr-err:empty,.ytc p:empty{display:none}
+.ytr-row{display:flex;gap:8px;align-items:center}
+.ytr-row .cbtn{flex:1 1 0}
+.ytr-vol .ytr-range{flex:2 1 0}
+.ytr-lbl{font:13px var(--f-ui)}
+.ytr-range{width:100%;min-height:44px;accent-color:var(--g)}
+.ytr-err{margin:0;font:13px/1.4 var(--f-ui);color:var(--amber)}
+.ytr-open{display:flex;align-items:center;justify-content:center;text-decoration:none}
+.ytc-code{font:22px var(--f-crt)!important;color:var(--g)!important;letter-spacing:.06em}

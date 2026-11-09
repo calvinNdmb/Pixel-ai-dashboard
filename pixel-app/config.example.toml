@@ -42,5 +42,13 @@ max_mb = 40                 # la taille maximale d'un fichier envoyé, en Mo
 seconds = 120               # combien de temps une photo, un GIF, un texte ou un lien reste affiché (0 : jusqu'à « Arrêter ») ; une vidéo va jusqu'au bout
 keep = 8                    # les derniers fichiers gardés dans le dossier de données (cast/), à réafficher depuis le téléphone
 
+[ytcast]
+# Pixel dans le bouton Caster de l'appli YouTube, et « Associer avec un code TV » (docs/CAST.md, YouTube). Facultatif :
+# il faut Node.js 18 ou plus, et « npm ci --omit=dev » dans sidecar/ytcast (PIXEL_YTCAST=1 sh deploy/install.sh le fait).
+enabled = false             # true pour l'activer
+name = "Pixel"              # son nom dans le menu Caster
+port = 3000                 # le port DIAL sur le Wi-Fi de la maison (les téléphones y trouvent Pixel)
+# node = "/usr/bin/node"    # si Node.js n'est pas dans le PATH
+
 # [security]
 # token = "..."             # code d'accès des téléphones ; créé tout seul sinon

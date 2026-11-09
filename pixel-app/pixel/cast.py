@@ -25,6 +25,8 @@ from urllib.parse import parse_qs, urlsplit
 
 from aiohttp import web
 
+from . import youtube
+
 log = logging.getLogger("pixel")
 LOCAL = {"127.0.0.1", "::1"}
 MB = 1024 * 1024
@@ -33,7 +35,7 @@ MP4 = {b"isom", b"iso2", b"iso4", b"iso5", b"iso6", b"mp41", b"mp42", b"avc1", b
        b"3gp4", b"3gp5", b"3gp6", b"3g2a", b"qt  "}
 NAME = re.compile(r"^[A-Za-z0-9_-]{16}\.(png|jpg|gif|webp|mp4|webm)$")      # what secrets.token_urlsafe(12) makes, and nothing else
 MIME = {"png": "image/png", "jpg": "image/jpeg", "gif": "image/gif", "webp": "image/webp", "mp4": "video/mp4", "webm": "video/webm"}
-ITEM = ("kind", "src", "text", "url", "title", "embed", "site")             # what a cast is made of (and what "again" shows again)
+ITEM = ("kind", "src", "text", "url", "title", "embed", "site", "yt")       # what a cast is made of (and what "again" shows again)
 BAD_TYPE = "Format non pris en charge. Photos : JPEG, PNG, GIF, WebP. Vidéos : MP4, WebM."
 NOTHING = "Rien à afficher : choisis une photo, une vidéo, un lien ou un texte."
 MAX_LIVE = 4 * 3600e3                       # a video or a YouTube link nobody stops: gone after 4 hours anyway
@@ -65,11 +67,19 @@ def sniff(head):
 
 
 def local_page(request):
-    """The Pi itself, from Pixel's own page: a page of another site shown on the screen (a video player) is not Pixel."""
+    """The Pi itself, from Pixel's own page (http://localhost:PORT, deploy/kiosk.sh): not a page of another site shown on the
+    screen (a video player), nor one with no origin of its own (Origin: null: a sandboxed frame, a file), nor another name
+    for the Pi (a DNS rebinding page: its Host is its own name too). The port is the one the request came in on."""
     if request.remote not in LOCAL:
         return False
     origin = request.headers.get("Origin")
-    return not origin or origin == "null" or urlsplit(origin).netloc.lower() == (request.host or "").lower()
+    if not origin:
+        return True
+    sock = request.transport.get_extra_info("sockname") if request.transport else None
+    if not sock:
+        return False
+    port = "" if sock[1] == 80 else f":{sock[1]}"
+    return origin.lower() in {f"http://{h}{port}" for h in ("localhost", "127.0.0.1", "[::1]")}
 
 
 def has_access(request, token):
@@ -100,12 +110,6 @@ def first_url(text):
     return m.group(0).rstrip(".,;:!?)»") if m else ""
 
 
-def _start_s(v):
-    """YouTube's t= / start=: 90, 90s, 1m30s, 1h2m3s -> seconds."""
-    m = re.fullmatch(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?", v or "")
-    return int(m.group(1) or 0) * 3600 + int(m.group(2) or 0) * 60 + int(m.group(3) or 0) if m else 0
-
-
 def classify(url):
     """What a link shows, from its address alone: a picture, an animation or a video file (the screen loads it), a YouTube or
     Vimeo video (their player, with its embed address), or a page (a card)."""
@@ -119,16 +123,10 @@ def classify(url):
         return {"kind": "gif"}
     if ext in ("mp4", "m4v", "mov", "webm"):
         return {"kind": "video"}
-    vid = ""
-    if host in ("youtube.com", "music.youtube.com", "youtube-nocookie.com"):
-        m = re.match(r"^/(?:shorts|embed|live|v)/([^/]+)", path)
-        vid = (q.get("v") or [""])[0] if path == "/watch" else m.group(1) if m else ""
-    elif host == "youtu.be":
-        vid = path.strip("/").split("/")[0]
-    if re.fullmatch(r"[A-Za-z0-9_-]{11}", vid):
-        start = _start_s((q.get("t") or q.get("start") or [""])[0])
-        return {"kind": "link", "site": "YouTube", "embed": f"https://www.youtube-nocookie.com/embed/{vid}?autoplay=1&playsinline=1&rel=0"
-                f"&enablejsapi=1{f'&start={start}' if start else ''}"}
+    yt = youtube.parse(url)                         # a video, a playlist, a short, YouTube Music (pixel/youtube.py)
+    if yt:
+        it = youtube.item(yt)
+        return {"kind": "link", "site": it["site"], "embed": it["embed"], "yt": yt}
     m = re.match(r"^/(?:video/)?(\d{5,12})(?:/([0-9a-f]{6,20}))?/?$", path) if host in ("vimeo.com", "player.vimeo.com") else None
     if m:
         h = m.group(2) or (q.get("h") or [""])[0]
@@ -211,12 +209,13 @@ class Cast:
     def _start(self, item, seconds=None, raw=False):
         """Shows item now, over whatever screen is open; pictures, texts and pages for a while, videos until their end."""
         now, secs = time.time() * 1000, self._seconds(seconds)
-        timed = item["kind"] in ("image", "gif", "text") or (item["kind"] == "link" and not item.get("embed"))
+        timed = item["kind"] in ("image", "gif", "text", "ytcode") or (item["kind"] == "link" and not item.get("embed"))
         c = {**item, "id": secrets.token_urlsafe(6), "t0": now, "until": now + secs * 1000 if timed and secs else 0, "raw": bool(raw)}
-        if c["kind"] == "link" and not c.get("embed"):
-            c["qr"] = self._qr(c["url"])
+        if c["kind"] == "link" and (not c.get("embed") or c.get("yt")):    # YouTube too: to open it on a phone (if it cannot play here)
+            c["qr"] = self._qr(youtube.watch_url(c["yt"]) if c.get("yt") else c["url"])
         self.hub.s["cast"] = c
-        self._remember(item)
+        if item["kind"] != "ytcode":                        # the YouTube TV code (pixel/ytcast.py) is not one to show again
+            self._remember(item)
         self.hub.mark()
         log.info("cast %s %s", c["kind"], c.get("src") or c.get("url") or "")
         return c
@@ -243,12 +242,14 @@ class Cast:
         what, p = classify(u), urlsplit(u)
         site = what.get("site") or (p.hostname or "").removeprefix("www.")
         tail = [s for s in p.path.split("/") if s]
-        default = f"Vidéo {site}" if what.get("embed") else (tail[-1] if tail and what["kind"] != "link" else site + ("/" + tail[-1] if tail else ""))
+        default = youtube.item(what["yt"])["title"] if what.get("yt") else f"Vidéo {site}" if what.get("embed") else (tail[-1] if tail and what["kind"] != "link" else site + ("/" + tail[-1] if tail else ""))
         item = {"kind": what["kind"], "url": u, "site": site, "title": str(title or "").strip()[:200] or default[:200]}
         if what["kind"] != "link":
             item["src"] = u                                 # a picture or a video: the screen's browser loads it
         if what.get("embed"):
             item["embed"] = what["embed"]
+        if what.get("yt"):
+            item["yt"] = what["yt"]
         return self._start(item, seconds, raw)
 
     def stop(self):

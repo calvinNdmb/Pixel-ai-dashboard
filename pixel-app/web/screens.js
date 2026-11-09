@@ -466,7 +466,7 @@ function drawBanner() {
    A video plays in a hidden <video>, drawn every frame (60 im/s: wantFps); a GIF is decoded frame by frame (ImageDecoder:
    a canvas only ever draws the first frame of a GIF); YouTube and Vimeo play in their own player over the canvas, on
    Pixel's screen only (a phone shows a card). The sound plays on Pixel's screen only (kiosk.sh lets it start alone). */
-const CA = { id: null, kind: '', t: 0, img: null, vid: null, gif: null, frame: null, ifr: null, err: '', ended: false, peek: 0 };
+const CA = { id: null, kind: '', t: 0, img: null, vid: null, gif: null, frame: null, ifr: null, yt: null, err: '', ended: false, peek: 0 };
 const PEEK = PackPlayer(), PEEKLIFE = PixelLife();
 const EMB = { x: 16, y: 58, w: 584, h: 328 };          // where YouTube and Vimeo play (16:9), Pixel beside them
 const caps = s => T.upper ? s.toUpperCase() : s;
@@ -484,7 +484,12 @@ function castLoad(c) {                // a new cast: its picture, its animation,
   }
   if (c.kind === 'gif') castGif(c);
   else if (c.kind === 'video') castVideo(c);
-  else if (c.kind === 'link' && c.embed && L.kiosk) castFrame(c);
+  else if (c.kind === 'link' && c.embed && L.kiosk) {
+    const host = cv.parentElement;    // YouTube: its IFrame API, driven from the phone and the YouTube app (web/ytplayer.js)
+    if (c.yt && window.PixelYT && host && typeof host.append === 'function') CA.yt = PixelYT.create(host, c, { send: (a, g) => send(a, g), rect: EMB,
+      muted: !!(SON() && SON().on && SON().volume === 0), dirty: () => { L.dirty = true; } });
+    else castFrame(c);
+  }
 }
 async function castGif(c) {
   const id = c.id;
@@ -521,6 +526,8 @@ function castVideo(c) {
 function castFrame(c) {               // YouTube or Vimeo: their player, over the canvas (the scanlines of the page go over it)
   const host = cv.parentElement; if (!host || typeof host.append !== 'function') return;
   const f = document.createElement('iframe'), yt = /youtube/.test(c.embed);
+  // as web/ytplayer.js: no window, no leaving Pixel's page from a tap on the player's links (the kiosk has no tabs, no back)
+  f.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-presentation allow-storage-access-by-user-activation');
   f.src = c.embed + (yt ? '&origin=' + encodeURIComponent(location.origin) : '');
   f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.referrerPolicy = 'strict-origin-when-cross-origin'; f.title = c.title || 'Vidéo';
   f.style.cssText = `position:absolute;z-index:1;border:0;background:#000;left:${EMB.x / 8}%;top:${EMB.y / 4.8}%;width:${EMB.w / 8}%;height:${EMB.h / 4.8}%`;
@@ -540,8 +547,9 @@ function castDrop() {                 // the cast is over: its video, its decode
   const v = CA.vid; if (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { /* already gone */ } }
   try { if (CA.gif) CA.gif.dec.close(); if (CA.frame) CA.frame.close(); } catch (e) { /* already closed */ }
   if (CA.ifr) CA.ifr.remove();
+  if (CA.yt) CA.yt.drop();
   if (CA.id && L.kiosk) L.lastInput = now;
-  Object.assign(CA, { id: null, kind: '', img: null, vid: null, gif: null, frame: null, ifr: null, err: '', peek: 0 });
+  Object.assign(CA, { id: null, kind: '', img: null, vid: null, gif: null, frame: null, ifr: null, yt: null, err: '', peek: 0 });
 }
 function castSync() {                 // every frame: what is cast now (null: nothing, or Pixel is starting up)
   const c = L.boot >= 0 ? null : castLive();
@@ -595,6 +603,8 @@ function castCard(c) {                // a page (or, on a phone, a YouTube video
   tl.forEach((l, i) => txt(fit(l, tw, 40, 'title'), tx, 70 + i * 44, 40, WH, 'left', 'title'));
   let y = 76 + tl.length * 44;
   txt(fit(c.site || '', tw, 30), tx, y, 30, G); y += 46;
+  const yerr = CA.yt ? CA.yt.err : c.ytp && c.ytp.st && c.ytp.st.err;    // YouTube cannot play it on Pixel (web/ytplayer.js)
+  if (yerr) return para((window.PixelYT ? PixelYT.message(yerr) : 'YouTube ne peut pas la lire ici.') + (q.length ? ' Scanne le code pour la regarder sur ton téléphone.' : ' ' + (c.url || '')), tx, y, tw, 26, AM, 31);
   para(c.embed ? "La vidéo joue sur l'écran de Pixel." : q.length ? "Scanne le code avec ton téléphone pour ouvrir la page." : c.url || '', tx, y, Math.min(tw, q.length ? tw : 560), 24, D, 28);
 }
 function castPlayer(c) {              // Pixel's screen, YouTube or Vimeo: a TV with their player, Pixel watching beside it
@@ -604,7 +614,27 @@ function castPlayer(c) {              // Pixel's screen, YouTube or Vimeo: a TV 
   rule(612, 60, 2, 360);
   box(626, 376, 160, 54, AM); txt(fit(caps('Arrêter'), 148, 28), 706, 389, 28, AM, 'center');
   hit(612, 48, W - 612, H - 48, () => send('cast.stop'));                  // the column beside the player stops it
+  if (CA.yt) return castYtBar();                                           // (YouTube hides under the quick menu by itself)
   const vis = L.menu ? 'hidden' : 'visible'; if (CA.ifr.style.visibility !== vis) CA.ifr.style.visibility = vis;   // under the quick menu
+}
+const mmss = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600); return (h ? h + ':' + pad(s / 60 % 60) : Math.floor(s / 60)) + ':' + pad(s % 60); };
+function castYtBar() {                // YouTube on Pixel's screen: how far it is, and a key to pause it (the phone has the rest)
+  const [t, d] = CA.yt.time(), on = CA.yt.state === 1 || CA.yt.state === 3, by = EMB.y + EMB.h + 52;
+  if (d > 0) {
+    X.shadowBlur = 0; X.fillStyle = DK; X.fillRect(EMB.x, by, EMB.w, 4); X.fillStyle = G; X.fillRect(EMB.x, by, EMB.w * Math.min(1, t / d), 4); glow();
+    txt(fit(mmss(t) + ' / ' + mmss(d), 176, 24), 706, 238, 24, D, 'center');
+  }
+  box(626, 300, 160, 54, G); txt(fit(caps(on ? 'Pause' : 'Lecture'), 148, 28), 706, 313, 28, G, 'center');
+  hit(618, 292, 176, 70, () => send('yt.toggle'));
+}
+function castCode() {                 // the YouTube app's "Link with TV code" (pixel/ytcast.py): the code, in big
+  header('YouTube');
+  const code = P.ytcast && P.ytcast.code, s = code || caps('Code en préparation…');
+  txt(caps('Code TV'), 400, 64, 30, D, 'center');
+  let size = code ? 104 : 44;
+  for (; size > 28; size -= 4) { X.font = F(size, 'title'); if (X.measureText(s).width <= 720) break; }
+  txt(s, 400, 108, size, code ? WH : AM, 'center', 'title');
+  para("Sur ton téléphone : l'appli YouTube, ta photo, Paramètres, Regarder sur la télé, Saisir le code TV. Le code change toutes les 5 minutes.", 70, 250, 660, 26, G, 32);
 }
 function castFace(c, e, player) {     // the little Pixel: he peeks in from the corner, reacts, ducks away, comes back now and then
   const media = c.kind === 'image' || c.kind === 'gif' || c.kind === 'video', show = !media || e < 7000 || (e - 7000) % 30000 > 25000;
@@ -621,8 +651,10 @@ function castFace(c, e, player) {     // the little Pixel: he peeks in from the 
   X.globalAlpha = 1;
 }
 function drawCast(c) {
-  const e = now - CA.t, player = c.kind === 'link' && !!c.embed && !!CA.ifr;
+  if (CA.yt) CA.yt.sync(c, !!L.menu);                                      // web/ytplayer.js: the phone's orders, the app's next video
+  const e = now - CA.t, player = c.kind === 'link' && !!c.embed && (!!CA.ifr || (!!CA.yt && !CA.yt.err));
   if (c.kind === 'text') castSign(c);
+  else if (c.kind === 'ytcode') castCode();
   else if (player) castPlayer(c);
   else if (c.kind === 'link') castCard(c);
   else castMedia(c);
@@ -712,6 +744,7 @@ function fast(ms = 150) { L.fastUntil = Math.max(L.fastUntil, realNow() + ms); }
 function wantFps() {
   const r = realNow();
   if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (PV.id && L.scr === 'visage') || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
+  if (CA.yt && !CA.yt.err && now - CA.t > 1500) return 10;                // YouTube plays in its own frame: the canvas around it rests
   if (CA.id) return CA.vid || CA.gif || now - CA.t < 1500 ? 60 : Math.min(T.faceFps || 30, 30);   // a cast: a video or a GIF at full speed
   const calm = T.calmFps || 10;                       // still screens: the clock, a blinking cursor
   switch (L.scr) {
@@ -786,7 +819,7 @@ return {
       if (P.lights && p.lights && lit(P.lights.rooms) !== lit(p.lights.rooms) && anyOn(P.lights.rooms) && anyOn(p.lights.rooms)) ev('lights-change');
       const wk = w => w && w.now && w.now.kind;
       if (wk(P.weather) && wk(p.weather) && wk(P.weather) !== wk(p.weather)) ev('weather', { kind: wk(p.weather) });
-      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|poche\.|cast\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
+      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|poche\.|cast\.|yt\.|ytcast\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
     }
     if (p.toast && p.toast.id !== L.lastToast) {
       L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now };
@@ -816,7 +849,7 @@ return {
   },
   get menuOpen() { return !!L.menu; },
   get buddy() { return { x: BUD.x, act: BUD.act, dir: BUD.dir }; },
-  get cast() { return { id: CA.id, kind: CA.kind, ready: !!castSrc(), err: CA.err, frame: CA.gif ? CA.gif.i : -1, video: !!CA.vid, playing: !!(CA.vid && !CA.vid.paused), player: !!CA.ifr, peek: CA.peek }; },   // tests, lab   // the little Pixel of the Minuteur screen (tests, lab)
+  get cast() { return { id: CA.id, kind: CA.kind, ready: !!castSrc(), err: CA.err, frame: CA.gif ? CA.gif.i : -1, video: !!CA.vid, playing: !!(CA.vid && !CA.vid.paused), player: !!(CA.ifr || (CA.yt && !CA.yt.err)), yt: CA.yt ? CA.yt.info() : null, peek: CA.peek }; },   // tests, lab   // the little Pixel of the Minuteur screen (tests, lab)
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

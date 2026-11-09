@@ -2,7 +2,7 @@
 
 Deux parties :
 
-1. **Le mode d'emploi** de ce qui est fait : le panneau **Caster sur Pixel** de l'appli, le partage Android, le Raccourci iPhone.
+1. **Le mode d'emploi** de ce qui est fait : le panneau **Caster sur Pixel** de l'appli, le partage Android, le Raccourci iPhone, YouTube (avec la télécommande du téléphone, et le bouton Caster de l'appli YouTube).
 2. **Les autres façons** d'envoyer l'écran d'un téléphone ou d'un PC sur un Raspberry Pi : AirPlay, Google Cast, DLNA, Miracast, partage d'écran dans le navigateur. Avec, pour chacune, ce qu'elle apporte, ses limites, le travail, et la suite conseillée.
 
 ---
@@ -18,7 +18,7 @@ Deux parties :
 | une vidéo (MP4, MOV de l'iPhone, WebM) | en grand, avec le son | jusqu'au bout |
 | un texte (280 caractères au plus) | en gros, dans la police du thème | 2 minutes |
 | un lien vers une image ou une vidéo | comme un fichier envoyé | idem |
-| un lien YouTube ou Vimeo | leur lecteur, dans une « télé », Pixel la regarde à côté | jusqu'au bout |
+| un lien YouTube ou Vimeo | leur lecteur, dans une « télé », Pixel la regarde à côté ; pour YouTube, le téléphone est la télécommande (voir YouTube) | jusqu'au bout |
 | un lien vers une page web | une carte : le titre, le site, un QR code pour l'ouvrir sur ton téléphone | 2 minutes |
 
 Ça s'affiche **par-dessus l'écran ouvert**. À la fin, Pixel revient où il était.
@@ -92,6 +92,77 @@ curl -H 'Content-Type: application/json' -d '{"url": "https://youtu.be/aqz-KE-bp
 
 Tu peux aussi taper dans la barre `C:\PIXEL>` : `caste À table !`, `caste https://youtu.be/…`, puis `stop`.
 
+### YouTube
+
+Deux façons : **un lien** (rien à installer, ça marche toujours) et **le bouton Caster de l'appli YouTube** (facultatif, à activer sur le Pi). Dans les deux cas, la vidéo joue dans le **lecteur de YouTube**, sur l'écran de Pixel, sans effet rétro par-dessus, et ton téléphone devient la télécommande.
+
+#### Avec un lien
+
+- **Envoie le lien** : colle-le dans **Caster sur Pixel**, ou **Partager → Pixel** depuis l'appli YouTube (Android), ou le Raccourci (iPhone), ou tape `caste https://youtu.be/…`. Tous ces liens marchent : `youtube.com/watch?v=…`, `youtu.be/…`, les Shorts, les directs (`/live/…`), `music.youtube.com`, une playlist (`list=…`, ou `youtube.com/playlist?list=…`), et l'endroit où commencer (`t=90`, `t=1m30s`, `start=…`).
+- **Sur l'écran de Pixel** : le lecteur de YouTube à gauche. À droite : Pixel qui regarde, le temps (`1:23 / 9:56`), **Pause / Lecture** et **Arrêter**. Toucher le lecteur, c'est toucher YouTube (ses propres boutons). Ses liens (le titre, le logo, « Plus de vidéos », les pubs) n'ouvrent rien : sur l'écran du Pi, sans onglets ni retour, une autre fenêtre cacherait Pixel jusqu'au redémarrage.
+- **Sur ton téléphone**, dans le panneau **Caster sur Pixel** : la télécommande. Le vrai titre de la vidéo, la barre (glisse-la pour aller ailleurs), **−10 s**, **Pause**, **+10 s**, le **son** de Pixel, **Couper le son**, et **Arrêter**.
+- **À la fin** de la vidéo (de la dernière, pour une playlist), Pixel revient là où il était.
+- **Si YouTube refuse la vidéo**, Pixel le dit en clair, avec un QR code pour la regarder sur ton téléphone (et le téléphone a un bouton **Ouvrir sur YouTube**). La carte part toute seule après 1 min 30, ou d'une touche.
+
+| Erreur de YouTube | Ce que Pixel dit |
+| --- | --- |
+| 101, 150 | Son auteur ne permet pas de la regarder ailleurs que sur YouTube. |
+| 100 | Cette vidéo n'existe plus, ou elle est privée. |
+| 2 | Ce lien YouTube n'est pas valable. |
+| 5 | Le lecteur de Pixel n'arrive pas à lire cette vidéo. |
+| 152, 153 | YouTube refuse le lecteur de Pixel. Pixel réessaie d'abord tout seul, une fois, avec `youtube.com` au lieu de `youtube-nocookie.com`. |
+| (pas de réponse) | YouTube ne répond pas. Pixel est-il connecté à Internet ? |
+
+Comment c'est fait : l'écran de Pixel crée lui-même le cadre du lecteur (l'API IFrame de YouTube, `web/ytplayer.js`), avec `enablejsapi=1`, son adresse d'origine, `referrerpolicy="strict-origin-when-cross-origin"` (sans elle, YouTube répond 153), `allow="autoplay; fullscreen"`, et un `sandbox` qui garde ses scripts et son origine (l'API IFrame marche) sans `allow-popups` ni `allow-top-navigation` (aucune fenêtre, la page de Pixel reste). Le lecteur de Vimeo a le même. Le cadre passe au-dessus des lignes de l'écran. Le serveur ne fait que garder les ordres du téléphone, numérotés, et ce que le lecteur lui dit (`pixel/youtube.py`) : il n'ouvre jamais le lien. Le script de YouTube n'est chargé qu'au premier cast YouTube.
+
+#### Depuis le bouton Caster de l'appli YouTube (facultatif)
+
+Pixel peut apparaître dans le bouton **Caster** de l'appli YouTube, comme une télé, et accepter le **code TV**. Un petit programme Node.js s'en occupe (`sidecar/ytcast/`, avec la bibliothèque libre [yt-cast-receiver](https://github.com/patrickkfkan/yt-cast-receiver)). Il ne joue rien lui-même : chaque vidéo va au lecteur de Pixel, le même que pour un lien. Le serveur de Pixel le lance, le relance s'il s'arrête, et l'arrête avec lui. Il est **éteint par défaut**.
+
+**L'activer sur le Pi** (une fois, il faut Internet) :
+
+```sh
+cd ~/Pixel-ai-dashboard/pixel-app
+PIXEL_YTCAST=1 sh deploy/install.sh      # installe Node.js (celui de Raspberry Pi OS suffit : 18 ou plus) et lance npm ci --omit=dev
+nano config.toml                         # dans [ytcast] : enabled = true
+sudo systemctl restart "pixel@$USER"
+```
+
+Ou à la main : `sudo apt install nodejs npm`, puis `cd sidecar/ytcast && npm ci --omit=dev`. Ensuite, le panneau **Caster sur Pixel** du téléphone dit « Appli YouTube : « Pixel » est dans le bouton Caster ». Les réglages sont dans `[ytcast]` (plus bas).
+
+**Depuis chaque appareil :**
+
+- **Android et iPhone, l'appli YouTube** (même Wi-Fi que Pixel) : ouvre une vidéo, touche l'icône **Caster** en haut, choisis **Pixel**. La vidéo joue sur Pixel. L'appli devient la télécommande : pause, avancer, le son (avec les boutons du téléphone), la vidéo suivante de la liste. Le panneau de l'appli de Pixel marche aussi, en même temps. Pixel dit « YOUTUBE : … EST CONNECTÉ » quand un téléphone se relie.
+- **Le code TV**, si Pixel n'apparaît pas dans la liste (un Wi-Fi qui bloque la découverte, un autre réseau) : dans le panneau, **Afficher le code TV sur Pixel** (ou tape `code tv`). Le code s'affiche en grand. Sur le téléphone : l'appli YouTube, ta photo, **Paramètres**, **Regarder sur la télé**, **Saisir le code TV** (les noms des menus changent un peu selon la version de l'appli). Le code change toutes les 5 minutes, et il quitte l'écran dès qu'un téléphone est relié. Ensuite, Pixel reste dans la liste de ce téléphone.
+- **Un ordinateur** : dans Chrome ou Edge, le lecteur de youtube.com a aussi un bouton Caster quand Pixel est sur le réseau (pas essayé). Sinon, le lien.
+- **iPhone, iPad, Mac : AirPlay.** L'appli YouTube d'iPhone sait aussi envoyer la vidéo par AirPlay, vers UxPlay (voir AirPlay, dans la partie 2). Par là, même les vidéos interdites ailleurs que sur YouTube (101, 150) passent : c'est l'appli YouTube qui les lit.
+
+**À savoir :**
+
+- Les vidéos interdites ailleurs que sur YouTube (101, 150) le restent par le bouton Caster : Pixel affiche la même carte. Pour celles-là : AirPlay (iPhone), ou le mode TV ci-dessous.
+- Le bouton Caster de YouTube n'est **pas** Google Cast : l'appli parle à Pixel comme à une télé connectée (DIAL sur le Wi-Fi, puis les serveurs de YouTube). Ces protocoles ne sont pas publiés : une mise à jour de l'appli YouTube peut les casser. Alors, mets à jour `yt-cast-receiver` (sa version dans `sidecar/ytcast/package.json`, puis `npm install`), ou passe par un lien en attendant.
+- **Sécurité :** le module ne parle qu'au serveur de Pixel, sur le Pi lui-même (`ws://127.0.0.1:8080/ytcast`), avec son propre code (dans son environnement, et dans `~/.config/pixel/ytcast/token` pour le lancer à la main ; jamais celui du téléphone). Une page web, même sur le Pi, ne peut pas lui parler. Son petit serveur DIAL (port 3000) répond sur le Wi-Fi de la maison, en IPv4 seulement (jamais sur l'adresse IPv6 publique du Pi, que la box ne filtre pas toujours) : c'est par lui que les téléphones trouvent Pixel. La bibliothèque contacte les serveurs de YouTube (la session, le code TV, la suite de la liste) ; le serveur de Pixel, lui, n'ouvre toujours aucun lien.
+- **S'il s'arrête**, le serveur le relance (après 2 s, puis 4 s… jusqu'à 2 min) et le panneau le dit. « Module absent » : lance `npm ci --omit=dev` dans `sidecar/ytcast`. « Node.js introuvable » : installe Node.js. « YouTube ne répond pas » : pas d'Internet. Ses messages sont dans le journal de Pixel (`journalctl -u "pixel@$USER"`, lignes `ytcast:`).
+- La bibliothèque utilise `peer-dial`, « libre pour un usage non commercial » : pour Pixel à la maison, c'est bon.
+
+#### En dernier recours : le mode TV de YouTube (non intégré)
+
+Pour une vidéo que rien d'autre ne lit, il reste **YouTube pour les télés** (`https://www.youtube.com/tv`) : la vraie interface télé de YouTube, avec « Associer avec un code TV » dans ses réglages. Pixel ne l'intègre pas (il ne saurait pas ce qui joue), et YouTube peut la fermer aux navigateurs du jour au lendemain. Pour l'essayer à la main sur le Pi :
+
+- YouTube ne l'ouvre qu'à un navigateur qui se dit télé. Il faut un **deuxième Chromium**, avec son propre profil, et une petite extension qui change son nom (le « user agent » d'une télé Tizen) et retire ses « client hints », comme le fait [pi-tv-launcher](https://github.com/Toygarmetu/pi-tv-launcher) (encore valable en octobre 2026, pas essayé sur un Pi) :
+  `chromium --user-data-dir="$HOME/.config/pixel/yttv-profile" --kiosk --autoplay-policy=no-user-gesture-required --app=https://www.youtube.com/tv`
+  Sur Raspberry Pi OS, l'extension se charge par un fichier `/etc/chromium.d/pixel-yttv` (`[ "$PIXEL_YTTV" = 1 ] && CHROMIUM_FLAGS="$CHROMIUM_FLAGS --load-extension=/opt/pixel/yttv-ext"`), lancé avec `PIXEL_YTTV=1`.
+- Plus simple : [VacuumTube](https://github.com/shy1132/VacuumTube) (un paquet `.deb` arm64), puis `vacuumtube --fullscreen`. Il apparaît aussi dans le bouton Caster.
+- Sur le téléphone : l'appli YouTube, **Paramètres**, **Regarder sur la télé**, **Saisir le code TV**, avec le code que montre la page télé.
+- Pour revenir à Pixel : ferme cette fenêtre (Alt+F4 au clavier, ou `pkill -f yttv-profile`).
+
+#### Pas encore essayé sans Pi ni téléphone
+
+- **Le vrai lecteur YouTube** : les tests le remplacent par un faux (pas d'Internet ici). À vérifier sur le Pi : que YouTube accepte l'origine `http://localhost:8080` de l'écran (pas d'erreur 153), et qu'il joue dans son cadre `sandbox` (un toucher sur son titre ou son logo n'ouvre rien). Si l'erreur 153 reste, même après l'essai sur youtube.com : ouvre l'écran par le nom du Pi, avec le code, dans `deploy/kiosk.sh` (`URL="http://pixel.local:8080/?kiosk=1&t=TON_CODE"`).
+- **Le bouton Caster depuis un vrai téléphone** : le module a tourné pour de vrai pendant le développement (la session YouTube s'ouvre, YouTube donne un vrai code TV), mais aucun téléphone ne s'y est encore relié. À essayer : la découverte sur le Wi-Fi de la maison (DIAL, multicast) avec l'appli Android et l'appli iPhone, et le code TV.
+- **Sur le Pi 4 et le Pi 5** : le lecteur YouTube dans Chromium. Le Pi 5 décode la vidéo avec son processeur : si ça saccade, choisis 720p dans le menu du lecteur. Pendant la vidéo, l'écran autour (le temps, Pixel) ne se redessine que 10 fois par seconde, pour laisser le processeur à la vidéo.
+- **Le son** par la sortie du Pi, et les publicités de YouTube (elles passent dans le lecteur, comme sur une télé).
+
 ### Les réglages (`config.toml`)
 
 ```toml
@@ -99,6 +170,12 @@ Tu peux aussi taper dans la barre `C:\PIXEL>` : `caste À table !`, `caste https
 max_mb = 40       # la taille maximale d'un fichier, en Mo
 seconds = 120     # combien de temps reste une photo, un GIF, un texte ou un lien (0 : jusqu'à « Arrêter »)
 keep = 8          # les derniers fichiers gardés, à réafficher
+
+[ytcast]          # le bouton Caster de l'appli YouTube (voir YouTube, plus haut)
+enabled = false   # true pour l'activer (il faut Node.js et npm ci --omit=dev dans sidecar/ytcast)
+name = "Pixel"    # son nom dans le menu Caster
+port = 3000       # le port DIAL, sur le Wi-Fi de la maison
+# node = "/usr/bin/node"   # si Node.js n'est pas dans le PATH
 ```
 
 ### Pour les curieux : l'API
@@ -110,18 +187,21 @@ keep = 8          # les derniers fichiers gardés, à réafficher
 | `GET /cast/NOM` | les fichiers reçus, avec leur vrai type. |
 | actions WebSocket | `cast.text`, `cast.link`, `cast.stop`, `cast.again` (`id`), `cast.colors` (`raw`), `cast.end` (envoyée par l'écran de Pixel à la fin d'une vidéo). |
 | état | `cast` : `{id, kind (image, gif, video, text, link), src, text, url, title, site, embed, qr, t0, until, raw}`. `cast_recent` : les derniers. |
+| actions WebSocket (YouTube) | `yt.play`, `yt.pause`, `yt.toggle`, `yt.seek` (`by` ±, ou `to`), `yt.volume` (`level`, ou `by`), `yt.mute` (`on`), `ytcast.code` (le code TV à l'écran). L'écran de Pixel envoie `yt.report` (ce que fait le lecteur) et `yt.ended`. |
+| état (YouTube) | `cast.yt` : `{id, list, start, music}`. `cast.ytp` : `{src (lien, appli), v, n, cmds (les 8 derniers ordres, numérotés), st (état, position, durée, volume, erreur)}`. `ytcast` : `{on, ok, status, code, senders, name}`. Un cast `ytcode` : le code TV. |
+| `GET /ytcast` | le WebSocket du module YouTube, seul (`pixel/ytcast.py` décrit ses messages) : le Pi lui-même, sans en-tête `Origin` (aucune page web), avec le code du module dans son premier message. |
 
 ### Sécurité
 
 - **Le même code d'accès** que le reste de l'appli : `?t=`, l'en-tête `X-Pixel-Token`, ou le cookie que pose l'appli (`SameSite=Strict` : une page d'un autre site ne l'envoie jamais). Seul le Pi lui-même passe sans code. Et seulement les appareils de la maison, comme avant.
-- **Une page d'un autre site affichée sur le Pi** (le lecteur YouTube) n'est pas Pixel : elle n'a pas accès au WebSocket ni au cast sans le code.
+- **Une page d'un autre site affichée sur le Pi** (le lecteur YouTube) n'est pas Pixel : elle n'a pas accès au WebSocket ni au cast sans le code. Pas plus qu'une page sans origine (`Origin: null` : un cadre « sandbox », un fichier) ou un autre nom qui mène au Pi : sans code, seule la page de Pixel à `http://localhost:8080` (ou `127.0.0.1`, sur le port du serveur) passe.
 - **Les fichiers :** leur type vient de leurs premiers octets, jamais de leur nom. Un fichier qui n'est pas une image ou une vidéo est refusé tout de suite. Ils arrivent sur la carte SD au fil de l'envoi, s'arrêtent à la limite de taille, et prennent un nom tiré au sort dans `~/.config/pixel/cast/`. Seuls les 8 derniers restent.
 - **Les liens :** le serveur n'en ouvre **aucun**. Sinon, quiconque peut caster pourrait fouiller le réseau de la maison depuis le Pi. Une image ou une vidéo en lien est chargée par le navigateur de l'écran, comme sur n'importe quelle page. YouTube et Vimeo jouent dans leur propre lecteur. Une autre page n'est jamais ouverte sur le Pi : juste une carte avec un QR code.
 
 ### Limites connues
 
 - Un **GIF en lien** vers un site qui l'interdit (CORS) ne montre que sa première image. Un GIF envoyé depuis le téléphone est toujours animé.
-- Certaines **vidéos YouTube** refusent d'être lues ailleurs que sur YouTube (« Vidéo non disponible »).
+- Certaines **vidéos YouTube** refusent d'être lues ailleurs que sur YouTube (erreurs 101 et 150) : Pixel le dit, avec un QR code pour la regarder sur le téléphone.
 - Pour une **page web**, Pixel ne montre pas la page elle-même, seulement sa carte.
 - **Pas encore essayé sur le vrai Pi :** le dessin d'une vidéo 1080p 60 fois par seconde sur le Pi 4, et le son par la sortie du Pi. Si la vidéo saccade, une vidéo en 720p ira mieux.
 
@@ -136,6 +216,7 @@ Ce qui est fait au-dessus **envoie un fichier ou un lien**. Pour **recopier l'é
 | Solution | Depuis | Recopie d'écran | Fiabilité | Travail | Avis |
 | --- | --- | --- | --- | --- | --- |
 | **Caster sur Pixel** (fait) | tout téléphone, PC | non : fichiers, liens, textes | bonne | fait | la base |
+| **YouTube** : lien et bouton Caster de l'appli (fait) | Android, iPhone, PC | non : la vidéo | bonne (lien), moyenne (bouton) | fait | le bouton Caster est en option |
 | **AirPlay avec UxPlay** | iPhone, iPad, Mac | oui, avec le son | bonne | ½ à 1 jour | **la suite, si la maison a des iPhone ou un Mac** |
 | **Partage Android dans l'appli pixel-mobile** | Android | non | très bonne | ½ jour | **la suite côté Android** |
 | **Partage d'écran WebRTC** | navigateur d'ordinateur | oui (onglet, fenêtre, écran) | bonne | 1 jour | quand Pixel aura une adresse https |
@@ -177,6 +258,7 @@ Ce qui est fait au-dessus **envoie un fichier ou un lien**. Pour **recopier l'é
 - **Ce qui reste :**
   - un vrai Chromecast ou Google TV sur un autre écran (pas sur Pixel) ;
   - **Partager → Pixel** pour les liens YouTube : Pixel les joue déjà, dans le lecteur YouTube ;
+  - le **bouton Caster de l'appli YouTube**, qui n'est pas Google Cast mais DIAL, comme une télé : c'est fait, en option (voir YouTube, plus haut) ;
   - le partage d'écran WebRTC depuis Chrome sur un ordinateur (plus bas) ;
   - AirPlay pour les appareils Apple.
 

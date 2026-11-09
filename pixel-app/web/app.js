@@ -237,6 +237,7 @@ function castFile(f) {
 const castLabel = c => c.kind === 'text' ? '« ' + c.text + ' »' : c.kind === 'link' ? c.title || c.site : c.title || c.kind;
 function castRender() {                                     // what is on his screen, the stop button, the last ones to show again
   if (kiosk || !P) return;
+  if (window.PixelYTRemote) PixelYTRemote.render(P, send);    // YouTube on Pixel: its remote control, the YouTube app (ytremote.js)
   const c = P.cast && (!P.cast.until || P.server_now < P.cast.until) ? P.cast : null;
   setT($('castNow'), c ? "À l'écran : " + castLabel(c) : "Rien à l'écran pour le moment.");
   $('castStop').disabled = !c;
