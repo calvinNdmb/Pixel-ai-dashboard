@@ -1305,6 +1305,49 @@ function pkVector(x, y, w, h, st, theme, post) {
 const PK_RETRO = [null, R.fg, R.hi, R.pink, R.accent, R.hi, R.dim, '#2c6e46'].map(c => c && rgb(c));
 const PK_LCD = [null, S3, S1, S2, S3, S2, S2, S1].map(c => c && rgb(c)), PK_LCD_SH = [null, 1, 1, 1, 1, 1, 1, 1].map(c => c && [32, 44, 24]);
 /* frame rates (screens.js): the pixel faces change about 20 times a second; Néon and Moderne have a moving background */
+/* Rétro: an old green CRT, drawn over everything (the scanlines come from the page, under .screen::after):
+   phosphor grain, a refresh band rolling down, a slight flicker, the curved glass (dark corners, a reflection),
+   and once in a while a line that jumps. All of it goes with the "Effet cathodique" switch (view.crt_off). */
+const hash = n => { n = (n ^ 61) ^ (n >>> 16); n = n + (n << 3); n ^= n >>> 4; n = Math.imul(n, 0x27d4eb2d); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; };
+let grainC = null;
+function grain() {                                  // 200 x 120 of green noise, made once
+  if (grainC) return grainC;
+  grainC = document.createElement('canvas'); grainC.width = 200; grainC.height = 120;
+  const g = grainC.getContext('2d'), im = g.createImageData(200, 120), d = im.data;
+  for (let i = 0; i < d.length; i += 4) { const v = hash(i * 7 + 3) * 255; d[i] = v * 0.35; d[i + 1] = v; d[i + 2] = v * 0.55; d[i + 3] = 255; }
+  g.putImageData(im, 0, 0); return grainC;
+}
+retro.fg = () => {
+  if (H.crt === false) return;
+  const t = H.now, f = Math.floor(t / 60);
+  X.save(); X.shadowBlur = 0;
+  // phosphor grain, moved a little every frame
+  X.globalCompositeOperation = 'lighter'; X.globalAlpha = 0.05; X.imageSmoothingEnabled = false;
+  X.drawImage(grain(), -Math.floor(hash(f) * 60), -Math.floor(hash(f + 9) * 36), W + 60, HT + 36);
+  if (!H.RM) {
+    // the refresh band, rolling down every 7 s
+    const by = ((t / 7000) % 1) * (HT + 160) - 80;
+    X.globalAlpha = 0.07; X.drawImage(cached('r-band', W, 80, g => { const gr = g.createLinearGradient(0, 0, 0, 80); gr.addColorStop(0, 'rgba(70,255,130,0)'); gr.addColorStop(0.5, 'rgba(120,255,170,1)'); gr.addColorStop(1, 'rgba(70,255,130,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, 80); }), 0, by, W, 80);
+  }
+  X.globalCompositeOperation = 'source-over';
+  // a slight flicker of the whole picture
+  if (!H.RM) { X.globalAlpha = 0.025 + 0.02 * Math.sin(t / 37) * Math.sin(t / 131); X.fillStyle = '#000'; X.fillRect(0, 0, W, HT); }
+  // the curved glass: dark rounded corners, a soft reflection at the top left
+  X.globalAlpha = 1;
+  X.drawImage(cached('r-glass', W, HT, g => {
+    const v = g.createRadialGradient(W / 2, HT / 2, HT * 0.45, W / 2, HT / 2, W * 0.62); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.5)');
+    g.fillStyle = v; g.fillRect(0, 0, W, HT);
+    const r = g.createRadialGradient(W * 0.26, HT * 0.16, 10, W * 0.26, HT * 0.16, W * 0.36); r.addColorStop(0, 'rgba(210,255,225,0.07)'); r.addColorStop(1, 'rgba(210,255,225,0)');
+    g.fillStyle = r; g.beginPath(); g.ellipse(W * 0.3, HT * 0.2, W * 0.34, HT * 0.22, -0.18, 0, 7); g.fill();
+  }), 0, 0, W, HT);
+  // once in a while (about every 20 s) a strip of lines jumps sideways for a moment
+  const k = Math.floor(t / 20000), at = hash(k) * 19000;
+  if (!H.RM && t % 20000 > at && t % 20000 < at + 140) {
+    const y = Math.floor(40 + hash(k + 1) * 380), h = 6 + Math.floor(hash(k + 2) * 14), s = H.S || 1, dx = (hash(k + 3) < 0.5 ? -1 : 1) * (4 + hash(f) * 8);
+    X.drawImage(X.canvas, 0, y * s, W * s, h * s, dx, y, W, h);
+  }
+  X.restore();
+};
 retro.faceFps = lcd.faceFps = 24; neon.calmFps = moderne.calmFps = 20;
 retro.packFace = (x, y, w, h, st) => pkPixels(x, y, w, h, st, { pal: PK_RETRO, glow: 0.42, grid: R.bg });
 lcd.packFace = (x, y, w, h, st) => {

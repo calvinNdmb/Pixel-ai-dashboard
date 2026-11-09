@@ -41,7 +41,7 @@ function mood() {
   if (P && P.sys && P.sys.temp > 80) return 'malade';
   return 'neutre';
 }
-const THEMES = PixelThemes({ X, RM, get now() { return now; }, get S() { return S; }, get scr() { return L.boot >= 0 ? 'boot' : L.scr; },
+const THEMES = PixelThemes({ X, RM, get now() { return now; }, get S() { return S; }, get crt() { return !(P && P.view && P.view.crt_off); }, get scr() { return L.boot >= 0 ? 'boot' : L.scr; },
   blinkP: () => (now - L.blink.t) / 180, txt, wrap, fit });
 const IDS = Object.keys(THEMES);
 /* Pixel's personality (persona.js): reactions to touch, moods that last, moments of life when nobody looks */
