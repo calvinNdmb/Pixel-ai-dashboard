@@ -66,7 +66,8 @@ async function main(browser) {
   const A = hub(A_URL), B = hub(B_URL);
   await until(() => A.ws.readyState === 1 && B.ws.readyState === 1 && A.S && B.S, 8000);
   check('both servers have the friends (snapshot "amis"): available, no friend, nothing sent', !!A.S.amis && A.S.amis.dispo && !A.S.amis.amis.length && B.S.amis.lien === 'off', JSON.stringify(A.S.amis && { dispo: A.S.amis.dispo, lien: A.S.amis.lien }));
-  A.act('caractere.set', { nom: 'Pixou' }); B.act('caractere.set', { nom: 'Bip', preset: 'farceur' }); B.act('theme.set', { name: 'neon' });
+  const day = { de: 23, a: 23 };                          // no quiet hours: the test runs at any time (else after 23 h they sleep)
+  A.act('caractere.set', { nom: 'Pixou', calme: day }); B.act('caractere.set', { nom: 'Bip', preset: 'farceur', calme: day }); B.act('theme.set', { name: 'neon' });
   await until(() => A.S.caractere.nom === 'Pixou' && B.S.caractere.nom === 'Bip' && B.S.view.theme === 'neon');
   const ka = await kiosk(browser, A_URL), kb = await kiosk(browser, B_URL);
 

@@ -259,6 +259,8 @@ function news(e) {
     return;
   }
   if (away() || hosting() || asking()) return;                          // busy with a visit: the journal keeps it
+  const asleep = L.sleepy || (PER && PER.isNight ? PER.isNight(new Date().getHours()) : false);
+  if (asleep && (e.kind === 'coucou' || e.kind === 'sticker')) return;   // asleep (or his quiet hours): it waits in the journal
   if (e.kind === 'coucou') { Sc.event('ami-coucou', data, true); peek(e, 'coucou'); }
   else if (e.kind === 'sticker' && ART && ART.BY[e.s]) { Sc.event('ami-sticker', { ...data, s: e.s, sn: e.sn || stickerName(e.s) }, true); peek(e, 'sticker'); }
   else if (e.kind === 'nouvel-ami') { Sc.event('ami-nouveau', data, true); peek(e, 'nouvel-ami'); }
