@@ -30,7 +30,7 @@ def tool(name, description, props=None, required=()):
 
 TOOLS = [
     tool("get_status", "Lit l'état actuel : date et heure, lampes Hue par pièce, scènes, météo sur 5 jours, "
-                       "agenda d'aujourd'hui et de demain, minuteur, tâche Codex."),
+                       "agenda d'aujourd'hui et de demain, minuteur, tâche Codex, ton ventre et les exos de maths du jour."),
     tool("set_lights", "Allume, éteint ou règle une pièce Hue. room : nom de la pièce, ou \"*\" pour toutes. "
                        "brightness : 0 à 100 (0 éteint).",
          {"room": {"type": "string"}, "on": {"type": "boolean"}, "brightness": {"type": "integer", "minimum": 0, "maximum": 100}}, ["room"]),
@@ -165,7 +165,19 @@ class Claude:
         return {"maintenant": now.strftime("%A %d %B %Y, %H:%M"), "lampes": s["lights"]["rooms"], "scenes": s["lights"]["scenes"],
                 "meteo": s["weather"], "agenda": s["agenda"]["events"],
                 "minuteur": {k: s["timer"][k] for k in ("mode", "running", "total")} | {"reste_s": round(self._timer_left())},
-                "codex": {k: s["codex"][k] for k in ("task", "running", "status")}}
+                "codex": {k: s["codex"][k] for k in ("task", "running", "status")}} | self._perso()
+
+    def _perso(self):
+        """His belly (pixel/nourrir.py) and the exercises (pixel/exos.py), when there: never an open exercise's answer."""
+        out, h = {}, self.hub
+        if getattr(h, "nourrir", None) is not None:
+            d = (h.s.get("nourrir") or {}).get("dernier") or {}
+            out["ventre"] = h.nourrir.status() + (f", dernier repas : {nourrir.BY_ID[d['plat']]['nom']}" if d.get("plat") in nourrir.BY_ID else "")
+        if getattr(h, "exos", None) is not None:
+            c = h.exos.cur
+            out["exos"] = h.exos.summary() + (f" Un exo est ouvert sur ton écran ({c.get('type')}) : « {c.get('q')} ». Ne donne pas la réponse ; "
+                                               "un indice si on te le demande." if c and c.get("etat") == "question" else "")
+        return out
 
     def _timer_left(self):
         t = self.hub.s["timer"]

@@ -1,6 +1,7 @@
 """Pixel's math exercises, the server's side (pixel/exos.py):
 
     python3 tests/test_exos.py                     # also starts its own demo server (port 8181, temporary data folder)
+    EXOS_PY_PORT=8194 python3 tests/test_exos.py   # another port for it
 
 - the generator: every kind at every level gives a question whose answer is right (checked by computing it again) and
   among 4 distinct choices, a hint and a correction; the same seed gives the same exercise; the classic mistakes are there;
@@ -34,7 +35,7 @@ from pixel import exos  # noqa: E402
 from pixel.claude import TOOLS, check as claude_check  # noqa: E402
 from pixel.state import Hub  # noqa: E402
 
-PORT = 8181
+PORT = int(__import__("os").environ.get("EXOS_PY_PORT") or 8181)   # EXOS_PY_PORT=… for another
 fails = []
 
 

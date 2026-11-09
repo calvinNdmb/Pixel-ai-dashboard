@@ -15,7 +15,7 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
-        "visage vivant · caractère câlin · sinon : Claude")
+        "visage vivant · caractère câlin · mange une pomme · exo · table de 7 · sinon : Claude")
 # a few words that play an animation on their own
 BARE = {"danse": "danse", "chante": "chante", "coucou": "salut", "bisou": "bisou"}
 FACE_WORDS = {"pack": "pack", "pack 52": "pack", "52": "pack", "animations": "pack", "vivant": "vivant", "anime": "vivant"}

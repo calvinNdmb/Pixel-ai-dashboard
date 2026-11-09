@@ -171,7 +171,14 @@ def roll(seed):
 def _traits(hub):
     c = hub.s.get("caractere")
     t = c.get("traits") if isinstance(c, dict) else None
-    return t if isinstance(t, dict) else {}
+    t = t if isinstance(t, dict) else {}
+    if t and c.get("humeur_jour") is True:          # his mood of the day: the traits his screens live by today (pixel/caractere.py)
+        try:
+            from . import caractere
+            return caractere.today_traits(c)
+        except Exception:                           # noqa: BLE001 - his belly never depends on it
+            pass
+    return t
 
 
 def trait(hub, name):

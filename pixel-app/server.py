@@ -171,7 +171,7 @@ async def serve(args, cfg, datadir, token):
     core_actions(hub, datadir)
     poche.setup(hub)                     # Pixel de poche: the two Pixels pass news, the voyage
     caractere.setup(hub, datadir)        # his character, saved in caractere.json
-    nourrir.setup(hub)                   # Nourrir: feeding Pixel (data_dir/nourrir.json)
+    nourrir.setup(hub, datadir)          # Nourrir: feeding Pixel (data_dir/nourrir.json)
     exos.setup(hub, datadir)             # math exercises: the exos.* actions, data_dir/exos.json
     port = args.port
     host = socket.gethostname()
