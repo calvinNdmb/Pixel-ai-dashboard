@@ -402,9 +402,13 @@ const NOUR = (() => {
     journal: [], dernier: null, sucres: 0, sucreT: 0, last: -1e9 };
   const keep = () => { try { localStorage.setItem('pixel_lab_nourrir', JSON.stringify({ on: N.on, vitesse: N.vitesse, gouts: N.gouts })); } catch {} };
   const rate = () => SPEED[N.vitesse] * (0.6 + 0.8 * trait('gourmand') / 100);
-  function tick(t = Date.now()) {         // minute by minute: the night does not count
-    if (N.on) for (let a = N.t; a < t; a += 60000) if (!night(a)) N.ventre = Math.max(0, N.ventre - Math.min(60000, t - a) / 3.6e6 * rate());
-    N.t = Math.max(N.t, t);
+  function tick(t = Date.now()) {         // minute by minute: the night does not count; a gap past 5 min (the clock moved, the tab slept)
+    if (N.on && t > N.t) {                //   counts like the server down: 6 awake hours at most, never below 25
+      const down = t - N.t > 300000; let h = 0;
+      for (let a = N.t; a < t && !(down && h >= 6); a += 60000) if (!night(a)) h += Math.min(60000, t - a) / 3.6e6;
+      N.ventre = !down ? Math.max(0, N.ventre - h * rate()) : N.ventre > 25 ? Math.max(25, N.ventre - Math.min(6, h) * rate()) : N.ventre;
+    }
+    N.t = t < N.t - 300000 ? t : Math.max(N.t, t);   // a clock set back: count from its new time
   }
   function publish() {
     S.nourrir = { on: N.on, ventre: Math.round(N.ventre), faim: level(N.ventre), dernier: N.dernier, gouts: { ...N.gouts, aime: [...N.gouts.aime], deteste: [...N.gouts.deteste] },
@@ -414,7 +418,7 @@ const NOUR = (() => {
     const g = N.gouts, v = N.ventre;
     if (v >= 92 + (trait('gourmand') - 50) / 10) return ['plein', false, N.sucres];
     if (g.deteste.includes(f.id) && trait('grognon') >= 70) return ['refuse', false, N.sucres];
-    let run = f.cat === 'sucre' ? (t - N.sucreT < 45 * 60000 ? N.sucres + 1 : 1) : 0, r;
+    let run = f.cat === 'sucre' ? (t >= N.sucreT && t - N.sucreT < 45 * 60000 ? N.sucres + 1 : 1) : 0, r;
     if (f.id === g.prefere) r = 'prefere';
     else if (g.deteste.includes(f.id)) r = 'beurk';
     else if (run >= 3) { r = 'sucre'; run = 0; }
@@ -433,7 +437,7 @@ const NOUR = (() => {
   function donner(id, choisi) {
     const f = NF.BY[id]; if (!f) return null;
     if (!N.on) { toast(OFF, 5000); return null; }
-    const t = Date.now(); if (t - N.last < GAP) return null;
+    const t = Date.now(); if (t >= N.last && t - N.last < GAP) return null;
     tick(t);
     const [r, eaten, run] = react(f, t);
     if (eaten) { N.ventre = Math.min(100, N.ventre + f.valeur * (r === 'beurk' ? 0.7 : 1)); N.sucres = run; if (f.cat === 'sucre') N.sucreT = t; }
@@ -471,7 +475,7 @@ const NOUR = (() => {
   const EAT = /^(?:pixel[, ]+)?(?:mange donc|manges|mange|goute|bois|avale|croque|grignote|tiens,? (?:voila|voici))\s+(.+)$/, GIVE = /^(?:donne-lui|donne lui|donne|file-lui|file lui|offre-lui|offre lui|offre|sers-lui|sers lui|apporte-lui|apporte lui)\s+(.+)$/;
   function command(text) {
     const t = key(text).replace(/\s+(?:s'il te plait|s il te plait|stp|svp)$/, '');
-    const busy = () => { if (!N.on) toast(OFF, 5000); else if (Date.now() - N.last < GAP) toast('Doucement, il mâche encore !', 3000); else return false; return true; };
+    const busy = () => { if (!N.on) toast(OFF, 5000); else if (Date.now() >= N.last && Date.now() - N.last < GAP) toast('Doucement, il mâche encore !', 3000); else return false; return true; };
     if (BELLY.test(t)) { tick(); publish(); A['scene.play']({ id: 'nourrir-ventre' }); return true; }
     if (TABLE.test(t)) { if (!busy()) donner(choisir(), true); return true; }
     const m = t.match(EAT) || t.match(GIVE), id = m && find(m[1]);

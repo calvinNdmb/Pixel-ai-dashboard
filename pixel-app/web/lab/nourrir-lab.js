@@ -36,10 +36,10 @@ sec.append(h2, state, menu,
   group('Son ventre', [['Repu', () => act('lab.nourrir', { ventre: 100 })], ['Ça va', () => act('lab.nourrir', { ventre: 70 })], ['Un petit creux', () => act('lab.nourrir', { ventre: 45 })],
     ['Très faim', () => act('lab.nourrir', { ventre: 12 })], ['Il réclame', hintNow], ['« Tu as faim ? »', () => act('cmd', { text: 'tu as faim ?' })],
     ['« À table ! »', () => act('cmd', { text: 'à table !' })]]),
-  group('Réglages', [['Faim', () => act('nourrir.reglages', { on: !(hub.S.nourrir && hub.S.nourrir.on) }), 'nourLabOn'],
+  group('Réglages', [['Repas', () => act('nourrir.reglages', { on: !(hub.S.nourrir && hub.S.nourrir.on) }), 'nourLabOn'],
     ['Vitesse', () => { const v = (hub.S.nourrir && hub.S.nourrir.reglages.vitesse) || 'normale'; act('nourrir.reglages', { vitesse: SPEEDS[(SPEEDS.indexOf(v) + 1) % 3] }); }, 'nourLabSpeed'],
     ['Changer ses goûts', () => act('nourrir.gouts')], ['Le plateau du Pi', () => { act('screen.show', { screen: 'visage' }); setTimeout(() => NR && NR.open(), 120); }]]),
-  el('p', 'note', 'Touche un plat : Pixel le mange, selon ses goûts et son ventre. Sur l’écran, la petite assiette en bas à droite ouvre son plateau, comme sur le Pi (ou glisse vers le haut depuis le bas de l’écran du Pi). Il réclame à manger quand son ventre se vide, pas plus d’une fois toutes les 20 minutes, jamais la nuit.'));
+  el('p', 'note', 'Touche un plat : Pixel le mange, selon ses goûts et son ventre. Sur l’écran, la petite assiette sur le bord droit, en bas, ouvre son plateau, comme sur le Pi (ou glisse vers le haut depuis le bas de l’écran du Pi). Il réclame à manger quand son ventre se vide, pas plus d’une fois toutes les 20 minutes, jamais la nuit.'));
 const after = $('hPoche') && $('hPoche').closest('section');
 if (after) after.after(sec); else $('panel').append(sec);
 let painted = '';
@@ -54,7 +54,7 @@ function render() {
   const name = id => (PF.BY[id] ? PF.BY[id].label : '—'), v = n.ventre, word = v >= 92 ? 'repu' : v >= 55 ? 'ça va' : v >= 25 ? 'un petit creux' : 'très faim';
   const last = n.dernier && PF.BY[n.dernier.plat] ? ` Dernier repas : ${name(n.dernier.plat)} (${PF.REACTIONS[n.dernier.reaction] || ''}).` : '';
   state.textContent = (n.on ? `Ventre : ${v} %, ${word}.` : 'Repas en pause.') + ` Préféré : ${name(g().prefere)}. Il aime : ${g().aime.map(name).join(', ')}. Il n’aime pas : ${g().deteste.map(name).join(', ')}.` + last;
-  const on = $('nourLabOn'); on.textContent = n.on ? 'Faim : activée' : 'Faim : en pause'; on.setAttribute('aria-pressed', String(!!n.on));
+  const on = $('nourLabOn'); on.textContent = n.on ? 'Repas : activés' : 'Repas : en pause'; on.setAttribute('aria-pressed', String(!!n.on));
   $('nourLabSpeed').textContent = 'Vitesse : ' + SNAME[(n.reglages && n.reglages.vitesse) || 'normale'];
   menu.querySelectorAll('button').forEach(b => { b.classList.toggle('fav', b.dataset.food === g().prefere); b.disabled = !n.on; });
 }

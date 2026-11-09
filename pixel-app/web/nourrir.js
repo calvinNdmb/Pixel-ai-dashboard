@@ -3,13 +3,15 @@
    - hears every snapshot (it wraps Screens.setState, so app.js and the lab need nothing): it gives the pack his belly, plays
      the meal ('nourrir-repas') on every screen when the server says he ate, and a rumble ('nourrir-faim') when his belly
      gets emptier: never at night, never within 20 min of another hint, never over another scene;
-   - on the Pi's touch screen and the Pixel de poche: his food tray. A small plate in the bottom right corner of his face
-     screen (outside his face: its touch zones, strokes and the long press stay as they were; left of the lab's corner menu),
-     or a swipe up from the bottom edge (app.js), slides up a tray of the 24 foods; touch one and he eats it. A swipe down,
+   - on the Pi's touch screen and the Pixel de poche: his food tray. A small plate on the right edge of his face screen, just
+     above the bottom right corner (outside his face box PBOX: its touch zones, strokes and the long press stay as they were;
+     above the info line at y 440, which may run from x 20 to 780; off the lab's corner menus, the 64 px corners), or a
+     swipe up from the bottom edge (app.js), slides up a tray of the 24 foods; touch one and he eats it. A swipe down,
      a touch above the tray, « Fermer » or 20 s untouched put it away. screens.js calls over(K) after drawing each screen,
      K being its own drawing helpers; the grid of drawings is drawn once into a canvas, then copied: cheap on the Pi;
    - on the phone (the app, not the Pi's screen nor the lab): a « Nourrir » button under the keys (by « Agendas ») opens a panel: his
-     belly, the menu with the same drawings, his tastes, his last meals and the settings.
+     belly, the menu with the same drawings, his tastes, his last meals and the settings. The sheet stops just under Pixel's
+     screen when there is room (place()), so you see him eat what you give him; else it fills the screen and closes on a meal.
    Loaded after screens.js (and poche.js) and before app.js; in the lab after demo-hub.js and before lab.js. */
 window.PixelNourrir = (() => {
 const Sc = typeof Screens !== 'undefined' ? Screens : null, PF = window.PixelFoods;
@@ -49,7 +51,7 @@ function hint(niveau) {             // his belly just got emptier: he may say so
 const feed = id => { if (!PF.BY[id]) return; send('nourrir.donner', { plat: id }); sentAt = Date.now(); panelDraw(); };
 
 /* ---------- the tray (the Pi's touch screen, the Pixel de poche, the lab) ---------- */
-const tray = { open: false, t: -1e9 }, TR = { x: 8, w: 784, h: 196, gx: 19, gy: 62, cell: 58, step: 64 }, HANDLE = { x: 672, y: 420, w: 64, h: 60 };
+const tray = { open: false, t: -1e9 }, TR = { x: 8, w: 784, h: 196, gx: 19, gy: 62, cell: 58, step: 64 }, HANDLE = { x: 736, y: 352, w: 64, h: 64 };
 const shown = () => !!(P && P.nourrir && P.nourrir.on) && L.scr === 'visage' && L.boot < 0 && !Sc.menuOpen
   && (L.kiosk || !!(window.PixelPoche && window.PixelPoche.on)) && !(PER && PER.state.cur === 'poche-part');   // not on the Pi's empty screen while he is in your pocket
 function openTray() { if (tray.open || !shown()) return false; tray.open = true; tray.t = realNow(); fastFor(320); return true; }
@@ -110,6 +112,17 @@ const THEMES = (() => {
   } catch { return {}; }
 })();
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+// a long word may break between two syllables near its middle, with a hyphen (« crous-tillant », « Élec-tricité »), never anywhere else:
+// between two consonants, not inside a consonant + l, r or h, nor gn
+const shy = s => s.replace(/\p{L}{10,}/gu, w => {
+  const C = ch => !/[aeiouyàâäéèêëîïôöùûüÿœæ]/i.test(ch), m = w.length >> 1;
+  for (let d = 0; d < m - 2; d++) for (const i of [m - d, m + d]) {
+    const a = w[i - 1], b = w[i]; if (i < 3 || i > w.length - 3 || !C(a) || !C(b)) continue;
+    if (/[lrh]/i.test(b) && /[bcdfgkpt]/i.test(a) || (a + b).toLowerCase() === 'gn') continue;
+    return w.slice(0, i) + '\u00ad' + w.slice(i);
+  }
+  return w;
+});
 const STATE = v => (v >= 92 ? 'Repu' : v >= 55 ? 'Ça va' : v >= 25 ? 'Un petit creux' : 'Très faim');
 const hhmm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 let pv = null, iconsFor = '';
@@ -141,8 +154,9 @@ function build() {
     const gridEl = el('div', 'nour-grid');
     for (const f of list) {
       const b = el('button', 'nour-food'); b.type = 'button'; b.dataset.id = f.id;
-      b.append(icon(f.id), el('span', 'nour-label', f.label), el('i', 'nour-tag'));
-      b.addEventListener('click', () => feed(f.id)); foods[f.id] = b; gridEl.append(b);
+      b.append(icon(f.id), el('span', 'nour-label', shy(f.label)), el('i', 'nour-tag'));
+      b.addEventListener('click', () => { feed(f.id); if (!pv.root.classList.contains('peek') && screenBox()) panel(false); });   // no room to see him eat: the sheet makes way
+      foods[f.id] = b; gridEl.append(b);
     }
     box.append(gridEl); menu.append(box);
   }
@@ -158,9 +172,9 @@ function build() {
   tastes.append(dl, roll);
   const journal = el('section', 'nour-journal'), ol = el('ol'); journal.append(el('h3', null, 'Ses derniers repas'), ol);
   const set = el('section', 'nour-set'); set.append(el('h3', null, 'Réglages'));
-  const sw = el('label', 'nour-switch'), chk = el('input'); chk.type = 'checkbox'; sw.append(chk, el('span', null, 'Il a faim'));
+  const sw = el('label', 'nour-switch'), chk = el('input'); chk.type = 'checkbox'; sw.append(chk, el('span', null, 'Repas activés'));
   chk.addEventListener('change', () => send('nourrir.reglages', { on: chk.checked }));
-  const swHint = el('p', 'nour-hint', 'Son ventre se vide doucement dans la journée, jamais la nuit. Quand il a un creux, il te le dit, sans insister.');
+  const swHint = el('p', 'nour-hint', 'Son ventre se vide doucement dans la journée, jamais la nuit. Quand il a un creux, il te le dit, sans insister. Coupé : il n’a jamais faim et ne mange pas.');
   const seg = el('div', 'nour-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Vitesse de la faim');
   const speeds = {};
   for (const [id, name] of [['lente', 'Lente'], ['normale', 'Normale'], ['rapide', 'Rapide']]) { const b = el('button', null, name); b.type = 'button'; b.addEventListener('click', () => send('nourrir.reglages', { vitesse: id })); speeds[id] = b; seg.append(b); }
@@ -174,11 +188,20 @@ function build() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !root.hidden) panel(false); });
   panelDraw();
 }
+const PEEK_MIN = 300;                 // px the sheet needs under Pixel's screen: its title, his belly and a row of the menu
+const screenBox = () => { const c = document.getElementById('crt'); if (!c || c.offsetParent === null) return null; const r = c.getBoundingClientRect(); return r.height > 40 ? r : null; };
+function place() {                  // the sheet stops under Pixel's screen (he is seen eating), or fills the screen when there is no room
+  if (!pv || pv.root.hidden) return;
+  const r = screenBox(), top = r && r.top >= -1 ? Math.ceil(r.bottom + 8) : 0, peek = top > 0 && innerHeight - top >= PEEK_MIN;
+  pv.root.classList.toggle('peek', peek); pv.root.style.setProperty('--nour-top', peek ? top + 'px' : '');
+}
 function panel(open) {
   if (!pv) return;
+  if (open) { const r = screenBox(); if (r && r.top < 0) window.scrollBy(0, r.top - 8); }      // his screen in sight first
   pv.root.hidden = !open; document.body.classList.toggle('nour-on', !!open);
-  if (open) { paintIcons(true); panelDraw(); pv.x.focus({ preventScroll: true }); } else pv.go.focus({ preventScroll: true });
+  if (open) { place(); paintIcons(true); panelDraw(); pv.x.focus({ preventScroll: true }); } else pv.go.focus({ preventScroll: true });
 }
+addEventListener('resize', place);
 function chips(dd, ids) {
   dd.replaceChildren(...(ids.length ? ids.map(id => { const s = el('span', 'nour-chip'); s.append(icon(id, 'nour-ic small'), document.createTextNode(PF.BY[id].label)); return s; }) : [el('span', 'nour-none', '—')]));
 }

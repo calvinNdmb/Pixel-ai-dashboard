@@ -2,7 +2,8 @@
 
     python3 tests/test_nourrir.py                  # pure logic on a fake clock, then a demo server on port 8174 (NOURRIR_PORT=…)
 
-The belly empties in the day only, faster for a glutton, not much while the server was down; meals are rate-limited and get
+The belly empties in the day only, faster for a glutton, not much while the server was down or its clock jumped (ticks
+come every minute, as on the Pi); a hand-edited nourrir.json never stops the server; meals are rate-limited and get
 their reaction (favourite, liked, disliked, grumpy refusal, full, bloated, sugar rush, vegetables, robot food, a burp);
 the tastes stay across restarts and can be drawn again; the commands do not take other commands' words. The menu is read
 from web/scenes/nourrir.js: the files that must agree (pack, events, pages) are checked too. In Paris time.
@@ -51,6 +52,13 @@ class Clock:
 
     def __call__(self):
         return self.t
+
+
+def walk(N, c, t1, step=60):
+    """The server's clock ticks every minute up to t1 (pixel/nourrir.py setup(): hub.every(60, ...))."""
+    while c.t < t1:
+        c.t = min(t1, c.t + step)
+        N.tick()
 
 
 def hub_with(traits=None):
@@ -111,19 +119,16 @@ def time_checks():
     # the belly, in the day: normale empties 6 points an hour at gourmand 50
     hub, N, c = belly(None, at(2026, 11, 9, 9))
     N.ventre = 80.0
-    c.t = at(2026, 11, 9, 11)
-    N.tick()
+    walk(N, c, at(2026, 11, 9, 11))
     check("2 h in the day at normal speed: 12 points", abs(N.ventre - 68) < 0.01, f"{N.ventre:.2f}")
     check("the snapshot follows (int, faim 0)", hub.s["nourrir"]["ventre"] == 68 and hub.s["nourrir"]["faim"] == 0, str(hub.s["nourrir"]["ventre"]))
     N.ventre, N.t = 60.0, c.t
-    c.t = at(2026, 11, 9, 12)
-    N.tick()
+    walk(N, c, at(2026, 11, 9, 12))
     check("below 55: a little hungry (faim 1); below 25: very hungry (faim 2)", hub.s["nourrir"]["faim"] == 1 and nourrir.level(24) == 2 and nourrir.level(25) == 1, str(hub.s["nourrir"]))
     for traits, want in (({"gourmand": 100}, 1.4), ({"gourmand": 0}, 0.6), ({"grognon": 80}, 1.0), ({"gourmand": "beaucoup"}, 1.0), (None, 1.0)):
         hub, N, c = belly(None, at(2026, 11, 9, 9), traits)
         N.ventre = 80.0
-        c.t = at(2026, 11, 9, 10)
-        N.tick()
+        walk(N, c, at(2026, 11, 9, 10))
         check(f"traits {traits}: {6 * want:.1f} points an hour (gourmand read defensively)", abs(80 - N.ventre - 6 * want) < 0.01, f"{80 - N.ventre:.2f}")
     hub.s["caractere"] = "pas un dict"
     check("a caractère that is not a dict: gourmand 50", nourrir.trait(hub, "gourmand") == 50)
@@ -131,38 +136,60 @@ def time_checks():
         hub, N, c = belly(None, at(2026, 11, 9, 9))
         N.reglages(vitesse=speed)
         N.ventre, N.t = 80.0, c.t
-        c.t = at(2026, 11, 9, 10)
-        N.tick()
+        walk(N, c, at(2026, 11, 9, 10))
         check(f"speed {speed}: {per_h} points an hour", abs(80 - N.ventre - per_h) < 0.01, f"{80 - N.ventre:.2f}")
     # the night
     hub, N, c = belly(None, at(2026, 11, 9, 23, 30))
     N.ventre = 70.0
-    c.t = at(2026, 11, 10, 5, 30)
-    N.tick()
+    walk(N, c, at(2026, 11, 10, 5, 30))
     check("23:30 to 5:30: his belly sleeps too", abs(N.ventre - 70) < 0.01, f"{N.ventre:.2f}")
     hub, N, c = belly(None, at(2026, 11, 9, 22))
     N.ventre = 70.0
-    c.t = at(2026, 11, 10, 7)
-    N.tick()
+    walk(N, c, at(2026, 11, 10, 7))
     check("22:00 to 7:00: only 22-23 and 6-7 count (12 points)", abs(N.ventre - 58) < 0.01, f"{N.ventre:.2f}")
     check("awake hours over a day: 17", abs(nourrir.awake_hours(at(2026, 11, 9, 0), at(2026, 11, 10, 0)) - 17) < 1e-6)
     hub, N, c = belly(None, at(2026, 11, 9, 9))
     N.ventre = 3.0
-    c.t = at(2026, 11, 9, 18)
-    N.tick()
+    walk(N, c, at(2026, 11, 9, 18))
     check("a whole day without food: 0, never less (he never dies)", N.ventre == 0, str(N.ventre))
     # switched off
     hub, N, c = belly(None, at(2026, 11, 9, 9))
     N.ventre = 50.0
     N.reglages(on=False)
-    c.t = at(2026, 11, 9, 15)
-    N.tick()
+    walk(N, c, at(2026, 11, 9, 15))
     check("off: his belly stays as it is", N.ventre == 50 and hub.s["nourrir"]["on"] is False and hub.s["nourrir"]["reglages"]["on"] is False)
     check("off: a meal is refused with a word", N.donner("pizza") is None and "pause" in (hub.s["toast"] or {}).get("msg", ""))
     N.reglages(on=True)
-    c.t = at(2026, 11, 9, 16)
-    N.tick()
+    walk(N, c, at(2026, 11, 9, 16))
     check("on again: the time it was off does not count", abs(N.ventre - 44) < 0.01, f"{N.ventre:.2f}")
+    # the clock jumps once he runs: the Pi has no RTC, it boots on the time it saved, then NTP sets it
+    with tempfile.TemporaryDirectory() as d:
+        _, N, c = belly(d, at(2026, 11, 6, 12, 1), ventre=90, t=at(2026, 11, 6, 12), on=True, vitesse="normale")
+        v0 = N.ventre
+        c.t = at(2026, 11, 9, 12)
+        N.tick()
+        check("a jump of 3 days after the start counts like the server down: 6 awake hours at most (-36), not starving",
+              abs(N.ventre - (v0 - 36)) < 0.01 and v0 > 89, f"{v0:.2f} -> {N.ventre:.2f}")
+        _, N, c = belly(d, at(2026, 11, 6, 12, 1), ventre=40, t=at(2026, 11, 6, 12), on=True, vitesse="rapide")
+        c.t = at(2026, 11, 9, 12)
+        N.tick()
+        check("…fast, or already a little hungry: never below 25 (a little hungry at worst)", abs(N.ventre - 25) < 0.01, f"{N.ventre:.2f}")
+    hub, N, c = belly(None, at(2026, 11, 9, 9))
+    N.ventre = 80.0
+    c.t += 10 * 60
+    N.tick()
+    check("a stalled loop (10 min between two ticks) still counts its 10 min", abs(N.ventre - 79) < 0.01, f"{N.ventre:.2f}")
+    c.t += 10
+    check("a meal", N.donner("pomme") is not None)
+    c.t -= 3600
+    N.tick()
+    v = N.ventre
+    check("the clock set back an hour: his belly does not change…", N.t == c.t and abs(v - min(100, 79 + 15)) < 0.05, f"{N.t} {c.t} {v}")
+    c.t += 10
+    check("…he can eat again 10 s later (not an hour)", N.donner("banane") is not None)
+    v = N.ventre
+    walk(N, c, c.t + 3600)
+    check("…and his belly empties again from there", abs(N.ventre - (v - 6)) < 0.05, f"{v:.2f} -> {N.ventre:.2f}")
 
 
 def meal_checks():
@@ -247,6 +274,37 @@ def file_checks():
         (Path(d) / "nourrir.json").write_text("{ pas du json")
         hub4, N4, _ = belly(d, at(2026, 11, 9, 12))
         check("a broken nourrir.json: a new belly, no crash", hub4.s["nourrir"]["ventre"] == 80)
+        # a hand-edited file: every value out of place takes its default, the server starts, meals work
+        now = at(2026, 11, 9, 12)
+        for name, saved, want in (
+                ("a time before 2000 (-1e13)", {"ventre": 70, "t": -1e13}, 70),
+                ("a time that is not a number", {"ventre": 70, "t": "hier"}, 70),
+                ("ventre NaN", {"ventre": float("nan"), "t": now}, 80),
+                ("ventre Infinity", {"ventre": float("inf"), "t": now}, 80),
+                ("ventre 1e9", {"ventre": 1e9, "t": now}, 100),
+                ("ventre -5", {"ventre": -5, "t": now}, 0),
+                ("ventre as text", {"ventre": "plein", "t": now}, 80),
+                ("a last meal with an id that is not a number", {"ventre": 40, "t": now, "dernier": {"id": "x", "plat": "pomme", "t": now * 1000}}, 40),
+                ("a last meal with no food", {"ventre": 40, "t": now, "dernier": {"id": 3}}, 40),
+                ("a journal of junk", {"ventre": 40, "t": now, "journal": [{"plat": "pomme", "t": "x"}, 5, {"plat": ["pizza"]}, {"plat": "caillou", "t": 1}]}, 40),
+                ("a journal that is not a list", {"ventre": 40, "t": now, "journal": {"plat": "pomme"}}, 40),
+                ("a speed that is a list", {"ventre": 40, "t": now, "vitesse": []}, 40),
+                ("tastes made of lists", {"ventre": 40, "t": now, "gouts": {"prefere": ["pizza"], "aime": [[1]], "deteste": []}}, 40),
+                ("a seed that is true, sweets out of range", {"ventre": 40, "t": now, "graine": True, "sucres": 1e9, "sucre_t": float("nan")}, 40),
+                ("on as text", {"ventre": 40, "t": now, "on": "non"}, 40),
+                ("a number too big for a float", {"ventre": 40, "t": now, "sucres": 10 ** 400}, None)):
+            (Path(d) / "nourrir.json").write_text(json.dumps(saved))
+            try:
+                hub5, N5, c5 = belly(d, now, seed=11)
+                n = hub5.s["nourrir"]
+                c5.t += 10
+                r = N5.donner("pomme")
+                ok = ((want is None or n["ventre"] == want) and r in nourrir.REACTIONS and hub5.s["nourrir"]["dernier"]["plat"] == "pomme"
+                      and n["reglages"]["vitesse"] in nourrir.SPEEDS and n["gouts"]["prefere"] in nourrir.BY_ID and all(j["plat"] in nourrir.BY_ID for j in n["journal"]))
+                json.dumps(hub5.s["nourrir"], allow_nan=False)
+                check(f"nourrir.json with {name}: he starts (ventre {n['ventre']}), eats, and his snapshot is clean JSON", ok, json.dumps(n)[:200])
+            except Exception as e:      # noqa: BLE001
+                check(f"nourrir.json with {name}: he starts", False, repr(e))
 
 
 async def command_checks():

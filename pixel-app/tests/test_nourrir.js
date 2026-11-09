@@ -1,15 +1,18 @@
 // Feeding Pixel in a real browser:  node tests/test_nourrir.js [--shots DIR]
 // Starts a demo server (port 8175, NOURRIR_PORT=… for another, a temporary data folder, every theme on), then, in Chromium:
-// - the Pi's screen (800x480): the small plate in the bottom right corner; a touch slides the tray up; a food touched: he eats
+// - the Pi's screen (800x480): the small plate on the right edge, outside his face and above the info line (a long agenda
+//   title never runs under it); a touch slides the tray up; a food touched: he eats
 //   it (the meal scene, the food drawn); a swipe up from the bottom edge opens it, a swipe down or a touch above it closes it;
 //   closed, his face still answers a tap and a long press, and a swipe down still opens the quick menu; switched off: no plate;
 // - a meal through the tray in every theme: its scene plays, the food is drawn, no error;
 // - the phone (390x844): the « Nourrir » panel: his belly, the 24 foods drawn in the theme's colours, a touch feeds him (the
-//   buttons wait while he chews), his tastes, his last meals, the settings; no horizontal scroll, touch targets ≥ 44 px;
+//   buttons wait while he chews) and he is seen eating above the sheet, his tastes, his last meals, the settings; no
+//   horizontal scroll, touch targets ≥ 44 px, the labels never cut mid-word (6 themes);
 // - the Pixel de poche (a phone held sideways): the same plate and tray;
 // - Pixel Lab (the same code on its fake server, with its virtual clock): every scene of the pack in every theme, the food
 //   drawn and no prop error; the hints: a rumble when his belly gets emptier, then none for 20 min, none at night (the page's
-//   clock moved to 23:30), none when off, as moments of life too; the lab's Nourrir panel.
+//   clock moved to 23:30), none when off, as moments of life too; off at lunch time, not even the old « J’ai faim… »;
+//   the lab's Nourrir panel.
 // Playwright must be installed (require('playwright')); nothing else.
 const { chromium, devices } = require('playwright');
 const { spawn } = require('child_process');
@@ -59,6 +62,14 @@ async function touchSwipe(cdp, x0, y0, x1, y1) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12) * 64 + 29 });   // a food of the open tray (nourrir.js TR)
+const PLATE = { x: 768, y: 384 };     // the middle of the plate (nourrir.js HANDLE)
+// labels whose words (or syllables, at a soft hyphen) run over two lines: cut mid-word
+const cutWords = page => page.evaluate(() => [...document.querySelectorAll('#nour .nour-label')].flatMap(l => {
+  const t = l.firstChild, out = [];
+  const line = i => { const r = document.createRange(); r.setStart(t, i); r.setEnd(t, i + 1); const rs = r.getClientRects(); return Math.round(rs[rs.length - 1].top); };   // (a char right after a break also gets the break's rect up there: its last one is the char)
+  for (const m of t.textContent.matchAll(/[^\s\u00ad]+/g)) if (line(m.index) !== line(m.index + m[0].length - 1)) out.push(m[0]);
+  return out;
+}));
 
 (async () => {
   if (await portOpen()) throw new Error(`le port ${PORT} est déjà pris (NOURRIR_PORT=… pour un autre)`);
@@ -77,9 +88,29 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   await k.goto(BASE + '/?kiosk=1'); await until(() => k.evaluate(() => Screens.local.boot < 0 && !!window.PixelNourrir), 9000);
   await spy(k); await free(k); await k.waitForTimeout(300);
   check('the Pi\'s screen: the plate is there, the tray closed', await k.evaluate(() => PixelNourrir.shown && !PixelNourrir.trayOpen));
-  check('the plate is outside his face and left of the lab\'s corner menu', await k.evaluate(() => { const h = PixelNourrir.HANDLE; return h.x >= 664 && h.x + h.w <= 736 && h.y >= 420 && h.w >= 56 && h.h >= 56; }));
+  check('the plate is outside his face box (x ≥ 736), above the info line (y 440), off the lab\'s corners, ≥ 56 px',
+    await k.evaluate(() => { const h = PixelNourrir.HANDLE; return h.x >= 736 && h.x + h.w <= 800 && h.y >= 64 && h.y + h.h <= 416 && h.w >= 56 && h.h >= 56; }));
   await shot(k, 'kiosk-plate');
-  await k.touchscreen.tap(704, 452); await k.waitForTimeout(400);
+  // a long agenda title: the info line (centred at x 400, up to 760 px wide) never runs under the plate
+  const ticker = await k.evaluate(async S0 => {
+    const d = new Date(), h = d.getHours() + d.getMinutes() / 60; if (h > 23.9) return { skip: true };
+    const ev = { day: 0, allday: false, start: Math.min(23.95, h + 0.1), title: 'Rendez-vous chez le dentiste pour le contrôle annuel des dents de sagesse' };
+    const s0 = Screens.setState; Screens.setState = p => s0({ ...p, agenda: { ...(p.agenda || {}), events: [ev] } }); window.__untick = () => { Screens.setState = s0; };
+    const C = CanvasRenderingContext2D.prototype, f0 = C.fillText, seen = [];
+    C.fillText = function (str, x, y, ...a) {
+      if (this.canvas.id === 'crt' && y === 440 && /dentiste/i.test(str)) { const w = this.measureText(str).width, c = this.textAlign === 'center'; seen.push({ x0: Math.round(c ? x - w / 2 : x), x1: Math.round(c ? x + w / 2 : x + w), y0: y, y1: y + 24 }); }
+      return f0.call(this, str, x, y, ...a);
+    };
+    Screens.setState(S0); Screens.local.dirty = true; await new Promise(r => setTimeout(r, 500)); C.fillText = f0;
+    const P = PixelNourrir.HANDLE, l = seen[seen.length - 1];
+    return { line: l, plate: P, apart: !!l && (l.x1 <= P.x || l.x0 >= P.x + P.w || l.y1 <= P.y || l.y0 >= P.y + P.h) };
+  }, S);
+  check('a long agenda title in the info line: all of it shows, none under the plate', ticker.skip || (ticker.apart && ticker.line.x1 > 700), JSON.stringify(ticker));
+  await shot(k, 'kiosk-longticker-retro');
+  act('theme.set', { name: 'moderne' }); await k.waitForTimeout(600); await shot(k, 'kiosk-longticker-moderne');
+  act('theme.set', { name: 'retro' }); await k.waitForTimeout(600);
+  await k.evaluate(() => window.__untick && window.__untick());
+  await k.touchscreen.tap(PLATE.x, PLATE.y); await k.waitForTimeout(400);
   check('a touch on the plate: the tray slides up', await k.evaluate(() => PixelNourrir.trayOpen));
   await shot(k, 'kiosk-tray');
   const fav = S.nourrir.gouts.prefere, iFav = FOODS.indexOf(fav);
@@ -99,13 +130,13 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   check('a swipe up from the bottom edge opens the tray', await k.evaluate(() => PixelNourrir.trayOpen && !Screens.menuOpen));
   await touchSwipe(cdp, 400, 320, 400, 470); await k.waitForTimeout(350);
   check('a swipe down puts it away (and does not open the quick menu)', await k.evaluate(() => !PixelNourrir.trayOpen && !Screens.menuOpen));
-  await k.touchscreen.tap(704, 452); await k.waitForTimeout(300); await free(k);
+  await k.touchscreen.tap(PLATE.x, PLATE.y); await k.waitForTimeout(300); await free(k);
   await k.touchscreen.tap(400, 140); await k.waitForTimeout(300);
   check('a touch above the tray puts it away, and is not a touch on his face', await k.evaluate(() => !PixelNourrir.trayOpen) && !(await cur(k)), await cur(k));
-  await k.touchscreen.tap(704, 452); await k.waitForTimeout(300);
+  await k.touchscreen.tap(PLATE.x, PLATE.y); await k.waitForTimeout(300);
   await k.touchscreen.tap(716, 284 + 32); await k.waitForTimeout(300);
   check('« Fermer » puts it away', await k.evaluate(() => !PixelNourrir.trayOpen));
-  await k.touchscreen.tap(704, 452); await k.waitForTimeout(300);
+  await k.touchscreen.tap(PLATE.x, PLATE.y); await k.waitForTimeout(300);
   const open1 = await k.evaluate(() => PixelNourrir.trayOpen);
   await k.waitForTimeout(20600);
   check('left alone 20 s, it goes away', open1 && !(await k.evaluate(() => PixelNourrir.trayOpen)));
@@ -132,7 +163,7 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   for (const th of THEMES) {
     act('theme.set', { name: th }); await k.waitForTimeout(500); await free(k); await mealGap();
     const before = await draws(k), id = FOODS[(3 + i++ * 5) % FOODS.length];
-    await k.touchscreen.tap(704, 452); await k.waitForTimeout(350);
+    await k.touchscreen.tap(PLATE.x, PLATE.y); await k.waitForTimeout(350);
     await k.touchscreen.tap(CELL(FOODS.indexOf(id)).x, CELL(FOODS.indexOf(id)).y); lastMeal = Date.now();
     await until(() => meal().plat === id && meal().t > lastMeal - 3000, 3000);
     await until(async () => (await cur(k) || '').startsWith('nourrir-'), 3000); await k.waitForTimeout(1100);
@@ -161,6 +192,8 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   const small = await p.evaluate(() => [...document.querySelectorAll('#nour button, #nour input')].filter(e => e.offsetParent !== null).map(e => { const r = e.getBoundingClientRect(); return [e.textContent.trim().slice(0, 14) || e.type, Math.round(r.width), Math.round(r.height)]; })
     .filter(([n, w, h]) => n === 'checkbox' ? w < 24 : (w < 44 || h < 44)));
   check('…touch targets ≥ 44 px', small.length === 0, JSON.stringify(small.slice(0, 6)));
+  const cut0 = await cutWords(p);
+  check('…the labels break between words or at a syllable (« crous-tillant »), never mid-word', cut0.length === 0, JSON.stringify(cut0));
   await shot(p, 'phone-panel');
   await mealGap();
   const pid = FOODS.find(x => x !== S.nourrir.gouts.prefere && !S.nourrir.gouts.deteste.includes(x) && x !== 'pomme') || 'soupe';
@@ -169,6 +202,11 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   await p.waitForTimeout(400);
   const fed = await p.evaluate(() => ({ dis: [...document.querySelectorAll('.nour-food')].every(b => b.disabled), msg: document.querySelector('.nour-msg').textContent, j: document.querySelectorAll('.nour-journal li').length }));
   check(`a touch on ${pid}: he eats it, the panel says how it went and waits while he chews`, meal().plat === pid && fed.dis && fed.msg.includes(':') && fed.j >= 2, JSON.stringify(fed));
+  const seen = await p.evaluate(() => {
+    const r = document.getElementById('nour'), s = r.querySelector('.nour-sheet').getBoundingClientRect(), c = document.getElementById('crt').getBoundingClientRect();
+    return { peek: r.classList.contains('peek'), veil: getComputedStyle(r).backgroundColor, sheetTop: Math.round(s.top), cTop: Math.round(c.top), cBottom: Math.round(c.bottom), cur: Screens.persona.state.cur };
+  });
+  check('…and he is seen eating: his screen stays above the sheet, with no veil over it', seen.peek && seen.cTop >= 0 && seen.sheetTop >= seen.cBottom && seen.veil === 'rgba(0, 0, 0, 0)' && (seen.cur || '').startsWith('nourrir-'), JSON.stringify(seen));
   await shot(p, 'phone-fed');
   await until(() => p.evaluate(() => !document.querySelector('.nour-food').disabled), 9000);
   check('…then the menu is back', await p.evaluate(() => !document.querySelector('.nour-food').disabled));
@@ -177,7 +215,7 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   check('« Lente »: his hunger slows down (server)', S.nourrir.reglages.vitesse === 'lente');
   await p.tap('.nour-switch input'); await until(() => S.nourrir.on === false, 2000); await p.waitForTimeout(300);
   const off = await p.evaluate(() => ({ dis: [...document.querySelectorAll('.nour-food')].every(b => b.disabled), note: !document.querySelector('.nour-off').hidden, word: document.querySelector('.nour-word').textContent }));
-  check('« Il a faim » unticked: off on the server, the menu waits, the panel says so', S.nourrir.on === false && off.dis && off.note && /pause/.test(off.word), JSON.stringify(off));
+  check('« Repas activés » unticked: off on the server, the menu waits, the panel says so', S.nourrir.on === false && off.dis && off.note && /pause/.test(off.word), JSON.stringify(off));
   await shot(p, 'phone-off');
   await p.tap('.nour-switch input'); await until(() => S.nourrir.on === true, 2000);
   await p.tap('.nour-seg button:nth-child(2)'); await until(() => S.nourrir.reglages.vitesse === 'normale', 2000);
@@ -186,11 +224,15 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   check('« Changer ses goûts » asks to be sure first', JSON.stringify(S.nourrir.gouts) === g0 && /Sûr/.test(await p.textContent('.nour-gouts .nour-btn')));
   await p.tap('.nour-gouts .nour-btn'); await until(() => JSON.stringify(S.nourrir.gouts) !== g0, 2000);
   check('…a second touch: new tastes', JSON.stringify(S.nourrir.gouts) !== g0);
-  for (const th of ['manga', 'lcd']) {
+  const cuts = [];
+  for (const th of THEMES) {
     act('theme.set', { name: th }); await p.waitForTimeout(600);
     await p.evaluate(() => document.querySelector('.nour-sheet').scrollTo(0, 0)); await p.waitForTimeout(150);
+    for (const w of await cutWords(p)) cuts.push(`${th}: ${w}`);
     await shot(p, `phone-panel-${th}`);
+    if (th === 'retro' || th === 'lcd') { await p.evaluate(() => document.querySelector('.nour-menu .nour-cat:last-child').scrollIntoView()); await p.waitForTimeout(150); await shot(p, `phone-panel-robots-${th}`); }
   }
+  check('…in the 6 themes, no label cut mid-word', cuts.length === 0, JSON.stringify(cuts));
   act('theme.set', { name: 'retro' });
   await p.tap('.nour-x'); await p.waitForTimeout(200);
   check('× closes the panel', await p.evaluate(() => document.getElementById('nour').hidden));
@@ -203,7 +245,7 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   await free(q);
   const qp = async (u, v) => { const r = await q.locator('#crt').boundingBox(); return { x: r.x + u / 800 * r.width, y: r.y + v / 480 * r.height }; };
   check('the Pixel de poche: the plate is there too', await q.evaluate(() => PixelNourrir.shown));
-  let at = await qp(704, 452); await q.touchscreen.tap(at.x, at.y); await q.waitForTimeout(400);
+  let at = await qp(PLATE.x, PLATE.y); await q.touchscreen.tap(at.x, at.y); await q.waitForTimeout(400);
   check('…a touch on it opens the tray', await q.evaluate(() => PixelNourrir.trayOpen));
   await shot(q, 'poche-tray');
   await mealGap();
@@ -288,6 +330,27 @@ const CELL = i => ({ x: 19 + (i % 12) * 64 + 29, y: 284 + 62 + Math.floor(i / 12
   check('…then no other hint among the next moments (20 min)', life.after.length > 5 && !life.after.some(x => x.startsWith('nourrir-')), JSON.stringify(life.after));
   check('…none either within 20 min of the last one', life.muted.length >= 10 && !life.muted.some(x => x.startsWith('nourrir-')), JSON.stringify(life.muted));
   check('…and at night, only quiet moments, no hint', life.night.length >= 4 && !life.night.some(x => x.startsWith('nourrir-')), JSON.stringify(life.night));
+  // switched off at lunch time: no hunger at all, not even the old moment 'faim' (persona.js) that plays without Nourrir
+  const lunch = await l.evaluate(async () => {
+    const hub = PixelHub, PER = Screens.persona, L = Screens.local, C = PixelClock, wait = ms => new Promise(r => setTimeout(r, ms));
+    const run = async n => {
+      const seen = []; let last = PER.state.cur || '';
+      for (let i = 0; i < 6000 && seen.length < n; i++) {
+        L.lastInput = performance.now() - 300000; await wait(10);
+        const c = PER.state.cur || ''; if (c && c !== last && (PER.scenes.find(s => s.id === c) || {}).group === 'vie') seen.push(c); last = c;
+      }
+      return seen;
+    };
+    window.__at(12, 10); C.setSpeed(30); PER.setEvery(200, 400);
+    hub.dispatch('nourrir.reglages', { on: false }); await wait(200); PER.stop();
+    const off = await run(60);
+    hub.dispatch('nourrir.reglages', { on: true }); hub.dispatch('lab.nourrir', { ventre: 90 }); await wait(200); PER.stop();
+    const on = await run(30);
+    window.__real(); C.setSpeed(1); PER.setEvery(45000, 150000); PER.stop(); hub.dispatch('lab.nourrir', { ventre: 80 });
+    return { hour: 12, off, on };
+  });
+  check('switched off, at lunch time: no hunger moment at all, not even the old « J’ai faim… »', lunch.off.length >= 40 && !lunch.off.some(x => x === 'faim' || x.startsWith('nourrir-')), JSON.stringify(lunch.off));
+  check('…on and full at lunch time: no « J’ai faim… » either (his belly speaks for him)', lunch.on.length >= 20 && !lunch.on.includes('faim'), JSON.stringify(lunch.on));
   // the lab's panel
   await l.evaluate(() => { Screens.persona.stop(); PixelHub.dispatch('lab.nourrir', { ventre: 30 }); }); await l.waitForTimeout(6500);
   await l.click('.nour-lab-menu button[data-food="soupe"]'); await l.waitForTimeout(300);

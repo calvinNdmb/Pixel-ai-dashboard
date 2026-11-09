@@ -102,7 +102,7 @@ function envie() {                                    // what he would like: oft
 }
 return {
   FOODS, BY, CATS, REACTIONS, colours, theme, sprite, draw, state: st, set, errors, guard, mealOf, envie,
-  on: () => st.known && st.on,                        // the feature speaks for his belly (persona.js 'faim' gives way)
+  on: () => st.known && st.on,                        // his hunger is on (known: the server keeps his belly, and persona.js 'faim' gives way)
   hintOk: () => st.known && st.on && Date.now() - hintAt > HINT_GAP,
   hinted() { hintAt = Date.now(); store.set({ ...store.get(), hint: hintAt }); },
   resetHint() { hintAt = 0; store.set({ ...store.get(), hint: 0 }); },   // the lab, tests

@@ -4,8 +4,9 @@ for long: he only gets a little hungry, says so now and then, and enjoys (or not
 - His belly ("ventre", 0..100, 100 = full) empties slowly during the day: SPEEDS points an hour (lente, normale,
   rapide), faster when his character trait "gourmand" is high (hub.s["caractere"]["traits"]["gourmand"], 50 when
   missing: today's Pixel). Never at night (23 h - 6 h). While the server is down, at most DOWN_CAP_H awake hours count,
-  and never below DOWN_FLOOR: he wakes up a little hungry at worst. It can be switched off ("on": false): then his belly
-  stays as it is, he never asks for anything, and meals are refused with a word.
+  and never below DOWN_FLOOR: he wakes up a little hungry at worst. The same once running, when the clock jumps (the Pi
+  has no RTC: NTP sets its clock after boot) or the loop stalls: a gap longer than DOWN_GAP between two ticks. It can be
+  switched off ("on": false): then his belly stays as it is, he never asks for anything, and meals are refused with a word.
 - The menu (24 foods, drawn in pixel art) lives in web/scenes/nourrir.js; this module reads its id, label, name,
   category and value from there (F('id', 'Label', 'nom', 'cat', valeur, ...), one per line), like scenes.py does.
 - His tastes: one favourite, a few likes and dislikes, drawn once from a stored seed, so they stay across restarts;
@@ -18,12 +19,14 @@ for long: he only gets a little hungry, says so now and then, and enjoys (or not
 
 Snapshot "nourrir": {on, ventre (int), faim (0 fine, 1 a little hungry, 2 very hungry), dernier: {id, plat, t (ms),
 reaction, rot, choisi} or None, gouts: {aime, deteste, prefere}, journal (the last 10 meals, newest first: plat, t,
-reaction), reglages: {on, vitesse}}. Saved in data_dir/nourrir.json. web/lab/demo-hub.js mirrors it for Pixel Lab.
+reaction), reglages: {on, vitesse}}. Saved in data_dir/nourrir.json; a hand-edited file is cleaned when read (any value out
+of place falls back to its default, never a crash). web/lab/demo-hub.js mirrors it for Pixel Lab.
 """
 import asyncio
 import datetime as dt
 import json
 import logging
+import math
 import os
 import random
 import re
@@ -40,6 +43,8 @@ CREUX, FAIM = 55, 25            # below: a little hungry (faim 1), very hungry (
 FULL, OVERFULL = 92, 104        # from FULL he refuses (gourmand moves it a little); past OVERFULL after the meal: bloated
 NIGHT = (23, 6)                 # his belly sleeps too
 DOWN_CAP_H, DOWN_FLOOR = 6, 25  # the server was down: at most 6 awake hours count, and not below a little hungry
+DOWN_GAP = 300                  # s between two ticks (they come every 60 s) past which the time counts as downtime
+T_MIN = 946684800               # 2000-01-01: a saved time before it is not a time
 MEAL_GAP = 6.0                  # seconds between two meals (a scene lasts about that long)
 SWEET_RUN, SWEET_WINDOW = 3, 45 * 60
 JOURNAL = 10
@@ -171,41 +176,68 @@ def _traits(hub):
 
 def trait(hub, name):
     v = _traits(hub).get(name, 50)
-    return max(0, min(100, v)) if isinstance(v, (int, float)) and not isinstance(v, bool) else 50
+    return max(0, min(100, v)) if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) else 50
 
 
 class Nourrir:
     def __init__(self, hub, datadir=None, now=time.time, rng=None):
         self.hub, self.now, self.rng = hub, now, rng or random.Random()
         self.file = Path(datadir) / "nourrir.json" if datadir else None
-        d = self._load()
-        self.on = bool(d.get("on", True))
-        self.vitesse = d.get("vitesse") if d.get("vitesse") in SPEEDS else "normale"
-        self.ventre = self._num(d.get("ventre"), 80.0)
-        self.graine = d.get("graine") if isinstance(d.get("graine"), int) else self.rng.randrange(1 << 30)
-        g = d.get("gouts")
-        self.gouts = g if self._good_tastes(g) else roll(self.graine)
-        self.journal = [j for j in d.get("journal", []) if isinstance(j, dict) and j.get("plat") in BY_ID][:JOURNAL]
-        self.dernier = d.get("dernier") if isinstance(d.get("dernier"), dict) else None
-        self.sucres, self.sucre_t = int(self._num(d.get("sucres"), 0)), self._num(d.get("sucre_t"), 0)
         self.last_meal = -1e9
-        t, saved = self.now(), self._num(d.get("t"), 0)
-        if saved and self.on and saved < t:       # the server was down: it counts, but not much
-            drop = awake_hours(saved, t, DOWN_CAP_H) * self.rate()
-            if self.ventre > DOWN_FLOOR:
-                self.ventre = max(DOWN_FLOOR, self.ventre - drop)
+        t = self.now()
+        try:
+            self._restore(self._load(), t)
+        except Exception as e:                     # whatever the file holds, Pixel starts: a new belly
+            log.warning("nourrir.json: %r, a new belly", e)
+            self._restore({}, t)
         self.t, self.saved_at, self.saved_v = t, t, self.ventre
         self.publish()
         self.save()
 
+    def _restore(self, d, t):
+        """His state from nourrir.json (d), every value checked: one out of place takes its default."""
+        self.on = d.get("on") is not False
+        self.vitesse = d.get("vitesse") if isinstance(d.get("vitesse"), str) and d.get("vitesse") in SPEEDS else "normale"
+        self.ventre = max(0.0, min(100.0, self._num(d.get("ventre"), 80.0)))
+        g = d.get("graine")
+        self.graine = g if isinstance(g, int) and not isinstance(g, bool) else self.rng.randrange(1 << 30)
+        g = d.get("gouts")
+        self.gouts = {"aime": list(g["aime"]), "deteste": list(g["deteste"]), "prefere": g["prefere"]} if self._good_tastes(g) else roll(self.graine)
+        meals = [m for m in map(self._meal, d.get("journal") if isinstance(d.get("journal"), list) else []) if m]
+        self.journal = [{"plat": m["plat"], "t": m["t"], "reaction": m["reaction"]} for m in meals][:JOURNAL]
+        self.dernier = self._meal(d.get("dernier"))
+        self.sucres = int(max(0, min(SWEET_RUN, self._num(d.get("sucres"), 0))))
+        self.sucre_t = self._num(d.get("sucre_t"), 0)
+        saved = self._num(d.get("t"), 0)
+        if self.on and T_MIN < saved < t:          # the server was down: it counts, but not much
+            self.ventre = self._down(saved, t)
+
+    @staticmethod
+    def _meal(m):
+        """A meal of the journal (or the last one) as saved, cleaned; None when it is not one."""
+        if not isinstance(m, dict) or not isinstance(m.get("plat"), str) or m["plat"] not in BY_ID:
+            return None
+        t, r, i = m.get("t"), m.get("reaction"), m.get("id")
+        if not isinstance(t, (int, float)) or isinstance(t, bool) or not math.isfinite(t):
+            return None
+        return {"id": i if isinstance(i, int) and not isinstance(i, bool) and i >= 0 else 0, "plat": m["plat"], "t": float(t),
+                "reaction": r if isinstance(r, str) and r in REACTIONS else "miam", "rot": m.get("rot") is True, "choisi": m.get("choisi") is True}
+
     @staticmethod
     def _num(v, default):
-        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else default
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return default
+        try:
+            v = float(v)
+        except OverflowError:                      # an int too big for a float
+            return default
+        return v if math.isfinite(v) else default
 
     @staticmethod
     def _good_tastes(g):
-        return (isinstance(g, dict) and g.get("prefere") in BY_ID and isinstance(g.get("aime"), list) and isinstance(g.get("deteste"), list)
-                and all(i in BY_ID for i in g["aime"] + g["deteste"]))
+        ok = lambda i: isinstance(i, str) and i in BY_ID          # noqa: E731
+        return (isinstance(g, dict) and ok(g.get("prefere")) and isinstance(g.get("aime"), list) and isinstance(g.get("deteste"), list)
+                and all(ok(i) for i in g["aime"] + g["deteste"]))
 
     # ---- files ----
     def _load(self):
@@ -238,13 +270,21 @@ class Nourrir:
     def full_at(self):
         return FULL + (trait(self.hub, "gourmand") - 50) / 10       # a glutton always has a little room left
 
+    def _down(self, t0, t1):
+        """His belly after time nobody watched (the server down, a clock jump): DOWN_CAP_H awake hours at most, not below DOWN_FLOOR."""
+        if self.ventre <= DOWN_FLOOR:
+            return self.ventre
+        return max(DOWN_FLOOR, self.ventre - awake_hours(t0, t1, DOWN_CAP_H) * self.rate())
+
     def tick(self, t=None):
-        """Empties his belly up to now (not at night, not when off); publishes and saves when it shows."""
+        """Empties his belly up to now (not at night, not when off); publishes and saves when it shows. Ticks come every
+        60 s: a longer gap than DOWN_GAP is a clock jump (NTP after boot: the Pi has no RTC) or a stalled loop, and counts
+        like the server being down. A clock set back: the time counts again from its new value."""
         t = self.now() if t is None else t
         before = (round(self.ventre), level(self.ventre))
         if self.on and t > self.t:
-            self.ventre = max(0.0, self.ventre - awake_hours(self.t, t) * self.rate())
-        self.t = max(self.t, t)
+            self.ventre = self._down(self.t, t) if t - self.t > DOWN_GAP else max(0.0, self.ventre - awake_hours(self.t, t) * self.rate())
+        self.t = t if t < self.t - DOWN_GAP else max(self.t, t)
         if (round(self.ventre), level(self.ventre)) != before:
             self.publish()
         if abs(self.ventre - self.saved_v) >= 1 or self.t - self.saved_at > 600:
@@ -261,7 +301,7 @@ class Nourrir:
         self.hub.mark()
 
     def too_soon(self, t=None):
-        return (self.now() if t is None else t) - self.last_meal < MEAL_GAP
+        return 0 <= (self.now() if t is None else t) - self.last_meal < MEAL_GAP     # a clock set back does not stop his meals
 
     # ---- a meal ----
     def react(self, f, t):
@@ -271,7 +311,7 @@ class Nourrir:
             return "plein", False, self.sucres
         if plat in g["deteste"] and trait(self.hub, "grognon") >= 70:
             return "refuse", False, self.sucres
-        run = (self.sucres + 1 if t - self.sucre_t < SWEET_WINDOW else 1) if f["cat"] == "sucre" else 0
+        run = (self.sucres + 1 if 0 <= t - self.sucre_t < SWEET_WINDOW else 1) if f["cat"] == "sucre" else 0
         if plat == g["prefere"]:
             r = "prefere"
         elif plat in g["deteste"]:
