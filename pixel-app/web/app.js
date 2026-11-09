@@ -15,17 +15,39 @@ const NAV = ['visage', 'lumieres', 'claude', 'codex', 'meteo', 'minuteur', 'agen
 const toApp = m => { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(m)); };
 
 /* ---------- connection ---------- */
+const WS = `/ws${token ? '?t=' + encodeURIComponent(token) : ''}`;
+let reT = 0;
 function connect() {
-  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws${token ? '?t=' + encodeURIComponent(token) : ''}`);
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${WS}`);
   ws.onopen = () => { opened = true; retry = 500; L.error = null; $('conn').textContent = 'connecté'; $('conn').classList.add('ok'); };
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.type !== 'state') return; P = m.data; Screens.setState(P); if (kiosk || follow) L.scr = P.screen; render(); };
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.type !== 'state') return; P = m.data; Screens.setState(P); keep(P); if (kiosk || follow) L.scr = P.screen; render(); };
   ws.onclose = () => {
     $('conn').textContent = 'déconnecté'; $('conn').classList.remove('ok');
-    if (!opened && !kiosk) { L.error = "Pas d'accès : scanne le QR code dans Réglages, sur l'écran de Pixel."; toApp({ access: false }); }
-    setTimeout(connect, retry = Math.min(retry * 2, 8000));
+    if (!opened && !kiosk) never();
+    clearTimeout(reT); reT = setTimeout(connect, retry = Math.min(retry * 2, 8000));
   };
   if (POCHE) POCHE.watch(ws);                         // the Pixel de poche hears the snapshots, and whether the Pi answers
 }
+addEventListener('online', () => { if (ws && ws.readyState === WebSocket.CLOSED) { clearTimeout(reT); retry = 500; connect(); } });   // a network again: try the Pi now
+function never() {                                    // never connected: no access (a 403), or no Pi at all (away from home)
+  if (!P) { const s = kept(); if (s) { P = s; Screens.setState(s); if (POCHE) POCHE.state(s); render(); } }   // he wakes up anyway, from the last snapshot
+  fetch(WS, { cache: 'no-store' }).then(r => {
+    if (opened) return;
+    if (r.status === 403) { L.error = "Pas d'accès : scanne le QR code dans Réglages, sur l'écran de Pixel."; toApp({ access: false }); }
+  }, () => { if (!opened) L.error = "Pixel ne répond pas. Vérifie qu'il est allumé et que ton téléphone est sur le même Wi-Fi."; });
+}
+/* the last snapshot, kept on the phone (without the chat and Codex's lines): when the Pi does not answer at all, away
+   from home and the page loaded again (sw.js keeps the app's files), Pixel still wakes up here, his theme, his personality */
+let keptAt = 0;
+function keep(p, now) {
+  if (kiosk || (!now && Date.now() - keptAt < 20000)) return;
+  keptAt = Date.now();
+  store.set('pixel_snap', JSON.stringify({ ...p, chat: p.chat && { ...p.chat, messages: [] }, codex: p.codex && { ...p.codex, lines: [] }, kept_at: keptAt }));
+}
+function kept() {
+  try { const s = JSON.parse(store.get('pixel_snap')); if (!s || !s.view || !s.keys) return null; s.server_now += Date.now() - s.kept_at; return s; } catch { return null; }   // his clock goes on
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden && P && ws && ws.readyState === 1) keep(P, true); });
 function send(action, args = {}) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action, args })); }
 Screens.setSend(send);
 const POCHE = window.PixelPoche ? window.PixelPoche.app({ send, kiosk }) : null;   // poche.js: the phone sideways becomes a second Pixel

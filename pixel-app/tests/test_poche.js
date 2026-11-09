@@ -7,8 +7,12 @@
 //   upright again: the remote;
 // - the Pi's screen (?kiosk=1) beside it: the two Pixels know each other (jealous, curious, shaken), the voyage both ways,
 //   a touch on the Pi's empty screen calls him back;
-// - an iPhone (asks for the motion sensors on the first touch), the "Pixel de poche" button on an upright phone, and Pixel
-//   Lab's phone frame. --shots DIR: screenshots at the phone's real resolution.
+// - an iPhone imitated in Chromium (no Fullscreen API, motion only after a yes given on a touch, iOS's axes, window.orientation),
+//   the "Pixel de poche" button on an upright phone, what is not a turn (split screen, the keyboard, a wobble), and Pixel
+//   Lab's phone frame;
+// - the Pi's usual http address (http://pixel.lan, mapped to this machine: not a secure page), with no imitation at all:
+//   no motion, battery nor Wake Lock, he lives without them and says so; in the Pixel app, he asks it to keep the screen on.
+// --shots DIR: screenshots at the phone's real resolution.
 // Playwright must be installed (require('playwright')); nothing else.
 const { chromium, devices } = require('playwright');
 const { spawn } = require('child_process');
@@ -39,15 +43,27 @@ async function connectHub() {
 }
 const act = (action, args = {}) => hub.send(JSON.stringify({ action, args }));
 
-/* ---------- the phone: a wake lock, a battery and an iPhone's permission we can watch ---------- */
+/* ---------- the phone (on 127.0.0.1, a secure page): a wake lock, a battery and an iPhone we can watch ---------- */
 const INIT = ios => {
   window.__wl = { asked: 0, released: 0, type: '' };
   const sentinel = () => { const s = new EventTarget(); s.released = false; s.release = async () => { if (!s.released) { s.released = true; window.__wl.released++; s.dispatchEvent(new Event('release')); } }; return s; };
   Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { request: async type => { window.__wl.asked++; window.__wl.type = type; return sentinel(); } } });
   window.__bat = Object.assign(new EventTarget(), { level: 0.8, charging: false });
   navigator.getBattery = async () => window.__bat;
-  window.__perm = 0;
-  if (ios && window.DeviceMotionEvent) window.DeviceMotionEvent.requestPermission = async () => { window.__perm++; return 'granted'; };
+  window.__perm = 0; window.__permCalls = 0; window.__permFail = 0;
+  if (!ios) return;
+  /* an iPhone, as far as Chromium can play one: no Fullscreen API, no screen.orientation (window.orientation, like before
+     iOS 16.4), and the motion sensors only after a yes, which Safari asks for only during a touch */
+  delete Element.prototype.requestFullscreen;
+  Object.defineProperty(Document.prototype, 'fullscreenEnabled', { configurable: true, get: () => false });
+  Object.defineProperty(Screen.prototype, 'orientation', { configurable: true, get: () => undefined });
+  Object.defineProperty(window, 'orientation', { configurable: true, get: () => (innerWidth > innerHeight ? 90 : 0) });
+  window.DeviceMotionEvent.requestPermission = async () => {
+    window.__permCalls++;
+    if (!navigator.userActivation.isActive) throw new DOMException('requestPermission needs a user gesture', 'NotAllowedError');
+    if (window.__permFail > 0) { window.__permFail--; throw new DOMException('the request failed', 'NotAllowedError'); }
+    window.__perm++; return 'granted';
+  };
 };
 let serverDown = false;                      // while we stop the server on purpose, the browser logs the failed reconnections
 const errors = page => {
@@ -56,7 +72,7 @@ const errors = page => {
   page.on('console', m => {
     if (m.type() !== 'error') return;
     if (/\/pixel\.apk$/.test(m.location().url || '')) return;                          // app.js looks for the Android app (none in the demo)
-    if (serverDown && /WebSocket connection .* failed/.test(m.text())) return;
+    if (serverDown && (/WebSocket connection .* failed/.test(m.text()) || /\/ws(\?|$)/.test(m.location().url || ''))) return;   // and app.js asks /ws why
     e.push('console.error: ' + m.text());
   });
   return e;
@@ -74,13 +90,14 @@ async function longPress(page, cdp, ms = 900) {
   await page.waitForTimeout(ms);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
-const motion = (page, list, every = 120) => page.evaluate(async ({ list, every }) => {   // [rx, ry] in the screen's axes (y up), as an Android phone reports them
-  const a = ((screen.orientation && screen.orientation.angle) || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+// [rx, ry] in the screen's axes (y up), as an Android phone reports them; an iPhone (sign -1) reports every axis the other way
+const motion = (page, list, every = 120, sign = 1) => page.evaluate(async ({ list, every, sign }) => {
+  const a = ((screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
   for (const [rx, ry, rz = 0] of list) {
-    window.dispatchEvent(new DeviceMotionEvent('devicemotion', { accelerationIncludingGravity: { x: rx * c + ry * s, y: -rx * s + ry * c, z: rz }, interval: 16 }));
+    window.dispatchEvent(new DeviceMotionEvent('devicemotion', { accelerationIncludingGravity: { x: sign * (rx * c + ry * s), y: sign * (-rx * s + ry * c), z: sign * rz }, interval: 16 }));
     await new Promise(r => setTimeout(r, every));
   }
-}, { list, every });
+}, { list, every, sign });
 const drawn = page => page.evaluate(() => {               // the canvas shows something (not one flat colour)
   const c = document.getElementById('crt'), t = document.createElement('canvas'); t.width = 80; t.height = 48;
   const g = t.getContext('2d'); g.drawImage(c, 0, 0, 80, 48); const d = g.getImageData(0, 0, 80, 48).data, seen = new Set();
@@ -92,7 +109,10 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
 (async () => {
   if (await portOpen()) throw new Error(`le port ${PORT} est déjà pris (POCHE_PORT=… pour un autre)`);
   await startServer(); await connectHub();
-  const browser = await chromium.launch();
+  // pixel.lan: the Pi's address as a phone sees it (plain http, not localhost); the browser talks to this machine directly
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(https?|all)_proxy$/i.test(k)));
+  const browser = await chromium.launch({ args: ['--host-resolver-rules=MAP pixel.lan 127.0.0.1'], env });
+  const LAN = `http://pixel.lan:${PORT}`;
 
   /* ================= the Pi's screen ================= */
   const kc = await browser.newContext({ viewport: { width: 800, height: 480 }, deviceScaleFactor: 1, hasTouch: true });
@@ -194,20 +214,32 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
   });
   await phone.waitForTimeout(300);
   const wlBack = await phone.evaluate(() => window.__wl);
-  check('in the pocket (page hidden): the wake lock is let go; out again: asked again', wlHidden.released > wl0.released || !wlHidden.awake, JSON.stringify([wl0, wlHidden, wlBack]));
-  check('…asked again', wlBack.asked > wlHidden.asked, JSON.stringify([wlHidden, wlBack]));
+  check('in the pocket (page hidden): the wake lock is let go', wlHidden.released > wl0.released && wlHidden.released === wlHidden.asked, JSON.stringify([wl0, wlHidden]));
+  check('…and he holds none', !wlHidden.awake, JSON.stringify(wlHidden));
+  check('out again: asked again', wlBack.asked > wlHidden.asked, JSON.stringify([wlHidden, wlBack]));
   cur = await scene(phone);
   check('out of the pocket after a while: "il faisait tout noir dans ta poche !"', cur === 'poche-revoila', cur);
 
   // the Pi out of reach: the server stops; he lives on, says he is far from home; it starts again: he reconnects quietly
   await phone.waitForTimeout(3600); await free(phone);
+  check('the app\'s files are kept on the phone (service worker ready) and so is his last snapshot', await phone.evaluate(async () => {
+    const r = await navigator.serviceWorker.ready, s = JSON.parse(localStorage.getItem('pixel_snap') || 'null');
+    return !!r.active && !!s && !!s.view && Array.isArray(s.chat.messages) && !s.chat.messages.length;
+  }));
   serverDown = true; await stopServer();
   const far = await until(async () => (await scene(phone)) === 'poche-loin', 9000);
   check('the Pi out of reach: "je ne capte plus la maison…"', far, String(await scene(phone)));
   const h1 = await drawn(phone); await phone.waitForTimeout(400);
   check('…and he still lives here (the canvas keeps drawing)', h1 > 6 && await phone.evaluate(() => PixelPoche.on), String(h1));
   await shot(phone, 'poche-pixel7-loin');
-  await phone.waitForTimeout(6500); await free(phone);
+  await phone.evaluate(() => dispatchEvent(new Event('online'))); await phone.waitForTimeout(1500);   // mobile data back, the Pi still away
+  check('a network again ("online") is not the Pi: no "je capte la maison"', (await scene(phone)) !== 'poche-maison' && !(await phone.evaluate(() => PixelPoche.linked)), await scene(phone));
+  // the phone closed the page meanwhile: it opens again without the Pi, he wakes up from his last snapshot
+  await phone.reload(); await until(() => phone.evaluate(() => !!window.PixelPoche && PixelPoche.on), 6000);
+  const far2 = await until(async () => (await scene(phone)) === 'poche-loin', 9000);
+  const re = await phone.evaluate(() => ({ on: PixelPoche.on, err: Screens.local.error, theme: Screens.local.theme, conn: document.getElementById('conn').textContent }));
+  check('the page loaded again away from home: he wakes up anyway (his theme, his face) and says he is far', far2 && re.on && re.theme === 'retro' && (await drawn(phone)) > 6 && !/Pas d'accès/.test(re.err || ''), JSON.stringify(re));
+  await phone.waitForTimeout(3000); await free(phone);
   await startServer(); await connectHub();
   const home = await until(async () => (await scene(phone)) === 'poche-maison', 15000);
   await phone.waitForTimeout(500); serverDown = false;
@@ -240,11 +272,12 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
 
   // upright again: the remote
   await phone.evaluate(() => document.fullscreenElement && document.exitFullscreen()); await phone.waitForTimeout(300);   // (a test window cannot turn while full screen)
-  await phone.setViewportSize({ width: 412, height: 839 }); await phone.waitForTimeout(500);
+  await phone.setViewportSize({ width: 412, height: 839 }); await phone.waitForTimeout(900);
   const up = await phone.evaluate(() => ({ on: PixelPoche.on, cls: document.body.classList.contains('poche'), kb: getComputedStyle(document.querySelector('.kb')).display, style: document.getElementById('crt').style.width, wl: window.__wl, scale: Screens.local.scale }));
-  check('upright again: back to the remote (keys, his small screen), the wake lock let go', !up.on && !up.cls && up.kb !== 'none' && !up.style && !up.scale && up.wl.released >= up.wl.asked - 1, JSON.stringify(up));
+  check('upright again: back to the remote (keys, his small screen)', !up.on && !up.cls && up.kb !== 'none' && !up.style && !up.scale, JSON.stringify(up));
+  check('…every wake lock he asked for is let go', up.wl.asked >= 1 && up.wl.released === up.wl.asked, JSON.stringify(up.wl));
   await shot(phone, 'poche-pixel7-portrait');
-  await phone.setViewportSize({ width: P7.viewport.width, height: P7.viewport.height }); await phone.waitForTimeout(500);
+  await phone.setViewportSize({ width: P7.viewport.width, height: P7.viewport.height }); await phone.waitForTimeout(900);
   check('sideways again: the Pixel de poche again', await phone.evaluate(() => PixelPoche.on && document.body.classList.contains('poche')));
   await phone.evaluate(() => document.fullscreenElement && document.exitFullscreen());
   await phone.locator('.poche-x').tap(); await phone.waitForTimeout(300);
@@ -252,18 +285,31 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
   check('the phone: no page or console errors', pErr.length === 0, pErr.slice(0, 4).join(' | '));
   await pc.close();
 
-  /* ================= an iPhone sideways ================= */
+  /* ================= an iPhone sideways (imitated in Chromium: see INIT) ================= */
   const IP = devices['iPhone 14 landscape'];
   const ic = await browser.newContext({ viewport: IP.viewport, screen: IP.screen, deviceScaleFactor: IP.deviceScaleFactor, isMobile: true, hasTouch: true, userAgent: IP.userAgent });
   await ic.addInitScript(INIT, true);
   const ip = await ic.newPage(), iErr = errors(ip);
   await ip.goto(BASE + '/'); await until(() => ip.evaluate(() => !!PixelPoche && PixelPoche.on), 6000); await ip.waitForTimeout(900);
-  const il = await ip.evaluate(() => { const c = document.getElementById('crt'), r = c.getBoundingClientRect(); return { on: PixelPoche.on, w: r.width, h: r.height, cw: c.width, dpr: devicePixelRatio, ih: innerHeight, perm: window.__perm }; });
-  check('iPhone 14 sideways: the Pixel de poche, crisp at 3x', il.on && Math.abs(il.h - il.ih) <= 2 && Math.abs(il.cw - il.w * il.dpr) <= 1 && il.perm === 0, JSON.stringify(il));
+  const il = await ip.evaluate(() => { const c = document.getElementById('crt'), r = c.getBoundingClientRect(); return { on: PixelPoche.on, w: r.width, h: r.height, cw: c.width, dpr: devicePixelRatio, ih: innerHeight, calls: window.__permCalls, so: screen.orientation, wo: window.orientation }; });
+  check('iPhone 14 sideways (window.orientation 90, no screen.orientation): the Pixel de poche, crisp at 3x, nothing asked yet', il.on && il.so === undefined && il.wo === 90 && Math.abs(il.h - il.ih) <= 2 && Math.abs(il.cw - il.w * il.dpr) <= 1 && il.calls === 0, JSON.stringify(il));
   await ip.waitForTimeout(3500); await free(ip);
+  await ip.evaluate(() => { window.__permFail = 1; });                                   // the first request fails
   p = await facePoint(ip); await ip.touchscreen.tap(p.x, p.y); await ip.waitForTimeout(200);
-  check('iPhone: the first touch asks for the motion sensors (DeviceMotionEvent.requestPermission), and he reacts', (await ip.evaluate(() => window.__perm)) === 1 && ['tap', 'fache', 'retour'].includes(await group(ip, await scene(ip))), String(await scene(ip)));
+  const i1 = await ip.evaluate(() => ({ calls: window.__permCalls, perm: window.__perm, full: !!document.fullscreenElement }));
+  check('iPhone: the first touch asks for the motion sensors, during the touch, and he reacts (no full screen: an iPhone has none)', i1.calls === 1 && !i1.full && ['tap', 'fache', 'retour'].includes(await group(ip, await scene(ip))), JSON.stringify(i1) + ' ' + await scene(ip));
   await shot(ip, 'poche-iphone14');
+  await ip.waitForTimeout(2500); await free(ip);
+  p = await facePoint(ip); await ip.touchscreen.tap(p.x, p.y); await ip.waitForTimeout(200);
+  const i2 = await ip.evaluate(() => ({ calls: window.__permCalls, perm: window.__perm }));
+  check('iPhone: that request failed, so the next touch asks again, and gets a yes', i2.calls === 2 && i2.perm === 1, JSON.stringify(i2));
+  await ip.waitForTimeout(2500); await free(ip);
+  await motion(ip, [[0, 9.8], [0, 9.8], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6]], 100, -1);
+  const ilean = await ip.evaluate(() => Screens.local.lean);
+  check('iPhone (its axes the other way round): tilted to the right, he leans to the right too', !!ilean && ilean.x > 40 && ilean.r < 0, JSON.stringify(ilean));
+  await motion(ip, Array(12).fill([0, 9.8]), 100, -1); await free(ip);
+  await motion(ip, [[0, 9.8], [0, 9.8], [-22, 18], [20, -6], [-24, 25], [22, -8], [-20, 20]], 120, -1);
+  check('iPhone: shaken, he gets dizzy', ['poche-tournis', 'poche-cocktail'].includes(await scene(ip)), await scene(ip));
   check('iPhone: no page or console errors', iErr.length === 0, iErr.slice(0, 4).join(' | '));
   await ic.close();
 
@@ -278,8 +324,70 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
   await shot(uprightPage, 'poche-pixel7-bouton');
   await uprightPage.locator('.poche-x').tap(); await uprightPage.waitForTimeout(300);
   check('…and × goes back', await uprightPage.evaluate(() => !PixelPoche.on));
+
+  /* what is not a turn */
+  const U = devices['Pixel 7'], ucdp = await uc.newCDPSession(uprightPage), isOn = () => uprightPage.evaluate(() => PixelPoche.on);
+  const upright = async () => { await uprightPage.setViewportSize(U.viewport); await uprightPage.waitForTimeout(900); };
+  await ucdp.send('Emulation.setDeviceMetricsOverride', { width: 760, height: 380, deviceScaleFactor: U.deviceScaleFactor, mobile: true, screenWidth: U.screen.width, screenHeight: U.screen.height, screenOrientation: { angle: 0, type: 'portraitPrimary' } });
+  await uprightPage.waitForTimeout(900);
+  const split = await uprightPage.evaluate(() => ({ on: PixelPoche.on, land: matchMedia('(orientation: landscape)').matches, o: screen.orientation.type }));
+  check('an upright phone in split screen (a wide window, the phone upright): still the remote', split.land && /portrait/.test(split.o) && !split.on, JSON.stringify(split));
+  await upright();
+  await uprightPage.focus('#cmd'); await uprightPage.setViewportSize({ width: U.viewport.height, height: U.viewport.width }); await uprightPage.waitForTimeout(900);
+  check('typing a command (the keyboard up): no Pixel de poche, the command bar stays', !(await isOn()) && await uprightPage.evaluate(() => document.activeElement.id === 'cmd'));
+  await uprightPage.evaluate(() => document.activeElement.blur()); await uprightPage.waitForTimeout(900);
+  check('…the keyboard gone, the phone is sideways: the Pixel de poche', await isOn());
+  await uprightPage.evaluate(() => { window.__flips = 0; new MutationObserver(() => window.__flips++).observe(document.body, { attributes: true, attributeFilter: ['class'] }); });
+  await uprightPage.setViewportSize(U.viewport); await uprightPage.waitForTimeout(150);
+  await uprightPage.setViewportSize({ width: U.viewport.height, height: U.viewport.width }); await uprightPage.waitForTimeout(900);
+  check('a wobble of auto-rotate (upright for a moment): he stays, he never left', await isOn() && (await uprightPage.evaluate(() => window.__flips)) === 0, String(await uprightPage.evaluate(() => window.__flips)));
+  const ev0 = hubState.poche.ev && hubState.poche.ev.id;
+  await upright(); await uprightPage.waitForTimeout(2600);                                 // (the server lets the same news through every 2.5 s)
+  await uprightPage.setViewportSize({ width: U.viewport.height, height: U.viewport.width }); await uprightPage.waitForTimeout(900);
+  await until(async () => hubState.poche.here > 0, 2000);
+  check('turned again within a minute: no new hello for the Pi ("coucou mon jumeau" once), he only says he is there', await isOn() && (hubState.poche.ev && hubState.poche.ev.id) === ev0 && hubState.poche.here > 0, JSON.stringify([ev0, hubState.poche]));
+  await upright();
   check('the button: no page or console errors', uErr.length === 0, uErr.slice(0, 4).join(' | '));
   await uc.close();
+
+  /* ================= the Pi's usual address, plain http: no imitation at all ================= */
+  const hc = await browser.newContext({ ...P7 });
+  const hp = await hc.newPage(), hErr = errors(hp);
+  await hp.goto(LAN + '/'); await until(() => hp.evaluate(() => !!window.PixelPoche && PixelPoche.on && document.getElementById('conn').textContent === 'connecté'), 8000);
+  await hp.waitForTimeout(900);
+  const hs = await hp.evaluate(() => ({ secure: isSecureContext, wl: !!navigator.wakeLock, bat: !!navigator.getBattery, motion: 'DeviceMotionEvent' in window, on: PixelPoche.on, awake: PixelPoche.awake, linked: PixelPoche.linked,
+    note: (n => n && !n.hidden && n.textContent)(document.querySelector('.poche-note')) }));
+  check('http: not a secure page (no Wake Lock, battery, nor motion for it), and still the Pixel de poche, connected', !hs.secure && !hs.wl && !hs.bat && hs.on && !hs.awake && hs.linked, JSON.stringify(hs));
+  check('…he says once why he cannot feel the phone (https needed)', /https/.test(hs.note || '') && /mouvements/.test(hs.note) && /écran allumé/.test(hs.note), String(hs.note));
+  check('…and draws', (await drawn(hp)) > 6);
+  await shot(hp, 'poche-pixel7-http');
+  await hp.locator('.poche-note').tap(); await hp.waitForTimeout(100);
+  check('…a touch on the note closes it', await hp.evaluate(() => document.querySelector('.poche-note').hidden));
+  await hp.waitForTimeout(2500); await free(hp);
+  p = await facePoint(hp); await hp.touchscreen.tap(p.x, p.y); await hp.waitForTimeout(200);
+  check('http: a tap still gets a reaction', ['tap', 'fache', 'retour'].includes(await group(hp, await scene(hp))), await scene(hp));
+  check('http: no page or console errors', hErr.length === 0, hErr.slice(0, 4).join(' | '));
+  await hc.close();
+
+  /* ================= the Pixel app (pixel-mobile, an Android WebView: no Wake Lock) on that address ================= */
+  const ac = await browser.newContext({ ...P7 });
+  await ac.addInitScript(() => { window.__rn = []; window.ReactNativeWebView = { postMessage: m => window.__rn.push(JSON.parse(m)) }; });
+  const ap = await ac.newPage(), aErr = errors(ap);
+  const modes = () => ap.evaluate(() => window.__rn.filter(m => m.mode).map(m => m.mode));
+  const lastMode = async () => (await modes()).slice(-1)[0];
+  await ap.goto(LAN + '/'); await until(() => ap.evaluate(() => !!window.PixelPoche && PixelPoche.on && document.getElementById('conn').textContent === 'connecté'), 8000);
+  await ap.waitForTimeout(600);
+  check('the app: sideways, he asks the app to keep the screen on ({mode: "pixel"}, after the page\'s own mode)', (await lastMode()) === 'pixel' && (await modes()).length >= 2, JSON.stringify(await modes()));
+  check('…and never says "no access"', !(await ap.evaluate(() => window.__rn.some(m => m.access === false))));
+  check('…his note leaves the screen out (the app keeps it on)', await ap.evaluate(() => (t => /mouvements/.test(t) && !/écran allumé/.test(t))(document.querySelector('.poche-note').textContent)));
+  await ap.evaluate(() => { Screens.local.sleepy = true; }); await ap.waitForTimeout(1500);
+  check('he falls asleep: the app may let the screen sleep (the page\'s own mode again)', (await lastMode()) === 'both', JSON.stringify(await modes()));
+  await ap.evaluate(() => Screens.input()); await ap.waitForTimeout(1500);
+  check('woken up: the screen on again', (await lastMode()) === 'pixel', JSON.stringify(await modes()));
+  await ap.locator('.poche-x').tap(); await ap.waitForTimeout(300);
+  check('× (back to the remote): the page\'s own mode', !(await ap.evaluate(() => PixelPoche.on)) && (await lastMode()) === 'both', JSON.stringify(await modes()));
+  check('the app: no page or console errors', aErr.length === 0, aErr.slice(0, 4).join(' | '));
+  await ac.close();
 
   /* ================= Pixel Lab: the phone frame ================= */
   const lc = await browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 1 });

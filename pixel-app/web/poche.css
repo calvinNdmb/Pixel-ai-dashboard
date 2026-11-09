@@ -18,3 +18,8 @@ body.poche .screen canvas{position:absolute;touch-action:none;-webkit-tap-highli
 .poche-hud button:active,.poche-hud button:focus-visible,.poche-hud button:hover{opacity:1;outline:none}
 .poche-x{left:max(10px,env(safe-area-inset-left));font-size:30px!important;padding:0!important}
 .poche-voyage{right:max(10px,env(safe-area-inset-right))}
+/* on http, once: why he does not feel the phone (poche.js note()); a touch closes it */
+.poche-note{position:absolute;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);width:max-content;max-width:min(560px,86vw);margin:0;
+  padding:8px 14px;border-radius:12px;border:2px solid var(--c-line);background:var(--c-bg);color:var(--c-fg);font:18px/1.25 var(--c-font);text-align:center;
+  pointer-events:auto;cursor:pointer}
+.poche-note[hidden]{display:none}

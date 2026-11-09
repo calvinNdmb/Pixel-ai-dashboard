@@ -262,7 +262,7 @@ L'appli marche sur ton Wi-Fi, en IPv4 comme en IPv6 : un téléphone trouve souv
 
 ## Pixel de poche
 
-**Tourne ton téléphone en mode paysage** : l'appli devient un deuxième Pixel, comme un petit animal dans ta poche. C'est le même Pixel que sur l'écran du Pi : même thème (Rétro par défaut), mêmes 52 animations, même personnalité et toutes ses scènes. Il reçoit les mêmes nouvelles : notifications, Codex, minuteur, météo, lumières. Remets le téléphone droit et tu retrouves la télécommande.
+**Tourne ton téléphone en mode paysage** : l'appli devient un deuxième Pixel, comme un petit animal dans ta poche. C'est le même Pixel que sur l'écran du Pi : même thème (Rétro par défaut), mêmes 52 animations, même personnalité et toutes ses scènes. Il reçoit les mêmes nouvelles : notifications, Codex, minuteur, météo, lumières. Remets le téléphone droit et tu retrouves la télécommande. C'est le téléphone lui-même qu'il faut tourner : un écran partagé ou le clavier qui s'ouvre ne le font pas apparaître.
 
 Sur une tablette, ou si la rotation de ton téléphone est bloquée, touche **Pixel de poche** sous l'écran de Pixel. Le bouton **×**, en haut à gauche, ramène la télécommande.
 
@@ -273,14 +273,16 @@ Sur une tablette, ou si la rotation de ton téléphone est bloquée, touche **Pi
 - **penche-le** : il glisse vers le bas et se penche pour rester droit ; très penché, « Wooo, ça glisse ! » ;
 - **sors-le de ta poche**, ou reprends le téléphone posé depuis un moment : « Il faisait tout noir dans ta poche ! » ;
 - **la batterie du téléphone** à 15 % puis à 5 % : « Branche-moi ! » ; branché : « Miam, de l'électricité ! » (Android seulement, l'iPhone ne donne pas sa batterie à une page) ;
-- **loin de la maison** (le Pi ne répond plus) : il continue de vivre sur le téléphone et dit qu'il ne capte plus la maison ; dès que le Pi répond, il se reconnecte tout seul.
+- **loin de la maison** (le Pi ne répond plus) : il continue de vivre sur le téléphone et dit qu'il ne capte plus la maison ; dès que le Pi répond, il se reconnecte tout seul. Si le téléphone a fermé la page entre-temps, elle ne se rouvre sans le Pi que sur une adresse en https : le téléphone garde alors l'appli et le dernier état de Pixel. En http, il faut la rouvrir à la maison.
+
+**Ses sens demandent une adresse en https.** Un téléphone ne donne ses mouvements (secouer, pencher), sa batterie et « l'écran reste allumé » qu'à une page sûre : en https, ou ouverte sur l'appareil lui-même. Sur l'adresse habituelle de Pixel, en http, le Pixel de poche vit quand même, réagit au doigt et aux câlins, connaît son jumeau et fait le voyage, mais il ne sent pas le téléphone ; il le dit une fois, en bas de l'écran. Dans l'appli Android, l'écran reste allumé même en http : c'est l'appli qui s'en charge. Pour tout avoir, ouvre Pixel par une adresse en https dont le téléphone accepte le certificat.
 
 **Les deux Pixels se connaissent.** Caresse celui du téléphone : celui du Pi est jaloux (« Hé ! Tu caresses l'autre ?! »). Touche-le ou secoue-le : celui du Pi s'inquiète pour son jumeau. Quand tu allumes le Pixel de poche, celui du Pi lui fait coucou. Et dans l'autre sens, si on touche ou caresse le Pixel du Pi, celui de ta poche le remarque.
 
 **Le voyage :** le bouton **Viens !**, en haut à droite, fait venir Pixel dans ton téléphone. Sur le Pi, il prend sa valise et sort de l'écran ; sur le téléphone, son jumeau lui laisse la place et il arrive. Il reste une minute, puis rentre à la maison. **Rentre !** le renvoie plus tôt, et toucher l'écran vide du Pi le rappelle aussi.
 
 **Le téléphone :**
-- l'écran reste allumé tant que Pixel est réveillé. S'il s'endort (10 minutes sans le toucher, comme sur le Pi), le téléphone peut se mettre en veille ;
+- l'écran reste allumé tant que Pixel est réveillé (en https, ou dans l'appli Android). S'il s'endort (10 minutes sans le toucher, comme sur le Pi), le téléphone peut se mettre en veille ;
 - sur Android, la première touche le met en plein écran ; avec le bouton **Pixel de poche**, il reste en paysage. Un iPhone ne permet ni l'un ni l'autre à une page : tourne-le simplement ;
 - sur iPhone, la première touche demande la permission d'utiliser les mouvements (secouer, pencher) ;
 - l'image est nette, à la densité de pixels du téléphone ; les côtés prennent le fond du thème ; pas de défilement ni de zoom ;
@@ -406,7 +408,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
   - les lumières, une scène demandée par le serveur, et les 60 images par seconde quand il bouge.
 
   `test_pixel.py` vérifie `scene.play`, les commandes `fais …` et `scènes`, et l'outil de Claude.
-- **Pixel de poche** (`test_poche.js`, dans Chromium) : en paysage, sur un Pixel 7 et un iPhone 14 simulés, il s'affiche en plein écran, net et sans erreur dans les 6 thèmes ; l'écran reste allumé ; une tape le fait réagir, un appui long le câline ; secoué, penché, sa batterie, le Pi arrêté puis relancé, la sortie de la poche ; en portrait, la télécommande revient. À côté, l'écran du Pi : le Pixel jaloux, le jumeau qui remarque, le voyage aller et retour. Et le cadre de Pixel Lab. `test_poche.py` vérifie les actions `poche.touch` et `poche.voyage` du serveur.
+- **Pixel de poche** (`test_poche.js`, dans Chromium) : en paysage, sur un Pixel 7 et un iPhone 14 simulés, il s'affiche en plein écran, net et sans erreur dans les 6 thèmes ; l'écran reste allumé ; une tape le fait réagir, un appui long le câline ; secoué, penché, sa batterie, le Pi arrêté puis relancé (et la page rechargée sans le Pi), la sortie de la poche ; en portrait, la télécommande revient ; ni un écran partagé, ni le clavier, ni un aller-retour rapide ne le font apparaître. L'iPhone est imité dans Chromium (pas de plein écran, la permission des mouvements seulement sur une touche, ses axes à l'envers, `window.orientation`). Une adresse en http sans aucune imitation : il vit sans les sens du téléphone et le dit ; dans l'appli Android, il lui demande de garder l'écran allumé. À côté, l'écran du Pi : le Pixel jaloux, le jumeau qui remarque, le voyage aller et retour. Et le cadre de Pixel Lab. `test_poche.py` vérifie les actions `poche.touch` et `poche.voyage` du serveur.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :

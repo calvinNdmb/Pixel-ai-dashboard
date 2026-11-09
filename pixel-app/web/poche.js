@@ -5,8 +5,11 @@
    - the Pi's touch (the zones of his face, taps in a row, a stroke), plus a long press, which pets him;
    - shaken: dizzy; tilted: he leans and slides; picked up after lying still, or back out of the pocket: "te revoilà";
      its battery (low, charging); the Pi out of reach: he lives on alone, says he is far from home, and comes back quietly;
-   - the screen stays on while he is awake (Wake Lock), full screen and held sideways where the phone allows it (Android;
-     on an iPhone a page can do neither), a crisp canvas at the phone's pixel density, no scroll, no zoom, no selection.
+   - the screen stays on while he is awake (Wake Lock; in the Pixel app, the app keeps it on), full screen and held sideways
+     where the phone allows it (Android; on an iPhone a page can do neither), a crisp canvas at the phone's pixel density,
+     no scroll, no zoom, no selection.
+   A phone gives its motion, its battery and the Wake Lock only to a secure page (https, or localhost): on the Pi's plain
+   http address he still lives, is touched and petted, but he cannot feel the phone, and he says so once (README).
    The two Pixels know each other (pixel/poche.py): a touch, a cuddle or a shake of one is news for the other (jealous!),
    and the voyage sends Pixel from the Pi into your pocket for a minute, and back. Their scenes: web/scenes/poche.js.
    Loaded after screens.js and before app.js (PixelPoche.app) or the lab's scripts (PixelPoche.lab, lab/poche-lab.js).
@@ -20,6 +23,8 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch { return 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const MQ = { land: matchMedia('(orientation: landscape)'), touch: matchMedia('(hover: none) and (pointer: coarse)') };   // a phone or a tablet
+const SECURE = window.isSecureContext !== false;   // http on the home network: no motion, battery nor Wake Lock for the page
+const inApp = () => !!window.ReactNativeWebView;   // the Pixel phone app (pixel-mobile, an Android WebView)
 /* the sides of the screen take the theme's background (themes.js): a phone is wider than Pixel's 5:3 */
 const BG = (() => {
   try {
@@ -118,10 +123,11 @@ function motion(want) {
   if (want) addEventListener('devicemotion', onMotion); else { removeEventListener('devicemotion', onMotion); lastA = null; peaks = []; stillSince = 0; tiltTo(0); }
 }
 let asked = false;
-function askMotion() {              // iPhone: motion needs a yes, asked on a touch
-  if (asked) return; asked = true;
+function askMotion() {              // iPhone: motion needs a yes, asked on a touch (an http page never gets it: no use asking)
   const D = window.DeviceMotionEvent;
-  if (D && typeof D.requestPermission === 'function') D.requestPermission().then(r => { if (r === 'granted') { motion(false); motion(true); } }, () => {});
+  if (asked || !SECURE || !D || typeof D.requestPermission !== 'function') return;
+  asked = true;
+  D.requestPermission().then(r => { if (r === 'granted') { motion(false); motion(true); } }, () => { asked = false; });   // failed (no touch...): again on the next touch
 }
 function shake() { if (!on) return; Sc.input(); say('poche-secousse'); news('secoue'); }
 function revoila() {                // back from the pocket (or picked up again) after a while
@@ -155,9 +161,13 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ---------- the screen: awake, full screen, sideways, crisp ---------- */
-let lock = null, asking = false, lockFailAt = -1e9;
+let lock = null, asking = false, lockFailAt = -1e9, appAwake = false;
 async function wake() {             // the screen stays on while he is shown and awake; asleep, the phone may sleep too
   const want = on && how !== 'labo' && !document.hidden && !L.sleepy;
+  if (inApp() && want !== appAwake) {                                                 // the Pixel app: an Android WebView has no Wake Lock, the app
+    appAwake = want;                                                                  // keeps the screen on in Pixel mode (pixel-mobile/App.tsx)
+    try { window.ReactNativeWebView.postMessage(JSON.stringify({ mode: want ? 'pixel' : document.body.dataset.mode || 'both' })); } catch {}
+  }
   if (!want) { if (lock) { const l = lock; lock = null; l.release().catch(() => {}); } return; }
   if (lock || asking || !navigator.wakeLock || Date.now() - lockFailAt < 30000) return;
   asking = true;
@@ -235,13 +245,26 @@ function hud(show) {                // two small buttons in the corners: back to
   if (show && !hudEl && cv) {
     hudEl = el('div', 'poche-hud');
     const x = el('button', 'poche-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Revenir à la télécommande'); x.title = 'Revenir à la télécommande';
-    x.addEventListener('click', () => { dismissed = MQ.land.matches; leave(); });
+    x.addEventListener('click', () => { dismissed = sideways(); leave(); });
     goBtn = el('button', 'poche-voyage'); goBtn.type = 'button';
     goBtn.addEventListener('click', () => send('poche.voyage', { to: visiting() ? 'pi' : 'poche' }));
     hudEl.append(x, goBtn); cv.parentElement.append(hudEl);
   }
   if (hudEl) hudEl.hidden = !show;
   label();
+}
+let noteEl = null;
+function note() {                   // on http, once: why he does not feel the phone
+  if (SECURE || noteEl || !hudEl) return;
+  noteEl = el('p', 'poche-note', `Adresse en http : le téléphone ne lui prête ni ses mouvements, ni sa batterie${inApp() ? '' : ', ni l’écran allumé'}. Il faut une adresse en https.`);
+  noteEl.setAttribute('role', 'status'); noteEl.addEventListener('click', () => { noteEl.hidden = true; });
+  hudEl.append(noteEl); setTimeout(() => { noteEl.hidden = true; }, 9000);
+}
+let helloAt = -1e9;
+function hello() {                  // his twin waves, once a minute at most (turning the phone to and fro is no new hello): else "still here"
+  const t = Date.now(), kind = t - helloAt > 60000 ? 'bonjour' : 'la';
+  if (kind === 'bonjour') helloAt = t;
+  send('poche.touch', { kind, by: 'poche' }); greeted = true; beatAt = t;
 }
 function enter(h) {
   if (on) return;
@@ -251,14 +274,14 @@ function enter(h) {
   else {
     document.documentElement.classList.add('poche'); document.body.classList.add('poche');
     if (P) L.kiosk = true;                                                          // he dozes off when left alone (no boot splash: that is for the Pi)
-    noZoom(true); tint(true); hud(true); layout(); motion(true); wake();
+    noZoom(true); tint(true); hud(true); layout(); motion(true); wake(); note();
     setTimeout(onBattery, 6000);
     if (!online) farLater(4000);
   }
   const c0 = PER && PER.state.cur; Sc.input();                                      // back after a long while: his usual "te revoilà"
   const last = Number(store.get('pixel.poche')) || 0; store.set('pixel.poche', String(Date.now()));
   if (PER && PER.state.cur === c0 && Date.now() - last > 10 * 60000) say('poche-allume');   // or his hello from the phone
-  beatAt = Date.now(); greeted = connected; if (connected) send('poche.touch', { kind: 'bonjour', by: 'poche' });   // his twin waves (else on connecting)
+  beatAt = Date.now(); greeted = connected; if (connected) hello();                 // his twin waves (else on connecting)
 }
 function leave() {
   if (!on) return;
@@ -272,9 +295,16 @@ function leave() {
   if (before) L.scr = before.scr;
   send('poche.touch', { kind: 'au-revoir', by: 'poche' });
 }
+const sideways = () => {            // the phone itself turned (not an upright phone in split screen or squashed by its keyboard), its page too
+  const o = screen.orientation && screen.orientation.type, a = window.orientation;   // window.orientation: older iPhones
+  return MQ.land.matches && (o ? o.startsWith('landscape') : typeof a === 'number' ? Math.abs(a) === 90 : true);
+};
+const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+let orientT = 0;
+function orientSoon() { clearTimeout(orientT); orientT = setTimeout(orient, 400); }   // once the turn has settled: a wobble of auto-rotate is no turn
 function orient() {                 // sideways: the Pixel de poche; upright again: the remote
-  if (!isApp || kioskPage) return;
-  if (MQ.land.matches) { if (on) { if (how === 'fixe') how = 'auto'; } else if (MQ.touch.matches && !dismissed) enter('auto'); }
+  if (!isApp || kioskPage || typing()) return;                                        // typing a command: the keyboard is up, not the Pixel de poche
+  if (sideways()) { if (on) { if (how === 'fixe') how = 'auto'; } else if (MQ.touch.matches && !dismissed) enter('auto'); }
   else { dismissed = false; if (on && how === 'auto') leave(); }
 }
 setInterval(() => {
@@ -291,19 +321,24 @@ const api = {
     isApp = true; send = o.send || send; kioskPage = !!o.kiosk; where = kioskPage ? 'pi' : null; connected = false;
     if (kioskPage) return api;
     const b = el('button', 'poche-go', 'Pixel de poche'); b.type = 'button'; b.title = 'Pixel en grand, à câliner : ou tourne ton téléphone';
-    b.addEventListener('click', () => { dismissed = false; askMotion(); enter(MQ.land.matches ? 'auto' : 'fixe'); full(true); fullAsked = true; });   // full screen, sideways where it can
+    b.addEventListener('click', () => { dismissed = false; askMotion(); enter(sideways() ? 'auto' : 'fixe'); full(true); fullAsked = true; });   // full screen, sideways where it can
     const badge = document.querySelector('.mfoot .badge'); if (badge) badge.after(b);
-    MQ.land.addEventListener('change', orient);
+    MQ.land.addEventListener('change', orientSoon);
+    if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', orientSoon); else addEventListener('orientationchange', orientSoon);
+    document.addEventListener('focusout', orientSoon);                               // the keyboard goes: was the phone turned meanwhile?
     addEventListener('resize', layout); if (window.visualViewport) visualViewport.addEventListener('resize', layout);
-    addEventListener('offline', () => link(false, 1500)); addEventListener('online', () => { if (P) link(true); });
+    addEventListener('offline', () => link(false, 1500));                            // no network at all; "online" proves nothing: only the Pi's answer does
     if (navigator.getBattery) navigator.getBattery().then(x => { bat = x; x.addEventListener('levelchange', onBattery); x.addEventListener('chargingchange', onBattery); onBattery(); }, () => {});
-    orient();
+    setTimeout(orient);                                                               // once app.js is ready (its mode said to the Pixel app first)
     return api;
   },
   watch(ws) {                       // app.js: each WebSocket, after its own handlers (so its snapshot is already drawn)
-    ws.addEventListener('open', () => { connected = true; link(true); if (on) { send('poche.touch', { kind: greeted ? 'la' : 'bonjour', by: 'poche' }); greeted = true; beatAt = Date.now(); } });
+    ws.addEventListener('open', () => { connected = true; link(true); if (on) { if (greeted) send('poche.touch', { kind: 'la', by: 'poche' }); else hello(); greeted = true; beatAt = Date.now(); } });
     ws.addEventListener('close', () => { connected = false; link(false); });
-    ws.addEventListener('message', e => { try { const m = JSON.parse(e.data); if (m.type === 'state') state(m.data); } catch {} });
+    ws.addEventListener('message', e => {                                             // the Pi answers: he is reachable (the socket may outlive an "offline")
+      if (navigator.onLine !== false) link(true);
+      try { const m = JSON.parse(e.data); if (m.type === 'state') state(m.data); } catch {}
+    });
   },
   up(p) { if (!on) return false; Sc.hit(p.x, p.y); return true; },                // app.js / lab.js: a touch on his face, no swipe nor menu here
   /* the lab: it is the Pi's screen, and its phone frame is a Pixel de poche */
@@ -311,6 +346,7 @@ const api = {
   view(b) { if (b) enter('labo'); else leave(); },
   enter: h => enter(h || 'fixe'), leave, state,
   get on() { return on; }, get where() { return where; }, get how() { return how; }, get awake() { return !!lock; }, get visiting() { return visiting(); },
+  get linked() { return online; },  // does he think the Pi is reachable
   /* what the phone would feel: the lab's buttons and the tests */
   sim: {
     shake,
