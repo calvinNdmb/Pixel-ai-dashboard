@@ -13,7 +13,12 @@ command -v chromium-browser >/dev/null || command -v chromium >/dev/null || sudo
 echo "2/5 Environnement Python"
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt || {
+  # « set -e » : sans ce repli, un « cryptography » qui ne s'installe pas arrêterait toute l'installation
+  echo "   (une dépendance ne s'installe pas : nouvel essai sans « cryptography », les amis de Pixel resteront éteints)"
+  grep -v '^cryptography' requirements.txt > .venv/requirements-sans-amis.txt
+  .venv/bin/pip install -r .venv/requirements-sans-amis.txt
+}
 # Les amis de Pixel (docs/AMIS.md) : tout ce qui passe par Internet est chiffré avec « cryptography » (requirements.txt).
 # Vérifié ici, et une roue toute faite sinon ; sans lui, les amis restent éteints et tout le reste marche.
 .venv/bin/python -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM' 2>/dev/null \
