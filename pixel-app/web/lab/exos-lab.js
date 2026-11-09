@@ -38,4 +38,8 @@ function render(s) {
 }
 sync();
 hub.listen(render);
+{                                          // the commands to type (« Commandes à taper »), as caractere-lab.js does
+  const ul = document.querySelector('section[aria-labelledby="hHelp"] .cmds');
+  if (ul) for (const [c, d] of [['exo', 'un exo de maths'], ['table de 7', 'une table'], ['42', 'la réponse, un exo ouvert']]) { const li = document.createElement('li'), k = document.createElement('code'), s = document.createElement('span'); k.textContent = c; s.textContent = d; li.append(k, s); ul.append(li); }
+}
 })();

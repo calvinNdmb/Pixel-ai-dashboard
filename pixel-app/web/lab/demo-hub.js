@@ -305,7 +305,7 @@ Object.assign(A, {
 });
 
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
-const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caractère câlin · sinon : Claude";
+const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caractère câlin · mange une pomme · exo · table de 7 · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
 ALLT.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });   // every theme: a disabled one gets the "not on" message
@@ -366,6 +366,7 @@ function command(raw) {
   }
   if (SCREEN_WORDS[t]) return A['screen.show']({ screen: SCREEN_WORDS[t] });
   if (carCommand(raw)) return;                           // « sois grognon », « plus câlin »… (caractère, below), last before Claude as in commands.py
+  if (NOUR && NOUR.command(raw)) return;                 // « mange une pomme », « à table ! » (Nourrir, below): after him, as in commands.py
   A['chat.ask']({ text: raw });
 }
 
@@ -415,7 +416,11 @@ const NOUR = (() => {
   const SPEED = { lente: 3, normale: 6, rapide: 12 }, W_FAV = { plat: 3, sucre: 2, fruit: 1, legume: 0.3, boisson: 0.6, robot: 1.2 },
     W_LIKE = { plat: 2, sucre: 2, fruit: 1.2, legume: 0.6, boisson: 1, robot: 1 }, W_HATE = { legume: 3, fruit: 1.4, boisson: 1, plat: 1, sucre: 0.4, robot: 0.6 };
   const OFF = 'Les repas de Pixel sont en pause : réactive-les dans Nourrir, sur ton téléphone.', GAP = 6000;
-  const trait = k => { const t = S.caractere && S.caractere.traits, v = t && t[k]; return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 50; };
+  const trait = k => {                  // his traits of today (with « Humeur du jour », pixel/nourrir.py _traits)
+    const c = S.caractere; let t = c && c.traits;
+    if (t && c.humeur_jour === true && window.PixelCaractere) try { t = window.PixelCaractere.today(c); } catch { /* the plain traits */ }
+    const v = t && t[k]; return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 50;
+  };
   const level = v => (v >= 55 ? 0 : v >= 25 ? 1 : 2), night = t => { const h = new Date(t).getHours(); return h >= 23 || h < 6; };
   function roll() {
     const draw = (pool, w, n) => { pool = [...pool]; const out = []; while (pool.length && out.length < n) { let x = Math.random() * pool.reduce((s, f) => s + w[f.cat], 0), i = 0; for (; i < pool.length - 1; i++) { x -= w[pool[i].cat]; if (x < 0) break; } out.push(pool[i].id); pool.splice(i, 1); } return out; };
@@ -487,7 +492,7 @@ const NOUR = (() => {
       publish();
     },
   });
-  /* the commands (pixel/nourrir.py command()), before the rest of command() */
+  /* the commands (pixel/nourrir.py command()): command() asks them after the character's, just before Claude, as commands.py does */
   const ART = ['un peu de ', 'un bout de ', 'une part de ', 'un morceau de ', 'un verre de ', 'une tasse de ', 'un bol de ', 'une tranche de ', 'une assiette de ', 'un ', 'une ', 'des ', 'du ', 'de la ', "de l'", 'de ', "d'", 'le ', 'la ', 'les ', "l'", 'ce ', 'cette ', 'ces ', 'ton ', 'ta ', 'tes ', 'mon ', 'ma ', 'mes ', 'son ', 'sa ', 'ses '];
   const key = s => norm(s).replace(/’/g, "'").replace(/œ/g, 'oe').replace(/[^a-z0-9' -]+/g, ' ').replace(/\s+/g, ' ').trim();
   const strip = k => { for (let n = 0; n < 2; n++) { const a = ART.find(x => k.startsWith(x)); if (a) k = k.slice(a.length).trim(); } return k; };
@@ -509,10 +514,9 @@ const NOUR = (() => {
     if (!busy()) donner(id, false);
     return true;
   }
-  const cmd0 = A.cmd; A.cmd = a => { if (!command(String((a && a.text) || '').slice(0, 2000))) cmd0(a); };
   setInterval(() => { const v = Math.round(N.ventre), f = level(N.ventre); tick(); if (Math.round(N.ventre) !== v || level(N.ventre) !== f) { publish(); mark(); } }, 60000);
   publish();
-  return { N, tick, publish, find, roll };
+  return { N, tick, publish, find, roll, command };
 })();
 
 /* ---------- the math exercises (pixel/exos.py): a smaller port for the lab ----------

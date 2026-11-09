@@ -61,4 +61,8 @@ function render() {
 let seen = '';
 setInterval(() => { const k = JSON.stringify([hub.S.nourrir, hub.S.view.theme]); if (k !== seen) { seen = k; render(); } }, 400);
 render();
+{                                          // the commands to type (« Commandes à taper »), as caractere-lab.js does
+  const ul = document.querySelector('section[aria-labelledby="hHelp"] .cmds');
+  if (ul) for (const [c, d] of [['mange une pomme', 'il la mange'], ['tu as faim ?', 'son ventre'], ['à table !', 'il choisit']]) { const li = document.createElement('li'), k = document.createElement('code'), s = document.createElement('span'); k.textContent = c; s.textContent = d; li.append(k, s); ul.append(li); }
+}
 })();
