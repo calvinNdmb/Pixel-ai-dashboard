@@ -400,7 +400,7 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
   await nc.addInitScript(() => { window.__rn = []; window.ReactNativeWebView = { postMessage: m => window.__rn.push(JSON.parse(m)) }; window.PixelApp = { senses: true }; });
   const np = await nc.newPage(), nErr = errors(np);
   const poches = () => np.evaluate(() => window.__rn.filter(m => 'poche' in m));
-  // what App.tsx injects: the phone's acceleration in its own axes (m/s², gravity included); [rx, ry] here in the screen's axes
+  // what the app injects (pixel-mobile/src/poche.ts): the phone's acceleration in its own axes (m/s², gravity included); [rx, ry] here in the screen's axes
   const native = (list, every = 120) => np.evaluate(async ({ list, every }) => {
     const a = ((screen.orientation && screen.orientation.angle) ?? 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
     for (const [rx, ry, rz = 0] of list) { PixelPoche.native.motion(rx * c + ry * s, -rx * s + ry * c, rz); await new Promise(r => setTimeout(r, every)); }

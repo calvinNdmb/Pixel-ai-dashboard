@@ -13,12 +13,15 @@ const NAV = ['visage', 'lumieres', 'claude', 'codex', 'meteo', 'minuteur', 'agen
 
 /* inside the Pixel phone app (pixel-mobile, a WebView): a word to the app */
 const toApp = m => { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(m)); };
+/* Pixel sans Pi: in the phone app's own Pixel (its bundle sets window.PIXEL_LOCAL), the hub in this page (lab/demo-hub.js
+   with local.js) stands in for the Pi, behind a socket shaped like the WebSocket; everything else is the same page */
+const LOCAL = !!(window.PIXEL_LOCAL && window.PixelLocal);
 
 /* ---------- connection ---------- */
 const WS = `/ws${token ? '?t=' + encodeURIComponent(token) : ''}`;
 let reT = 0;
 function connect() {
-  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${WS}`);
+  ws = LOCAL ? PixelLocal.socket() : new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${WS}`);
   ws.onopen = () => { opened = true; retry = 500; L.error = null; $('conn').textContent = 'connecté'; $('conn').classList.add('ok'); };
   ws.onmessage = e => { const m = JSON.parse(e.data); if (m.type !== 'state') return; P = m.data; Screens.setState(P); keep(P); if (kiosk || follow) L.scr = P.screen; render(); };
   ws.onclose = () => {
@@ -26,6 +29,7 @@ function connect() {
     if (!opened && !kiosk) never();
     clearTimeout(reT); reT = setTimeout(connect, retry = Math.min(retry * 2, 8000));
   };
+  if (!LOCAL) { ws.addEventListener('open', () => toApp({ pi: true })); ws.addEventListener('close', () => toApp({ pi: false })); }   // the phone app: the Pi answers, or no more
   if (POCHE) POCHE.watch(ws);                         // the Pixel de poche hears the snapshots, and whether the Pi answers
 }
 addEventListener('online', () => { if (ws && ws.readyState === WebSocket.CLOSED) { clearTimeout(reT); retry = 500; connect(); } });   // a network again: try the Pi now
@@ -87,8 +91,8 @@ function setMode(m) {
 if (!kiosk) {
   document.querySelectorAll('#modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
   setMode(MODES.includes(qs.get('mode')) ? qs.get('mode') : MODES.includes(store.get('pixel_mode')) ? store.get('pixel_mode') : 'both');   // ?mode=: the app's shortcuts
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});   // so that it installs as an app (on a secure address)
-  if (/Android/i.test(navigator.userAgent) && !window.ReactNativeWebView)                       // in Chrome on Android: the link to the real app, if Pixel has it
+  if (!LOCAL && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});   // so that it installs as an app (on a secure address)
+  if (!LOCAL && /Android/i.test(navigator.userAgent) && !window.ReactNativeWebView)                       // in Chrome on Android: the link to the real app, if Pixel has it
     fetch('/pixel.apk', { method: 'HEAD' }).then(r => { if (r.ok) $('apk').hidden = false; }, () => {});
 }
 const setT = (el, t) => { if (el.textContent !== t) el.textContent = t; };

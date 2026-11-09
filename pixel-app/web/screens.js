@@ -786,6 +786,41 @@ function drawMenu() {
 /* ---------- loop and API ---------- */
 const DRAW = { visage: drawVisage, lumieres: drawLights, claude: drawClaude, codex: drawCodex, meteo: drawMeteo, minuteur: drawTimer,
   agenda: drawAgenda, systeme: drawSys, reglages: drawSettings, veille: drawVeille };
+/* ---------- Pixel sans Pi (local.js: the phone app's own Pixel, with no Pi; its state carries P.solo) ----------
+   A screen that needs the Pi says so (solo.off), Système shows the phone's own measures (solo.rows), Réglages and the menu's
+   Téléphone page say how to link him to his Pi instead of a QR code (solo.note). */
+function drawSolo(id, f, dt) {
+  const so = P.solo, name = ((P.keys.nav || []).find(k => k.id === id) || {}).label || id;
+  if (so.off && so.off[id]) {
+    header(name);
+    const ls = wrap(so.pi, 700, 44, 'title'), y = 150 - (ls.length - 1) * 24;
+    ls.forEach((l, i) => txt(l, 400, y + i * 50, 44, WH, 'center', 'title'));
+    wrap(so.off[id], 660, 28).slice(0, 4).forEach((l, i) => txt(l, 400, y + ls.length * 50 + 30 + i * 34, 28, G, 'center'));
+    if (so.hint) txt(fit(T.upper ? so.hint.toUpperCase() : so.hint, 760, 22), 400, 440, 22, D, 'center');
+    return;
+  }
+  if (so.rows && so.rows[id]) {
+    header(name);
+    so.rows[id].slice(0, 7).forEach(([k, v], i) => { const y = 56 + i * 56; txt(fit(k, 180, 24), 24, y + 10, 24, D); txt(fit(String(v), 560, 34), 210, y + 2, 34, G); });
+    return;
+  }
+  const note = so.note && so.note[id];
+  if (!note) { f(dt); return; }
+  X.save(); X.beginPath(); X.rect(0, 0, W, H); X.rect(16, 56, 238, 220); X.rect(262, 52, 522, 166); X.clip('evenodd');   // no QR code: room for the note
+  f(dt); X.restore();
+  box(60, 72, 146, 188, D); live(LIFE.mini, 133, 166, 5, 'content', { calm: true });   // a phone with him in it (no Claude screen here: its face is free)
+  txt(fit(note.title, 500, 24), 274, 62, 24, D); txt(fit(note.head, 500, 32), 274, 88, 32, WH);
+  para(note.text, 274, 128, 500, 24, G, 26);
+}
+for (const id of Object.keys(DRAW)) { const f = DRAW[id]; DRAW[id] = dt => (P && P.solo ? drawSolo(id, f, dt) : f(dt)); }
+const menuPhone0 = drawMenuPhone;     // function declarations are bindings: drawMenu() calls this one
+drawMenuPhone = (x, y, MH) => {     // eslint-disable-line no-func-assign
+  const note = P.solo && P.solo.note && P.solo.note.phone; if (!note) { menuPhone0(x, y, MH); return; }
+  txt(fit(note.head, MENU.w - 48, 32), x + 24, y + 74, 32, WH); para(note.text, x + 24, y + 120, MENU.w - 48, 26, G, 32);
+  menuBtn(x + MENU.w - 224, y + MH - 78, 200, 54, 'Retour', () => { L.menu.view = null; });
+};
+const bootRows0 = bootRows;           // his boot check (Rétro): the phone's own parts, not a Pi's (solo.boot)
+bootRows = () => (P.solo && Array.isArray(P.solo.boot) && P.solo.boot.length ? P.solo.boot : bootRows0());   // eslint-disable-line no-func-assign
 let last = performance.now(), fitAt = 0, fdt = 16;
 /* ---------- frame rate: full speed only while something moves fast ----------
    Most screens are still between two clock ticks, and the Rétro and LCD faces change about 20 times a second:

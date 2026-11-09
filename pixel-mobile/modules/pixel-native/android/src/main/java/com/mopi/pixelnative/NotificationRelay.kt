@@ -20,7 +20,9 @@ import java.util.concurrent.Executors
  *  gets the app's name, the title only if the user allowed it, never the text. Never the ongoing ones (music, navigation,
  *  downloads), the foreground services, the group summaries, the silent ones, the ones Do Not Disturb hides, nor an
  *  update of a notification already sent. Not too often: one per app every APP_GAP_MS, PER_MIN in all. Switched off in
- *  the app, the listener asks Android to unbind it (it then gets nothing, and the process may end) until switched on. */
+ *  the app, the listener asks Android to unbind it (it then gets nothing, and the process may end) until switched on.
+ *  No Pi linked: the same rules, but nothing leaves the phone. Only while the app is open on the phone's own Pixel does
+ *  the listener hand the notification to it (PixelNativeModule.toApp); otherwise it is dropped. */
 class NotificationRelay : NotificationListenerService() {
   private class Seen(val whenMs: Long, val title: Int, val at: Long)
 
@@ -45,7 +47,9 @@ class NotificationRelay : NotificationListenerService() {
 
   override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap?) {
     val cfg = PixelStore.get(this)
-    if (!cfg.notifOn || !cfg.ready) return
+    if (!cfg.notifOn) return
+    val toPi = cfg.ready                                                           // else no Pi linked: the open app, or nobody
+    if (!toPi && (cfg.url != null || !PixelNativeModule.listening())) return
     val pkg = sbn.packageName ?: return
     if (pkg == packageName || pkg !in cfg.apps) return
     val n = sbn.notification ?: return
@@ -75,9 +79,14 @@ class NotificationRelay : NotificationListenerService() {
       lastByApp[pkg] = now
       sent.addLast(now)
     }
-    val label = cfg.apps[pkg]?.takeIf { it.isNotBlank() } ?: appLabel(this, pkg)
-    val body = JSONObject().put("app", label.take(40))
-    if (cfg.notifTitle && title.isNotEmpty()) body.put("title", title.take(60))
+    val label = (cfg.apps[pkg]?.takeIf { it.isNotBlank() } ?: appLabel(this, pkg)).take(40)
+    val shown = if (cfg.notifTitle && title.isNotEmpty()) title.take(60) else null
+    if (!toPi) {
+      PixelNativeModule.toApp(listOfNotNull("app" to label, shown?.let { "title" to it }, n.category?.let { "category" to it }).toMap())
+      return
+    }
+    val body = JSONObject().put("app", label)
+    shown?.let { body.put("title", it) }
     n.category?.let { body.put("category", it) }
     send.execute {
       try {

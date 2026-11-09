@@ -169,7 +169,7 @@ let lock = null, asking = false, lockFailAt = -1e9, appAwake = false;
 async function wake() {             // the screen stays on while he is shown and awake; asleep, the phone may sleep too
   const want = on && how !== 'labo' && !document.hidden && !L.sleepy;
   if (inApp() && want !== appAwake) {                                                 // the Pixel app: an Android WebView has no Wake Lock, the app
-    appAwake = want;                                                                  // keeps the screen on in Pixel mode (pixel-mobile/App.tsx)
+    appAwake = want;                                                                  // keeps the screen on in Pixel mode (pixel-mobile/src/plugs.ts)
     toApp({ mode: want ? 'pixel' : document.body.dataset.mode || 'both' });
   }
   if (!want) { if (lock) { const l = lock; lock = null; l.release().catch(() => {}); } return; }
@@ -354,7 +354,7 @@ const api = {
   enter: h => enter(h || 'fixe'), leave, state,
   get on() { return on; }, get where() { return where; }, get how() { return how; }, get awake() { return !!lock; }, get visiting() { return visiting(); },
   get linked() { return online; },  // does he think the Pi is reachable
-  /* the Pixel app's senses (pixel-mobile/App.tsx injects them while he is shown): its accelerometer, in m/s² with gravity
+  /* the Pixel app's senses (pixel-mobile/src/poche.ts injects them while he is shown): its accelerometer, in m/s² with gravity
      and in the phone's own axes like devicemotion, and its battery (0..1, plugged in or not) */
   native: {
     motion(x, y, z) { if (feeling && appSenses()) onMotion({ accelerationIncludingGravity: { x, y, z } }); },

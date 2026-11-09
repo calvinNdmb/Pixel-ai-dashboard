@@ -1,7 +1,8 @@
 #!/bin/bash
 # Builds the Pixel Android app (pixel-mobile) on Linux and signs it with Pixel's release key.
 # From the pixel-mobile folder:  bash scripts/build-apk-linux.sh
-# Needs Java 17+, Node and an Android SDK whose licences are accepted (Gradle fetches missing SDK parts itself).
+# Needs Java 17+, Node, Python 3 and an Android SDK whose licences are accepted (Gradle fetches missing SDK parts itself).
+# Each build makes the phone's own Pixel afresh from ../pixel-app/web first (npm run bundle:web: assets/pixel-local.html).
 # Settings, all optional:
 #   ANDROID_HOME         the Android SDK (default: ~/android-sdk)
 #   BUILD                build folder, outside the repo (default: ~/pixel-mobile-build); wiped on each run
@@ -25,6 +26,8 @@ command -v java >/dev/null || die "Java 17 ou plus est nécessaire."
 JV=$(java -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/ {print $2}')
 [ "${JV%%.*}" -ge 17 ] 2>/dev/null || die "Java 17 ou plus est nécessaire (trouvé : ${JV:-aucun})."
 command -v npx >/dev/null || die "Node.js (npm, npx) est nécessaire."
+command -v python3 >/dev/null || die "Python 3 est nécessaire : il fabrique le Pixel du téléphone (npm run bundle:web)."
+[ -f "$SRC/../pixel-app/tools/build_app_bundle.py" ] || die "le dossier pixel-app est introuvable à côté de pixel-mobile : le Pixel du téléphone se fabrique depuis pixel-app/web."
 BT=$(ls -d "$ANDROID_HOME"/build-tools/*/ 2>/dev/null | sort -V | tail -1 || true); BT=${BT%/}
 [ -n "$BT" ] && [ -x "$BT/apksigner" ] || die "SDK Android introuvable dans $ANDROID_HOME. Donne son chemin avec ANDROID_HOME=..., ou installe-le : cmdline-tools, puis android sdk install platform-tools platforms/android-37.0 build-tools/37.0.0 ndk/27.1.12297006 cmake/3.22.1"
 [ -d "$ANDROID_HOME/licenses" ] || echo "Attention : aucune licence du SDK acceptée dans $ANDROID_HOME/licenses, Gradle ne pourra rien télécharger." >&2
@@ -47,6 +50,9 @@ else
   WARN="Attention : PIXEL_KEYSTORE n'est pas défini. L'APK est signé avec la clé de développement publique (debug.keystore), comme les compilations WSL. Il ne pourra pas remplacer une appli signée avec la clé de Pixel."
   echo "$WARN" >&2
 fi
+
+step "Pixel sans Pi : assets/pixel-local.html, depuis pixel-app/web"
+(cd "$SRC" && npm run bundle:web) || die "le Pixel du téléphone n'a pas pu être fabriqué (npm run bundle:web)."; took
 
 step "Copie du projet dans $BUILD"
 mkdir -p "$BUILD"

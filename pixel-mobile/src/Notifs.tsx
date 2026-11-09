@@ -1,13 +1,17 @@
 /* The phone's notifications for Pixel (off by default): Android's permission, the apps to follow, the title or not, a test.
-   The listener itself is native (modules/pixel-native, NotificationRelay) and works with the app closed. */
+   The listener itself is native (modules/pixel-native, NotificationRelay). A Pi linked: it sends them to him, also with the
+   app closed. No Pi: they stay on the phone, and only the phone's own Pixel sees them, while the app is open (plugs.ts).
+   Linking a Pi switches them off: sending them out to him is a choice of its own (PixelNativeModule setPixel). */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { AppState, BackHandler, FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import PixelNative, { type NotifSettings, type PhoneApp } from '../modules/pixel-native';
 import { C } from './theme';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-export function Notifs({ onClose }: { onClose: () => void }) {
+type Props = { linked: boolean; onClose(): void; onLocalTest(title: boolean): void };   // linked: a Pi; onLocalTest: no Pi, a test on the phone's Pixel
+
+export function Notifs({ linked, onClose, onLocalTest }: Props) {
   const [st, setSt] = useState<NotifSettings | null>(null);
   const [apps, setApps] = useState<PhoneApp[] | null>(null);
   const [find, setFind] = useState('');
@@ -23,6 +27,10 @@ export function Notifs({ onClose }: { onClose: () => void }) {
     const sub = AppState.addEventListener('change', a => { if (a === 'active') refresh(); });   // back from Android's settings
     return () => sub.remove();
   }, [refresh]);
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { onClose(); return true; });
+    return () => sub.remove();
+  }, [onClose]);
   const shown = useMemo(() => (apps || []).filter(a => !find.trim() || norm(a.label).includes(norm(find.trim()))), [apps, find]);
 
   if (!PixelNative) {
@@ -49,6 +57,7 @@ export function Notifs({ onClose }: { onClose: () => void }) {
     N.setNotifApps(Object.fromEntries(next)).catch(() => {});
   };
   const sendTest = () => {
+    if (!linked) { onLocalTest(!!st?.title); return; }           // the settings close, and the phone's Pixel gets it
     setTest({ busy: true });
     N.sendTest().then(r => setTest(r), () => setTest({ ok: false, message: 'Ça n’a pas marché.' }));
   };
@@ -59,10 +68,18 @@ export function Notifs({ onClose }: { onClose: () => void }) {
         <Pressable style={s.ghost} onPress={onClose} accessibilityRole="button"><Text style={s.ghostText}>‹ Retour</Text></Pressable>
         <Text style={s.title}>NOTIFICATIONS</Text>
       </View>
-      <Text style={s.text}>Quand ton téléphone reçoit une notification d’une appli que tu as cochée, Pixel la voit passer et réagit : « Un message ! », « Ça sonne ! ».</Text>
+      <Text style={s.text}>{linked
+        ? 'Quand ton téléphone reçoit une notification d’une appli que tu as cochée, ton Pixel (Pi) la voit passer et réagit : « Un message ! », « Ça sonne ! ».'
+        : 'Pas de Pi relié : quand l’appli est ouverte, Pixel réagit ici, sur ton téléphone, aux notifications des applis que tu as cochées. Rien ne quitte le téléphone.'}</Text>
 
-      <Line label="Envoyer les notifications à Pixel" value={!!st?.on} onChange={setOn}
-        sub={st?.on ? 'Activé : celles des applis cochées partent vers Pixel, même quand l’appli est fermée.' : 'Désactivé : rien ne part du téléphone.'} />
+      {linked ? (
+        <Line label="Envoyer les notifications à Pixel" value={!!st?.on} onChange={setOn}
+          sub={st?.on ? 'Activé : celles des applis cochées partent vers ton Pi, même quand l’appli est fermée.' : 'Désactivé : rien ne part du téléphone.'} />
+      ) : (
+        <Line label="Montrer les notifications à Pixel" value={!!st?.on} onChange={setOn}
+          sub={st?.on ? 'Activé : Pixel les voit passer quand l’appli est ouverte. Rien ne quitte le téléphone.' : 'Désactivé : Pixel ne les voit pas.'} />
+      )}
+      {!linked ? <Text style={s.small}>Si tu relies Pixel à ton Pi, ce réglage se désactive : tu choisiras alors de les envoyer à ton Pi, ou non.</Text> : null}
 
       {st && !st.access ? (
         <View style={s.box}>
@@ -73,13 +90,13 @@ export function Notifs({ onClose }: { onClose: () => void }) {
         </View>
       ) : st ? <Text style={[s.small, s.ok]}>✓ Android donne les notifications à Pixel.</Text> : null}
 
-      <Line label="Envoyer aussi le titre" value={!!st?.title} onChange={setTitle}
+      <Line label={linked ? 'Envoyer aussi le titre' : 'Montrer aussi le titre'} value={!!st?.title} onChange={setTitle}
         sub="Souvent l’expéditeur : Pixel affiche « WhatsApp : Maman ». Sinon, seulement le nom de l’appli : « Nouveau message WhatsApp »." />
 
-      <Text style={s.small}>Jamais envoyés : le texte des messages, les notifications silencieuses ou permanentes (musique, GPS, téléchargements), les mises à jour d’une notification déjà vue, ni rien des applis non cochées. Au plus une par appli toutes les 20 secondes.</Text>
+      <Text style={s.small}>{linked ? 'Jamais envoyés' : 'Jamais montrés'} : le texte des messages, les notifications silencieuses ou permanentes (musique, GPS, téléchargements), les mises à jour d’une notification déjà vue, ni rien des applis non cochées. Au plus une par appli toutes les 20 secondes.</Text>
 
       <Pressable style={[s.btn, test.busy && s.off]} disabled={test.busy} onPress={sendTest} accessibilityRole="button">
-        <Text style={s.btnText}>{test.busy ? 'Envoi…' : 'Envoyer une notification de test'}</Text>
+        <Text style={s.btnText}>{test.busy ? 'Envoi…' : linked ? 'Envoyer une notification de test' : 'Essayer sur Pixel'}</Text>
       </Pressable>
       {test.message ? <Text style={[s.small, test.ok && s.ok]} accessibilityLiveRegion="polite">{test.message}</Text> : null}
 

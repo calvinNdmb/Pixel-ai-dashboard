@@ -257,11 +257,11 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 
 **L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/), version 1.1) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
 - Pose l'APK dans le dossier de données de Pixel, sous le nom `~/.config/pixel/pixel.apk`. Dans Chrome sur Android, un lien **Appli Android** apparaît alors sous le clavier.
-- Au premier lancement, l'appli scanne le QR code de Pixel, puis s'en souvient.
-- **Partager sur Pixel :** dans n'importe quelle appli, **Partager**, puis **Pixel**, envoie sur son écran un lien (une vidéo YouTube s'y lance), un texte, une photo, un GIF ou une vidéo (40 Mo au plus).
-- **Les notifications du téléphone** (désactivées au départ) : Pixel réagit à celles des applis que tu choisis, et ses scènes de notification se jouent. Il ne reçoit que le nom de l'appli (« 📱 Nouveau message WhatsApp »), le titre seulement si tu le permets (« 📱 WhatsApp : Maman »), jamais le texte. Les règles complètes sont dans le [README de l'appli](../pixel-mobile/README.md).
-- **Le Pixel de poche** a tous ses sens dans l'appli, même en http (voir plus bas).
-- **Pour passer de la 1.0 à la 1.1,** désinstalle une fois l'ancienne appli : la 1.1 est signée avec une nouvelle clé. Installe la nouvelle, puis scanne à nouveau le QR code.
+- Au premier lancement, Pixel vit déjà dans l'appli, sans le Pi (voir « Pixel sans Pi »). Pour la relier au Pi : bouton retour, **Relier à mon Pixel**, puis le QR code de Pixel. Elle s'en souvient. Quand le Pi ne répond pas, Pixel continue sur le téléphone.
+- **Partager sur Pixel :** dans n'importe quelle appli, **Partager**, puis **Pixel**, envoie sur son écran un lien (une vidéo YouTube s'y lance), un texte, une photo, un GIF ou une vidéo (40 Mo au plus). Sans Pi relié, la carte de partage dit de le relier.
+- **Les notifications du téléphone** (désactivées au départ) : Pixel réagit à celles des applis que tu choisis, et ses scènes de notification se jouent. Il ne reçoit que le nom de l'appli (« 📱 Nouveau message WhatsApp »), le titre seulement si tu le permets (« 📱 WhatsApp : Maman »), jamais le texte. Sans Pi, le Pixel du téléphone y réagit quand l'appli est ouverte, et rien ne quitte le téléphone. Les règles complètes sont dans le [README de l'appli](../pixel-mobile/README.md).
+- **Le Pixel de poche** a tous ses sens dans l'appli, même en http, sur la page du Pi comme sur le Pixel du téléphone (voir plus bas).
+- **Pour passer de la 1.0 à la 1.1,** désinstalle une fois l'ancienne appli : la 1.1 est signée avec une nouvelle clé. Installe la nouvelle : Pixel y vit déjà. Pour retrouver ton Pi, scanne à nouveau son QR code (bouton retour, **Relier à mon Pixel**).
 
 L'appli marche sur ton Wi-Fi, en IPv4 comme en IPv6 : un téléphone trouve souvent `pixel.local` par son adresse IPv6. Pixel ne répond qu'aux appareils de la maison, même si ta box laisse passer l'IPv6 depuis Internet. Sans le code d'accès, un autre appareil du réseau voit la page mais ne peut rien faire.
 
@@ -311,6 +311,28 @@ Depuis ton téléphone, montre quelque chose sur l'écran de Pixel. Ça s'affich
 - **YouTube :** la vidéo joue dans le lecteur de YouTube, sans effet rétro dessus. Le téléphone devient sa télécommande : pause, ±10 s, le son, la barre de lecture. Si YouTube refuse la vidéo, Pixel dit pourquoi et montre un QR code. En option, Pixel apparaît dans le **bouton Caster de l'appli YouTube** et accepte le **code TV** (`[ytcast]`, Node.js).
 
 Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec le partage d'écran depuis chaque appareil et les autres façons de caster sur un Raspberry Pi.
+
+## Pixel sans Pi
+
+**L'appli Android n'a pas besoin du Pi.** Au premier lancement, Pixel vit sur le téléphone : son visage, ses 52 animations, sa personnalité et toutes ses scènes, ses humeurs, les thèmes, l'horloge, le minuteur, la veille, les réglages et Pixel de poche. Sans réseau, et sans aucune fausse donnée : les écrans Lumières, Claude, Codex et Agenda disent « Relie Pixel à ton Pi pour ça », Système montre les mesures du téléphone, et la météo est la vraie (tape `météo Lyon`, Pixel la demande à Open-Meteo). Les six thèmes sont à lui, puisqu'aucun Pi ne les choisit. Son thème, ses réglages, son humeur, le minuteur et sa ville sont gardés quand l'appli se ferme.
+
+Dans l'appli, ce Pixel a les mêmes fonctions natives que la page du Pi : Pixel de poche avec les sens du téléphone, l'écran qui reste allumé, et les notifications du téléphone si tu les actives (elles ne quittent pas le téléphone). Le partage depuis une autre appli, lui, a besoin de l'écran du Pi.
+
+Reliée au Pi, l'appli montre la page du Pi, comme avant. Quand le Pi ne répond pas, Pixel continue sur le téléphone, avec un bandeau, et l'appli redemande au Pi de temps en temps. Le Pixel du téléphone reprend le thème, les réglages et le caractère du Pi. Ce que tu changes sur le téléphone sans le Pi reste sur le téléphone : rien ne remonte au Pi. Le guide complet est dans [`pixel-mobile`](../pixel-mobile/README.md).
+
+**Comment c'est fait.** C'est la vraie page du téléphone (`web/index.html`), réunie en un seul fichier hors ligne par `tools/build_app_bundle.py`. Le faux serveur de Pixel Lab (`web/lab/demo-hub.js`, le même état et les mêmes actions que `server.py`) tourne dans la page, et `web/local.js` en fait un vrai Pixel : il retire les données de démo, dit ce qui a besoin du Pi, va chercher la météo et garde son état. `app.js` lui parle comme au Pi, par une prise qui ressemble à son WebSocket. Une action ajoutée à `demo-hub.js` marche donc aussi dans l'appli, et l'état qu'elle ajoute (`S.<clé>`) est gardé, puis repris de l'image du Pi. Une seule règle pour une nouvelle fonction : si son vrai état n'est pas `S.<clé>` mais une variable à elle, que sa fonction `publish()` recopie dans `S`, elle dit comment le reprendre, n'importe où dans `demo-hub.js` :
+
+```js
+restorable('nourrir', v => { /* reprendre ce qui est valable dans v (la forme de S.nourrir) */ publish(); });
+```
+
+Sans cela, ce qui est repris serait écrasé au `publish()` suivant. Une action qui a besoin du Pi s'ajoute à la liste `PI` de `local.js` (le partage d'écran, AirPlay et YouTube y sont déjà).
+
+```bash
+python3 tools/build_app_bundle.py pixel-local.html
+```
+
+L'appli le refait elle-même avant chaque APK (`npm run bundle:web`, dans `pixel-mobile`).
 
 ## Tes agendas (Google et Samsung)
 
@@ -450,6 +472,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
   - les limites, par appli et par minute ;
   - le bandeau (« 📱 WhatsApp : Maman », « 📱 Nouveau message WhatsApp ») qui fait jouer ses scènes de notification ;
   - `telephone.last` dans l'état partagé, sans jamais le titre.
+- **Pixel sans Pi** (`test_local.js`, dans Chromium) : le fichier hors ligne de l'appli, ouvert en `file://` sans aucun accès au réseau, sur un téléphone en portrait puis en paysage. Aucune erreur, aucune requête, aucun WebSocket. Il vit et réagit au doigt ; aucune fausse donnée ; les écrans du Pi le disent et leurs touches restent éteintes, les commandes aussi ; Système montre le téléphone, et son Démarrage les pièces du téléphone ; les six thèmes ; le minuteur sonne. Après un rechargement, les réglages, l'humeur et le minuteur sont toujours là, et l'état d'une nouvelle fonction aussi, même gardé dans une variable à elle. Dans l'appli (simulée) : les messages vers l'appli, son état rendu par l'appli, l'image du Pi, la plus récente qui gagne, même quand elle arrive après la météo. La météo, avec et sans réseau, une faute de frappe, une ville tapée pendant que la météo d'une autre arrive. Une notification du téléphone passée par l'appli : le même bandeau que sur le Pi, et il réagit. Le Pixel de poche, sans bouton de voyage, avec les sens de l'appli (secoué, il a le tournis).
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
@@ -476,6 +499,7 @@ node tests/test_ecran.js
 node tests/test_ecran_web.js         # Playwright : son serveur sur le port 8153, un faux ScreenStream sur 8154
 python3 tests/test_airplay.py
 python3 tests/test_telephone.py
+node tests/test_local.js             # Pixel sans Pi ; il faut Playwright ; --shots DOSSIER pour les captures
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -493,7 +517,7 @@ Pas encore testé avec le vrai matériel :
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
 | `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `cast` (caster sur l'écran), `youtube` et `ytcast` (YouTube, et le bouton Caster de l'appli YouTube), `ecran` (le partage d'écran : WebRTC, ScreenStream), `airplay` (UxPlay), `poche` (le Pixel de poche), `telephone` (les notifications du téléphone, par l'appli Android), `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
-| `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `ecran.js` l'écran partagé, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`) |
+| `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `ecran.js` l'écran partagé, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`), `local.js` Pixel sans Pi (l'appli Android sans le Pi) |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
@@ -501,7 +525,7 @@ Pas encore testé avec le vrai matériel :
 | `sidecar/ytcast/` | facultatif : le petit programme Node qui met Pixel dans le bouton Caster de l'appli YouTube |
 | `docs/CAST.md` | caster sur Pixel : le mode d'emploi, le partage d'écran depuis chaque appareil, et les autres façons de caster sur un Raspberry Pi |
 | `tests/` | les tests et les captures d'écran |
-| `tools/` | `build_lab_artifact.py` fait du labo une seule page HTML |
+| `tools/` | `build_lab_artifact.py` fait du labo une seule page HTML, `build_app_bundle.py` fait de la page du téléphone le Pixel hors ligne de l'appli Android |
 | `deploy/` | installation sur le Pi : script, service systemd, ouverture en plein écran, règles d'accès |
 | `config.example.toml` | les réglages à copier en `config.toml` |
 

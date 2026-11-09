@@ -12,15 +12,24 @@ import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONObject
+import java.lang.ref.WeakReference
 import java.util.Locale
 
 /** The app's side of the native parts (modules/pixel-native/index.ts): it mirrors Pixel's address for the share screen and
- *  the notification listener, and runs the notification settings (App.tsx's Notifs screen). */
+ *  the notification listener, and runs the notification settings (src/Notifs.tsx). With no Pi linked, it hands the
+ *  listener's notifications to the app (onNotif) while the app listens, for the phone's own Pixel. */
 class PixelNativeModule : Module() {
   private val ctx: Context get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+  @Volatile private var heard = false                      // the app listens to onNotif (the phone's Pixel is shown)
 
   override fun definition() = ModuleDefinition {
     Name("PixelNative")
+
+    Events("onNotif")
+    OnCreate { live = WeakReference(this@PixelNativeModule) }
+    OnDestroy { if (live?.get() === this@PixelNativeModule) live = null }
+    OnStartObserving("onNotif") { heard = true }
+    OnStopObserving("onNotif") { heard = false }
 
     Constant("version") {
       try {
@@ -31,10 +40,16 @@ class PixelNativeModule : Module() {
     }
 
     AsyncFunction("setPixel") { url: String? ->
-      PixelStore.update(ctx) {
-        val same = it.url == url                                   // another Pixel: his limit is not known yet
-        it.copy(url = url?.trim()?.takeIf { u -> u.isNotEmpty() }, castMaxMb = if (same) it.castMaxMb else 0.0, castOkMb = if (same) it.castOkMb else 0.0)
+      val u = url?.trim()?.takeIf { it.isNotEmpty() }
+      val before = PixelStore.get(ctx)
+      val now = PixelStore.update(ctx) {
+        val same = it.url == u                                     // another Pixel: his limit is not known yet
+        // a Pi linked where there was none: notifications switched on for the phone's Pixel alone never start going
+        // out to him by themselves; sending them to the Pi is a choice of its own
+        it.copy(url = u, castMaxMb = if (same) it.castMaxMb else 0.0, castOkMb = if (same) it.castOkMb else 0.0,
+          notifOn = it.notifOn && !(it.url == null && u != null))
       }
+      if (before.notifOn && !now.notifOn) NotificationRelay.follow(ctx, false)
       Unit
     }
 
@@ -102,7 +117,7 @@ class PixelNativeModule : Module() {
     // « Envoyer une notification de test »: the listener's own way to Pixel, with the settings as they are
     AsyncFunction("sendTest") {
       val c = PixelStore.get(ctx)
-      if (!c.ready) return@AsyncFunction result(false, "Relie d’abord ce téléphone à Pixel : scanne son QR code.")
+      if (!c.ready) return@AsyncFunction result(false, "Relie d’abord Pixel à ton Pi : bouton retour, puis « Relier à mon Pixel ».")
       val body = JSONObject().put("app", "Pixel pour Android")
       if (c.notifTitle) body.put("title", "Notification de test")
       try {
@@ -121,6 +136,19 @@ class PixelNativeModule : Module() {
   }
 
   private fun result(ok: Boolean, message: String) = mapOf("ok" to ok, "message" to message)
+
+  companion object {
+    @Volatile private var live: WeakReference<PixelNativeModule>? = null
+
+    /** Does the app listen to onNotif right now (it is open, on the phone's own Pixel)? */
+    fun listening(): Boolean = live?.get()?.heard == true
+
+    /** No Pi linked: a notification for the phone's own Pixel, to the app only, never kept. false: nobody listens. */
+    fun toApp(n: Map<String, Any?>): Boolean {
+      val m = live?.get()?.takeIf { it.heard } ?: return false
+      return runCatching { m.sendEvent("onNotif", n) }.isSuccess
+    }
+  }
 
   private fun open(i: Intent?): Boolean {
     if (i == null) return false

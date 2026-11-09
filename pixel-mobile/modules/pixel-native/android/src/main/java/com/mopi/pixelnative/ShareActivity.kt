@@ -228,10 +228,10 @@ class ShareActivity : Activity() {
     busy = false                                                                     // send() says otherwise
     bar.visibility = View.GONE
     when {
-      !cfg.ready -> show(
-        ":|", "Ce téléphone n’est pas encore relié à Pixel.",
-        "Ouvre l’appli et scanne le QR code de Pixel : sur son écran, glisse vers la gauche sur son visage.",
-        Btn("Fermer") { finish() }, Btn("Scanner le QR code", true) { openApp() },
+      !cfg.ready -> show(                                                            // no Pi: Pixel lives in the app, with no screen to show it on
+        ":|", "Relie Pixel à ton Pi pour afficher ça sur son écran.",
+        "Sans Pi, Pixel vit dans l’appli de ton téléphone. Relie-le une fois à ton Pi (son QR code), et ce que tu partages s’affiche sur l’écran du Pi.",
+        Btn("Fermer") { finish() }, Btn("Relier à mon Pixel", true) { openApp(link = true) },
       )
       w == null && unreadable -> show(":(", "Impossible de lire ce fichier.", "L’appli qui le partage ne le laisse pas lire.", Btn("Fermer") { finish() })
       w == null -> show(":(", "Pixel ne sait pas afficher ça.", "Partage une photo, une vidéo, un GIF, un lien ou un texte.", Btn("Fermer") { finish() })
@@ -379,8 +379,13 @@ class ShareActivity : Activity() {
 
   private fun mb(v: Double) = if (v % 1.0 == 0.0) v.toLong().toString() else String.format(Locale.FRANCE, "%.1f", v)
 
-  private fun openApp() {
-    packageManager.getLaunchIntentForPackage(packageName)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+  /** link: straight on its "Relier à mon Pixel" screen (App.tsx reads LINK_URL with React Native's Linking; the intent
+   *  names the app's own activity, so no other app is asked and no URL scheme is declared) */
+  private fun openApp(link: Boolean = false) {
+    packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
+      val i = if (link) Intent(Intent.ACTION_VIEW, Uri.parse(LINK_URL)).setComponent(launch.component) else launch
+      startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
     finish()
   }
 
@@ -496,6 +501,7 @@ class ShareActivity : Activity() {
     private val JPEG = setOf("image/jpeg", "image/jpg", "image/pjpeg")
     private const val HINT_BIG = "Envoie une vidéo plus courte, ou plutôt son lien (YouTube…)."
     private val NO_ANSWER_HINT = PixelHttp.NO_ANSWER.substringAfter(". ")
+    const val LINK_URL = "pixel://relier"                  // App.tsx: the same string
     // the app's colours (App.tsx)
     private const val DESK = 0xFF141713.toInt()
     private const val PLASTIC = 0xFFD9D2BD.toInt()
