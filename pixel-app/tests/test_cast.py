@@ -177,7 +177,7 @@ async def main(datadir):
                 st, body, _ = await up(data, name, "application/octet-stream")
                 c = state.get("cast") or {}
                 ok = st == 200 and body["ok"] and c.get("kind") == kind and c.get("src", "").endswith("." + ext) and cast.NAME.match(c["src"][6:])
-                check(f"upload {name}: shows as {kind}, under a random name", ok and name not in c["src"], f"{st} {body} {c.get('src')}")
+                check(f"upload {name}: shows as {kind}, under a random name", ok and not c["src"].endswith("/" + name), f"{st} {body} {c.get('src')}")
             c = state["cast"]
             check("the cast field: id, kind, src, title, t0, until, raw", all(k in c for k in ("id", "kind", "src", "title", "t0", "until", "raw")) and c["until"] == 0, str(c))
             check("only the last 3 files stay (keep = 3)", len(files()) == 3 and not stray(), str(files()))

@@ -290,16 +290,16 @@ const cutWords = page => page.evaluate(() => [...document.querySelectorAll('#nou
   const hint = await l.evaluate(async () => {
     const hub = PixelHub, PER = Screens.persona, PF = PixelFoods, wait = ms => new Promise(r => setTimeout(r, ms)), out = {};
     const belly = async v => { await wait(300); hub.dispatch('lab.nourrir', { ventre: v }); await wait(80); };   // 300 ms at x20: past his 4 s pause between two events
-    PixelClock.setSpeed(20);
+    PixelClock.setSpeed(20); window.__at(10, 30);     // the day, whatever the real time: no hint at night
     PER.stop(); PF.resetHint(); await belly(80); await belly(45);
     out.first = PER.state.cur; PER.stop();
     await belly(80); await belly(40); out.again = PER.state.cur || ''; PER.stop();
-    PF.resetHint(); await belly(80); window.__at(23, 30); await belly(40); out.night = PER.state.cur || ''; window.__real(); PER.stop();
+    PF.resetHint(); await belly(80); window.__at(23, 30); await belly(40); out.night = PER.state.cur || ''; window.__at(10, 30); PER.stop();
     PF.resetHint(); hub.dispatch('nourrir.reglages', { on: false }); await belly(80); await belly(10); out.off = PER.state.cur || '';
     hub.dispatch('nourrir.reglages', { on: true }); PER.stop();
     PF.resetHint(); await belly(80); PER.play('bisou'); hub.dispatch('lab.nourrir', { ventre: 40 }); await wait(30); out.busy = PER.state.cur; PER.stop();
     PF.resetHint(); await belly(80); await belly(15); out.big = PER.state.cur; PER.stop();
-    PixelClock.setSpeed(1);
+    PixelClock.setSpeed(1); window.__real();
     return out;
   });
   check('his belly gets emptier: « Oh ! J’ai un petit creux. » (the rumble)', hint.first === 'nourrir-gargouille', JSON.stringify(hint));
@@ -319,7 +319,7 @@ const cutWords = page => page.evaluate(() => [...document.querySelectorAll('#nou
       return seen;
     };
     PER.stop(); hub.dispatch('lab.nourrir', { ventre: 45 }); await wait(80); PER.stop();
-    C.setSpeed(30); PER.setEvery(200, 400);
+    C.setSpeed(30); PER.setEvery(200, 400); window.__at(10, 30);     // the day, whatever the real time
     PF.hinted(); const muted = await run(14);
     PF.resetHint(); const day = await run(60), first = day.findIndex(x => x.startsWith('nourrir-')), after = first >= 0 ? day.slice(first + 1) : [];
     window.__at(23, 40); PF.resetHint(); PER.stop(); const night = await run(5); window.__real();
