@@ -5,9 +5,10 @@
      asked; Système shows the phone's own measures; the weather is real (Open-Meteo, for the city you type) or not there;
    - app.js talks to it through PixelLocal.socket(), shaped like its WebSocket (the Pi's path stays as it is);
    - what matters survives a restart: his theme, settings, lasting mood, timer, city, and every other part of his state that
-     is not the Pi's (a new feature's state comes along by itself). It is kept in localStorage and sent to the app
-     ({local_save}, window.ReactNativeWebView), which hands it back before the page starts (window.PIXEL_LOCAL_STATE: its copy,
-     and the last snapshot of his Pi, so that he is the same Pixel). The newest wins; nothing goes back to the Pi.
+     is not the Pi's (a new feature's S[key] comes along by itself; one whose truth is in a closure says how to take it back:
+     restorable() in demo-hub.js). It is kept in localStorage and sent to the app ({local_save}, window.ReactNativeWebView),
+     which hands it back before the page starts (window.PIXEL_LOCAL_STATE: its copy, and the last snapshot of his Pi, so that
+     he is the same Pixel). The newest wins (what you last did here, or his Pi's snapshot); nothing goes back to the Pi.
    Every action demo-hub.js has works here with no extra wiring, but those named in PI below: they need the Pi.
    Without window.PIXEL_LOCAL this file does nothing. */
 window.PixelLocal = (() => {
@@ -29,8 +30,8 @@ const OFF = {                       // these screens: their honest message (scre
 /* actions that need the Pi, by prefix, and what Pixel says instead; a new one: add its prefix here */
 const PI = [
   [/^lights\./, "c'est lui qui allume les lampes."], [/^chat\./, 'Claude te répond depuis ton Pi.'], [/^codex\./, 'Codex travaille sur ton Pi.'],
-  [/^agenda\./, 'ton agenda arrive par ton Pi.'], [/^(cast|ytcast|yt)\./, "on caste sur l'écran de ton Pi."],
-  [/^sys\.(power|boot)$/, 'ici, Pixel vit sur ton téléphone.'], [/^poche\.voyage$/, 'Pixel vit déjà sur ce téléphone.'],
+  [/^agenda\./, 'ton agenda arrive par ton Pi.'], [/^(cast|ytcast|yt)\./, "le partage d'écran et YouTube passent par son écran."],
+  [/^sys\.power$/, "Pixel n'éteint pas ton téléphone."], [/^poche\.voyage$/, 'Pixel vit déjà sur ce téléphone.'],
 ];
 const piSays = name => { for (const [re, why] of PI) if (re.test(name)) return `${PI_SAYS} : ${why}`; return null; };
 for (const name of Object.keys(A)) { const why = piSays(name); if (why) A[name] = () => H.toast(why, 4500); }
@@ -49,12 +50,14 @@ Object.assign(S.sys, { bright: 1, hw_bright: false });
 Object.assign(S.settings, { url: '', ip_url: '', qr: [], demo: false, claude: 'sur ton Pi', deck: 'sur ton Pi', local: true });
 Object.assign(S.timer, { done: 0 });
 S.weather = null;
+H.themes(hub.ALLT.map(t => t.id));  // every theme: no config.toml here (his Pi's snapshot, when it comes, has the Pi's own list)
+const LINK = '«\u00a0Relier\u00a0à\u00a0mon\u00a0Pixel\u00a0»';   // the app menu's item, never cut across two lines
 S.solo = {
-  pi: PI_SAYS, off: OFF, rows: {},
-  hint: 'Ici : son visage, ses humeurs, le minuteur, la météo, les réglages',
+  pi: PI_SAYS, off: OFF, rows: {}, boot: [],
+  hint: 'Sur ce téléphone : son visage, ses humeurs, le minuteur, la météo, les réglages',
   note: {
-    reglages: { title: 'PIXEL VIT SUR CE TÉLÉPHONE', head: 'Pas de Pi relié', text: "Pour les lampes, Claude, Codex et l'agenda : bouton retour du téléphone, puis « Relier à mon Pixel »." },
-    phone: { head: 'Pixel vit sur ce téléphone', text: "Pour le relier à ton Pi : bouton retour du téléphone, puis « Relier à mon Pixel », et scanne le QR code que montre ton Pi." },
+    reglages: { title: 'PIXEL VIT SUR CE TÉLÉPHONE', head: 'Pas de Pi relié', text: `Pour les lampes, Claude, Codex et l'agenda : appuie sur le bouton retour du téléphone, puis sur ${LINK}.` },
+    phone: { head: 'Pixel vit sur ce téléphone', text: `Pour le relier à ton Pi : appuie sur le bouton retour du téléphone, puis sur ${LINK}, et scanne le QR code que montre ton Pi.` },
   },
 };
 
@@ -70,8 +73,10 @@ function sysRows() {
   if (navigator.hardwareConcurrency) rows.push(['PROCESSEUR', navigator.hardwareConcurrency + ' cœurs']);
   rows.push(['LUMINOSITÉ', Math.round((S.sys.bright || 1) * 100) + ' % (son visage)']);
   rows.push(['OUVERT DEPUIS', dur(Date.now() - t0)]);
-  const before = JSON.stringify(S.solo.rows.systeme); S.solo.rows.systeme = rows;
-  if (JSON.stringify(rows) !== before) H.mark();
+  const boot = [['Téléphone', navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' cœurs' : '', true], ['Écran', `${screen.width}x${screen.height}`, true],   // his boot check (screens.js)
+    ...(bat ? [['Batterie', Math.round(bat.level * 100) + ' %', true]] : []), ['Ton Pi', 'pas relié', false]];
+  const before = JSON.stringify([S.solo.rows.systeme, S.solo.boot]); S.solo.rows.systeme = rows; S.solo.boot = boot;
+  if (JSON.stringify([rows, boot]) !== before) H.mark();
 }
 if (navigator.getBattery) navigator.getBattery().then(b => { bat = b; b.addEventListener('levelchange', sysRows); b.addEventListener('chargingchange', sysRows); sysRows(); }, () => {});
 addEventListener('online', sysRows); addEventListener('offline', sysRows);
@@ -91,7 +96,7 @@ function kind(code) {                                     // weather.py kind()
   return ['nuage', 'Nuageux'];
 }
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-let city = null, wcache = null, wbusy = false, wAt = 0;  // city: {name, lat, lon}; wcache: {date, city, data}
+let city = null, wcache = null, wAt = 0, wreq = 0, wlive = false;   // city: {name, lat, lon}; wcache: {date, city, data}; wreq: the newest request
 const NO_CITY = 'Tape « météo » et ta ville, par exemple « météo Lyon » : Pixel demande la météo à Open-Meteo.';
 async function getJSON(url) {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 10000);
@@ -103,45 +108,56 @@ function showWeather() {
   else S.weather = { error: `Météo de ${city.name} : elle arrive dès que le téléphone a du réseau.` };
   H.mark();
 }
-async function weather(say = false) {
-  if (wbusy) return;
+async function weather(say = false, prev = null) {    // prev: the city before « météo … », kept if the new one is not found
   if (!city) { showWeather(); return; }
-  wbusy = true;
+  const n = ++wreq, mine = () => n === wreq;             // a newer request (another city, a retry) wins: this answer is dropped
+  let c = city; wlive = true;
   try {
-    if (city.lat == null) {
-      const g = await getJSON('https://geocoding-api.open-meteo.com/v1/search?count=1&language=fr&format=json&name=' + encodeURIComponent(city.name));
+    if (c.lat == null) {
+      const g = await getJSON('https://geocoding-api.open-meteo.com/v1/search?count=1&language=fr&format=json&name=' + encodeURIComponent(c.name));
+      if (!mine()) return;
       const r = (g.results || [])[0];
-      if (!r) { const name = city.name; city = null; wcache = null; S.weather = { error: `Ville introuvable : ${name}. ${NO_CITY}` }; H.toast(`VILLE INTROUVABLE : ${name.toUpperCase()}`, 4000); H.mark(); return; }
-      city = { name: String(r.name), lat: Number(r.latitude), lon: Number(r.longitude) };
+      if (!r) {                                          // a typo, or not a city: the one he had stays
+        if (prev && prev.city) ({ city, wcache, wAt } = prev); else { city = null; wcache = null; }
+        showWeather(); if (!city) S.weather = { error: `Ville introuvable : ${c.name}. ${NO_CITY}` };
+        H.toast(`VILLE INTROUVABLE : ${c.name.toUpperCase()}`, 4000); H.mark();
+        if (city && !(wcache && wcache.date === today())) setTimeout(refresh);
+        return;
+      }
+      c = city = { name: String(r.name), lat: Number(r.latitude), lon: Number(r.longitude) };
     }
-    const j = await getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&timezone=auto&forecast_days=5`
+    const j = await getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&timezone=auto&forecast_days=5`
       + '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,relative_humidity_2m_mean');
-    const c = j.current, d = j.daily, hum = d.relative_humidity_2m_mean || [];
+    if (!mine()) return;
+    const cur = j.current, d = j.daily, hum = d.relative_humidity_2m_mean || [];
     const days = d.time.slice(0, 5).map((day, i) => {
       const [y, m, dd] = day.split('-').map(Number), wd = new Date(y, m - 1, dd).getDay(), [k, label] = kind(d.weather_code[i]);
       return { name: i ? DAYS[wd] : 'AUJ.', full: i ? FULL[wd] : "Aujourd'hui", tmax: Math.round(d.temperature_2m_max[i]), tmin: Math.round(d.temperature_2m_min[i]),
         kind: k, label, wind: Math.round(d.wind_speed_10m_max[i]), hum: Math.round(hum[i] || 0) };
     });
-    const [k, label] = kind(c.weather_code);
-    const data = { city: city.name, days, now: { t: Math.round(c.temperature_2m), kind: k, label, wind: Math.round(c.wind_speed_10m), hum: Math.round(c.relative_humidity_2m) } };
-    wcache = { date: today(), city: city.name, data }; wAt = Date.now();
+    const [k, label] = kind(cur.weather_code);
+    const data = { city: c.name, days, now: { t: Math.round(cur.temperature_2m), kind: k, label, wind: Math.round(cur.wind_speed_10m), hum: Math.round(cur.relative_humidity_2m) } };
+    wcache = { date: today(), city: c.name, data }; wAt = Date.now();
     S.weather = clone(data); H.mark();
     if (say) A['weather.say']();
   } catch {
+    if (!mine()) return;
     showWeather();                                        // no network (or Open-Meteo away): the last one of the day, or a word
     if (say) H.toast('PAS DE RÉSEAU : LA MÉTÉO REVIENDRA TOUTE SEULE', 4000);
-  } finally { wbusy = false; }
+  } finally { if (mine()) wlive = false; }
 }
+const refresh = () => { if (city && !wlive) weather(); };   // by itself (time, network, back on screen): not while one is on its way
 function setCity(name) {
   name = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 80); if (!name) return;
-  city = { name }; wcache = null; S.view.meteo_day = 0; A['screen.show']({ screen: 'meteo' });
-  S.weather = { error: `Météo de ${name}…` }; H.mark(); wbusy = false; weather(true);
+  const prev = city ? { city, wcache, wAt } : null;
+  city = { name }; wcache = null; wAt = 0; S.view.meteo_day = 0; A['screen.show']({ screen: 'meteo' });
+  S.weather = { error: `Météo de ${name}…` }; H.mark(); weather(true, prev);
 }
 const wsay = A['weather.say'];
 A['weather.say'] = args => { if (!S.weather || !S.weather.days) return H.toast(city ? 'LA MÉTÉO ARRIVE DÈS QUE LE TÉLÉPHONE A DU RÉSEAU' : 'TAPE « MÉTÉO » ET TA VILLE', 4000); return wsay(args); };
-setInterval(() => { if (city && !document.hidden && Date.now() - wAt > 30 * 60000) weather(); }, 60000);
-addEventListener('online', () => { if (city && Date.now() - wAt > 10 * 60000) weather(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && city && Date.now() - wAt > 30 * 60000) weather(); });
+setInterval(() => { if (!document.hidden && Date.now() - wAt > 30 * 60000) refresh(); }, 60000);
+addEventListener('online', () => { if (Date.now() - wAt > 10 * 60000) refresh(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - wAt > 30 * 60000) refresh(); });
 
 /* ---------- typed commands: the city, the help; the rest is demo-hub's parser, and what needs Claude says so ---------- */
 const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · thème … · météo Lyon (ta ville) · le reste (lampes, Claude, Codex, agenda) : relie Pixel à ton Pi";
@@ -160,7 +176,7 @@ function brightness() { const b = S.sys.bright || 1, f = b < 1 ? `brightness(${b
 /* ---------- what is kept: his look, his settings and brightness, a lasting mood, the timer, the city, and the rest that is not the Pi's ---------- */
 const KEY = 'pixel_local', MAX = 200 * 1024, ITEM = 64 * 1024;
 const SKIP = new Set(['screen', 'mood', 'view', 'settings', 'timer', 'weather', 'anim', 'scene', 'toast', 'act', 'boot_at', 'keys', 'server_now', 'kept_at',
-  'lights', 'chat', 'codex', 'agenda', 'sys', 'poche', 'cast', 'cast_recent', 'solo', 'yt', 'ytcast']);   // live, or the Pi's
+  'lights', 'chat', 'codex', 'agenda', 'sys', 'poche', 'cast', 'cast_recent', 'airplay', 'solo', 'yt', 'ytcast']);   // live, or the Pi's
 const VIEW = ['theme', 'face', 'units_f', 'crt_off'], TIMER = ['mode', 'total', 'left', 'running', 'ends_at', 'done'];
 function pick() {
   const st = { v: 1, at: 0, view: {}, settings: { themes: [...(S.settings.themes || [])], sleep_min: S.settings.sleep_min }, sys: { bright: S.sys.bright }, timer: {}, extra: {} };
@@ -212,10 +228,19 @@ function apply(st) {
     city = { name: c.name.trim().slice(0, 80), ...(Number.isFinite(c.lat) && Number.isFinite(c.lon) ? { lat: c.lat, lon: c.lon } : same && city.lat != null ? { lat: city.lat, lon: city.lon } : {}) };
   }
   if (isObj(st.wcache) && isObj(st.wcache.data) && Array.isArray(st.wcache.data.days) && city && st.wcache.city === city.name) wcache = st.wcache;
-  if (isObj(st.extra)) for (const k of Object.keys(st.extra)) if (k in S && !SKIP.has(k)) merge(S, k, st.extra[k]);
+  const own = H.restorers ? H.restorers() : {};   // a feature whose truth is in a closure takes its value back itself (demo-hub.js restorable)
+  if (isObj(st.extra)) for (const k of Object.keys(st.extra)) {
+    if (SKIP.has(k)) continue;
+    if (own[k]) { try { own[k](clone(st.extra[k])); } catch (e) { console.warn('Pixel sans Pi: not restored:', k, e); } }
+    else if (k in S) merge(S, k, st.extra[k]);
+  }
 }
-let stamp = 0, body = '', saveT = 0, ready = false;   // stamp: how recent what he has is (the newest source, or your last change)
-const shape = st => JSON.stringify({ ...st, at: 0 });
+/* stamp: how recent what he has is: the newest source restored, or the last thing you did here. His own life (the timer
+   ringing, a feature's clock, the weather of the day) is kept too, but does not make him newer than his Pi's snapshot. */
+let stamp = 0, body = '', wbody = '', saveT = 0, ready = false, user = false;
+const shape = st => JSON.stringify({ ...st, at: 0, wcache: 0 }), wshape = st => JSON.stringify(st.wcache || null);
+const dispatch0 = hub.dispatch;
+hub.dispatch = (action, args) => { user = true; return dispatch0(action, args); };   // an action: you (app.js, the keys, the commands)
 function restore(given) {           // the app's copy, his Pi's last snapshot, localStorage: the oldest first, the newest last
   const list = [];
   try { const ls = JSON.parse(localStorage.getItem(KEY)); if (isObj(ls) && ls.v === 1) list.push(ls); } catch { /* none, or no storage */ }
@@ -228,13 +253,13 @@ function restore(given) {           // the app's copy, his Pi's last snapshot, l
   const city0 = city && city.name;
   for (const st of fresh) { try { apply(st); } catch (e) { console.warn('Pixel sans Pi: a state not restored', e); } }
   stamp = Math.max(stamp, ...fresh.map(at));
-  const now = shape(pick()); if (now !== body) { body = now; later(); }   // kept again: localStorage and the app agree
+  const st = pick(), now = shape(st); wbody = wshape(st); if (now !== body) { body = now; later(); }   // kept again: localStorage and the app agree
   if (ready) { showWeather(); if (city && city.name !== city0) weather(); H.mark(); }
   return true;
 }
 function save() {
   clearTimeout(saveT); saveT = 0;
-  const st = pick(); st.at = stamp || Date.now();
+  const st = pick(); st.at = stamp;
   let json = JSON.stringify(st);
   for (const k of Object.keys(st.extra).sort((a, b) => JSON.stringify(st.extra[b]).length - JSON.stringify(st.extra[a]).length)) {
     if (json.length <= MAX) break; delete st.extra[k]; json = JSON.stringify(st);     // too big: the biggest parts stay out
@@ -244,12 +269,13 @@ function save() {
 }
 const later = () => { clearTimeout(saveT); saveT = setTimeout(save, 800); };
 restore(window.PIXEL_LOCAL_STATE);   // before anything is drawn (the app's injection may also come later: PixelLocal.restore)
-if (!body) body = shape(pick());
+if (!body) { const st = pick(); body = shape(st); wbody = wshape(st); }
 ready = true; showWeather(); if (city) weather();
 hub.listen(() => {                  // every change of state: kept if what matters changed
   brightness();
-  const now = shape(pick()); if (now === body) return;
-  body = now; stamp = Date.now(); later();
+  const st = pick(), now = shape(st), w = wshape(st), mine = user; user = false;
+  if (now !== body) { body = now; wbody = w; if (mine) stamp = Date.now(); later(); }
+  else if (w !== wbody) { wbody = w; later(); }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && saveT) save(); });
 addEventListener('pagehide', () => { if (saveT) save(); });

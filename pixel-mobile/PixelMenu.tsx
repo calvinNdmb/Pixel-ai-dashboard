@@ -6,10 +6,11 @@ import { BackHandler, Pressable, StyleSheet, Text } from 'react-native';
 
 const C = { desk: '#141713', plastic: '#d9d2bd', ink: '#7c745c', green: '#46ff82', amber: '#ffb347' };
 type Props = {
-  where: 'pi' | 'phone';                                 // which Pixel is shown now
+  where: 'pi' | 'phone' | 'fallback';                    // which Pixel is shown now (fallback: the phone's, while his Pi does not answer)
   host: string | null;                                   // his Pi's address, when one is linked
   onClose(): void; onPi(): void; onPhone(): void; onLink(): void; onForget(): void;
 };
+const SAYS = { phone: 'Pixel vit sur ce téléphone.', fallback: 'Ton Pixel (Pi) ne répond pas : en attendant, Pixel vit sur ce téléphone.' };
 
 export function PixelMenu({ where, host, onClose, onPi, onPhone, onLink, onForget }: Props) {
   const [sure, setSure] = useState(false);
@@ -23,9 +24,10 @@ export function PixelMenu({ where, host, onClose, onPi, onPhone, onLink, onForge
     <Pressable style={s.veil} onPress={onClose} accessibilityLabel="Fermer le menu">
       <Pressable style={s.sheet} onPress={() => {}}>
         <Text style={s.title}>PIXEL</Text>
-        <Text style={s.text}>{where === 'phone' ? 'Pixel vit sur ce téléphone.' : `Tu vois ton Pixel, sur ton Pi${host ? ` (${host})` : ''}.`}</Text>
-        {host && where === 'phone' ? <Item label="Mon Pixel (Pi)" hint="Les lampes, Claude, Codex, l’agenda…" onPress={go(onPi)} /> : null}
+        <Text style={s.text}>{where === 'pi' ? `Tu vois ton Pixel, sur ton Pi${host ? ` (${host})` : ''}.` : SAYS[where]}</Text>
+        {host && where !== 'pi' ? <Item label="Mon Pixel (Pi)" hint="Les lampes, Claude, Codex, l’agenda…" onPress={go(onPi)} /> : null}
         {where === 'pi' ? <Item label="Pixel sur ce téléphone" hint="Sans le Pi : son visage, le minuteur, la météo…" onPress={go(onPhone)} /> : null}
+        {where === 'fallback' ? <Item label="Rester sur ce téléphone" hint="Pixel ne revient plus tout seul sur ton Pi ; « Mon Pixel (Pi) », ici, pour y retourner." onPress={go(onPhone)} /> : null}
         <Item label="Relier à mon Pixel" hint="Scanne le QR code de ton Pi, ou tape son adresse." onPress={go(onLink)} />
         {host ? <Item label={sure ? 'Sûr ? Touche encore' : 'Oublier mon Pixel'} hint="Le Pixel du téléphone reste tel qu’il est." warn
           onPress={() => { if (!sure) { setSure(true); return; } onClose(); onForget(); }} /> : null}

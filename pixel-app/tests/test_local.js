@@ -4,14 +4,16 @@
 // - the bundle: one file, every script of web/index.html, the local hub just before app.js, the fonts inside, nothing to fetch;
 // - a phone held upright (390x844): no page or console error, no WebSocket; he lives and reacts to a tap; nothing fake
 //   (no lights, agenda, Claude or Codex lines, no Pi measures, no demo city); the screens that need the Pi say so, their keys
-//   stay dark, and so do the typed commands that need it; Système shows the phone's own measures; the commands that work
-//   here work (moods, scenes, the help); the timer runs and rings; the settings, a lasting mood and the timer survive a
-//   reload (localStorage), and so does the state of a feature this file does not know (a key of the hub's state);
+//   stay dark, and so do the typed commands that need it; Système shows the phone's own measures, and its Démarrage replays
+//   his boot check with the phone's parts; every theme is his to wear; the commands that work here work (moods, scenes, the
+//   help); the timer runs and rings; the settings, a lasting mood and the timer survive a reload (localStorage), and so does
+//   the state of a feature this file does not know (a key of the hub's state), also one whose truth is in a closure;
 // - in the app (window.ReactNativeWebView stubbed): the page sends its state ({local_save}), its mode, opens the app's menu
 //   from "Pixel sur ce téléphone ⋯", answers the app's ping; the app's copy (window.PIXEL_LOCAL_STATE) restores him, and
 //   so does the last snapshot of his Pi (the same theme, themes and settings), the newest one winning, also when it comes
-//   late; a broken or foreign state is ignored;
-// - the weather: real (Open-Meteo, here answered by the test), for the city typed, kept; without network, a word, no error;
+//   late, also after the weather of the day came in; a broken or foreign state is ignored;
+// - the weather: real (Open-Meteo, here answered by the test), for the city typed, kept; a city typed while another one's
+//   forecast is on its way never gets that one's forecast; a typo keeps the good city; without network, a word, no error;
 // - a phone held sideways: the Pixel de poche, his face alone; a tap, a long press (a cuddle); no voyage button (no Pi);
 //   the phone going offline is no reason to say he is far from home.
 // --shots DIR: screenshots. Playwright must be installed (require('playwright')); nothing else.
@@ -58,6 +60,16 @@ async function phone(browser, opt = {}) {
   if (opt.given) await ctx.addInitScript(g => { window.PIXEL_LOCAL_STATE = g; }, opt.given);
   if (opt.feature) await ctx.addInitScript(() => {     // a feature this test knows nothing about: a key of the hub's state
     let hub; Object.defineProperty(window, 'PixelHub', { configurable: true, get: () => hub, set: v => { if (v && v.S && !v.S.caractere) v.S.caractere = { trait: 'calme', faim: 3 }; hub = v; } });
+  });
+  if (opt.closure) await ctx.addInitScript(() => {     // a feature whose truth is in a closure (like nourrir): S.ventre is only its published copy
+    let hub; Object.defineProperty(window, 'PixelHub', { configurable: true, get: () => hub, set: v => {
+      hub = v; if (!v || !v.local) return;
+      const N = { ventre: 70, repas: [] }, publish = () => { v.S.ventre = { ventre: N.ventre, repas: N.repas.slice() }; };
+      v.local.A['ventre.donner'] = () => { N.ventre = Math.min(100, N.ventre + 10); N.repas = [Date.now(), ...N.repas].slice(0, 10); publish(); };
+      if (v.local.restorable) v.local.restorable('ventre', x => { if (x && Number.isFinite(x.ventre)) N.ventre = Math.max(0, Math.min(100, x.ventre)); if (x && Array.isArray(x.repas)) N.repas = x.repas.slice(0, 10); publish(); });
+      setInterval(() => { publish(); v.local.mark(); }, 250);   // its clock (nourrir: every minute), from the closure
+      publish();
+    } });
   });
   const page = await ctx.newPage(), errs = [];
   page.on('pageerror', e => errs.push('pageerror: ' + e.message));
@@ -117,24 +129,30 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   }
   await go(page, 'systeme'); let t = await said(page);
   check('Système: the phone\'s own measures (network, screen), none of the Pi\'s', /RÉSEAU/.test(t) && /ÉCRAN/.test(t) && /390 × 844/.test(t) && !/TEMPÉRATURE|DISQUE|MÉMOIRE/.test(t), t.slice(0, 300));
-  check('…its keys: brightness, CRT, sleep; not the Pi\'s boot', await S(page, () => [...document.querySelectorAll('#keys .key.act')].map(b => b.disabled ? '-' : b.textContent).join('|') === 'Lumi. −|Lumi. +|Effet\nCRT|-|Veille'));
+  const sysKeys = () => S(page, () => [...document.querySelectorAll('#keys .key.act')].map(b => b.disabled ? '-' : b.textContent).join('|'));
+  check('…its keys: brightness, CRT, his boot, sleep', (await sysKeys()) === 'Lumi. −|Lumi. +|Effet\nCRT|Démar-\nrage|Veille', await sysKeys());
   await page.locator('#keys .key').nth(10).click(); await page.waitForTimeout(200);
   check('…Lumi. − dims his screen on the phone', await S(page, () => PixelHub.S.sys.bright < 1 && /brightness/.test(document.getElementById('screen').style.filter)));
   await page.locator('#keys .key').nth(11).click(); await page.waitForTimeout(200);
   await shot(page, 'phone-systeme');
+  await page.locator('#keys .key').nth(13).click(); await page.waitForTimeout(1900); t = await said(page, 400);
+  check('…Démarrage: his boot check, with the phone\'s parts, no Pi\'s', await S(page, () => PixelHub.S.boot_at > 0 && Screens.local.boot >= 0) && /Téléphone/i.test(t) && /pas relié/i.test(t) && !/Pont Hue|Stream Deck|Raspberry Pi 4|Écran 7/i.test(t) && !/Relie Pixel/.test(await toast(page)), t.slice(0, 300));
+  await shot(page, 'phone-demarrage');
+  await until(() => S(page, () => Screens.local.boot < 0), 4000);
   await go(page, 'reglages'); t = await said(page);
   const qr = await S(page, () => {                     // the QR code's light square (Rétro: #e4ffe9) where the Pi shows it
     const c = document.getElementById('crt'), k = c.width / 800, d = c.getContext('2d').getImageData(24 * k, 64 * k, 200 * k, 200 * k).data; let n = 0;
     for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] > 230 && d[i + 2] > 200) n++;
     return n;
   });
-  check('Réglages: no QR code, how to link his Pi; the face choice is there', /Pas de Pi relié/.test(t) && /Relier à mon Pixel/.test(t) && /Vivant/.test(t) && qr < 50, `${qr} light pixels · ${t.slice(0, 200)}`);
+  check('Réglages: no QR code, how to link his Pi; the face choice is there', /Pas de Pi relié/.test(t) && /«\sRelier\sà\smon\sPixel\s»/.test(t) && /Vivant/.test(t) && qr < 50, `${qr} light pixels · ${t.slice(0, 200)}`);
+  check('…and every theme to choose from (no Pi to switch them on)', /THÈME/i.test(t) && ['Rétro', 'Néon', 'Croquis', 'LCD'].every(n => t.toLowerCase().includes(n.toLowerCase())) && await S(page, () => PixelHub.THEMES.length === PixelHub.ALLT.length && PixelHub.ALLT.length > 1), t.slice(0, 300));
   check('…its keys: no "Associer Hue"', await S(page, () => ![...document.querySelectorAll('#keys .key.act')].some(b => /Hue/.test(b.textContent))));
   await shot(page, 'phone-reglages');
   await go(page, 'meteo'); t = await said(page);
   check('Météo with no city: how to choose one, no fake weather', /météo Lyon/.test(t) && !/°C/.test(t), t.slice(0, 200));
   await page.evaluate(() => Screens.menu(true, 'phone')); t = await said(page);
-  check('the quick menu\'s Téléphone page: no QR code, how to link him', /Pixel vit sur ce téléphone/.test(t) && /Relier à mon Pixel/.test(t), t.slice(0, 200));
+  check('the quick menu\'s Téléphone page: no QR code, how to link him', /Pixel vit sur ce téléphone/.test(t) && /«\sRelier\sà\smon\sPixel\s»/.test(t), t.slice(0, 200));
   await shot(page, 'phone-menu-telephone'); await page.evaluate(() => Screens.menu(false));
   await go(page, 'visage');
 
@@ -147,6 +165,9 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   check('"codex …": the same', /Codex/.test(await toast(page)) && await S(page, () => !PixelHub.S.codex.running && !PixelHub.S.codex.lines.length));
   await type(page, 'aide');
   check('"aide": what works here', /minuteur/.test(await toast(page)) && /relie Pixel à ton Pi/.test(await toast(page)) && !/salon 40/.test(await toast(page)));
+  await type(page, 'thème néon');
+  check('"thème néon": he wears it, with no Pi', await S(page, () => PixelHub.S.view.theme === 'neon'), await toast(page));
+  await shot(page, 'phone-neon'); await type(page, 'thème rétro');
   await type(page, 'humeur content');
   check('"humeur content": his mood', await S(page, () => PixelHub.S.mood.name === 'content'));
   await type(page, 'fais le poisson');
@@ -219,6 +240,38 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   check('…no errors', errs.length === 0, errs.slice(0, 4).join(' | '));
   await ctx.close();
 
+  /* the app's late copy (Android: its injection can come after the page started), once the weather of the day came in */
+  const fc = (t = 13) => { const days = [0, 1, 2, 3, 4].map(i => { const d = new Date(Date.now() + i * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+    return JSON.stringify({ current: { temperature_2m: t, weather_code: 3, wind_speed_10m: 11.2, relative_humidity_2m: 71 },
+      daily: { time: days, weather_code: [3, 61, 0, 2, 71], temperature_2m_max: [14, 12, 16, 15, 4], temperature_2m_min: [7, 6, 5, 8, -1], wind_speed_10m_max: [20, 25, 10, 12, 18], relative_humidity_2m_mean: [70, 85, 60, 65, 90] } }); };
+  const CORS = { 'access-control-allow-origin': '*' };
+  ({ ctx, page, errs } = await phone(browser, { app: true, weather: r => r.fulfill({ contentType: 'application/json', headers: CORS, body: fc() }) }));
+  await page.evaluate(() => localStorage.setItem('pixel_local', JSON.stringify({ v: 1, at: Date.now() - 3600e3, view: { theme: 'retro' }, settings: { themes: ['retro', 'lcd'] }, sys: {}, timer: {}, extra: {}, city: { name: 'Lyon', lat: 45.75, lon: 4.85 } })));
+  await page.reload(); await until(() => page.evaluate(() => !!window.PixelLocal), 6000);
+  check('(a kept city: its weather comes in by itself)', await until(() => S(page, () => !!(PixelHub.S.weather && PixelHub.S.weather.days)), 4000));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => PixelLocal.restore({ state: null, seed: { view: { theme: 'lcd', face: 'vivant' }, settings: { themes: ['retro', 'lcd'] }, keys: {}, kept_at: Date.now() - 30e3 } }));
+  await page.waitForTimeout(200);
+  check('his Pi\'s snapshot given late, after the weather came in: newer than what he had here, it wins', await S(page, () => PixelHub.S.view.theme === 'lcd' && PixelHub.S.view.face === 'vivant'), await S(page, () => PixelHub.S.view.theme));
+  check('…no errors', errs.length === 0, errs.slice(0, 4).join(' | '));
+  await ctx.close();
+
+  /* a feature whose truth is in a closure (S.ventre is only what it publishes): kept, given back, seeded from his Pi */
+  ({ ctx, page, errs } = await phone(browser, { app: true, closure: true }));
+  const belly = () => S(page, () => PixelHub.S.ventre && { ventre: PixelHub.S.ventre.ventre, repas: PixelHub.S.ventre.repas.length });
+  await page.evaluate(() => { PixelHub.dispatch('ventre.donner'); PixelHub.dispatch('ventre.donner'); }); await page.waitForTimeout(1200);
+  check('(the feature: fed twice, kept)', JSON.stringify(await belly()) === '{"ventre":90,"repas":2}' && ((k) => k && k.extra.ventre && k.extra.ventre.ventre === 90)(await kept(page)), JSON.stringify(await belly()));
+  await page.reload(); await until(() => page.evaluate(() => !!window.PixelLocal), 6000); await page.waitForTimeout(900);
+  check('a reload: its state is back, and stays after its own clock publishes again', JSON.stringify(await belly()) === '{"ventre":90,"repas":2}', JSON.stringify(await belly()));
+  await page.evaluate(() => PixelHub.dispatch('ventre.donner')); await page.waitForTimeout(600);
+  check('…and it goes on from there', JSON.stringify(await belly()) === '{"ventre":100,"repas":3}', JSON.stringify(await belly()));
+  await page.evaluate(() => PixelLocal.restore({ seed: { view: { theme: 'retro' }, settings: {}, keys: {}, kept_at: Date.now() + 5, ventre: { ventre: 12, repas: [1] } } }));
+  await page.waitForTimeout(1200);
+  check('a newer snapshot of his Pi: its value, kept after the next publish and saved', JSON.stringify(await belly()) === '{"ventre":12,"repas":1}'
+    && (await S(page, () => window.__rn.filter(m => m.local_save).pop().local_save.extra.ventre.ventre)) === 12, JSON.stringify(await belly()));
+  check('…no errors', errs.length === 0, errs.slice(0, 4).join(' | '));
+  await ctx.close();
+
   /* ================= the weather ================= */
   const asked = [];
   const meteo = r => {
@@ -240,6 +293,25 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   await page.waitForTimeout(1000); await page.reload(); await until(() => page.evaluate(() => !!window.PixelLocal), 6000);
   check('a reload: the city is kept, the weather comes back', await until(() => S(page, () => PixelHub.S.weather && PixelHub.S.weather.city === 'Lyon' && !!PixelHub.S.weather.days), 4000));
   check('the weather: no errors', errs.length === 0, errs.slice(0, 4).join(' | '));
+  await ctx.close();
+  /* a typo keeps the good city; a city typed while another one's forecast is on its way never gets that one */
+  const PLACES = { Lyon: [45.75, 4.85], Brest: [48.39, -4.49] };
+  let slowLyon = false;
+  ({ ctx, page, errs } = await phone(browser, { offlineOk: true, weather: async r => {
+    const u = new URL(r.request().url());
+    if (u.hostname.startsWith('geocoding')) { const p = PLACES[u.searchParams.get('name')]; return r.fulfill({ contentType: 'application/json', headers: CORS, body: JSON.stringify(p ? { results: [{ name: u.searchParams.get('name'), latitude: p[0], longitude: p[1] }] } : {}) }); }
+    if (u.searchParams.get('latitude') === '45.75') { if (slowLyon) await wait(1500); return r.fulfill({ contentType: 'application/json', headers: CORS, body: fc(13) }); }
+    return r.abort();                                     // Brest's forecast: no network for it
+  } }));
+  await type(page, 'météo Lyon');
+  await until(() => S(page, () => PixelHub.S.weather && PixelHub.S.weather.city === 'Lyon'), 4000);
+  await type(page, 'météo lundi'); await page.waitForTimeout(600);
+  const typo = await S(page, () => ({ city: PixelLocal.city && PixelLocal.city.name, shown: PixelHub.S.weather && PixelHub.S.weather.city, toast: (PixelHub.S.toast || {}).msg }));
+  check('"météo lundi" (not a city): Lyon and its weather stay, he says so', typo.city === 'Lyon' && typo.shown === 'Lyon' && /VILLE INTROUVABLE : LUNDI/.test(typo.toast), JSON.stringify(typo));
+  slowLyon = true; await type(page, 'météo Lyon'); await page.waitForTimeout(200); await type(page, 'météo Brest'); await page.waitForTimeout(2600);
+  const race = await S(page, () => ({ city: PixelLocal.city && PixelLocal.city.name, shown: PixelHub.S.weather, kept: PixelLocal.state.wcache || null }));
+  check('Lyon\'s forecast late, Brest typed meanwhile (and away): Brest, a word, never Lyon\'s weather under its name', race.city === 'Brest' && !race.shown.days && /Brest/.test(race.shown.error || '') && !race.kept, JSON.stringify(race).slice(0, 300));
+  check('…no page error', errs.length === 0, errs.slice(0, 4).join(' | '));
   await ctx.close();
   ({ ctx, page, errs } = await phone(browser, { weather: r => r.abort(), offlineOk: true }));
   await type(page, 'météo Brest');

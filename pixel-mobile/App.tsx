@@ -14,7 +14,7 @@ import { Linked, type LinkedHandle, type PiLink } from './Linked';
 import { LocalPixel } from './LocalPixel';
 import { forgetPi, readHome, saveHome, type Home } from './localStore';
 import { PixelMenu } from './PixelMenu';
-import { parseMessage, usePlugs, webProps } from './webBridge';
+import { parseMessage, sameOrigin, usePlugs, webProps } from './webBridge';
 
 const KEY = 'pixel_url';                                       // what Pixel's QR code holds: http://pixel.local:8080/?t=<code>
 const C = { desk: '#141713', plastic: '#d9d2bd', ink: '#7c745c', green: '#46ff82' };
@@ -45,7 +45,7 @@ export default function App() {
           : piUrl ? <Linked ref={linked} url={piUrl} Page={PixelPage} onMenu={openMenu} onRelink={() => setSetup(true)} onWhere={setSeen} />
           : <LocalPixel onMenu={openMenu} />}
         {menu && !setup && url !== undefined ? (
-          <PixelMenu where={piUrl ? seen : 'phone'} host={url ? hostOf(url) : null} onClose={() => setMenu(false)}
+          <PixelMenu where={piUrl ? (seen === 'phone' ? 'fallback' : 'pi') : 'phone'} host={url ? hostOf(url) : null} onClose={() => setMenu(false)}
             onPi={() => (home === 'pi' ? linked.current?.retry() : goHome('pi'))} onPhone={() => goHome('phone')} onLink={() => setSetup(true)} onForget={forget} />
         ) : null}
       </SafeAreaView>
@@ -107,7 +107,7 @@ function PixelPage({ url, link }: { url: string; link: PiLink }) {
     return () => sub.remove();
   }, [link]);
   const onMessage = (e: WebViewMessageEvent) => {                 // the page says which mode is on, whether the Pi answers, or that it has no access
-    const m = parseMessage(e.nativeEvent.data); if (!m) return;
+    const m = sameOrigin(e.nativeEvent.url, url) ? parseMessage(e.nativeEvent.data) : null; if (!m) return;   // the Pi's own page only
     link.onMessage(m); plugs.message(m);
   };
   return (
@@ -116,7 +116,7 @@ function PixelPage({ url, link }: { url: string; link: PiLink }) {
       onMessage={onMessage} onNavigationStateChange={n => { canGoBack.current = n.canGoBack; }}
       onLoad={() => { link.onLoaded(); plugs.ready(); }}
       onError={() => link.onDown('down')}
-      onHttpError={e => { if (e.nativeEvent.statusCode === 403) link.onDown('refus'); }}   // Pixel only answers the devices at home
+      onHttpError={e => { const c = e.nativeEvent.statusCode; if (c >= 400) link.onDown(c === 403 ? 'refus' : 'down'); }}   // 403: Pixel only answers the devices at home
       onRenderProcessGone={() => setRound(r => r + 1)} />
   );
 }

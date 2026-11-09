@@ -5,14 +5,14 @@
    also keeps his state in its own files (localStore.ts) and gives it back before the page starts, with the last snapshot
    of his Pi: window.PIXEL_LOCAL_STATE, read by pixel-app/web/local.js. */
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
-import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Asset } from 'expo-asset';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { readLocal, saveState } from './localStore';
-import { parseMessage, usePlugs, webProps } from './webBridge';
+import { parseMessage, sameOrigin, usePlugs, webProps } from './webBridge';
 
 const BUNDLE: number = require('./assets/pixel-local.html');   // metro.config.js: a page that says how to build it when it is missing
-const C = { desk: '#141713', plastic: '#d9d2bd', green: '#46ff82' };
+const C = { desk: '#141713', plastic: '#d9d2bd', ink: '#7c745c', green: '#46ff82' };
 
 export type LocalHandle = { ping(): void };
 type Props = {
@@ -47,16 +47,20 @@ export function LocalPixel({ ref, onMenu, onIdle }: Props) {
     return () => sub.remove();
   }, [onMenu]);
   const onMessage = (e: WebViewMessageEvent) => {
-    const m = parseMessage(e.nativeEvent.data); if (!m) return;
+    const m = page && sameOrigin(e.nativeEvent.url, page.uri) ? parseMessage(e.nativeEvent.data) : null; if (!m) return;   // his own page only
     if (m.local_save !== undefined) saveState(m.local_save);
     if (m.menu === true) onMenu();
     if (typeof m.local_idle === 'number') onIdle?.(m.local_idle, m.busy === true);
     plugs.message(m);
   };
-  if (broken) {
+  if (broken) {                                         // his page could not be copied out of the app (a phone full…): try again, or the menu
     return (
       <View style={[s.fill, s.center]}>
-        <Text style={s.text}>Le Pixel du téléphone n’est pas dans cette appli. Pour la compiler : npm run bundle:web, dans pixel-mobile.</Text>
+        <Text style={s.face}>:(</Text>
+        <Text style={s.text}>Pixel n’a pas pu s’installer sur ce téléphone. Libère un peu de place, puis réessaie.</Text>
+        <Pressable style={s.btn} onPress={() => { setBroken(false); setRound(r => r + 1); }} accessibilityRole="button"><Text style={s.btnText}>Réessayer</Text></Pressable>
+        <Pressable style={s.btnGhost} onPress={onMenu} accessibilityRole="button"><Text style={s.btnGhostText}>Menu</Text></Pressable>
+        {__DEV__ ? <Text style={s.small}>Développement : npm run bundle:web, dans pixel-mobile, puis relance Metro.</Text> : null}
       </View>
     );
   }
@@ -73,6 +77,12 @@ export function LocalPixel({ ref, onMenu, onIdle }: Props) {
 
 const s = StyleSheet.create({
   fill: { flex: 1, backgroundColor: C.desk },
-  center: { alignItems: 'center', justifyContent: 'center', padding: 28 },
+  center: { alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 },
+  face: { color: C.green, fontSize: 44, fontFamily: 'monospace' },
   text: { color: C.plastic, fontSize: 16, lineHeight: 23, textAlign: 'center' },
+  small: { color: C.ink, fontSize: 13, textAlign: 'center' },
+  btn: { backgroundColor: C.plastic, borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12 },
+  btnText: { color: C.desk, fontSize: 16, fontWeight: '700' },
+  btnGhost: { borderColor: C.ink, borderWidth: 1, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 9 },
+  btnGhostText: { color: C.plastic, fontSize: 14, fontWeight: '600' },
 });

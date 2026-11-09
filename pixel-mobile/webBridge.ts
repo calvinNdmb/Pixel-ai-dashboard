@@ -33,6 +33,11 @@ export function parseMessage(data: string): PageMessage | null {
   try { const m: unknown = JSON.parse(data); return m && typeof m === 'object' && !Array.isArray(m) ? m as PageMessage : null; } catch { return null; }
 }
 
+/* is the page that speaks still the one the app opened (its scheme and host)? A link or a redirect may lead the WebView
+   elsewhere, and another site must not speak for Pixel. The message's url is the WebView's page (react-native-webview). */
+const originOf = (u: string) => (/^([a-z][a-z0-9+.-]*:\/\/[^/?#]*)/i.exec(u)?.[1] ?? '').toLowerCase();
+export const sameOrigin = (url: string | undefined, base: string) => !!url && originOf(url) !== '' && originOf(url) === originOf(base);
+
 /* the plugs, for one WebView */
 export function usePlugs(kind: Page['kind'], web: RefObject<WebView<object> | null>) {
   const page = useMemo<Page>(() => ({ kind, inject: js => web.current?.injectJavaScript(`${js}\ntrue;`) }), [kind, web]);

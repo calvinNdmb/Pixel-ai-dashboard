@@ -557,6 +557,8 @@ drawMenuPhone = (x, y, MH) => {     // eslint-disable-line no-func-assign
   txt(fit(note.head, MENU.w - 48, 32), x + 24, y + 74, 32, WH); para(note.text, x + 24, y + 120, MENU.w - 48, 26, G, 32);
   menuBtn(x + MENU.w - 224, y + MH - 78, 200, 54, 'Retour', () => { L.menu.view = null; });
 };
+const bootRows0 = bootRows;           // his boot check (Rétro): the phone's own parts, not a Pi's (solo.boot)
+bootRows = () => (P.solo && Array.isArray(P.solo.boot) && P.solo.boot.length ? P.solo.boot : bootRows0());   // eslint-disable-line no-func-assign
 let last = performance.now(), fitAt = 0, fdt = 16;
 /* ---------- frame rate: full speed only while something moves fast ----------
    Most screens are still between two clock ticks, and the Rétro and LCD faces change about 20 times a second:

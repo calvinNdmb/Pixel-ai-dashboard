@@ -41,10 +41,25 @@ export function validState(v: unknown): v is Obj {
 }
 export const saveState = (st: unknown) => (validState(st) ? write(STATE, st, MAX_STATE) : Promise.resolve(false));
 
-/* the Pi page's pixel_snap (a JSON string): a snapshot with his look (view) and the time it was kept */
+/* the Pi page's pixel_snap (a JSON string): a snapshot with his look (view) and the time it was kept. Only what the phone's
+   Pixel takes from it is kept (pixel-app/web/local.js fromPi): his look, two settings, the city, and the state of his features
+   (caractère, nourrir…). Not the rest: the access code (settings.url, the QR code), the agenda's titles, the rooms, the chat… */
+const PI_ONLY = new Set(['screen', 'mood', 'timer', 'anim', 'scene', 'toast', 'act', 'boot_at', 'keys', 'server_now', 'lights', 'chat', 'codex',
+  'agenda', 'sys', 'poche', 'cast', 'cast_recent', 'airplay', 'solo', 'yt', 'ytcast']);   // local.js SKIP, and the Pi's own parts
+const VIEW = ['theme', 'face', 'units_f', 'crt_off'];
+function strip(s: Obj): Obj {
+  const v = s.view as Obj, st = isObj(s.settings) ? s.settings : {}, out: Obj = { view: {}, settings: {}, kept_at: s.kept_at };
+  for (const k of VIEW) if (k in v) (out.view as Obj)[k] = v[k];
+  if (Array.isArray(st.themes)) (out.settings as Obj).themes = st.themes.filter(t => typeof t === 'string');
+  if (typeof st.sleep_min === 'number') (out.settings as Obj).sleep_min = st.sleep_min;
+  if (st.demo === true) (out.settings as Obj).demo = true;
+  if (isObj(s.weather) && typeof s.weather.city === 'string') out.weather = { city: s.weather.city.slice(0, 80) };
+  for (const k of Object.keys(s)) if (!(k in out) && !PI_ONLY.has(k)) out[k] = s[k];
+  return out;
+}
 export function parseSeed(raw: unknown): Obj | null {
   if (typeof raw !== 'string' || raw.length > MAX_SEED) return null;
-  try { const s: unknown = JSON.parse(raw); return isObj(s) && isObj(s.view) && typeof s.kept_at === 'number' ? s : null; } catch { return null; }
+  try { const s: unknown = JSON.parse(raw); return isObj(s) && isObj(s.view) && typeof s.kept_at === 'number' ? strip(s) : null; } catch { return null; }
 }
 export function saveSeed(raw: unknown): Promise<boolean> {
   const s = parseSeed(raw);
@@ -54,7 +69,7 @@ export function saveSeed(raw: unknown): Promise<boolean> {
 /* both, for the page: window.PIXEL_LOCAL_STATE = { state, seed } */
 export async function readLocal(): Promise<{ state: Obj | null; seed: Obj | null }> {
   const [state, seed] = await Promise.all([read(STATE, MAX_STATE), read(SEED, MAX_SEED)]);
-  return { state: validState(state) ? state : null, seed: isObj(seed) && isObj(seed.view) ? seed : null };
+  return { state: validState(state) ? state : null, seed: isObj(seed) && isObj(seed.view) && typeof seed.kept_at === 'number' ? strip(seed) : null };
 }
 
 export async function readHome(): Promise<Home> {

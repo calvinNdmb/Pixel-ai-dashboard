@@ -371,8 +371,15 @@ function command(raw) {
 /* ---------- Pixel sans Pi (../local.js: the phone app's own Pixel, window.PIXEL_LOCAL): no fake system graphs, and the
    parts local.js works with: the actions, the broadcast, the themes his Pi offers ---------- */
 const LOCAL = !!window.PIXEL_LOCAL;
+/* A feature's state is kept on the phone, and seeded from his Pi's snapshot, as S[key] (its snapshot shape). When S[key] is
+   its truth (changed in place, like S.timer or S.caractere), there is nothing to do. When its truth is elsewhere (a closure
+   that publish() copies into S[key]), it says how to take a kept value back, from anywhere in this file (hoisted):
+     restorable('nourrir', v => { ...keep what is valid in v...; publish(); });
+   local.js calls it at start and whenever a newer copy comes (the app's, his Pi's), instead of writing S[key]. */
+function restorable(key, fn) { if (typeof fn === 'function') (restorable.fns ||= {})[key] = fn; }
 const local = {
-  A, mark, toast, mood,
+  A, mark, toast, mood, restorable,
+  restorers: () => restorable.fns || {},
   themes(ids) {                     // in place: row3(), theme.set and the commands read THEMES and TNAME
     const on = ALLT.filter(t => Array.isArray(ids) && ids.includes(t.id)); if (!on.length) return;
     THEMES.splice(0, THEMES.length, ...on);

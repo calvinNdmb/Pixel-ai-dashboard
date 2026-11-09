@@ -8,10 +8,10 @@ Au premier lancement, Pixel est là tout de suite : pas de QR code, pas de rése
 
 - **Ce qui marche :** son visage, ses 52 animations, sa personnalité et toutes ses scènes, ses humeurs, les thèmes, l'horloge, le minuteur, la veille, les réglages et Pixel de poche (tourne le téléphone). La barre de commande aussi : `minuteur 10`, `humeur content`, `fais le poisson`, `aide`…
 - **Ce qui a besoin du Pi le dit :** les écrans Lumières, Claude, Codex et Agenda affichent « Relie Pixel à ton Pi pour ça », et leurs touches restent éteintes. Une question pour Claude, `salon 40` ou `codex …` : Pixel répond la même chose. Il n'y a aucune fausse donnée.
-- **Système** montre les mesures du téléphone : batterie, réseau, écran, processeur.
+- **Système** montre les mesures du téléphone : batterie, réseau, écran, processeur. Sa touche **Démarrage** rejoue le démarrage de Pixel, avec les pièces du téléphone.
 - **La météo :** tape `météo Lyon` (ta ville) dans la barre de commande. Pixel demande la météo à Open-Meteo, gratuit et sans compte. La ville est gardée. Sans réseau, il le dit et réessaie tout seul.
 - **Ce qui est gardé quand tu fermes l'appli :** le thème, le visage, °C ou °F, l'effet CRT, la luminosité de son visage, une humeur qui dure (endormi…), le minuteur en cours, la ville, et tout ce qu'il retient de lui (son caractère, par exemple).
-- **Le thème :** comme sur le Pi, Rétro seulement pour le moment. Une fois l'appli reliée à ton Pi, le Pixel du téléphone a les mêmes thèmes que lui.
+- **Les thèmes :** les six, au choix dans Réglages ou avec `thème néon`. Une fois l'appli reliée à ton Pi, le Pixel du téléphone a les mêmes thèmes que lui : ceux que ton Pi a activés.
 
 ## Relier ton Pi
 
@@ -20,10 +20,10 @@ Au premier lancement, Pixel est là tout de suite : pas de QR code, pas de rése
 
 L'adresse et le code d'accès sont gardés dans le stockage sécurisé du téléphone. Ensuite, l'appli montre la page de ton Pi, comme avant.
 
-- **Quand ton Pi ne répond pas** (éteint, loin de la maison, téléphone hors réseau, ou un code refusé), Pixel continue sur ton téléphone, avec un petit bandeau : « Ton Pixel (Pi) ne répond pas : Pixel vit sur ton téléphone ». Jamais d'écran bloqué.
-- **L'appli redemande au Pi**, de moins en moins souvent : après 5 s, 10 s, 20 s… puis toutes les 2 minutes. Jamais quand l'appli est en arrière-plan, pour ta batterie.
-- **Quand ton Pi répond à nouveau :** si personne n'a touché le Pixel du téléphone depuis une minute et qu'aucun minuteur n'y tourne, l'appli revient au Pi toute seule. Un téléphone posé sur son support retrouve ainsi le vrai Pixel. Sinon, touche **Revenir** sur le bandeau : un câlin, une commande ou un minuteur en cours ne sont jamais coupés.
-- **Le même Pixel :** tant que l'appli montre ton Pi, elle garde sa dernière image de lui : son thème, ses thèmes activés, ses réglages et son caractère. Sans le Pi, le Pixel du téléphone les reprend.
+- **Quand ton Pi ne répond pas** (éteint, loin de la maison, téléphone hors réseau, une page d'erreur à son adresse, ou un code refusé), Pixel continue sur ton téléphone, avec un petit bandeau : « Ton Pixel (Pi) ne répond pas : Pixel vit sur ton téléphone ». Jamais d'écran bloqué. Le bandeau se ferme avec ×, et reste fermé.
+- **L'appli redemande au Pi**, de moins en moins souvent : après 5 s, 10 s, 20 s… puis toutes les 2 minutes. Jamais quand l'appli est en arrière-plan, pour ta batterie. Elle vérifie que c'est bien Pixel qui répond, et pas un autre appareil à la même adresse.
+- **Quand ton Pi répond à nouveau :** si personne n'a touché le Pixel du téléphone depuis une minute et qu'aucun minuteur n'y tourne, l'appli revient au Pi toute seule. Un téléphone posé sur son support retrouve ainsi le vrai Pixel. Sinon, touche **Revenir** sur le bandeau : un câlin, une commande ou un minuteur en cours ne sont jamais coupés. Pour rester sur le Pixel du téléphone, choisis **Rester sur ce téléphone** dans le menu.
+- **Le même Pixel :** tant que l'appli montre ton Pi, elle garde sa dernière image de lui : son thème, ses thèmes activés, ses réglages, sa ville et ce qu'il retient de lui (son caractère, par exemple). Sans le Pi, le Pixel du téléphone les reprend. Elle ne garde rien d'autre : ni ton code d'accès, ni ton agenda, ni tes lampes.
 - **Pas de synchronisation vers le Pi.** Ce que tu changes sur le Pixel du téléphone reste sur le téléphone : le Pi ne le voit pas. Et si tu retrouves ton Pi entre-temps, c'est lui qui compte : la fois suivante, le Pixel du téléphone reprend ce que ton Pi montrait.
 
 ## Le menu de l'appli
@@ -32,6 +32,7 @@ Il s'ouvre avec le **bouton retour**, ou en touchant **Pixel sur ce téléphone 
 
 - **Mon Pixel (Pi)** : revenir à la page de ton Pi (tout de suite, même s'il ne répondait plus).
 - **Pixel sur ce téléphone** : le Pixel du téléphone, même quand ton Pi est là. Ce choix est gardé.
+- **Rester sur ce téléphone** (quand ton Pi ne répond pas) : le même choix. L'appli ne revient plus toute seule au Pi.
 - **Relier à mon Pixel** : scanner le QR code de ton Pi, ou taper son adresse.
 - **Oublier mon Pixel** : l'appli oublie ton Pi (touche deux fois). Le Pixel du téléphone garde ce qu'il a.
 
@@ -76,7 +77,7 @@ Pour la mettre sur Pixel :
 ssh mopi@pixel.local 'cat > ~/.config/pixel/pixel.apk' < Pixel.apk
 ```
 
-**En développement** (`npx expo start`), si tu n'as pas encore lancé `npm run bundle:web`, l'appli démarre quand même : le Pixel du téléphone affiche comment le fabriquer, et Metro le rappelle. Une compilation de l'APK, elle, s'arrête avec ce message, pour ne jamais livrer une appli sans Pixel.
+**En développement** (`npx expo start`), si tu n'as pas encore lancé `npm run bundle:web`, l'appli démarre quand même : le Pixel du téléphone affiche comment le fabriquer, et Metro le rappelle. Une compilation de l'APK, elle, s'arrête avec ce message, pour ne jamais livrer une appli sans Pixel. Si l'appli installée n'arrive pas à sortir la page de l'APK (un téléphone plein, par exemple), elle le dit, avec **Réessayer** et le menu.
 
 ## Vérifier
 
@@ -108,6 +109,8 @@ Le Pixel du téléphone lui-même est vérifié dans `pixel-app` : `node tests/t
 
 **Comment la page est chargée.** `expo-asset` copie `pixel-local.html` de l'APK vers le cache de l'appli, et la vue web l'ouvre là, comme une page `file://` (`allowFileAccess`). Le guide de `react-native-webview` charge les pages locales d'Android en `file://` (`file:///android_asset/…`). Mais mettre un fichier dans `android/` demande une configuration native, alors que `android/` est regénéré à chaque `expo prebuild`. `expo-asset` fait la même chose depuis les ressources de Metro, sans rien de natif. L'autre voie, `source={{ html, baseUrl }}`, ferait passer 2,4 Mo de texte par React Native à chaque affichage. Le `localStorage` d'une page `file://` est gardé par la vue web dans les données de l'appli. Toutes les pages `file://` ont la même origine : une nouvelle version du fichier, dans un autre nom du cache, garde donc le même `localStorage`.
 
-**Comment son état est gardé.** La page envoie son état à l'appli (`{local_save: …}`, par `window.ReactNativeWebView.postMessage`). L'appli l'écrit dans un fichier JSON du dossier documents (`expo-file-system`, `Paths.document` : « à l'abri d'une suppression par le système », dit sa doc). Ce n'est pas `SecureStore` : il chiffre de petites valeurs, et certaines versions d'iOS refusaient celles de plus de 2048 octets. Les tailles sont vérifiées : 256 Ko pour son état, 512 Ko pour l'image du Pi. Au démarrage suivant, l'appli rend l'état à la page avant ses scripts (`injectedJavaScriptBeforeContentLoaded`, dans `window.PIXEL_LOCAL_STATE`), avec l'image du Pi. La doc de `react-native-webview` prévient que sous Android ce n'est « pas fiable à 100 % » : l'appli le redonne donc une fois la page chargée. `pixel-app/web/local.js` garde le plus récent de ce qu'il a : le `localStorage`, la copie de l'appli, l'image du Pi.
+**Comment son état est gardé.** La page envoie son état à l'appli (`{local_save: …}`, par `window.ReactNativeWebView.postMessage`). L'appli l'écrit dans un fichier JSON du dossier documents (`expo-file-system`, `Paths.document` : « à l'abri d'une suppression par le système », dit sa doc). Ce n'est pas `SecureStore` : il chiffre de petites valeurs, et certaines versions d'iOS refusaient celles de plus de 2048 octets. Les tailles sont vérifiées : 256 Ko pour son état, 512 Ko pour l'image du Pi. De l'image du Pi, l'appli ne garde que ce que le Pixel du téléphone reprend (son apparence, deux réglages, la ville, l'état de ses fonctions) : pas l'adresse avec le code d'accès, ni le QR code, l'agenda ou les pièces. Au démarrage suivant, l'appli rend l'état à la page avant ses scripts (`injectedJavaScriptBeforeContentLoaded`, dans `window.PIXEL_LOCAL_STATE`), avec l'image du Pi. La doc de `react-native-webview` prévient que sous Android ce n'est « pas fiable à 100 % » : l'appli le redonne donc une fois la page chargée. `pixel-app/web/local.js` garde le plus récent de ce qu'il a : le `localStorage`, la copie de l'appli, l'image du Pi. « Récent » veut dire ce que tu as fait en dernier sur le téléphone, ou l'heure de l'image du Pi : la météo du jour ou le minuteur qui sonne ne rendent pas le téléphone plus récent que le Pi.
+
+**Seulement la page attendue.** L'appli n'écoute que les messages de la page qu'elle a ouverte : la même adresse que ton Pi (ou le fichier du Pixel du téléphone). Si un lien mène la vue web ailleurs, cette page ne peut ni se faire passer pour Pixel, ni écrire l'image du Pi.
 
 **Les fonctions natives** (garder l'écran allumé en mode Pixel, et bientôt partager vers Pixel, les notifications du téléphone, les capteurs de Pixel de poche, le verrouillage de l'orientation) se branchent une seule fois dans `webBridge.ts` (`PLUGS`). Chacune reçoit les messages de la page affichée et peut lui envoyer du JavaScript, que ce soit la page du Pi ou le Pixel du téléphone. L'image du Pi (`Linked.tsx`) en est un exemple.

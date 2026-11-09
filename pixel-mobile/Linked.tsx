@@ -1,7 +1,8 @@
 /* A Pi is linked: his page (App.tsx PixelPage), as before. When the Pi does not answer (the page does not load, or not in
-   time, or says it lost the Pi for a while, the phone offline…), Pixel goes on living on the phone (LocalPixel.tsx), with a
-   small banner, never a dead end. Meanwhile the app quietly asks the Pi again, less and less often (5 s, 10 s… then every
-   2 minutes; never while the app is in the background), and when he answers:
+   time, or with an HTTP error, or it is not Pixel's page at all, or it says it lost the Pi for a while, the phone offline…),
+   Pixel goes on living on the phone (LocalPixel.tsx), with a small banner, never a dead end. Meanwhile the app quietly asks
+   the Pi again, less and less often (5 s, 10 s… then every 2 minutes; never while the app is in the background), and when
+   Pixel's own server answers:
    - nobody is using the phone's Pixel (untouched for a minute, no timer running there): back to the Pi by itself, so that a
      phone left on its stand finds the real Pixel again;
    - otherwise one tap on the banner ("Revenir"): a cuddle, a command being typed or a timer is never cut short.
@@ -13,14 +14,16 @@ import { saveSeed } from './localStore';
 import { PLUGS, type PageMessage, type Plug } from './webBridge';
 
 const C = { desk: '#141713', plastic: '#d9d2bd', ink: '#7c745c', green: '#46ff82', amber: '#ffb347', bar: '#22231f' };
-const LOAD_MS = 15000, LOST_MS = 10000, IDLE_MS = 60000, FIRST_MS = 5000, MAX_MS = 120000, BACK_MS = 20000;
+const LOAD_MS = 15000, QUIET_MS = 15000, LOST_MS = 10000, IDLE_MS = 60000, FIRST_MS = 5000, MAX_MS = 120000, BACK_MS = 20000;
 export type Why = 'down' | 'refus';
 export type PiLink = {
   onLoaded(): void;                                      // the page loaded
-  onDown(why: Why): void;                                // it did not load, or the Pi refuses this phone
-  onMessage(m: PageMessage): void;                       // its messages: {pi}, {access}
+  onDown(why: Why): void;                                // it did not load (an HTTP error too), or the Pi refuses this phone
+  onMessage(m: PageMessage): void;                       // its messages (from the Pi's own address only): {pi}, {mode}, {access}
   onMenu(): void;
 };
+type Timer = { current: ReturnType<typeof setTimeout> | undefined };
+const stop = (...ts: Timer[]) => { for (const t of ts) { clearTimeout(t.current); t.current = undefined; } };
 export type LinkedHandle = { retry(): void };       // the menu's "Mon Pixel (Pi)" while the phone's Pixel stands in: try him now
 type Props = {
   url: string; Page: ComponentType<{ url: string; link: PiLink }>;
@@ -46,12 +49,15 @@ const seedPlug: Plug = {
 };
 PLUGS.push(seedPlug);
 
-/* does the Pi answer? Its WebSocket address without the upgrade: 403 if it refuses this phone, any other answer: it is there */
+/* does Pixel answer? His WebSocket address asked without the upgrade: his server (aiohttp) says 400, or 403 with his own words
+   if it refuses this phone. Anything else answering there (an error, a captive portal, another device) is not Pixel. */
 async function probe(url: string): Promise<'up' | Why> {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 5000);
   try {
     const r = await fetch(url.replace(/\/?\?t=/, '/ws?t='), { signal: ctl.signal, cache: 'no-store' });
-    return r.status === 403 ? 'refus' : 'up';
+    if (r.status === 400 || r.status === 426) return 'up';
+    if (r.status === 403 && /pixel/i.test((await r.text()).slice(0, 500))) return 'refus';
+    return 'down';
   } catch { return 'down'; } finally { clearTimeout(t); }
 }
 
@@ -72,18 +78,24 @@ export function Linked({ ref, url, Page, onMenu, onRelink, onWhere }: Props) {
   const goPi = useCallback(() => { setOn('pi'); setWhy(null); setBack(false); setRound(r => r + 1); }, []);
   useImperativeHandle(ref, () => ({ retry: goPi }), [goPi]);
 
-  /* the Pi's page: loaded in time, and the Pi it talks to still there */
+  /* the Pi's page: loaded in time, Pixel's own page, and the Pi it talks to still there */
   const loadT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined), lostT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const quietT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined), heard = useRef(false);
   useEffect(() => {
     if (on !== 'pi') return;
+    heard.current = false;
     loadT.current = setTimeout(() => down('down'), LOAD_MS);
-    return () => { clearTimeout(loadT.current); clearTimeout(lostT.current); };
+    return () => stop(loadT, lostT, quietT);
   }, [on, round, down]);
   const link = useMemo<PiLink>(() => ({
-    onLoaded() { clearTimeout(loadT.current); },
+    onLoaded() {                                         // loaded, but a page that never speaks like Pixel's (an error page…): the phone's Pixel
+      stop(loadT);
+      if (!heard.current && !quietT.current) quietT.current = setTimeout(() => { quietT.current = undefined; down('down'); }, QUIET_MS);
+    },
     onDown: down,
     onMessage(m) {
-      if (m.pi === true) { clearTimeout(lostT.current); lostT.current = undefined; clearTimeout(loadT.current); if (!upSince.current) upSince.current = Date.now(); }
+      if (m.pi === true || typeof m.mode === 'string') { heard.current = true; stop(quietT); }   // Pixel's page (an older Pi's page never says {pi}: its {mode} will do)
+      if (m.pi === true) { stop(lostT, loadT); if (!upSince.current) upSince.current = Date.now(); }
       if (m.pi === false && !lostT.current) lostT.current = setTimeout(() => { lostT.current = undefined; down('down'); }, LOST_MS);   // app.js retries meanwhile
       if (m.access === false) down('refus');
     },
@@ -99,7 +111,7 @@ export function Linked({ ref, url, Page, onMenu, onRelink, onWhere }: Props) {
       if (!alive || AppState.currentState !== 'active') return;          // back in the foreground: the AppState listener asks again
       const r = await probe(url);
       if (!alive) return;
-      if (r === 'up') { setBack(true); setHidden(false); local.current?.ping(); next(BACK_MS); return; }   // the answer: onIdle
+      if (r === 'up') { if (!backRef.current) setHidden(false); setBack(true); local.current?.ping(); next(BACK_MS); return; }   // the answer: onIdle; a closed banner stays closed
       setBack(false); if (r === 'refus') { setWhy('refus'); return; }
       next(delay); delay = Math.min(MAX_MS, delay * 2);
     }
