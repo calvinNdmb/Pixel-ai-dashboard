@@ -299,7 +299,7 @@ function awayStep() {
 function album() {                                                       // web/album.js (another feature): a photo for his album
   const PA = window.PixelAlbum;
   if (!PA || typeof PA.snap !== 'function' || !(L.kiosk || LAB)) return;
-  try { PA.snap('ami-visite'); } catch (e) { /* another feature's business */ }
+  try { PA.snap('ami'); } catch (e) { /* another feature's business */ }
 }
 
 /* ---------- drawing ---------- */

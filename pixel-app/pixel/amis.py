@@ -1208,7 +1208,7 @@ class Amis:
 
         async def go():
             try:
-                await fn(type="ami-visite", texte=texte[:200], t=self._ms())
+                await fn(type="ami", texte=texte[:200], t=self._ms())      # « ami »: souvenirs.py's own type (its first-visit record, its icon)
             except Exception:                        # noqa: BLE001 - another feature's business
                 log.info("souvenirs.ajoute refused the memory")
         self._spawn(go())

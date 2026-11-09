@@ -12,7 +12,7 @@ import { C } from './theme';
 type Props = {
   where: 'pi' | 'phone' | 'fallback';                    // which Pixel is shown now (fallback: the phone's, while his Pi does not answer)
   host: string | null;                                   // his Pi's address, when one is linked
-  panels: readonly PanelId[];                            // his panels the page shown has (plugs.ts usePanels): Caractère, Nourrir, Exos
+  panels: readonly PanelId[];                            // his panels the page shown has (plugs.ts usePanels), in plugs.ts PANELS order
   onClose(): void; onPi(): void; onPhone(): void; onLink(): void; onForget(): void; onNotifs(): void; onPanel(id: PanelId): void;
 };
 const SAYS = { phone: 'Pixel vit sur ce téléphone.', fallback: 'Ton Pixel (Pi) ne répond pas : en attendant, Pixel vit sur ce téléphone.' };
@@ -21,6 +21,10 @@ const PANEL: Record<PanelId, { label: string; hint: string }> = {
   caractere: { label: 'Son caractère', hint: 'Câlin, grognon, farceur… son nom, le tien, ses habitudes.' },
   nourrir: { label: 'Le nourrir', hint: 'Son ventre, ses goûts, ses 24 plats.' },
   exos: { label: 'Exos de maths', hint: 'De petites questions, du CP au collège.' },
+  look: { label: 'Son look', hint: 'Ses yeux, ses couleurs, ses chapeaux, ses tenues.' },
+  souvenirs: { label: 'Ses souvenirs', hint: 'Ton anniversaire, vos records, ton carnet d’humeur.' },
+  album: { label: 'L’album photo', hint: 'Ses plus belles photos, à voir en grand ou à garder.' },
+  amis: { label: 'Ses amis', hint: 'Il rend visite au Pixel d’un copain, de maison en maison.' },
 };
 
 export function PixelMenu({ where, host, panels, onClose, onPi, onPhone, onLink, onForget, onNotifs, onPanel }: Props) {
@@ -48,7 +52,7 @@ export function PixelMenu({ where, host, panels, onClose, onPi, onPhone, onLink,
           <Text style={s.text}>{where === 'pi' ? `Tu vois ton Pixel, sur ton Pi${host ? ` (${host})` : ''}.` : SAYS[where]}</Text>
           {panels.map(id => <Item key={id} label={PANEL[id].label} hint={PANEL[id].hint} onPress={go(() => onPanel(id))} />)}
           {host && where !== 'pi' ? <Item label="Mon Pixel (Pi)" hint="Les lampes, Claude, Codex, l’agenda…" onPress={go(onPi)} /> : null}
-          {where === 'pi' ? <Item label="Pixel sur ce téléphone" hint="Sans le Pi : son visage, son caractère, ses repas, les exos, le minuteur, la météo…" onPress={go(onPhone)} /> : null}
+          {where === 'pi' ? <Item label="Pixel sur ce téléphone" hint="Sans le Pi : son visage, son look, son caractère, ses repas, les exos, ses souvenirs, la météo…" onPress={go(onPhone)} /> : null}
           {where === 'fallback' ? <Item label="Rester sur ce téléphone" hint="Pixel ne revient plus tout seul sur ton Pi ; « Mon Pixel (Pi) », ici, pour y retourner." onPress={go(onPhone)} /> : null}
           {host ? <Item label="Scanner un autre QR code" hint="Un autre Pi, ou un nouveau code d’accès." onPress={go(onLink)} />
             : <Item label="Relier à mon Pixel" hint="Scanne le QR code de ton Pi, ou tape son adresse : les lampes, Claude, Codex, l’agenda, le partage." onPress={go(onLink)} />}

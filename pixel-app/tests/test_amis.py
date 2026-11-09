@@ -351,7 +351,7 @@ async def flows(tmp, relay):
     await until(lambda: B.visite and B.visite["etat"] == "chez", 4)
     check("the other way: Bip visits Pixou", B.visite and B.visite["etat"] == "chez" and A.visite and A.visite["sens"] == "accueil")
     await until(lambda: not A.visite and not B.visite and len(got) >= 2, 7)
-    check("…and both albums get a memory (souvenirs.ajoute: type ami-visite, a French sentence)", len(got) == 2 and all(t == "ami-visite" for t, _ in got)
+    check("…and both albums get a memory (souvenirs.ajoute: type ami, a French sentence)", len(got) == 2 and all(t == "ami" for t, _ in got)
           and any("Bip est allé jouer chez Pixou" in x for _, x in got) and any("Bip est venu jouer chez Pixou" in x for _, x in got), json.dumps(got, ensure_ascii=False))
 
     async def visit_refused(why_set, want):
