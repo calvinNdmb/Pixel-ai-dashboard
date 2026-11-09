@@ -3,7 +3,9 @@
    - pochePlug (poche.ts): Pixel de poche held sideways, full screen, with the phone's accelerometer and battery;
    - phoneNotifs: no Pi linked, the phone's notifications (only if switched on, only the apps ticked) make the phone's own
      Pixel react while the app is open; nothing leaves the phone (with a Pi linked, the native listener sends them to him);
-   - piSeed: while his Pi's page is shown, its last snapshot, so that the phone's Pixel looks and behaves like him. */
+   - piSeed: while his Pi's page is shown, its last snapshot, so that the phone's Pixel looks and behaves like him;
+   - panels: his Caractère, Nourrir and Exos de maths panels, opened from the app's menu on either page. */
+import { useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import PixelNative, { type PhoneNotif } from '../modules/pixel-native';
@@ -53,4 +55,30 @@ const piSeed: Plug = {
   },
 };
 
-export const PLUGS: Plug[] = [keepAwake, pochePlug, phoneNotifs, piSeed];
+/* ---------- his panels: Caractère, Nourrir, Exos de maths (pixel-app/web/app.js PixelPanel) ----------
+   The page says which ones it has ({panels}); the app's menu (PixelMenu.tsx) offers them, and opens one on the page shown,
+   the Pi's or the phone's own Pixel. An older Pi's page says nothing: no such items. */
+export const PANELS = ['caractere', 'nourrir', 'exos'] as const;
+export type PanelId = (typeof PANELS)[number];
+const panelPages = new Map<Page, PanelId[]>();
+let offered: PanelId[] = [];
+const panelSubs = new Set<() => void>();
+function offer() {
+  const next = [...panelPages.values()].pop() ?? [];   // the page shown last (one at a time)
+  if (next.join() === offered.join()) return;
+  offered = next; for (const f of panelSubs) f();
+}
+const subscribePanels = (f: () => void) => { panelSubs.add(f); return () => { panelSubs.delete(f); }; };
+export const usePanels = () => useSyncExternalStore(subscribePanels, () => offered);
+export function openPanel(id: PanelId) {
+  for (const page of panelPages.keys()) page.inject(`window.PixelPanel&&window.PixelPanel(${JSON.stringify(id)});`);
+}
+const panels: Plug = {                                  // no start(): a new document of the page says {panels} again
+  message(m, page) {
+    if (!Array.isArray(m.panels)) return;
+    panelPages.set(page, PANELS.filter(id => (m.panels as unknown[]).includes(id))); offer();
+  },
+  gone(page) { panelPages.delete(page); offer(); },
+};
+
+export const PLUGS: Plug[] = [keepAwake, pochePlug, phoneNotifs, piSeed, panels];

@@ -5,8 +5,9 @@
      asked; Système shows the phone's own measures; the weather is real (Open-Meteo, for the city you type) or not there;
    - app.js talks to it through PixelLocal.socket(), shaped like its WebSocket (the Pi's path stays as it is);
    - what matters survives a restart: his theme, settings, lasting mood, timer, city, and every other part of his state that
-     is not the Pi's (a new feature's S[key] comes along by itself; one whose truth is in a closure says how to take it back:
-     restorable() in demo-hub.js). It is kept in localStorage and sent to the app ({local_save}, window.ReactNativeWebView),
+     is not the Pi's: his character, his belly, tastes and meals, his exercises' scores (a new feature's S[key] comes along
+     by itself; one whose truth is in a closure says how to take it back: restorable() in demo-hub.js, which gets the time
+     the copy was made, saved_at: his belly counts the time the app was closed as nourrir.py counts the Pi down). It is kept in localStorage and sent to the app ({local_save}, window.ReactNativeWebView),
      which hands it back before the page starts (window.PIXEL_LOCAL_STATE: its copy, and the last snapshot of his Pi, so that
      he is the same Pixel). The newest wins (what you last did here, or his Pi's snapshot); nothing goes back to the Pi;
    - the phone's notifications, when you switched them on in the app: PixelLocal.notif() shows them as his Pi would.
@@ -161,7 +162,7 @@ addEventListener('online', () => { if (Date.now() - wAt > 10 * 60000) refresh();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - wAt > 30 * 60000) refresh(); });
 
 /* ---------- typed commands: the city, the help; the rest is demo-hub's parser, and what needs Claude says so ---------- */
-const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · thème … · météo Lyon (ta ville) · le reste (lampes, Claude, Codex, agenda) : relie Pixel à ton Pi";
+const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · thème … · météo Lyon (ta ville) · caractère câlin · mange une pomme · exo · table de 7 · le reste (lampes, Claude, Codex, agenda, cast) : relie Pixel à ton Pi";
 const cmd0 = A.cmd;                 // any other text goes to Claude (chat.ask): on the Pi, so he says so
 A.cmd = ({ text } = {}) => {
   const raw = String(text ?? '').trim(), t = hub.norm(raw); let m;
@@ -194,7 +195,7 @@ function pick() {
 }
 function fromPi(p) {                // his Pi's last snapshot (app.js pixel_snap): the same look, settings, city and the rest
   if (!isObj(p) || !isObj(p.view)) return null;
-  const st = { v: 1, at: Number(p.kept_at) || 0, pi: true, view: {}, settings: {}, extra: {} };
+  const st = { v: 1, at: Number(p.kept_at) || 0, saved_at: Number(p.kept_at) || 0, pi: true, view: {}, settings: {}, extra: {} };
   for (const k of VIEW) if (k in p.view) st.view[k] = p.view[k];
   if (isObj(p.settings)) { if (Array.isArray(p.settings.themes)) st.settings.themes = p.settings.themes; if (p.settings.sleep_min) st.settings.sleep_min = p.settings.sleep_min; }
   if (isObj(p.weather) && typeof p.weather.city === 'string' && !(p.settings && p.settings.demo)) st.city = { name: p.weather.city };
@@ -232,7 +233,7 @@ function apply(st) {
   const own = H.restorers ? H.restorers() : {};   // a feature whose truth is in a closure takes its value back itself (demo-hub.js restorable)
   if (isObj(st.extra)) for (const k of Object.keys(st.extra)) {
     if (SKIP.has(k)) continue;
-    if (own[k]) { try { own[k](clone(st.extra[k])); } catch (e) { console.warn('Pixel sans Pi: not restored:', k, e); } }
+    if (own[k]) { try { own[k](clone(st.extra[k]), Number(st.saved_at) || 0); } catch (e) { console.warn('Pixel sans Pi: not restored:', k, e); } }
     else if (k in S) merge(S, k, st.extra[k]);
   }
 }
@@ -260,7 +261,7 @@ function restore(given) {           // the app's copy, his Pi's last snapshot, l
 }
 function save() {
   clearTimeout(saveT); saveT = 0;
-  const st = pick(); st.at = stamp;
+  const st = pick(); st.at = stamp; st.saved_at = Date.now();   // saved_at: the time of what it holds (a restorer counts the time since: his belly)
   let json = JSON.stringify(st);
   for (const k of Object.keys(st.extra).sort((a, b) => JSON.stringify(st.extra[b]).length - JSON.stringify(st.extra[a]).length)) {
     if (json.length <= MAX) break; delete st.extra[k]; json = JSON.stringify(st);     // too big: the biggest parts stay out

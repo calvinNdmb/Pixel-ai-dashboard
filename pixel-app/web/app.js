@@ -96,6 +96,17 @@ if (!kiosk) {
   if (!LOCAL && /Android/i.test(navigator.userAgent) && !window.ReactNativeWebView)                       // in Chrome on Android: the link to the real app, if Pixel has it
     fetch('/pixel.apk', { method: 'HEAD' }).then(r => { if (r.ok) $('apk').hidden = false; }, () => {});
 }
+/* the phone app's menu (pixel-mobile PixelMenu.tsx): « Son caractère », « Le nourrir », « Exos de maths » open their panel
+   here (PixelPanel(id)), the Pi's page or the phone's own Pixel alike; in Pixel mode the keys come back first, their sheets
+   live with them. The page says once which ones it has ({panels}): an older Pi's page says nothing, the menu then has none. */
+const PANELS = { caractere: () => window.PixelCaractere && PixelCaractere.open(), nourrir: () => window.PixelNourrir && PixelNourrir.panel(true),
+  exos: () => window.PixelExos && PixelExos.panel(true) };
+window.PixelPanel = id => {
+  if (kiosk || !Object.hasOwn(PANELS, id) || document.body.classList.contains('poche')) return false;   // Pixel de poche: the whole phone is his face
+  if (document.body.dataset.mode === 'pixel') setMode('both');
+  PANELS[id](); return true;
+};
+if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos })[id]) });
 const setT = (el, t) => { if (el.textContent !== t) el.textContent = t; };
 function render() {
   if (!P) return;

@@ -13,10 +13,13 @@
 //   so does the last snapshot of his Pi (the same theme, themes and settings), the newest one winning, also when it comes
 //   late, also after the weather of the day came in; a broken or foreign state is ignored; a phone notification the app
 //   hands over (no Pi linked) is shown as his Pi would show it, and he reacts;
+// - his character, his meals and his exercises (caractère, nourrir, exos) with no Pi: seeded from his Pi's snapshot (its
+//   shapes), they work here, survive a restart; his belly counts the time the app was closed as nourrir.py counts the Pi
+//   down; the page tells the app its panels ({panels}) and the app's menu opens them (PixelPanel), even from Pixel mode;
 // - the weather: real (Open-Meteo, here answered by the test), for the city typed, kept; a city typed while another one's
 //   forecast is on its way never gets that one's forecast; a typo keeps the good city; without network, a word, no error;
 // - a phone held sideways: the Pixel de poche, his face alone; a tap, a long press (a cuddle); no voyage button (no Pi);
-//   the phone going offline is no reason to say he is far from home; the app hears {poche: true, bg} and its accelerometer
+//   the phone going offline is no reason to say he is far from home; his plate and tray (Nourrir) feed him; the app hears {poche: true, bg} and its accelerometer
 //   (PixelPoche.native, as pixel-mobile/src/poche.ts feeds it) makes him dizzy; the phone tilted in hand counts as play for
 //   the app's ping, a phone still on its stand does not.
 // --shots DIR: screenshots. Playwright must be installed (require('playwright')); nothing else.
@@ -38,6 +41,11 @@ const html = fs.readFileSync(FILE, 'utf8'), index = fs.readFileSync(path.join(WE
 const want = [...index.matchAll(/<script\s+src="app\/([^"]+)"/g)].map(m => m[1]), got = [...html.matchAll(/<script>\/\* ([^ ]+) \*\//g)].map(m => m[1]);
 check('the bundle: every script of index.html, in order, with the local hub (demo-hub.js, local.js) just before app.js',
   JSON.stringify(got) === JSON.stringify([...want.slice(0, -1), 'lab/demo-hub.js', 'local.js', 'app.js']), got.join(' '));
+const sheets = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="app\/([^"]+)"/g)].map(m => m[1]);
+check(`…every stylesheet of index.html inside (${sheets.join(', ')})`, sheets.length >= 5 && sheets.every(f => {
+  const css = fs.readFileSync(path.join(WEB, f), 'utf8').split('\n').find(l => l.trim() && !/url\(|^\s*\/\*|^@font-face/.test(l));
+  return !!css && html.includes(css.trim());
+}), sheets.join(' '));
 check('…window.PIXEL_LOCAL set before any script', html.indexOf('window.PIXEL_LOCAL =') > 0 && html.indexOf('window.PIXEL_LOCAL =') < html.indexOf('<script>/* '));
 check('…nothing it would fetch: no <link>, no src=, no url() but data:', !/<link\b/i.test(html) && !/\ssrc=["']/i.test(html.replace(/<script>[\s\S]*?<\/script>/g, '')) && !/url\((?!"data:)/.test(html.split('</style>')[0]));
 const fonts = JSON.parse(fs.readFileSync(path.join(WEB, 'fonts.json'), 'utf8'));
@@ -63,7 +71,7 @@ async function phone(browser, opt = {}) {
   if (opt.senses) await ctx.addInitScript(() => { window.PixelApp = Object.assign(window.PixelApp || {}, { senses: true }); });   // src/poche.ts beforeLoad
   if (opt.given) await ctx.addInitScript(g => { window.PIXEL_LOCAL_STATE = g; }, opt.given);
   if (opt.feature) await ctx.addInitScript(() => {     // a feature this test knows nothing about: a key of the hub's state
-    let hub; Object.defineProperty(window, 'PixelHub', { configurable: true, get: () => hub, set: v => { if (v && v.S && !v.S.caractere) v.S.caractere = { trait: 'calme', faim: 3 }; hub = v; } });
+    let hub; Object.defineProperty(window, 'PixelHub', { configurable: true, get: () => hub, set: v => { if (v && v.S && !v.S.jouet) v.S.jouet = { trait: 'calme', faim: 3 }; hub = v; } });
   });
   if (opt.closure) await ctx.addInitScript(() => {     // a feature whose truth is in a closure (like nourrir): S.ventre is only its published copy
     let hub; Object.defineProperty(window, 'PixelHub', { configurable: true, get: () => hub, set: v => {
@@ -209,29 +217,29 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   const now = Date.now(), ALL = ['retro', 'moderne', 'manga', 'neon', 'croquis', 'lcd'];
   const pi = { view: { theme: 'lcd', face: 'pack', units_f: false, crt_off: false }, settings: { themes: ALL, sleep_min: 7, demo: false, qr: ['1'] }, kept_at: now - 60000,
     keys: {}, lights: { status: 'ok', rooms: [{ id: '1', name: 'Salon', on: true, bri: 80 }], scenes: ['Film'] }, chat: { phase: 'idle', messages: [{ role: 'assistant', text: 'Coucou' }] },
-    weather: null, mood: { name: 'amoureux', until: 0 }, caractere: { trait: 'joueur', faim: 1 } };
+    weather: null, mood: { name: 'amoureux', until: 0 }, jouet: { trait: 'joueur', faim: 1 } };
   ({ ctx, page, errs } = await phone(browser, { app: true, feature: true, given: { state: null, seed: pi } }));
-  const seeded = await S(page, () => ({ theme: PixelHub.S.view.theme, themes: PixelHub.THEMES.map(t => t.id), sleep: PixelHub.S.settings.sleep_min, rooms: PixelHub.S.lights.rooms.length, chat: PixelHub.S.chat.messages.length, mood: PixelHub.S.mood.name, car: PixelHub.S.caractere }));
+  const seeded = await S(page, () => ({ theme: PixelHub.S.view.theme, themes: PixelHub.THEMES.map(t => t.id), sleep: PixelHub.S.settings.sleep_min, rooms: PixelHub.S.lights.rooms.length, chat: PixelHub.S.chat.messages.length, mood: PixelHub.S.mood.name, car: PixelHub.S.jouet }));
   check('his Pi\'s last snapshot: the same theme, themes and settings (and a feature\'s state)', seeded.theme === 'lcd' && seeded.themes.length === 6 && seeded.sleep === 7 && seeded.car.trait === 'joueur', JSON.stringify(seeded));
   check('…but none of the Pi\'s data (lights, chat) and not its passing mood', !seeded.rooms && !seeded.chat && seeded.mood === 'neutre', JSON.stringify(seeded));
   await page.waitForTimeout(1200);
   let rn = await S(page, () => window.__rn);
   const ls0 = rn.filter(m => m.local_save).pop();
-  check('the app gets his state ({local_save}): his Pi\'s look is now his own', !!ls0 && ls0.local_save.v === 1 && ls0.local_save.view.theme === 'lcd' && ls0.local_save.extra.caractere.trait === 'joueur', JSON.stringify(ls0 || {}).slice(0, 200));
+  check('the app gets his state ({local_save}): his Pi\'s look is now his own', !!ls0 && ls0.local_save.v === 1 && ls0.local_save.view.theme === 'lcd' && ls0.local_save.extra.jouet.trait === 'joueur', JSON.stringify(ls0 || {}).slice(0, 200));
   check('…and his mode; never a word about a Pi', rn.some(m => m.mode === 'both') && !rn.some(m => 'pi' in m || 'access' in m), JSON.stringify(rn.filter(m => !m.local_save)));
   check('"Pixel sur ce téléphone ⋯" opens the app\'s menu', await (async () => { const c = page.locator('#conn'); const ok = /⋯/.test(await c.textContent()) && (await c.getAttribute('role')) === 'button'; await c.click(); await page.waitForTimeout(100); return ok && (await S(page, () => window.__rn.some(m => m.menu === true))); })());
   await page.evaluate(() => PixelLocal.ping()); rn = await S(page, () => window.__rn);
   check('…and answers the app\'s ping (how long untouched, a timer running)', rn.some(m => typeof m.local_idle === 'number' && m.busy === false));
-  await type(page, 'thème néon'); await page.evaluate(() => { PixelHub.S.caractere.faim = 5; PixelHub.local.mark(); });
+  await type(page, 'thème néon'); await page.evaluate(() => { PixelHub.S.jouet.faim = 5; PixelHub.local.mark(); });
   await page.waitForTimeout(1200);
   const ls1 = (await S(page, () => window.__rn)).filter(m => m.local_save).pop().local_save;
-  check('a change: sent again, newer (néon, the feature\'s new value)', ls1.view.theme === 'neon' && ls1.extra.caractere.faim === 5 && ls1.at > ls0.local_save.at, JSON.stringify(ls1.view));
+  check('a change: sent again, newer (néon, the feature\'s new value)', ls1.view.theme === 'neon' && ls1.extra.jouet.faim === 5 && ls1.at > ls0.local_save.at, JSON.stringify(ls1.view));
   await page.evaluate(() => PixelHub.dispatch('theme.step', { d: 1 })); await page.waitForTimeout(100);
   check('the quick menu\'s theme < >: the next theme', await S(page, () => PixelHub.S.view.theme === 'croquis'));
   await page.evaluate(() => PixelHub.dispatch('theme.set', { name: 'neon' })); await page.waitForTimeout(1200);
   await page.reload(); await until(() => page.evaluate(() => !!window.PixelLocal), 6000); await page.waitForTimeout(300);
   check('a reload with the same, older snapshot of his Pi: his own newer choice stays (néon), the feature too',
-    await S(page, () => PixelHub.S.view.theme === 'neon' && PixelHub.S.caractere.faim === 5));
+    await S(page, () => PixelHub.S.view.theme === 'neon' && PixelHub.S.jouet.faim === 5));
   await page.evaluate(p => PixelLocal.restore({ seed: { ...p, kept_at: Date.now() + 5, view: { ...p.view, theme: 'manga' } } }), pi); await page.waitForTimeout(200);
   check('a newer snapshot of his Pi, given late (after the page started): it wins', await S(page, () => PixelHub.S.view.theme === 'manga'));
   await page.evaluate(() => PixelLocal.restore({ state: { v: 2, at: Date.now() + 1e6, view: { theme: 'retro' } }, seed: { view: 'x' } })); await page.evaluate(() => PixelLocal.restore('garbage'));
@@ -291,6 +299,67 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   check('a newer snapshot of his Pi: its value, kept after the next publish and saved', JSON.stringify(await belly()) === '{"ventre":12,"repas":1}'
     && (await S(page, () => window.__rn.filter(m => m.local_save).pop().local_save.extra.ventre.ventre)) === 12, JSON.stringify(await belly()));
   check('…no errors', errs.length === 0, errs.slice(0, 4).join(' | '));
+  await ctx.close();
+
+  /* ================= his character, his meals, his exercises: here too, kept, and seeded from his Pi ================= */
+  const DAY = 864e5, t0 = Date.now(), OLD = t0 - 3 * DAY;          // his Pi's snapshot, kept 3 days ago (the shapes the Pi publishes)
+  const piPerso = { view: { theme: 'retro', face: 'vivant' }, settings: { themes: ALL }, keys: {}, kept_at: OLD,
+    caractere: { preset: 'grognon', traits: { calin: 30, grognon: 92, bavard: 55, farceur: 30, energique: 50, curieux: 40, gourmand: 50, studieux: 50 }, nom: 'Bip', surnom: 'Max',
+      humeur_jour: false, calme: { de: 22, a: 7 }, boude: true, parle: true, change: { t0: OLD, quoi: 'preset', kind: 'grognon', adj: 'grognon' }, essai: 0 },
+    nourrir: { on: true, ventre: 80, faim: 0, dernier: { id: 7, plat: 'pizza', t: OLD - 6e5, reaction: 'aime', rot: false, choisi: false },
+      gouts: { prefere: 'pizza', aime: ['frites', 'glace'], deteste: ['brocoli'] }, journal: [{ plat: 'pizza', t: OLD - 6e5, reaction: 'aime' }, { plat: 'nimporte', t: 1, reaction: 'x' }],
+      reglages: { on: true, vitesse: 'normale' } },
+    exos: { cur: { id: 5, etat: 'question', q: '2 + 2 = ?' }, last: null, ev: null, niveau: 3, reglages: { niveau: 2, auto: true, types: ['addition', 'table', 'bidon'], objectif: 7, propose: true },
+      stats: { total: 12, justes: 10, serie: 2, serie_max: 6, aujourdhui: 3, justes_jour: 3, objectif: 7, coupes: 1, fait: true, record_chrono: 4, trophees: ['premier', 'serie5', 'inconnu'],
+        par_type: { addition: [8, 7, 4], table: [4, 3, 3], bidon: [1, 1, 1] } }, kinds: [], trophees: [] } };
+  ({ ctx, page, errs } = await phone(browser, { app: true, given: { state: null, seed: piPerso } }));
+  const perso = () => S(page, () => { const s = PixelHub.S; return { car: s.caractere, n: s.nourrir, e: s.exos, traits: Screens.persona.traits }; });
+  let ps = await perso();
+  check('sans Pi, from his Pi: his character (cleaned: no old reaction replayed), his name and yours', ps.car.preset === 'grognon' && ps.car.traits.grognon === 92 && ps.car.nom === 'Bip'
+    && ps.car.surnom === 'Max' && ps.car.calme.de === 22 && ps.car.change === null && ps.traits.grognon === 92, JSON.stringify(ps.car));
+  check('…his tastes, his meals (a bad one left out), his settings', ps.n.gouts.prefere === 'pizza' && ps.n.gouts.deteste.join() === 'brocoli' && ps.n.journal.length === 1
+    && ps.n.dernier && ps.n.dernier.plat === 'pizza' && ps.n.reglages.vitesse === 'normale', JSON.stringify(ps.n));
+  check('…his belly 3 days later: as nourrir.py counts the Pi down (6 awake hours at most), 80 → 44, neither frozen nor empty', ps.n.ventre === 44 && ps.n.faim === 1, String(ps.n.ventre));
+  check('…his exercises: scores, trophies, levels, settings; « today » is not today; the open one stays on the Pi', ps.e.stats.total === 12 && ps.e.stats.serie_max === 6
+    && ps.e.stats.trophees.join() === 'premier,serie5' && ps.e.stats.par_type.addition.join() === '8,7,4' && ps.e.stats.par_type.table.join() === '4,3,3' && !ps.e.stats.par_type.bidon
+    && ps.e.niveau === 3 && ps.e.reglages.objectif === 7 && ps.e.reglages.propose === true && ps.e.reglages.types.join() === 'addition,table'
+    && ps.e.stats.aujourdhui === 0 && ps.e.stats.fait === false && ps.e.cur === null, JSON.stringify(ps.e.stats));
+  await page.evaluate(() => { PixelHub.dispatch('nourrir.donner', { plat: 'pomme' }); PixelHub.dispatch('exos.nouveau', { kind: 'addition' }); PixelHub.dispatch('lab.exos', { juste: true });
+    PixelHub.dispatch('caractere.set', { preset: 'calin' }); });
+  await page.waitForTimeout(1200);
+  ps = await perso();
+  const ls2 = (await S(page, () => window.__rn)).filter(m => m.local_save).pop().local_save;
+  check('they work here: a meal, an exercise answered, another character; the app keeps it all ({local_save})', ps.n.journal.length === 2 && ps.e.stats.total === 13 && ps.car.preset === 'calin'
+    && ls2.extra.nourrir.journal.length === 2 && ls2.extra.exos.stats.total === 13 && ls2.extra.caractere.preset === 'calin' && ls2.saved_at >= t0, JSON.stringify({ j: ps.n.journal.length, t: ps.e.stats.total }));
+  const belly0 = ps.n.ventre;
+  await page.reload(); await until(() => page.evaluate(() => !!window.PixelLocal), 6000); await page.waitForTimeout(400);
+  ps = await perso();
+  check('a restart (his Pi\'s old snapshot given again): what he lived here stays', ps.car.preset === 'calin' && ps.car.nom === 'Bip' && ps.e.stats.total === 13 && ps.n.journal.length === 2
+    && Math.abs(ps.n.ventre - belly0) <= 1 && ps.traits.calin === 92, JSON.stringify({ car: ps.car.preset, total: ps.e.stats.total, ventre: ps.n.ventre, was: belly0 }));
+  let newer = 10 * DAY;                                   // each copy newer than the last (local.js keeps the newest)
+  const k2 = await kept(page), back = async (ventre, ago) => {
+    await page.evaluate(([k, v, a, n]) => PixelLocal.restore({ state: { ...k, at: Date.now() + n, saved_at: Date.now() - a, extra: { ...k.extra, nourrir: { ...k.extra.nourrir, ventre: v } } } }), [k2, ventre, ago, newer += DAY]);
+    await page.waitForTimeout(200); return S(page, () => PixelHub.S.nourrir.ventre);
+  };
+  check('the app closed 2 days: his belly counts the time as nourrir.py does, at most a little hungry (70 → 34)', (await back(70, 2 * DAY)) === 34);
+  check('…already hungry (20): no hungrier than that, never empty', (await back(20, 2 * DAY)) === 20);
+  check('…closed a moment ago: nothing changes', (await back(61, 1000)) === 61);
+  /* the app's menu opens his panels here (PixelMenu.tsx, plugs.ts openPanel): the page says which it has */
+  const offered = (await S(page, () => window.__rn)).filter(m => Array.isArray(m.panels)).pop();
+  check('the page tells the app its panels: Caractère, Nourrir, Exos', !!offered && offered.panels.join() === 'caractere,nourrir,exos', JSON.stringify(offered));
+  await page.click('#modes button[data-mode="pixel"]'); await page.waitForTimeout(200);
+  const opened = {};
+  for (const [id, sel] of [['nourrir', '#nour'], ['exos', '#exos'], ['caractere', '.car-sheet']]) {
+    await page.evaluate(i => window.PixelPanel(i), id); await page.waitForTimeout(400);
+    opened[id] = await page.evaluate(s => { const e = document.querySelector(s); return !!e && !e.hidden && e.getBoundingClientRect().height > 50 && document.body.dataset.mode === 'both'; }, sel);
+    await shot(page, 'app-menu-' + id);
+    await page.evaluate(() => { PixelNourrir.panel(false); PixelExos.panel(false); PixelCaractere.close(false); });
+    await page.click('#modes button[data-mode="pixel"]'); await page.waitForTimeout(200);
+  }
+  check('…in Pixel mode, the menu\'s « Le nourrir », « Exos de maths », « Son caractère » bring the keys back and open their panel', Object.values(opened).every(Boolean), JSON.stringify(opened));
+  check('…an unknown one: nothing', await S(page, () => window.PixelPanel('lampes') === false && document.body.dataset.mode === 'pixel'));
+  await page.click('#modes button[data-mode="both"]');
+  check('his character, his meals, his exercises sans Pi: no page or console errors', errs.length === 0, errs.slice(0, 4).join(' | '));
   await ctx.close();
 
   /* ================= the weather ================= */
@@ -356,6 +425,15 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await page.waitForTimeout(300);
   check('…a long press: a cuddle', (await group(page, await scene(page))) === 'calin', String(await scene(page)));
   await shot(page, 'poche');
+  await free(page); await page.waitForTimeout(300);           // Nourrir: the Pi's plate and tray, on the phone's own Pixel de poche too
+  check('…his plate is there, bottom right (Nourrir)', await S(page, () => PixelNourrir.shown && !PixelNourrir.trayOpen));
+  const plate = await point(page, 768, 384); await page.touchscreen.tap(plate.x, plate.y); await page.waitForTimeout(500);
+  check('…a touch on it: his tray of 24 foods', await S(page, () => PixelNourrir.trayOpen));
+  await shot(page, 'poche-tray');
+  const food = await point(page, 48, 375); await page.touchscreen.tap(food.x, food.y);   // the first food of the tray (nourrir.js TR)
+  const ate = await until(() => S(page, () => PixelHub.S.nourrir.dernier && PixelHub.S.nourrir.dernier.plat), 3000);
+  check('…a touch on a food: he eats it, the tray goes away', ate === 'pomme' && await S(page, () => !PixelNourrir.trayOpen), String(ate));
+  await page.waitForTimeout(6500); await free(page);
   await free(page); await ctx.setOffline(true); await page.waitForTimeout(3500);
   check('…the phone offline: he is at home here, never "far from home"', (await scene(page)) !== 'poche-loin' && await S(page, () => PixelPoche.linked));
   await ctx.setOffline(false);

@@ -5,8 +5,8 @@
    work with the app closed: "Partager > Pixel" from any app, and the phone's notifications (off by default). Linked, the
    app shows the Pi's page, and the phone's own Pixel whenever the Pi does not answer (src/Linked.tsx). On both pages, the
    same native features (src/plugs.ts): the screen kept on in Pixel mode, Pixel de poche held sideways and full screen with
-   the phone's senses. The back button goes back in the Pi's page, then opens the app's menu (src/PixelMenu.tsx); once
-   more, it leaves. */
+   the phone's senses, and the menu's « Son caractère », « Le nourrir », « Exos de maths », which open his panels there.
+   The back button goes back in the Pi's page, then opens the app's menu (src/PixelMenu.tsx); once more, it leaves. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -22,7 +22,7 @@ import { LocalPixel } from './src/LocalPixel';
 import { forgetPi, readHome, saveHome, takeLink, type Home } from './src/localStore';
 import { Notifs } from './src/Notifs';
 import { PixelMenu } from './src/PixelMenu';
-import { showOnPhone } from './src/plugs';
+import { openPanel, showOnPhone, usePanels } from './src/plugs';
 import { usePoche } from './src/poche';
 import { C } from './src/theme';
 import { parseMessage, sameOrigin, usePlugs, webProps } from './src/webBridge';
@@ -40,6 +40,7 @@ export default function App() {
   const [home, setHome] = useState<Home>('pi');                          // linked: Pixel on the Pi, or on the phone (the menu's choice)
   const [setup, setSetup] = useState(false), [panel, setPanel] = useState<Panel>('none'), [seen, setSeen] = useState<'pi' | 'phone'>('phone');
   const poche = usePoche();                                              // Pixel de poche: no system bars, the edges in his theme's colour
+  const panels = usePanels();                                            // Caractère, Nourrir, Exos: the page shown has them (plugs.ts)
   const linked = useRef<LinkedHandle>(null);                             // "Mon Pixel (Pi)" while the phone's Pixel stands in: try him now
   useEffect(() => {
     Promise.all([SecureStore.getItemAsync(KEY).catch(() => null), readHome()]).then(([u, h]) => { setHome(h); setUrl(u); mirror(u); });
@@ -79,7 +80,7 @@ export default function App() {
         {panel === 'menu' && !setup && url !== undefined ? (
           <PixelMenu where={piUrl ? (seen === 'phone' ? 'fallback' : 'pi') : 'phone'} host={url ? hostOf(url) : null} onClose={closePanel}
             onPi={() => (home === 'pi' ? linked.current?.retry() : goHome('pi'))} onPhone={() => goHome('phone')} onLink={() => setSetup(true)} onForget={forget}
-            onNotifs={() => setPanel('notifs')} />
+            onNotifs={() => setPanel('notifs')} panels={poche.on ? [] : panels} onPanel={openPanel} />
         ) : null}
         {panel === 'notifs' && !setup ? <View style={s.cover}><Notifs linked={!!url} onClose={closePanel} onLocalTest={localTest} /></View> : null}
       </SafeAreaView>

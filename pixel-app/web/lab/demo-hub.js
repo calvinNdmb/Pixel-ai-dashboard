@@ -532,8 +532,9 @@ const LOCAL = !!window.PIXEL_LOCAL;
 /* A feature's state is kept on the phone, and seeded from his Pi's snapshot, as S[key] (its snapshot shape). When S[key] is
    its truth (changed in place, like S.timer or S.caractere), there is nothing to do. When its truth is elsewhere (a closure
    that publish() copies into S[key]), it says how to take a kept value back, from anywhere in this file (hoisted):
-     restorable('nourrir', v => { ...keep what is valid in v...; publish(); });
-   local.js calls it at start and whenever a newer copy comes (the app's, his Pi's), instead of writing S[key]. */
+     restorable('nourrir', (v, at) => { ...keep what is valid in v...; publish(); });   // at: when that copy was made (ms), or 0
+   local.js calls it at start and whenever a newer copy comes (the app's, his Pi's), instead of writing S[key]. A restorer
+   may also clean what comes back when S[key] is its truth (caractère below). Here: caractere, nourrir, exos. */
 function restorable(key, fn) { if (typeof fn === 'function') (restorable.fns ||= {})[key] = fn; }
 const local = {
   A, mark, toast, mood, restorable,
@@ -570,6 +571,13 @@ if (CAR) {
     'caractere.ajuste': ({ trait, d = 20 } = {}) => commit(...CAR.ajuste(S.caractere, trait, d)),
     'caractere.reset': () => commit(CAR.clean({}), { quoi: 'reset', kind: 'pixel', adj: CAR.ADJ.pixel }),
     'caractere.essai': () => { S.caractere.essai = Date.now(); S.anim = null; S.screen = 'visage'; },
+  });
+  /* Pixel sans Pi (../local.js): S.caractere is his truth, changed in place, but what comes back (the phone's copy, his Pi's
+     snapshot) is cleaned first, as caractere.py cleans caractere.json; its change and essai stay as they are (no replay) */
+  restorable('caractere', v => {
+    if (!v || typeof v !== 'object') return;
+    Object.assign(S.caractere, CAR.saved(CAR.clean(v)));
+    try { localStorage.setItem('pixel_lab_caractere', JSON.stringify(CAR.saved(S.caractere))); } catch {}
   });
 }
 
@@ -695,6 +703,22 @@ const NOUR = (() => {
     return true;
   }
   setInterval(() => { const v = Math.round(N.ventre), f = level(N.ventre); tick(); if (Math.round(N.ventre) !== v || level(N.ventre) !== f) { publish(); mark(); } }, 60000);
+  /* Pixel sans Pi (../local.js): his belly, tastes and meals, kept on the phone or from his Pi (the snapshot "nourrir").
+     at: when that copy was made (the phone's save, the Pi's snapshot kept). The time since counts as nourrir.py counts the
+     server down: not at night, 6 awake hours at most, never below a little hungry (tick() sees the gap). */
+  restorable('nourrir', (v, at) => {
+    if (!v || typeof v !== 'object') return;
+    if (typeof v.on === 'boolean') N.on = v.on;
+    if (v.reglages && SPEED[v.reglages.vitesse]) N.vitesse = v.reglages.vitesse;
+    if (good(v.gouts)) N.gouts = { prefere: v.gouts.prefere, aime: [...v.gouts.aime], deteste: [...v.gouts.deteste] };
+    const meal = j => j && typeof j === 'object' && NF.BY[j.plat] && Number.isFinite(j.t);
+    if (Array.isArray(v.journal)) N.journal = v.journal.filter(meal).slice(0, 10).map(j => ({ plat: j.plat, t: j.t, reaction: String(j.reaction || 'miam') }));
+    if (meal(v.dernier)) N.dernier = { id: Number.isInteger(v.dernier.id) && v.dernier.id >= 0 ? v.dernier.id : 0, plat: v.dernier.plat, t: v.dernier.t,
+      reaction: String(v.dernier.reaction || 'miam'), rot: v.dernier.rot === true, choisi: v.dernier.choisi === true };
+    const now = Date.now();
+    if (Number.isFinite(v.ventre)) { N.ventre = Math.max(0, Math.min(100, v.ventre)); N.t = Number.isFinite(at) && at > 946684800000 && at < now ? at : now; }
+    tick(now); keep(); publish();
+  });
   publish();
   return { N, tick, publish, find, roll, command };
 })();
@@ -970,6 +994,38 @@ setInterval(() => {                                        // pixel/exos.py tick
   else return;
   exPub(); mark();
 }, 250);
+/* Pixel sans Pi (../local.js): his scores, trophies, levels and settings, kept on the phone or from his Pi, from the snapshot
+   "exos" (pixel/exos.py public(), which exPub() mirrors). at: when that copy was made, for « today ». An exercise left open
+   is not taken back (nor is it by the server after a restart). */
+restorable('exos', (v, at) => {
+  if (!v || typeof v !== 'object') return;
+  const g = v.reglages, s = v.stats, int = (x, lo, hi) => (Number.isInteger(x) && x >= lo && x <= hi ? x : null), count = x => int(x, 0, 1e9) !== null;
+  if (g && typeof g === 'object') {
+    if (int(g.niveau, 1, 5)) EXR.niveau = g.niveau;
+    if (typeof g.auto === 'boolean') EXR.auto = g.auto;
+    if (Array.isArray(g.types)) { const t = EXI.filter(k => g.types.includes(k)); EXR.types = t.length ? t : EXI.slice(); }
+    if (int(g.objectif, 1, 50)) EXR.objectif = g.objectif;
+    if (typeof g.propose === 'boolean') EXR.propose = g.propose;
+  }
+  if (s && typeof s === 'object') {
+    for (const k of ['total', 'justes', 'serie', 'serie_max', 'aujourdhui', 'justes_jour', 'coupes', 'record_chrono']) if (count(s[k])) EXS[k] = s[k];
+    if (Array.isArray(s.trophees)) EXS.trophees = EXTR.map(x => x[0]).filter(id => s.trophees.includes(id));
+    const lv = int(v.niveau, 1, 5);                        // his level (auto), and each kind's where it differs from it
+    if (lv) EXS.niveau = lv;
+    if (s.par_type && typeof s.par_type === 'object') {
+      EXS.par_type = {}; EXS.niveaux = {};
+      for (const [k, x] of Object.entries(s.par_type)) {
+        if (!EXL[k] || !Array.isArray(x) || !count(x[0]) || !count(x[1])) continue;
+        EXS.par_type[k] = { n: x[0], ok: Math.min(x[1], x[0]) };
+        if (EXR.auto && int(x[2], 1, 5) && x[2] !== lv) EXS.niveaux[k] = x[2];
+      }
+    }
+    EXS.montee = {};
+    EXS.jour = Number.isFinite(at) && at > 946684800000 ? new Date(at).toDateString() : '';   // another day: exDay() starts today's count again
+    EXS.coupe_jour = s.fait === true ? EXS.jour : '';
+  }
+  exDay(); exPub();
+});
 exPub();
 /* ---------- end of the math exercises ---------- */
 
