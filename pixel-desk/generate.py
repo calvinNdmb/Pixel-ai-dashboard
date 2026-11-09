@@ -57,7 +57,8 @@ SD_CLR = 0.75
 # Measured on the real screen (glass size checked with ScreenFitTest: a 166 x 100 pocket fits).
 SCR_W, SCR_H = 164.5, 98.5                      # cover glass
 SCR_T = 10.0                                    # glass front -> back face of the blue PCB
-SCR_CLR = 0.75
+SCR_CLR = 1.75                                  # pocket = glass + 1.75 mm each side: 168 x 102. It was 0.75 (166 x 100), and
+                                                # the screen did not go into the printed ScreenMountTest: 2 mm more both ways
 SCR_PCB_T = 1.6                                 # blue PCB thickness (for the mock-up)
 SCR_HOLE_IN = 6.0                               # 4 corner mounting holes: centres 6 mm from each glass edge
 SCR_NUT_D, SCR_NUT_H = 5.0, 3.0                 # brass ring around each hole, sticking out of the PCB [measure]
@@ -67,14 +68,13 @@ PIC_W = SCR_W - SCR_BORDER["left"] - SCR_BORDER["right"]       # picture size
 PIC_H = SCR_H - SCR_BORDER["top"] - SCR_BORDER["bottom"]
 PIC_DX = (SCR_BORDER["left"] - SCR_BORDER["right"]) / 2        # picture centre vs glass centre (it is off-centre)
 PIC_DZ = (SCR_BORDER["bottom"] - SCR_BORDER["top"]) / 2
-# The window is symmetric about the glass centre: it shows the whole picture whichever way up (or mirrored) the
-# screen goes in, with WIN_MARGIN, and is at least WIN_MIN (measured on the printed test).
-WIN_MARGIN = 1.0
-WIN_MIN = (152.0, 93.5)
-WIN_W = max(WIN_MIN[0], PIC_W + 2 * abs(PIC_DX) + 2 * WIN_MARGIN)
-WIN_H = max(WIN_MIN[1], PIC_H + 2 * abs(PIC_DZ) + 2 * WIN_MARGIN)
+# The window follows the picture, not the glass: centred on it and WIN_OVER smaller on each side, so the lip hides the
+# black border all around. (The symmetric window of the first test showed it: 5 mm on the right and at the bottom, a
+# little at the top and on the left.) So the screen goes in one way only: picture upright, as measured.
+WIN_OVER = 1.0                                  # the lip covers this much of the picture's edge (play + measuring)
+WIN_W, WIN_H = PIC_W - 2 * WIN_OVER, PIC_H - 2 * WIN_OVER
 WIN_R = 2.0
-VIEW_DX, VIEW_DZ = 0.0, 0.0                     # window centre vs glass centre
+VIEW_DX, VIEW_DZ = PIC_DX, PIC_DZ               # window centre vs glass centre: the picture's centre
 LIP_MIN = 2.0                                   # the lip over the glass (the back's posts hold the glass on it)
 # Parts on the PCB's back, from the user's photo (X, Z of the centre vs the glass centre seen from the FRONT,
 # size along X, along Z, height above the PCB). The screen may go in either way up (180 deg): everything behind
@@ -95,7 +95,7 @@ TAKEUP_T = 1.0                                  # optional 1 mm felt / rubber do
 TAPE_T = 0.0                                    # 0: the glass sits directly on the lip
 TAPE_GAP, TAPE_EDGE = 0.5, 0.5                  # tape strips: this far from the window edge and from the glass edge
 SCR_RIB = 0.3                                   # small ribs in the pocket walls centre the glass (0.6 was too tight on the print)
-SCR_RIB_W = 3.0                                 # (they leave SCR_CLR - SCR_RIB = 0.45 mm all around)
+SCR_RIB_W = 3.0                                 # (they leave SCR_CLR - SCR_RIB = 1.45 mm to the measured glass)
 SCR_RIBS = dict(x=[-50.0, 50.0], z=[-25.0, 25.0])   # rib positions on the top/bottom walls (X) and the sides (Z)
 # ScreenMountTest: the bezel's glass zone, cut short (quick print)
 SMT_LIP = 2.0                                   # lip in front of the tape (the real bezel's is FUNNEL deep)
@@ -184,7 +184,8 @@ RIBBON_SLOT = (-10.0, 10.0, STAND_Y - 2.0, STAND_Y + 9.0)   # X0, X1, Y0, Y1: sc
 # monitor: everything follows the screen size
 MON_F = CASE_Y0 + 14.0                          # front face of the bezel
 MON_Z0 = CASE_H + STAND_H                       # bottom of the monitor
-SCR_BOTTOM = 24.0                               # glass bottom above the monitor's bottom (the "chin": the power button)
+SCR_BOTTOM = 25.0                               # glass bottom above the monitor's bottom (the "chin": the power button;
+                                                # 25 with the 168 x 102 pocket keeps 2.2 mm between the two pockets)
 BEZ_WALL, BEZ_TOP = 9.0, 13.0                   # bezel around the glass pocket: sides, top (holds the back's top screws)
 FUNNEL = 5.0                                    # sunken screen: 45 deg funnel depth (the lip in front of the tape)
 LIP_EDGE = 1.3                                  # the lip's straight edge at the window (no knife edge on a 2 mm lip)
@@ -822,7 +823,7 @@ def build_monitor():
 
 def build_fit_test():
     """Thin frame with the glass pocket and the window: the screen must drop in, the picture must fill the window."""
-    sw, sh = SCR_W + 2 * SCR_CLR, SCR_H + 2 * SCR_CLR
+    sw, sh = scr_pocket()
     frame = rrect(sw + 6, sh + 6, 3.0).difference(rrect(sw, sh, 0.5))
     lipf = rrect(sw + 6, sh + 6, 3.0).difference(rrect(WIN_W, WIN_H, WIN_R, VIEW_DX, VIEW_DZ))
     return single(U([ext_xy(lipf, 0, 2.0), ext_xy(frame, 2.0 - OVER, 6.0)]), "ScreenFitTest")
@@ -887,8 +888,8 @@ def build_mount_test():
     outer = rrect(pw + 2 * SMT_WALL, ph + 2 * SMT_WALL, SMT_WALL + 0.5)
     lip = ext_xz(outer.difference(rrect(WIN_W, WIN_H, WIN_R, VIEW_DX, VIEW_DZ)), -SMT_LIP, 0.0)
     rim = D(ext_xz(outer, -OVER, TAPE_T + SCR_T + SMT_MARGIN), pocket_cut(0.0, 0.0, -1.0, TAPE_T + SCR_T + SMT_MARGIN + 1))
-    band = (ph / 2 + SMT_WALL + WIN_H / 2) / 2                       # middle of the lip's bottom band
-    cut = engrave_front(text_centred("TEST ECRAN", 3.6, 0, VIEW_DZ - band), -SMT_LIP, 0.6)
+    band = ((VIEW_DZ - WIN_H / 2) - (ph / 2 + SMT_WALL)) / 2           # middle of the lip's bottom band
+    cut = engrave_front(text_centred("TEST ECRAN", 3.6, 0, band), -SMT_LIP, 0.6)
     return single(D(U([lip, rim]), cut), "ScreenMountTest")
 
 

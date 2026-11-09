@@ -22,12 +22,12 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 
 | Fichier | Taille (mm) | Sens d'impression | Filament |
 | --- | --- | --- | --- |
-| `ScreenFitTest.stl` | 172 × 106 × 6 | cadre de test de la vitre (carte bleue), à plat | 16 g |
-| `ScreenMountTest.stl` | 170 × 104 × 12 | **à imprimer en premier** : test de l'écran, face avant sur le plateau, environ 40 min (voir plus bas) | 21 g |
+| `ScreenFitTest.stl` | 174 × 108 × 6 | cadre de test de la vitre (carte bleue), à plat | 23 g |
+| `ScreenMountTest.stl` | 172 × 106 × 12 | **à imprimer en premier** : test de l'écran, face avant sur le plateau, environ 45 min (voir plus bas) | 27 g |
 | `ScreenPostTest.stl` | Ø 16 × 10 | **en premier aussi** : un bout de poteau avec sa coupelle, debout, 10 min | 1 g |
 | `StreamDeckFitTest.stl` | 112 × 75 × 11 | test des touches du Stream Deck, à plat, environ 35 min. **Avant le clavier** (voir plus bas) | 19 g |
-| `PixelMonitorFront.stl` | 184 × 136 × 26 | face avant sur le plateau (avec le trou du bouton d'allumage) | 81 g |
-| `PixelMonitorBack.stl` | 180 × 132 × 111 | dos sur le plateau, avec ses 4 poteaux | 264 g |
+| `PixelMonitorFront.stl` | 186 × 138 × 26 | face avant sur le plateau (avec le trou du bouton d'allumage) | 91 g |
+| `PixelMonitorBack.stl` | 182 × 134 × 111 | dos sur le plateau, avec ses 4 poteaux | 271 g |
 | `PixelStand.stl` | Ø 72 × 10 | à l'envers | 16 g |
 | `PixelCase.stl` | 210 × 160 × 64 | à l'envers (dessus sur le plateau) | 239 g |
 | `PixelCaseBottom.stl` | 205 × 155 × 7 | à plat | 91 g |
@@ -37,31 +37,31 @@ Elles sont toutes dans `stl/`, déjà posées dans le bon sens, **sans supports*
 
 - **Imprimante :** tout tient sur une Bambu Lab P2S (256 × 256 × 256 mm), une grosse pièce par plateau. La plus haute est l'arrière du moniteur : 111 mm.
 - **Réglages :** buse 0,4 mm, couches de 0,2 mm, 3 parois, 15 % de remplissage. Supports désactivés.
-- **Filament :** environ **870 g** de beige, pièces de test comprises (estimation : 3 parois de 0,42 mm sur toute la surface, 15 % de remplissage dedans). Une bobine de 1 kg suffit, de justesse : prévois-en une deuxième.
+- **Filament :** environ **900 g** de beige, pièces de test comprises (estimation : 3 parois de 0,42 mm sur toute la surface, 15 % de remplissage dedans). Une bobine de 1 kg suffit, de justesse : prévois-en une deuxième.
 - **Surplombs :** il ne reste que des petits ponts (fentes d'aération, tunnels de câbles). Le plus long fait 14 mm : ça s'imprime sans support.
 - **Détails gravés :** les lecteurs CD et disquette, le bouton d'allumage, le Turbo, les voyants, les boutons du moniteur et les badges « PIXEL ». Tu peux colorier les voyants au feutre si tu veux.
 
 ### D'abord : le cadre de test de l'écran
 
-1. Imprime `ScreenFitTest.stl` (172 × 106 × 6 mm, logement de 166 × 100). Pose l'écran dedans, la vitre vers le fond. Il doit entrer sans forcer, avec moins d'un millimètre de jeu. (Tu l'as déjà fait : ça passe.)
-2. Allume l'écran (voir le montage, étape 2) : toute l'image doit être visible dans la fenêtre, avec un peu de noir tout autour.
+1. Imprime `ScreenFitTest.stl` (174 × 108 × 6 mm, logement de 168 × 102). Pose l'écran dedans, la vitre vers le fond. Il doit entrer sans forcer. (Le logement de 166 × 100 de la première version était trop juste dans le test de montage : il a pris 2 mm dans les deux sens.)
+2. Allume l'écran (voir le montage, étape 2) : la fenêtre doit montrer l'image sans aucun bord noir (elle en cache 1 mm sur chaque bord).
 3. Si ça ne va pas, suis la liste « Ce qui reste à mesurer » plus bas.
 
 ### Avant le moniteur : le test de l'écran
 
-Ton écran, c'est la version à **carte bleue** : vitre de 164,5 × 98,5 mm, 10 mm d'épaisseur avec la carte. **Pas de vis dans l'écran, pas de ruban, pas de clip :** la vitre se pose sur le rebord de la fenêtre, et quand tu fermes le moniteur, **4 poteaux de l'arrière appuient sur les 4 bagues en laiton** des coins de la carte. Chaque poteau finit par une petite coupelle qui coiffe sa bague : elle la centre, et elle ne touche pas la carte. L'écran ne peut plus tomber vers l'arrière. Le logement (166 × 100) a 8 petites nervures qui centrent la vitre.
+Ton écran, c'est la version à **carte bleue** : vitre de 164,5 × 98,5 mm, 10 mm d'épaisseur avec la carte. **Pas de vis dans l'écran, pas de ruban, pas de clip :** la vitre se pose sur le rebord de la fenêtre, et quand tu fermes le moniteur, **4 poteaux de l'arrière appuient sur les 4 bagues en laiton** des coins de la carte. Chaque poteau finit par une petite coupelle qui coiffe sa bague : elle la centre, et elle ne touche pas la carte. L'écran ne peut plus tomber vers l'arrière. Le logement (168 × 102) a 8 petites nervures qui guident la vitre ; les coupelles des poteaux la centrent.
 
 ![Les 4 poteaux](preview-posts.png)
 
 Deux petites pièces de test, avant les grosses :
-- `ScreenMountTest.stl` : la zone de l'écran du vrai cadre, coupée court. La même fenêtre, le même logement avec ses nervures, et un bord aussi profond que vitre + carte (+ 0,4 mm). Le dos reste ouvert. Face avant sur le plateau, sans support, environ 40 min (21 g).
+- `ScreenMountTest.stl` : la zone de l'écran du vrai cadre, coupée court. La même fenêtre, le même logement avec ses nervures, et un bord aussi profond que vitre + carte (+ 0,4 mm). Le dos reste ouvert. Face avant sur le plateau, sans support, environ 45 min (27 g). « TEST ECRAN » est gravé en bas : tiens-le dans ce sens.
 - `ScreenPostTest.stl` : un bout de poteau avec la vraie coupelle (1 g, 10 min).
 
 1. Imprime les deux.
 2. **La vitre :** pose l'écran dans `ScreenMountTest`, vitre vers le fond. Il doit entrer sans forcer et ne presque pas bouger (les nervures).
 3. **L'épaisseur :** le dos de la carte bleue doit arriver **juste sous le bord** (0,4 mm). Pose une règle sur le bord : elle ne doit pas toucher la carte.
 4. **La coupelle :** pose `ScreenPostTest` sur une bague en laiton. Elle doit la coiffer sans forcer, avec un tout petit jeu, et ne pas toucher la carte bleue.
-5. **L'image :** branche l'écran (nappe et 2 fils, voir le montage, étape 2) et allume. Toute l'image doit être visible, avec un peu de noir tout autour. Essaie l'écran dans les deux sens (prises en haut, puis en bas) : la fenêtre est symétrique, l'image doit rester entière.
+5. **L'image :** branche l'écran (nappe et 2 fils, voir le montage, étape 2) et allume. Mets l'écran **dans le bon sens** : vu de face, le bord noir le plus large de la vitre (8 mm) est **en bas**, et celui de 7 mm **à droite**. La fenêtre est posée sur l'image : on ne doit voir **aucun bord noir**, et il ne manque qu'1 mm d'image sur chaque bord.
 6. **Les prises :** la nappe, la prise blanche avec ses fils et l'interrupteur ne doivent toucher nulle part (le dos est ouvert).
 
 Si ça ne va pas, change la cote en haut de `generate.py`, puis relance `python3 generate.py` et `python3 tools/verify.py`. Les tests et le vrai moniteur suivent ensemble :
@@ -69,7 +69,8 @@ Si ça ne va pas, change la cote en haut de `generate.py`, puis relance `python3
 - **la carte dépasse du bord, ou reste loin dedans :** l'épaisseur vitre + carte → `SCR_T` (10). Les poteaux suivent ;
 - **la coupelle n'entre pas sur la bague, ou flotte :** le diamètre de la bague → `SCR_NUT_D` (5), ou celui de la coupelle → `SCR_CUP_D` (5,6) ;
 - **la coupelle touche la carte :** la hauteur de la bague → `SCR_NUT_H` (3) ;
-- **un bout de l'image est caché :** mesure le bord noir autour de l'image, vu de face → `SCR_BORDER` (3 à gauche, 7 à droite, 4 en haut, 8 en bas). La fenêtre suit, toujours centrée ; sa taille minimale, c'est `WIN_MIN` (152 × 93,5, mesurée sur ton test) ;
+- **un peu de noir se voit encore, ou trop d'image est cachée, d'un côté :** mesure le bord noir autour de l'image, vu de face, écran allumé → `SCR_BORDER` (3 à gauche, 7 à droite, 4 en haut, 8 en bas). La fenêtre suit, posée sur l'image et `WIN_OVER` (1 mm) plus petite de chaque côté : monte-le à 1,5 si du noir se voit partout ;
+- **l'écran n'entre pas, ou bouge trop :** `SCR_CLR` (1,75 mm autour de la vitre mesurée : logement de 168 × 102) ;
 - **une prise ou l'interrupteur touche :** leur place vue de face → `SCR_DSI`, `SCR_PWR`, `SCR_SWITCH`.
 
 ### Avant le clavier : le test du Stream Deck
@@ -136,7 +137,7 @@ Les liens sont des recherches Amazon.fr. Comme outil : un petit tournevis crucif
 1. **L'écran dans le cadre :**
    1. Pose l'avant du moniteur face contre une serviette.
    2. **Le bouton d'allumage :** passe-le par le trou en bas à droite, de face, et serre son écrou à l'intérieur, dans le creux derrière le trou.
-   3. Pose l'écran dans son logement, vitre vers le fond : les nervures le centrent. La prise blanche et la prise de la nappe peuvent être en haut ou en bas, il y a la place des deux côtés. Si l'image est à l'envers, tourne-la dans le système (voir « À savoir »).
+   3. Pose l'écran dans son logement, vitre vers le fond, **dans le bon sens** : vu de face, le bord noir le plus large de la vitre en bas, et le moyen à droite (la fenêtre est posée sur l'image, elle ne va que dans ce sens). Il y a la place des prises des deux côtés. Si l'image est à l'envers, tourne-la dans le système (voir « À savoir »), sans retourner l'écran.
 2. **Les fils de l'écran :**
    1. Branche la nappe DSI de 300 mm sur la prise de la carte bleue, contacts dans le bon sens.
    2. Branche le fil **rouge** sur le **5V** de la prise blanche et le fil **noir** sur le **GND**.
@@ -197,10 +198,10 @@ Si une vérification échoue, la ligne dit ce qui touche quoi. Le moniteur suit 
   - le Pi 4 (prises USB comprises) avec ses fiches : Stream Deck, micro, USB-C et les 2 fils de l'écran ;
   - le module du Stream Deck, ses 15 touches, sa prise USB-C et la prise coudée ; le plateau en option avec un Stream Deck entier ;
   - en v2 : les boutons, les supports de LED, le haut-parleur, le ruban LED et la barre translucide.
-- **L'écran :** logement de 166 × 100 mm (comme le cadre de test qui passe), avec 8 nervures qui laissent 0,45 mm autour de la vitre. 12 mm libres derrière la carte, sauf aux 4 coins. Pas de vis dans l'écran, pas de ruban, pas de faux Pi.
+- **L'écran :** logement de 168 × 102 mm (2 mm de plus que la première version, trop juste au test), avec 8 nervures qui laissent 1,45 mm autour de la vitre mesurée. 12 mm libres derrière la carte, sauf aux 4 coins. Pas de vis dans l'écran, pas de ruban, pas de faux Pi. La vitre est 1 mm plus haut qu'avant (25 mm au-dessus du bas du moniteur), pour garder la place du bouton d'allumage.
 - **Les 4 poteaux :** une coupelle de 5,6 mm sur chaque bague (0,3 mm de jeu tout autour), qui l'enfonce de 0,3 mm. Le bord de la coupelle reste à 1,2 mm de la carte. Ils évitent la nappe, la prise blanche et ses fils, l'interrupteur et les entretoises, l'écran dans un sens ou dans l'autre. Ils sont nervurés et soudés aux parois de l'arrière (libres sur 2 mm seulement), et s'impriment sans support.
 - **L'arrière tient :** 4 vis dans 4 pattes du cadre. Le jeu des trous (0,15 mm) est plus petit que le serrage (0,3 mm) : les poteaux ne peuvent pas reculer.
-- **La fenêtre :** 160,5 × 93,5 mm, centrée et symétrique. L'image (154,5 × 86,5) est décalée de 2 mm sur la vitre : la fenêtre la montre entière avec au moins 1 mm de marge, que l'écran soit monté dans un sens ou dans l'autre (et même à l'envers en miroir). Le rebord tient la vitre tout autour : 2 mm sur les côtés, 2,5 mm en haut et en bas (les poteaux la plaquent dessus). Près de la fenêtre, il garde 1,3 mm d'épaisseur droite (pas d'arête coupante).
+- **La fenêtre :** 152,5 × 84,5 mm, posée sur l'image. L'image (154,5 × 86,5) est décalée sur la vitre (2 mm vers la gauche et 2 mm vers le haut, vu de face) : la fenêtre la suit et en cache 1 mm sur chaque bord, pour que le bord noir ne se voie jamais. (La première version, centrée et plus grande, montrait jusqu'à 5 mm de noir à droite et en bas.) L'écran ne se monte donc que dans un sens. Le rebord tient la vitre tout autour : au moins 4 mm sur les côtés, 5 mm en haut et en bas (les poteaux la plaquent dessus). Près de la fenêtre, il garde 1,3 mm d'épaisseur droite (pas d'arête coupante).
 - **Le bouton d'allumage :** trou de 12,2 mm en bas à droite du cadre, caché par la tête. Devant, 2,4 mm de cadre pour l'écrou ; derrière, un creux de 19 mm. Le bouton et ses fils ne touchent ni la carte de l'écran, ni ses prises, ni les poteaux, ni le pied. Ses fils font environ 22 cm de chemin jusqu'au Pi : les 15 cm d'origine + 20 cm de rallonge suffisent.
 - **Les tests de l'écran :** même logement, mêmes nervures, même fenêtre que le vrai cadre ; bord 0,4 mm plus haut que la carte ; 21 g, environ 40 min. Et la même coupelle que les poteaux (1 g).
 - **Le test du Stream Deck :** mêmes 15 fenêtres que le vrai dessus (0,375 mm de jeu autour de chaque touche), même jeu de 0,25 mm autour du module que le socle, bord à la hauteur du rebord. Moins de 25 g, moins d'une heure.
@@ -215,7 +216,7 @@ Si une vérification échoue, la ligne dit ce qui touche quoi. Le moniteur suit 
 - **Si l'écran ne s'allume pas :** vérifie les 2 fils (rouge sur 5V et broche 4, noir sur GND et broche 6), la nappe (contacts dans le bon sens aux deux bouts) et l'interrupteur « Backlight ».
 - **Ressortir l'écran :** dévisse les 4 vis de l'arrière, ouvre-le : l'écran sort tout seul.
 - **Si l'écran a du jeu** même avec les pastilles : augmente `SCR_SQUEEZE` (0,3) de 0,2 mm et réimprime l'arrière.
-- **Si l'image est à l'envers** (écran monté dans l'autre sens) : tourne-la de 180° dans le système, par exemple dans les réglages d'écran du bureau, ou avec `video=DSI-1:800x480@60,rotate=180` dans `/boot/firmware/cmdline.txt`.
+- **Si l'image est à l'envers** (l'écran, lui, doit rester dans le bon sens : bord noir le plus large en bas) : tourne-la de 180° dans le système, par exemple dans les réglages d'écran du bureau, ou avec `video=DSI-1:800x480@60,rotate=180` dans `/boot/firmware/cmdline.txt`.
 - **Éteindre :** appuie sur le bouton d'allumage du moniteur : Pixel s'éteint proprement. Un 2e appui le rallume (tant que l'alimentation est branchée).
 - **Le courant :** l'alimentation de 3 A suffit pour le Pi, l'écran et le Stream Deck.
 - **La chaleur :** le Pi respire par le fond, les côtés, le « ventilateur » perforé à l'arrière et les fentes du dessus.

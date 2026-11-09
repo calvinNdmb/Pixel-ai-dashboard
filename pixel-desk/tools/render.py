@@ -43,7 +43,7 @@ def persp(src, dst):
 
 def put_ui(img, proj, ui, dy=0.0, dz=0.0):
     """Paste an app screenshot on the picture area of the screen (seen through the window)."""
-    vx, vz = g.view_centre(); vx += g.PIC_DX; vz += g.PIC_DZ; aw, ah = g.PIC_W / 2, g.PIC_H / 2; yf = g.y_glass() - 0.05 + dy; vz += dz
+    vx, vz = g.screen_box(); vx += g.PIC_DX; vz += g.PIC_DZ; aw, ah = g.PIC_W / 2, g.PIC_H / 2; yf = g.y_glass() - 0.05 + dy; vz += dz
     dst = [proj(p) for p in [(vx - aw, yf, vz + ah), (vx + aw, yf, vz + ah), (vx + aw, yf, vz - ah), (vx - aw, yf, vz - ah)]]
     warped = ui.transform(img.size, Image.Transform.PERSPECTIVE, persp([(0, 0), (ui.width, 0), (ui.width, ui.height), (0, ui.height)], dst),
                           Image.Resampling.BICUBIC)

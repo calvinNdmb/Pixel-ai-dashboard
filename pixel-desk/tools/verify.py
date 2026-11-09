@@ -129,40 +129,31 @@ def eq_d(poly):
     return 2 * (poly.area / np.pi) ** 0.5
 
 
-def pictures():
-    """The picture's outline in the 4 ways the screen can go in (as measured, turned 180 deg, mirrored both ways)."""
-    out = {}
-    for sx, sz, name in ((1, 1, "as measured"), (-1, -1, "turned 180 deg"), (-1, 1, "mirrored L/R"), (1, -1, "mirrored U/D")):
-        x, z = sx * g.PIC_DX, sz * g.PIC_DZ
-        out[name] = shapely.geometry.box(x - g.PIC_W / 2, z - g.PIC_H / 2, x + g.PIC_W / 2, z + g.PIC_H / 2)
-    return out
+def picture():
+    """The picture's outline on the glass, seen from the front, the screen as measured (picture upright)."""
+    return shapely.geometry.box(g.PIC_DX - g.PIC_W / 2, g.PIC_DZ - g.PIC_H / 2, g.PIC_DX + g.PIC_W / 2, g.PIC_DZ + g.PIC_H / 2)
 
 
 def win_ok(lip, label):
-    """The window (biggest hole in a lip section, glass-centre coordinates) is centred, at least WIN_MIN, shows the
-    whole picture in all 4 orientations with a margin, and the lip all around covers >= LIP_MIN of the glass."""
+    """The window (biggest hole in a lip section, glass-centre coordinates) is centred on the picture and lies inside
+    it, WIN_OVER in from each edge: the lip hides the black border all around. The lip covers >= LIP_MIN of the glass."""
     hole = max(holes_of(lip), key=lambda q: q.area)
     hx0, hz0, hx1, hz1 = hole.bounds
-    cxh, czh = (hx0 + hx1) / 2, (hz0 + hz1) / 2
-    margins = {}
-    for k, pic in pictures().items():
-        inside = hole.contains(pic)
-        margins[k] = min(hole.exterior.distance(shapely.geometry.Point(p)) for p in pic.exterior.coords) if inside else -1.0
-    edge = min(min(hx1 - p.bounds[2], p.bounds[0] - hx0, hz1 - p.bounds[3], p.bounds[1] - hz0) for p in pictures().values())
-    check(min(margins.values()) >= 0.5 and abs(cxh) < 0.05 and abs(czh) < 0.05
-          and hx1 - hx0 >= g.WIN_MIN[0] - 0.05 and hz1 - hz0 >= g.WIN_MIN[1] - 0.05,
-          f"{label}: the window shows the whole picture, whichever way the screen goes in",
-          f"window {hx1 - hx0:.1f} x {hz1 - hz0:.1f} mm centred (at least {g.WIN_MIN[0]} x {g.WIN_MIN[1]}); picture "
-          f"{g.PIC_W:.1f} x {g.PIC_H:.1f} mm, off-centre by {g.PIC_DX:+.1f} / {g.PIC_DZ:+.1f} mm (black border "
-          f"{g.SCR_BORDER['left']:.0f} left, {g.SCR_BORDER['right']:.0f} right, {g.SCR_BORDER['top']:.0f} top, "
-          f"{g.SCR_BORDER['bottom']:.0f} bottom); margin at least {edge:.1f} mm on the edges, {min(margins.values()):.1f} mm "
-          f"at the rounded corners, in the 4 orientations")
+    px0, pz0, px1, pz1 = picture().bounds
+    over = dict(left=hx0 - px0, right=px1 - hx1, top=pz1 - hz1, bottom=hz0 - pz0)
+    check(picture().contains(hole) and min(over.values()) >= g.WIN_OVER - 0.05
+          and abs((hx0 + hx1) / 2 - g.PIC_DX) < 0.05 and abs((hz0 + hz1) / 2 - g.PIC_DZ) < 0.05,
+          f"{label}: the window is on the picture, the lip hides the black border all around",
+          f"window {hx1 - hx0:.1f} x {hz1 - hz0:.1f} mm, centred on the picture ({g.PIC_W:.1f} x {g.PIC_H:.1f} mm, "
+          f"off-centre by {g.PIC_DX:+.1f} / {g.PIC_DZ:+.1f} mm: black border {g.SCR_BORDER['left']:.0f} left, "
+          f"{g.SCR_BORDER['right']:.0f} right, {g.SCR_BORDER['top']:.0f} top, {g.SCR_BORDER['bottom']:.0f} bottom); "
+          "the lip covers the picture's edge by " + ", ".join(f"{v:.1f} {k}" for k, v in over.items()) + " mm")
     glass = shapely.geometry.box(-g.SCR_W / 2, -g.SCR_H / 2, g.SCR_W / 2, g.SCR_H / 2)
     ring_ = glass.difference(hole)
-    lip_x, lip_z = (g.SCR_W - (hx1 - hx0)) / 2, (g.SCR_H - (hz1 - hz0)) / 2
+    lip_x = min(hx0 + g.SCR_W / 2, g.SCR_W / 2 - hx1); lip_z = min(hz0 + g.SCR_H / 2, g.SCR_H / 2 - hz1)   # narrowest side
     check(min(lip_x, lip_z) >= g.LIP_MIN - 0.03 and ring_.geom_type == "Polygon" and len(ring_.interiors) == 1,
           f"{label}: a continuous lip covers the glass's black border all around",
-          f"{lip_x:.1f} mm sides, {lip_z:.1f} mm top/bottom (LIP_MIN {g.LIP_MIN}); the back's posts hold the glass on it")
+          f"at least {lip_x:.1f} mm on the sides, {lip_z:.1f} mm at the top/bottom (LIP_MIN {g.LIP_MIN}); the back's posts hold the glass on it")
 
 
 def screen_mount(parts, holder, y_lip, label, cx=0.0, cz=0.0, posts=None):
@@ -195,7 +186,7 @@ def screen_mount(parts, holder, y_lip, label, cx=0.0, cz=0.0, posts=None):
     glass = shapely.geometry.box(-g.SCR_W / 2, -g.SCR_H / 2, g.SCR_W / 2, g.SCR_H / 2)
     if tape is not None:
         strips = [shapely.affinity.translate(t, -cx, -cz) for t in g.tape_strips(cx, cz)]
-        pic = shapely.ops.unary_union(list(pictures().values()))
+        pic = picture()
         win = shapely.geometry.box(g.VIEW_DX - g.WIN_W / 2, g.VIEW_DZ - g.WIN_H / 2, g.VIEW_DX + g.WIN_W / 2, g.VIEW_DZ + g.WIN_H / 2)
         lip = shapely.affinity.translate(section_y(holder, y_lip - 0.3), -cx, -cz)
         to_win = min(t.distance(win) for t in strips)
@@ -207,15 +198,17 @@ def screen_mount(parts, holder, y_lip, label, cx=0.0, cz=0.0, posts=None):
               f"{g.TAPE_T:.1f} mm tape (TAPE_T), strips {sw_:.1f} mm on the sides, {ew_:.1f} mm at the top and bottom")
     else:
         print(f"        {label}: no tape (TAPE_T = 0): the glass sits directly on the lip")
-    # ribs: the glass is centred, SCR_CLR - SCR_RIB all around
+    # ribs: SCR_CLR - SCR_RIB all around the measured glass
     sec = shapely.affinity.translate(section_y(holder, yg + 2.0), -cx, -cz)
     gap = glass.exterior.distance(sec)
     pocket = max(holes_of(sec), key=lambda q: q.area)
     x0, z0, x1, z1 = pocket.bounds
     pw, ph = g.scr_pocket()
     n_ribs = len(g.scr_ribs())
-    # the gap: 0.15 mm was too tight on a real print (the frame had to flex), 0.45 lets the glass in and still centres it
-    check(abs((x1 - x0) - pw) < 0.05 and abs((z1 - z0) - ph) < 0.05 and 0.3 <= gap <= 0.6 and n_ribs == 8,
+    # the gap: 0.15 mm was too tight on a real print (the frame had to flex), and so was 0.45 with the 166 x 100 pocket
+    # (Nov 9: the screen needs 2 mm more both ways): 1.45 mm to the measured glass
+    check(abs((x1 - x0) - pw) < 0.05 and abs((z1 - z0) - ph) < 0.05 and abs(gap - (g.SCR_CLR - g.SCR_RIB)) < 0.05
+          and n_ribs == 8,
           f"{label}: the pocket centres the glass",
           f"{x1 - x0:.2f} x {z1 - z0:.2f} mm (glass + {g.SCR_CLR} mm, like the fit test), {n_ribs} ribs leave {gap:.2f} mm "
           f"to the glass")
@@ -544,7 +537,7 @@ def run(v2):
     com = sum(mm * np.asarray(c) for mm, c in masses) / M
     y_axis = max(y for _, y in g.case_feet()) + 5.0          # rear rubber feet, back edge
     tips = {}
-    for label, zp in (("top of the picture", g.view_centre()[1] + g.PIC_DZ + g.PIC_H / 2), ("top of the monitor", z0 + g.BEZ_H)):
+    for label, zp in (("top of the picture", g.screen_box()[1] + g.PIC_DZ + g.PIC_H / 2), ("top of the monitor", z0 + g.BEZ_H)):
         tips[label] = M / 1000 * 9.81 * (y_axis - com[1]) / zp
     check(com[1] < y_axis, "the centre of mass is in front of the rear feet",
           f"total ~{M:.0f} g, centre of mass Y {com[1]:.0f} mm, Z {com[2]:.0f} mm; rear feet at Y {y_axis:.0f} mm")
