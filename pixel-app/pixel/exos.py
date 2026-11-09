@@ -39,6 +39,8 @@ CHRONO_MS = 60000
 IDLE_CLOSE_MS = 8 * 60000          # an exercise left alone that long is put away (the face comes back)
 MILESTONES = (5, 10, 15, 20, 30, 40, 50, 75, 100)
 UP_AFTER = 3                       # right answers in a row (first try, no hint) to go up a level
+AGAIN_MS = 2 * 60000               # « encore », « une autre »: an exercise is open, or one ended that recently
+CHEER_MS = 5000                    # a milestone (the daily goal, a streak): the result stays that long, his scene plays to its end
 NB = "\u00a0"                      # keeps a number or "7 × 8" on one line
 D = Decimal
 TROPHIES = [("premier", "Premier exo", lambda s: s["total"] >= 1), ("serie5", "5 d'affilée", lambda s: s["serie_max"] >= 5),
@@ -612,7 +614,8 @@ def g_heure(lv, R):
             t = h * 60 + m
             e = t + d
             return (f"Il est {hm(t)}. Dans {d} minutes, quelle heure est-il ?", hm(e), [f"{h}{NB}h{NB}{m + d}", hm(e - 60), hm(e + 5), hm(e - 5)],
-                    "Va d'abord jusqu'à l'heure pile.", f"{hm(t)} + {60 - m} min = {hm(h * 60 + 60)}, puis encore {d - (60 - m)} min : {hm(e)}.", None, None)
+                    "Va d'abord jusqu'à l'heure pile.", f"{hm(t)} + {60 - m} min = {hm(h * 60 + 60)}, puis encore {d - (60 - m)} min : {hm(e)}."
+                    if m + d > 60 else f"{hm(t)} + {d} min = {hm(e)} : on arrive pile à l'heure.", None, None)
         h, k = R.randint(8, 16), R.choice((1, 2, 3))
         a = 60 * k + 30
         return (f"De {hm(h * 60)} à {hm((h + k) * 60 + 30)}, combien de minutes ?", dur(a), [dur(k * 100 + 30), dur(a - 30), dur(a + 10), dur(k * 60)],
@@ -693,16 +696,17 @@ def g_pourcentage(lv, R):
     if lv >= 3 and x < 20:
         x *= 2
     a = x * r // 100
-    help_ = {50: ("50 %, c'est la moitié.", f"50 %, c'est la moitié : {x} ÷ 2 = {a}."), 10: ("10 %, c'est diviser par 10.", f"10 % de {x} = {x} ÷ 10 = {a}."),
-             100: ("100 %, c'est le tout.", f"100 % de {x}, c'est {x} en entier."), 25: ("25 %, c'est le quart.", f"25 %, c'est le quart, et {x} ÷ 4 = {a}."),
-             20: ("20 %, c'est 2 fois 10 %.", f"10 % de {x} = {fmt(D(x) / 10)}, et 2 × {fmt(D(x) / 10)} = {a}."),
+    t, q = fmt(D(x) / 10), fmt(D(x) / 4)
+    help_ = {50: ("50 %, c'est la moitié.", f"c'est la moitié, et {x} ÷ 2 = {a}."), 10: ("10 %, c'est diviser par 10.", f"{x} ÷ 10 = {a}."),
+             100: ("100 %, c'est le tout.", f"c'est le tout, {x} en entier."), 25: ("25 %, c'est le quart.", f"c'est le quart, et {x} ÷ 4 = {a}."),
+             20: ("20 %, c'est 2 fois 10 %.", f"10 % de {x} = {t}, et 2 × {t} = {a}."),
              75: ("75 %, c'est 3 fois 25 %.", f"25 % de {x} = {x // 4}, et 3 × {x // 4} = {a}."), 5: ("5 %, c'est la moitié de 10 %.", f"10 % de {x} = {x // 10}, et la moitié = {a}."),
              30: ("30 %, c'est 3 fois 10 %.", f"10 % de {x} = {x // 10}, et 3 × {x // 10} = {a}."), 15: ("15 %, c'est 10 % plus 5 %.", f"10 % = {x // 10}, 5 % = {x // 20}, et {x // 10} + {x // 20} = {a}."),
-             12: ("12 %, c'est 10 % plus 2 %.", f"10 % = {fmt(D(x) / 10)}, 2 % = {fmt(D(x) / 50)}, et ensemble : {a}."),
-             40: ("40 %, c'est 4 fois 10 %.", f"10 % de {x} = {fmt(D(x) / 10)}, et 4 × {fmt(D(x) / 10)} = {a}."),
-             35: ("35 %, c'est 25 % plus 10 %.", f"25 % = {fmt(D(x) / 4)}, 10 % = {fmt(D(x) / 10)}, et ensemble : {a}.")}[r]
+             12: ("12 %, c'est 10 % plus 2 %.", f"10 % = {t}, 2 % = {fmt(D(x) / 50)}, et {t} + {fmt(D(x) / 50)} = {a}."),
+             40: ("40 %, c'est 4 fois 10 %.", f"10 % de {x} = {t}, et 4 × {t} = {a}."),
+             35: ("35 %, c'est 25 % plus 10 %.", f"25 % = {q}, 10 % = {t}, et {q} + {t} = {a}.")}[r]
     wrong = [r if r != a else None, x - r if x > r else None, x - a, a * 10 if r != 100 else None, x // r if r and x % r == 0 and x // r != a else None, a + 1, a - 1]
-    return f"{r} % de {x} ?", a, wrong, help_[0], f"{r} % de {x} = {a} : " + help_[1].split(" : ", 1)[-1] if " : " in help_[1] else f"{r} % de {x} = {a} : {help_[1]}", f"{x} * {r} / 100", None
+    return f"{r} % de {x} ?", a, wrong, help_[0], f"{r} % de {x} = {a} : {help_[1]}", f"{x} * {r} / 100", None
 
 
 def g_carre(lv, R):
@@ -811,6 +815,31 @@ def default_stats():
             "coupe_jour": "", "record_chrono": 0, "trophees": [], "par_type": {}, "niveaux": {}, "niveau": 0, "montee": {}}
 
 
+def _stats(saved):
+    """The stats read back from exos.json: only what has the right shape, the rest as new (a hand-edited file never stops Pixel)."""
+    st = default_stats()
+    saved = saved if isinstance(saved, dict) else {}
+    count = lambda v: isinstance(v, int) and not isinstance(v, bool) and v >= 0  # noqa: E731
+    for k in ("total", "justes", "serie", "serie_max", "aujourdhui", "justes_jour", "coupes", "record_chrono"):
+        if count(saved.get(k)):
+            st[k] = saved[k]
+    for k in ("jour", "coupe_jour"):
+        if isinstance(saved.get(k), str):
+            st[k] = saved[k][:10]
+    if isinstance(saved.get("trophees"), list):
+        st["trophees"] = [i for i in TROPHY if i in saved["trophees"]]
+    if isinstance(saved.get("par_type"), dict):
+        st["par_type"] = {k: {"n": v["n"], "ok": min(v["ok"], v["n"])} for k, v in saved["par_type"].items()
+                          if k in LABEL and isinstance(v, dict) and count(v.get("n")) and count(v.get("ok"))}
+    if isinstance(saved.get("niveaux"), dict):
+        st["niveaux"] = {k: v for k, v in saved["niveaux"].items() if k in LABEL and count(v) and 1 <= v <= 5}
+    if count(saved.get("niveau")) and saved["niveau"] <= 5:
+        st["niveau"] = saved["niveau"]
+    if isinstance(saved.get("montee"), dict):
+        st["montee"] = {k: v for k, v in saved["montee"].items() if (k in LABEL or k == "*") and count(v) and v < UP_AFTER}
+    return st
+
+
 class Exos:
     """The exercises being played, their stats and settings. clock() in seconds, injectable for the tests."""
 
@@ -822,16 +851,16 @@ class Exos:
         self.last = None            # the last answered one: ok, answer, correction
         self.ev = None              # the last thing Pixel reacts to (web/scenes/exos.js): juste, faux, serie, objectif, propose
         self.again = None           # what « encore » starts again
+        self.ended = -1e18          # when the last one was put away (ms): « une autre » means another exercise only shortly after
         self.recent = []
         self.on_toast = None        # a trophy: hub.toast
         self._id = int(clock()) % 100000 * 100
         data = self._load()
         self.reglages = default_reglages()
-        self.set_reglages(**(data.get("reglages") or {}), save=False)
-        self.stats = default_stats()
-        for k, v in (data.get("stats") or {}).items():
-            if k in self.stats and isinstance(v, type(self.stats[k])):
-                self.stats[k] = v
+        g = data.get("reglages")
+        if isinstance(g, dict):
+            self.set_reglages(**{k: g.get(k) for k in self.reglages}, save=False)
+        self.stats = _stats(data.get("stats"))
         if not self.stats["niveau"]:
             self.stats["niveau"] = self.reglages["niveau"]
         self._day()
@@ -839,10 +868,13 @@ class Exos:
     # ---- files ----
     def _load(self):
         try:
-            return json.loads(self.path.read_text()) if self.path and self.path.exists() else {}
+            data = json.loads(self.path.read_text()) if self.path and self.path.exists() else {}
         except (OSError, ValueError):
+            data = None
+        if not isinstance(data, dict):
             log.warning("exos.json unreadable, starting afresh")
             return {}
+        return data
 
     def save(self):
         if not self.path:
@@ -965,13 +997,17 @@ class Exos:
             return True
         return False
 
-    def repondre(self, value):
-        """An answer: True (right), False (wrong, resolved), "indice" (wrong: the hint and a second try), None (nothing to answer)."""
+    def repondre(self, value, id=None):
+        """An answer: True (right), False (wrong, resolved), "indice" (wrong: the hint and a second try), None (nothing to answer).
+        id: the exercise it answers (the screens send it): an answer to another one (a double tap, a late screen) is ignored,
+        and so is a wrong answer already given."""
         c = self.cur
         v = str(value if value is not None else "").strip()[:40]
-        if not c or c["etat"] != "question" or not v:
+        if not c or c["etat"] != "question" or not v or (id is not None and str(id) != str(c["id"])):
             return None
         ok = same(v, c["answer"])
+        if not ok and any(same(v, f) for f in c["faux"]):
+            return None
         if not ok and c["tries"] == 0 and c["mode"] != "chrono":
             c["tries"], c["hint_on"] = 1, True
             c["faux"].append(next((x for x in c["choices"] if same(v, x)), v))
@@ -984,9 +1020,11 @@ class Exos:
         self._resolve(ok, v, first)
         return ok
 
-    def passer(self):
+    def passer(self, id=None, etat=None):
+        """Skip the question (the answer is shown), or go on after a result or a summary. id, etat: what the screen showed
+        when it was touched; anything else (a double tap that would skip the correction too) is ignored."""
         c = self.cur
-        if not c:
+        if not c or (id is not None and str(id) != str(c["id"])) or (etat and etat != c["etat"]):
             return
         if c["etat"] == "question":
             self._resolve(False, "", False, passe=True)
@@ -995,8 +1033,17 @@ class Exos:
         else:
             self.stop()
 
-    def stop(self):
+    def stop(self, user=False):
+        """Put the exercise away. user: you asked (« Fini », « stop exo »): « encore » or « une autre » are Claude's again."""
+        if self.cur:
+            self.ended = self.ms()
         self.cur, self.run = None, None
+        if user:
+            self.again = None
+
+    def wants_again(self):
+        """« encore », « une autre »… are for the exercises while one is open, or just after one ended by itself."""
+        return bool(self.cur) or (self.again is not None and self.ms() - self.ended < AGAIN_MS)
 
     def _resolve(self, ok, value, first, passe=False):
         c, st, r = self.cur, self.stats, self.run
@@ -1044,6 +1091,10 @@ class Exos:
             self._advance()
         else:
             wait = (2000 if ok else 5000) if c["mode"] in ("serie", "table") and c["n"] > 1 else (6000 if ok else 11000)
+            if c["mode"] in ("serie", "table") and c["i"] >= c["n"]:
+                wait = max(wait, 3000)              # the last one: his cheer plays to its end before the summary
+            if events:
+                wait = max(wait, CHEER_MS)          # a milestone: his celebration is not cut by the next question or the summary
             c["next_at"] = self.ms() + wait
 
     def _toast(self, msg):
@@ -1063,7 +1114,7 @@ class Exos:
     def _advance(self):
         r = self.run
         if not r:
-            self.cur = None
+            self.stop()
             return
         r["i"] += 1
         if r["mode"] == "chrono":
@@ -1172,7 +1223,8 @@ KIND_WORDS = {"addition": "addition", "additions": "addition", "plus": "addition
               "pourcentages": "pourcentage", "carre": "carre", "carres": "carre", "enigme": "enigme", "enigmes": "enigme", "devinette": "enigme",
               "devinettes": "enigme", "logique": "enigme"}
 EXO = r"(?:un |une |des |mon |un petit |une petite )?(?:exo|exos|exercice|exercices)"
-NUMBER = re.compile(r"^(?:(?:la )?reponse(?: est)?|rep|=|c'est|c est)?\s*(−?-?\d+(?:[.,]\d+)?(?:\s*h\s*\d{0,2})?)\s*(?:min|minutes|€|euros?|%|h)?\s*[!.]?$")
+NUMBER = re.compile(r"^(?:(?:la )?reponse(?: est)?|rep|=|c'est|c est)?\s*(−?-?(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)(?:[.,]\d+)?(?:\s*h\s*\d{0,2})?)"
+                    r"\s*(?:min|minutes|€|euros?|%|h)?\s*[!.]?$")     # 4 025 too, the French way
 
 
 async def command(hub, raw, t):
@@ -1185,17 +1237,22 @@ async def command(hub, raw, t):
     async def go(**a):
         await hub.dispatch("exos.nouveau", a)
         return True
+    if c and c["etat"] != "question" and (NUMBER.match(t) or re.match(r"^(?:la )?reponse\b", t)):
+        # an exercise is open but waits for no answer (its correction, a summary): the number is not Claude's either
+        nxt = ex.run and c["etat"] == "resultat" and c.get("i", 0) < c.get("n", 0)
+        hub.toast("La question suivante arrive !" if nxt else "Cet exo est fini. Tape « encore » pour un autre !", 3000)
+        return True
     if c and c["etat"] == "question":
         m = NUMBER.match(t)
         if m:
-            await hub.dispatch("exos.repondre", {"value": m.group(1)})
+            await hub.dispatch("exos.repondre", {"value": m.group(1), "id": c["id"]})
             return True
         m = re.match(r"^(?:la )?reponse(?: est)?\s*:?\s*(.+)$", t)
         if m:
-            await hub.dispatch("exos.repondre", {"value": m.group(1)})
+            await hub.dispatch("exos.repondre", {"value": m.group(1), "id": c["id"]})
             return True
         if any(same(t, x) for x in c["choices"]) and not re.fullmatch(r"[a-z]{1,2}", t):
-            await hub.dispatch("exos.repondre", {"value": t})
+            await hub.dispatch("exos.repondre", {"value": t, "id": c["id"]})
             return True
         if t in ("indice", "un indice", "aide-moi", "aide moi", "je sais pas", "je ne sais pas", "help"):
             await hub.dispatch("exos.indice")
@@ -1212,7 +1269,7 @@ async def command(hub, raw, t):
     if t in ("mes scores", "scores", "mon score", "mes stats", "mes statistiques", "mes resultats", "mes exos", "mes trophees"):
         hub.toast(ex.summary(), 9000)
         return True
-    if t in ("encore", "encore un", "encore une", "un autre", "une autre", "on continue", "on recommence") and ex.again:
+    if t in ("encore", "encore un", "encore une", "un autre", "une autre", "on continue", "on recommence") and ex.wants_again():
         await hub.dispatch("exos.encore")
         return True
     m = re.fullmatch(r"(?:revise |revisons |la |les )?(?:table|tables) (?:de |du |des )?(\d{1,2})", t)
@@ -1273,7 +1330,12 @@ async def run_tool(hub, a):
 def setup(hub, datadir=None):
     """The actions exos.*, the snapshot key "exos", a tick 4 times a second. hub.exos: the game (commands.py, claude.py)."""
     datadir = Path(datadir) if datadir else Path(os.path.expanduser(hub.cfg.get("data_dir", "~/.config/pixel")))
-    ex = Exos(datadir / "exos.json")
+    try:
+        ex = Exos(datadir / "exos.json")
+    except Exception:                                 # whatever is in exos.json, Pixel starts
+        log.exception("exos.json: starting afresh")
+        ex = Exos(None)
+        ex.path = datadir / "exos.json"
     ex.on_toast = lambda msg: hub.toast(msg, 5000)
     hub.exos = ex
 
@@ -1297,8 +1359,8 @@ def setup(hub, datadir=None):
         pub()
 
     @hub.action("exos.repondre")
-    async def repondre(value=""):
-        ex.repondre(value)
+    async def repondre(value="", id=None):
+        ex.repondre(value, id)
         pub()
 
     @hub.action("exos.indice")
@@ -1307,13 +1369,13 @@ def setup(hub, datadir=None):
         pub()
 
     @hub.action("exos.passer")
-    async def passer():
-        ex.passer()
+    async def passer(id=None, etat=None):
+        ex.passer(id, etat)
         pub()
 
     @hub.action("exos.stop")
     async def stop():
-        ex.stop()
+        ex.stop(user=True)
         pub()
 
     @hub.action("exos.reglages")

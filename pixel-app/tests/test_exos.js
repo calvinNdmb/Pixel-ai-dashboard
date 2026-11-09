@@ -1,13 +1,18 @@
 // Pixel's math exercises in a real browser:  node tests/test_exos.js [--shots DIR]
 // Starts a demo server (port 8185, or EXOS_PORT; a temporary data folder, every theme on), then in Chromium (Playwright):
 // - the Pi's screen (800x480, ?kiosk=1), in each of the 6 themes: an exercise opened by the server shows on his face screen
-//   (the question, 4 big choices, his small face); a touch on a wrong choice gives the hint and a second try, a touch on the
-//   right one the result; he reacts with his scenes (exo-presque…, then exo-ouf); then back to his face;
-// - on the Pi again: the keyboard (digits and Entrée; 1 to 4 for a riddle), a touch on his face for the hint, the gentle nudge,
-//   the end of a series, the challenge's frame rate and a calm one otherwise, no moment of life while an exercise is open,
-//   his offer « Une petite question ? » (only when the setting is on) and its « Oui ! » button;
-// - a phone (390x844): the « Exos » panel, starting one, a wrong choice and its hint, the keypad, the correction, the
-//   settings, the scores, the command bar (« table de 8 », then the number), touch targets of 56 px;
+//   (the question, 4 big choices, his small face); a double tap on a wrong choice gives the hint and a second try (never the
+//   correction), a touch on the right one the result; he reacts with his scenes (exo-presque…, then exo-ouf); then his face;
+// - on the Pi again: each choice answers wherever it is touched, its right end included (where Nourrir's plate sits, on a
+//   branch that has him); the keyboard (digits and Entrée; 1 to 4 for a riddle), a touch on his face for the hint, the gentle
+//   nudge, a quick series where every answer gets his scene and the 5-streak's one plays to its end before the summary's,
+//   the challenge's frame rate and a calm one otherwise, no moment of life while an exercise is open, his offer
+//   « Une petite question ? » (only when the setting is on) and its « Oui ! » button;
+// - a phone (390x844): the « Exos » panel, starting one, a quick double tap on a wrong choice and its hint, the keypad (its
+//   − key for negative answers), the correction, the settings, the scores, the challenge's clock stopped with the panel,
+//   the command bar (« table de 8 », then the number), touch targets of 56 px;
+// - Pixel Lab (demo-hub.js mirrors the server): a double answer, « une autre » after « stop exo », a number during the
+//   correction, « 4 025 »;
 // - no page error anywhere.  --shots DIR: screenshots of all that.
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
@@ -60,7 +65,8 @@ async function kiosk(browser) {
   const page = await browser.newPage({ viewport: { width: 800, height: 480 } }), errs = errors(page);
   PAGE = page;
   await page.goto(BASE + '/?kiosk=1');
-  await until(() => page.evaluate(() => Screens.local.boot < 0 && !!window.PixelExos), 9000);
+  // the first snapshot starts his boot screen: wait for it, then for its end (else the first taps land on the boot screen)
+  await until(() => page.evaluate(() => !!window.PixelExos && !!PixelExos.state && Screens.local.lastBootAt > 0 && Screens.local.boot < 0), 15000);
   const lay = await page.evaluate(() => PixelExos.layout), mid = b => [b.x + b.w / 2, b.y + b.h / 2];
   check('the exercises are loaded on the Pi’s screen (screens.js add-on, scene pack)', !!lay && lay.choices.length === 4
     && await page.evaluate(() => Screens.persona.scenes.filter(s => s.id.startsWith('exo-')).length >= 14));
@@ -75,10 +81,14 @@ async function kiosk(browser) {
     check(`${th}: the exercise shows on his face screen, drawn on the canvas`, !!c && shown && (await drawn(page)) > 3, String(c && c.q));
     await shot(page, `kiosk-${th}-question`);
     const right = prod(c.q), wi = c.choices.findIndex(x => x !== right), ri = c.choices.indexOf(right);
-    await tap(page, ...mid(lay.choices[wi]));
+    const pw = await at(page, ...mid(lay.choices[wi]));
+    await page.mouse.dblclick(pw.x, pw.y);                       // a double tap: the second one must not use up the second try
     const h = await until(() => { const x = cur(); return x && x.tries === 1 && x.hint ? x : null; });
     const sc1 = await until(async () => { const s = await scene(page); return ['exo-presque', 'exo-reessaie'].includes(s) ? s : null; }, 3000);
-    check(`${th}: a touch on a wrong choice: the hint, a second try, and Pixel encourages (${sc1})`, !!h && h.faux[0] === c.choices[wi] && !!sc1, JSON.stringify(h));
+    await wait(250);
+    const still = cur();
+    check(`${th}: a double tap on a wrong choice: the hint and a second try (not the correction), and Pixel encourages (${sc1})`,
+      !!h && h.faux[0] === c.choices[wi] && !!sc1 && still.etat === 'question' && still.faux.length === 1, JSON.stringify(still));
     await wait(500);
     await shot(page, `kiosk-${th}-hint`);
     await tap(page, ...mid(lay.choices[ri]));
@@ -94,6 +104,27 @@ async function kiosk(browser) {
   act('theme.set', { name: 'retro' });
   await until(() => page.evaluate(() => Screens.local.theme === 'retro'));
   await page.evaluate(() => Screens.persona.reset());
+
+  // each choice answers wherever it is touched, its right end included (Nourrir's plate sits there, on a branch that has him)
+  const nour = await page.evaluate(() => !!window.PixelNourrir);
+  const missed = [];
+  for (let i = 0; i < 4; i++) for (const dy of [8, lay.choices[i].h - 8]) {
+    const c = await open({ kind: 'table', niveau: 1 }), b = lay.choices[i];
+    await tap(page, b.x + b.w - 8, b.y + dy);
+    const r = await until(() => { const x = cur(); return x && x.id === c.id && (x.tries === 1 || x.etat === 'resultat') ? x : null; }, 2500);
+    if (!(r && (r.faux[0] === c.choices[i] || r.valeur === c.choices[i]))) missed.push(`${i + 1}:${dy}`);
+  }
+  check(`each of the 4 choices answers wherever it is touched, its right end included${nour ? ' (Nourrir’s plate on)' : ''}`, missed.length === 0, missed.join(' '));
+  act('exos.stop'); await until(() => page.evaluate(() => !PixelExos.open));
+  if (nour) {
+    const N = await page.evaluate(() => ({ shown: PixelNourrir.shown, H: PixelNourrir.HANDLE }));
+    if (N.shown) {
+      await wait(300);
+      await tap(page, N.H.x + N.H.w / 2, N.H.y + N.H.h / 2);
+      check('…and once the exercise is put away, Nourrir’s plate opens his tray again', !!(await until(() => page.evaluate(() => PixelNourrir.trayOpen), 2000)));
+      await page.evaluate(() => PixelNourrir.close());
+    } else console.log('--   Nourrir is off: his plate is not on the screen');
+  } else console.log('--   no Nourrir here (web/nourrir.js): his plate over the choices is checked on a branch that has both');
 
   // the keyboard: digits then Entrée
   let c = await open({ mode: 'table', table: 6 });
@@ -142,6 +173,34 @@ async function kiosk(browser) {
   await shot(page, 'kiosk-retro-chrono');
   act('exos.stop'); await until(() => !cur());
 
+  // a quick series: each right answer gets his scene; the 5th, a 5-streak, plays to its end before the summary's
+  await page.evaluate(() => {
+    const PER = Screens.persona; window.__sc = []; let last = null;
+    clearInterval(window.__scT); window.__scT = setInterval(() => { const id = PER.state.cur; if (id !== last) { last = id; if (id) __sc.push([id, performance.now()]); } }, 20);
+  });
+  await open({ kind: 'addition', niveau: 1 });
+  act('exos.passer', {});                                        // a skipped one: the streak starts again from 0
+  await until(() => cur() && cur().etat === 'resultat');
+  c = await open({ mode: 'serie', n: 5, kind: 'table', niveau: 1 });
+  const answered = [];
+  for (let i = 1; i <= 5; i++) {
+    const q = await until(() => { const x = cur(); return x && x.i === i && x.etat === 'question' ? x : null; }, 8000);
+    if (!q) break;
+    await until(() => page.evaluate(id => !!PixelExos.state.cur && PixelExos.state.cur.id === id, q.id));
+    answered.push(await page.evaluate(() => performance.now()));
+    act('exos.repondre', { value: prod(q.q), id: q.id });
+    await until(() => { const x = cur(); return x && x.id === q.id && x.etat === 'resultat' ? x : null; });
+  }
+  await until(() => { const x = cur(); return x && x.etat === 'bilan' ? x : null; }, 9000);
+  await wait(600);
+  const log = await page.evaluate(() => { clearInterval(window.__scT); return window.__sc; });
+  const cheer = /^exo-(bravo|fier|feu)$/, after = (t0, re, ms) => log.find(([id, t]) => re.test(id) && t >= t0 - 30 && t < t0 + ms);
+  const reacted = answered.slice(0, 4).map(t0 => !!after(t0, cheer, 1500));
+  const sv = after(answered[4] || 0, /^exo-serie$/, 1500), bl = log.find(([id]) => id === 'exo-bilan');
+  check(`a quick series: each of the first 4 right answers gets his scene (${reacted.map(Number).join('')})`, answered.length === 5 && reacted.every(Boolean), JSON.stringify(log));
+  check(`…the 5th, 5 in a row: « 5 d’affilée ! », played to its end before the summary’s scene (${sv && bl ? Math.round(bl[1] - sv[1]) : '?'} ms)`, !!sv && !!bl && bl[1] - sv[1] >= 4000, JSON.stringify(log));
+  act('exos.stop'); await until(() => !cur());
+
   // a series of 2: its summary
   c = await open({ mode: 'serie', n: 2, kind: 'table', niveau: 1 });
   act('exos.repondre', { value: prod(c.q) });
@@ -187,9 +246,10 @@ async function phone(browser) {
   c = await until(() => { const x = cur(); return x && x.mode === 'table' ? x : null; });
   await until(() => page.evaluate(q => (document.querySelector('.ex-question') || {}).textContent === q, c.q));
   const right = prod(c.q), wrong = c.choices.find(x => x !== right);
-  await page.locator('.ex-choices button', { hasText: new RegExp(`^${wrong}$`) }).click();
+  await page.evaluate(w => { const b = [...document.querySelectorAll('.ex-choices button')].find(x => x.textContent === w); b.click(); b.click(); }, wrong);   // two quick taps
   const hint = await until(() => page.evaluate(() => { const h = document.querySelector('.ex-hint'), w = document.querySelector('.ex-choices button.wrong'); return h && w && w.disabled ? h.textContent : ''; }));
-  check('a wrong choice: crossed out, and the hint', !!hint && hint.startsWith('Indice : '), hint);
+  await wait(300);
+  check('two quick taps on a wrong choice: crossed out, and the hint (not the correction)', !!hint && hint.startsWith('Indice : ') && cur().etat === 'question' && cur().faux.length === 1, hint);
   await shot(page, 'phone-hint', '#exos');
   for (const d of right) await page.locator('.ex-pad button', { hasText: new RegExp(`^${d}$`) }).click();
   const typed = await page.textContent('#exTyped');
@@ -199,6 +259,28 @@ async function phone(browser) {
   await shot(page, 'phone-right', '#exos');
   const small = await page.evaluate(() => [...document.querySelectorAll('#exos button')].filter(b => b.offsetParent).map(b => [b.textContent, Math.round(b.getBoundingClientRect().height)]).filter(([, h]) => h < 56));
   check('touch targets of 56 px at least in the panel', small.length === 0, JSON.stringify(small.slice(0, 4)));
+  act('exos.stop'); await until(() => !cur());
+  // a negative answer: the keypad's − key
+  for (let i = 0; i < 30; i++) { c = await open({ kind: 'comparaison', niveau: 5 }); if (c && c.choices.some(x => /^−\d+$/.test(x))) break; }
+  const neg = c.choices.find(x => /^−\d+$/.test(x));
+  await until(() => page.evaluate(id => !!document.querySelector('.ex-pad button.neg'), c.id));
+  await page.click('.ex-pad button.neg');
+  for (const d of neg.slice(1)) await page.locator('.ex-pad button', { hasText: new RegExp(`^${d}$`) }).click();
+  const typedNeg = await page.textContent('#exTyped');
+  await page.click('.ex-pad button.ok');
+  const rn = await until(() => { const x = cur(); return x && x.id === c.id && (x.tries === 1 || x.etat === 'resultat') ? x : null; });
+  check(`a negative answer on the keypad: − then the digits (« ${typedNeg} »)`, typedNeg === neg && !!rn && (rn.faux[0] === neg || rn.valeur === neg), JSON.stringify(rn));
+  await shot(page, 'phone-negatif', '#exos');
+  // the challenge's clock stops with the panel
+  c = await open({ mode: 'chrono', kind: 'addition', niveau: 1 });
+  await until(() => page.evaluate(() => !!document.querySelector('.ex-left') && /\d+ s/.test(document.querySelector('.ex-left').textContent)));
+  await page.click('#exos .ex-x');
+  const l0 = await page.textContent('.ex-left');
+  await wait(1600);
+  const l1 = await page.textContent('.ex-left');
+  check('the panel closed: the challenge’s clock stops there (it starts again when it opens)', l0 === l1, `${l0} → ${l1}`);
+  await page.click('.exos-go');
+  await until(() => page.isVisible('#exos .ex-left'));
   act('exos.stop'); await until(() => !cur());
   await until(() => page.isVisible('.ex-set summary'));
   await page.click('.ex-scores summary'); await page.click('.ex-set summary');
@@ -220,6 +302,39 @@ async function phone(browser) {
   PAGE = null;
 }
 
+async function lab(browser) {                                       // Pixel Lab: demo-hub.js mirrors pixel/exos.py
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } }), errs = errors(page);
+  await page.goto(BASE + '/app/lab/index.html');
+  await until(() => page.evaluate(() => !!window.PixelHub && !!PixelHub.S.exos && !!window.PixelExos), 9000);
+  const r = await page.evaluate(() => {
+    const H = PixelHub, E = () => H.S.exos, C = () => E().cur, out = {}, mul = q => { const m = /(\d+) × (\d+)/.exec(q); return String(+m[1] * +m[2]); };
+    H.dispatch('exos.nouveau', { kind: 'table', niveau: 2 });
+    let c = C(); const w = c.choices.find(x => x !== mul(c.q));
+    H.dispatch('exos.repondre', { value: w, id: c.id }); H.dispatch('exos.repondre', { value: w, id: c.id });
+    out.double = C().etat === 'question' && C().tries === 1;
+    H.dispatch('exos.repondre', { value: mul(c.q), id: c.id - 1 });
+    out.stale = C().etat === 'question';
+    H.dispatch('exos.repondre', { value: mul(c.q), id: c.id });
+    H.dispatch('cmd', { text: '12' });
+    out.during = C().etat === 'resultat' && H.S.screen === 'visage' && /fini/.test(H.S.toast.msg);
+    H.dispatch('cmd', { text: 'stop exo' });
+    H.dispatch('cmd', { text: 'une autre' });
+    out.autre = C() === null;
+    H.dispatch('exos.nouveau', { kind: 'addition', niveau: 5 });
+    c = C(); const m = /^([\d\s]+) \+ ([\d\s]+) =/.exec(c.q), v = +m[1].replace(/\s/g, '') + +m[2].replace(/\s/g, '') + 100;
+    const typed = `${Math.floor(v / 1000)} ${String(v % 1000).padStart(3, '0')}`;
+    H.dispatch('cmd', { text: typed });
+    out.mille = C() && C().tries === 1 && C().faux.length === 1;
+    H.dispatch('exos.stop');
+    return out;
+  });
+  check('Pixel Lab: a double answer gives the hint only; an answer naming another exercise is ignored', r.double && r.stale, JSON.stringify(r));
+  check('Pixel Lab: a number during the correction stays with the exercise; « une autre » after « stop exo » is not an exercise', r.during && r.autre, JSON.stringify(r));
+  check('Pixel Lab: « 4 025 » the French way answers the exercise', r.mille, JSON.stringify(r));
+  check('Pixel Lab: no page error', errs.length === 0, errs.slice(0, 3).join(' | '));
+  await page.close();
+}
+
 (async () => {
   if (await portOpen()) throw new Error(`le port ${PORT} est déjà pris (EXOS_PORT=… pour un autre)`);
   srv = spawn('python3', [path.join(APP, 'server.py'), '--demo', '--port', String(PORT), '--host', '127.0.0.1', '--config', cfg], { cwd: APP, stdio: 'ignore' });
@@ -231,6 +346,7 @@ async function phone(browser) {
   try {
     await kiosk(browser);
     await phone(browser);
+    await lab(browser);
   } finally {
     await browser.close(); hub.close(); srv.kill('SIGTERM');
     fs.rmSync(tmp, { recursive: true, force: true });

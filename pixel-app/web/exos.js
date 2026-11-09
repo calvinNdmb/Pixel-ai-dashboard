@@ -4,7 +4,10 @@
      correction, the summary of a series; then back to his face. In every theme, drawn on the canvas like the other screens.
      Touch: a choice answers, his face gives the hint (and reacts as usual). A keyboard (the Pi's, a computer's): digits then
      Entrée, 1 to 4 for answers that are not numbers, Retour arrière, i for the hint, Échap to stop.
-   - He reacts: the server's "ev" becomes his persona events (exo-juste…); after 40 s on a question, a gentle nudge.
+   - He reacts: the server's "ev" becomes his persona events (exo-juste…), each one played (its own id: no 4 s cooldown);
+     after 40 s on a question, a gentle nudge.
+   - Every answer names its exercise (id): a double tap, or a late screen, never answers the next one.
+   - While an exercise is open it owns his face screen: Nourrir's plate and tray (web/nourrir.js, when there) wait.
    - His offer « Une petite question ? » (the moment of life exo-envie, when the setting is on): « Oui ! » and « Plus tard ».
    - On a phone (app.js's page, not the kiosk): an « Exos » button under the keys opens a panel (exos.css): start buttons,
      the question with its choices and a keypad, the hint, the correction, the scores and the settings.
@@ -42,11 +45,24 @@ function state(p) {
     const fresh = !first && (p.server_now || Date.now()) - ev.t0 < 10000;
     V.ev = ev.id;
     if (fresh && EVN[ev.kind] && Sc.event) {
-      Sc.event(EVN[ev.kind], { ...ev, n: ev.n, essai: ev.essai });
+      Sc.event(EVN[ev.kind], { ...ev, n: ev.n, essai: ev.essai }, true);   // each answer gets its scene (the server spaces milestones out)
       const son = window.PixelSon; if (son && son.on && BIP[ev.kind]) try { son.play(BIP[ev.kind]); } catch (e) { /* his voice must never stop him */ }
     }
   }
+  guard();
   panelState();
+}
+
+/* ---------- other views over his face screen wait while an exercise is open ----------
+   web/nourrir.js (another add-on, when both are there) draws its plate in the bottom right corner, over choices 2 and 4,
+   and its touch zone would win: while an exercise is open, it is neither drawn nor opened. */
+function guard() {
+  const N = window.PixelNourrir;
+  if (!N || N.exosGuard || typeof N.over !== 'function') return;
+  const over = N.over, swipe = N.swipe;
+  N.over = k => { if (!open()) return over(k); if (N.trayOpen && N.close) N.close(); };
+  if (typeof swipe === 'function') N.swipe = (dy, y0) => (open() ? false : swipe(dy, y0));
+  N.exosGuard = true;
 }
 
 /* ---------- the view on the canvas ---------- */
@@ -132,10 +148,10 @@ function drawExo(k) {
   const yb = 410, hb = 60;
   if (c.etat === 'question') {
     button(k, FX, yb, 116, hb, 'Indice', () => send('exos.indice'), { dim: !!c.hint, size: 26 });
-    button(k, FX + 124, yb, 116, hb, 'Passer', () => send('exos.passer'), { size: 26 });
+    button(k, FX + 124, yb, 116, hb, 'Passer', () => send('exos.passer', { id: c.id, etat: c.etat }), { size: 26 });
     button(k, FX + 248, yb, 56, hb, '×', () => send('exos.stop'), { size: 36 });
   } else if (c.etat === 'resultat' && (c.mode === 'serie' || c.mode === 'table') && c.i < c.n) {
-    button(k, FX, yb, 240, hb, 'Suivant', () => send('exos.passer'), { fill: true });
+    button(k, FX, yb, 240, hb, 'Suivant', () => send('exos.passer', { id: c.id, etat: c.etat }), { fill: true });
     button(k, FX + 248, yb, 56, hb, '×', () => send('exos.stop'), { size: 36 });
   } else {
     button(k, FX, yb, 148, hb, 'Encore', () => send('exos.encore'), { fill: true });
@@ -183,7 +199,7 @@ function drawQuestion(k, c, t) {
     ls.forEach((l, j) => k.txt(k.fit(l, CW - 20, fs, kind), x + CW / 2, y + (CHH - ls.length * lh) / 2 + j * lh + 3, fs, ink, 'center', kind));
     if (wrongPick) { X.save(); X.strokeStyle = X.shadowColor = AM; X.lineWidth = 3; X.beginPath(); X.moveTo(x + 18, y + CHH - 18); X.lineTo(x + CW - 18, y + 18); X.stroke(); X.restore(); }
     if (pad) k.txt(String(i + 1), x + 10, y + 6, 20, D);
-    if (!res && !wrongPick) k.hit(x, y, CW, CHH, () => { if (L.petted) { L.petted = false; return; } V.pressed = i; V.pressAt = k.now; V.buf = ''; L.dirty = true; k.fast(500); send('exos.repondre', { value: s }); });
+    if (!res && !wrongPick) k.hit(x, y, CW, CHH, () => { if (L.petted) { L.petted = false; return; } V.pressed = i; V.pressAt = k.now; V.buf = ''; L.dirty = true; k.fast(500); send('exos.repondre', { value: s, id: c.id }); });
   });
 }
 function drawBilan(k, c) {
@@ -210,11 +226,11 @@ setInterval(() => { if (V.offering && !offering()) V.offering = false; }, 1000);
 
 /* ---------- a keyboard: the Pi's, or a computer's (not while typing in a field) ---------- */
 function visible() { const cv = document.getElementById('crt'); return !!cv && cv.offsetParent !== null; }
-function choose(i) { const c = cur(); if (!c || c.etat !== 'question' || !c.choices[i] || (c.faux || []).includes(c.choices[i])) return; V.pressed = i; V.pressAt = nowMs(); send('exos.repondre', { value: c.choices[i] }); }
+function choose(i) { const c = cur(); if (!c || c.etat !== 'question' || !c.choices[i] || (c.faux || []).includes(c.choices[i])) return; V.pressed = i; V.pressAt = nowMs(); send('exos.repondre', { value: c.choices[i], id: c.id }); }
 function submit() {
   const c = cur(); if (!c || c.etat !== 'question' || !V.buf) return;
   const b = V.buf.trim(); V.buf = '';
-  send('exos.repondre', { value: b });
+  send('exos.repondre', { value: b, id: c.id });
 }
 addEventListener('keydown', e => {
   const c = cur();
@@ -227,7 +243,7 @@ addEventListener('keydown', e => {
   else if (q && (key === 'h' || key === 'H' || key === ':') && c.clavier === 'heure' && V.buf && !/h/.test(V.buf)) V.buf += ' h ';
   else if (q && key === '-' && !V.buf) V.buf = '−';
   else if (q && key === 'Backspace') { if (!V.buf) done = false; else V.buf = V.buf.endsWith(' h ') ? V.buf.slice(0, -3) : V.buf.slice(0, -1); }
-  else if (key === 'Enter') { if (q) submit(); else send(c.etat === 'bilan' || !(c.mode === 'serie' || c.mode === 'table') ? 'exos.stop' : 'exos.passer'); }
+  else if (key === 'Enter') { if (q) submit(); else if (c.etat === 'bilan' || !(c.mode === 'serie' || c.mode === 'table')) send('exos.stop'); else send('exos.passer', { id: c.id, etat: c.etat }); }
   else if (key === 'Escape') { if (V.buf) V.buf = ''; else send('exos.stop'); }
   else if (q && (key === 'i' || key === '?')) send('exos.indice');
   else done = false;
@@ -260,6 +276,7 @@ function togglePanel(on) {
   if (!panel) return;
   const v = on == null ? panel.hidden : !!on;
   panel.hidden = !v; goBtn.setAttribute('aria-expanded', String(v)); store.set('pixel.exos.open', v ? '1' : '0');
+  if (!v) clearInterval(chronoT);                          // the challenge's clock stops with the panel; it starts again when it opens
   if (v) { shown = ''; shownStats = ''; panelState(); panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 }
 function btn(text, fn, cls) { const b = $el('button', cls || null, text); b.type = 'button'; b.addEventListener('click', fn); return b; }
@@ -312,23 +329,28 @@ function renderBody(c) {
     } else if (c.hint) out.push($el('p', 'ex-hint', 'Indice : ' + c.hint));
     const ch = $el('div', 'ex-choices');
     c.choices.forEach(s => {
-      const b = btn(s, () => { send('exos.repondre', { value: s }); padBuf = ''; }), wrong = (c.faux || []).includes(s);
+      const b = btn(s, () => { send('exos.repondre', { value: s, id: c.id }); padBuf = ''; }), wrong = (c.faux || []).includes(s);
       if (wrong) { b.disabled = true; b.classList.add('wrong'); }
       if (c.etat === 'resultat') { b.disabled = true; if (s === c.answer) b.classList.add('right'); }
       ch.append(b);
     });
     out.push(ch);
-    if (c.etat === 'question' && c.clavier) {                // a keypad for numbers (and times: the h key)
+    if (c.etat === 'question' && c.clavier) {                // a keypad for numbers (and times: the h key; negative numbers: the − key)
       const typed = $el('output', 'ex-typed'); typed.id = 'exTyped'; typed.textContent = padBuf || ' ';
+      const neg = c.clavier === 'num' && c.choices.some(x => x.startsWith('−'));
       const pad = $el('div', 'ex-pad'), keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', c.clavier === 'heure' ? 'h' : ',', '0', '⌫'];
       for (const kk of keys) pad.append(btn(kk, () => { if (kk === '⌫') padBuf = padBuf.slice(0, -1); else if (padBuf.length < 9) padBuf += kk === 'h' ? ' h ' : kk; typed.textContent = padBuf || ' '; }, kk === '⌫' ? 'del' : null));
       pad.lastChild.setAttribute('aria-label', 'Effacer');
-      pad.append(btn('OK', () => { if (padBuf.trim()) { send('exos.repondre', { value: padBuf.trim() }); padBuf = ''; typed.textContent = ' '; } }, 'ok'));
+      if (neg) {                                             // − puts the sign in front, or takes it away
+        const m = btn('−', () => { padBuf = padBuf.startsWith('−') ? padBuf.slice(1) : '−' + padBuf; typed.textContent = padBuf || ' '; }, 'neg');
+        m.setAttribute('aria-label', 'Moins'); pad.append(m);
+      }
+      pad.append(btn('OK', () => { if (padBuf.trim()) { send('exos.repondre', { value: padBuf.trim(), id: c.id }); padBuf = ''; typed.textContent = ' '; } }, 'ok' + (neg ? ' half' : '')));
       out.push(typed, pad);
     }
     const act = $el('div', 'ex-actions');
-    if (c.etat === 'question') act.append(btn('Indice', () => send('exos.indice')), btn('Passer', () => send('exos.passer')), btn('Arrêter', () => send('exos.stop')));
-    else if ((c.mode === 'serie' || c.mode === 'table') && c.i < c.n) act.append(btn('Suivant', () => send('exos.passer'), 'main'), btn('Arrêter', () => send('exos.stop')));
+    if (c.etat === 'question') act.append(btn('Indice', () => send('exos.indice')), btn('Passer', () => send('exos.passer', { id: c.id, etat: c.etat })), btn('Arrêter', () => send('exos.stop')));
+    else if ((c.mode === 'serie' || c.mode === 'table') && c.i < c.n) act.append(btn('Suivant', () => send('exos.passer', { id: c.id, etat: c.etat }), 'main'), btn('Arrêter', () => send('exos.stop')));
     else act.append(btn('Encore', () => send('exos.encore'), 'main'), btn('Fini', () => send('exos.stop')));
     if (c.etat === 'question' && c.hint) act.firstChild.disabled = true;
     out.push(act);

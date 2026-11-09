@@ -7,7 +7,11 @@
 - the game, on a fake clock: the hint and the second try, the correction, a series, a table, the 60 s challenge, the levels
   that go up and down (or stay, when fixed), the daily goal, the streaks, the trophies, an exercise left alone, the files;
 - the right answer never in what the screens get before it is answered;
-- through a demo server: the typed commands (a bare number only while an exercise is open), the actions, Claude's tool.
+- an answer names its exercise: a double tap, a late screen or the same wrong answer twice never use up the second try, nor
+  answer the next question; a milestone's celebration is not cut; a wrong-shaped exos.json never stops Pixel;
+- through a demo server (started on an exos.json that holds `null`): the typed commands (a bare number only while an exercise
+  is open, and then never Claude's, even during the correction; « 4 025 » the French way), « encore » / « une autre » only
+  during or just after an exercise, the actions, Claude's tool.
 The kiosk, the phone panel and Pixel's scenes are tested in a browser by tests/test_exos.js.
 """
 import asyncio
@@ -75,6 +79,17 @@ def generator():
     a, b = exos.generate("table", 3, random.Random(42)), exos.generate("table", 3, random.Random(42))
     check("the same seed gives the same exercise", a == b and exos.generate("mental", 5, random.Random(7)) == exos.generate("mental", 5, random.Random(7)))
     check("15 kinds, 5 levels, labels in French", len(exos.KINDS) == 15 and exos.LABEL["enigme"] == "Énigmes" and exos.LABEL["heure"] == "Heures et durées")
+    empty, zero = [], []
+    for kind in exos.IDS:
+        for lv in range(1, 6):
+            for seed in range(300):
+                e = exos.generate(kind, lv, random.Random(seed))
+                m = re.fullmatch(r"([^:]*) = ([^:=]+) : ([^:=]+)\.", e["explication"])
+                if m and exos.canon(m.group(2)) == exos.canon(m.group(3)):          # « 35 % de 40 = 14 : 14. »
+                    empty.append(e["explication"])
+                if re.search(r"(?<![\d,])0 min", e["explication"]):                  # « puis encore 0 min »
+                    zero.append(e["explication"])
+    check("every correction says how (never « 35 % de 40 = 14 : 14. », never « encore 0 min »)", not empty and not zero, str((empty[:2], zero[:2])))
 
     def find(kind, lv, pred, tries=400):
         for s in range(tries):
@@ -132,7 +147,8 @@ def answer_of(ex):
 
 
 def wrong_of(ex):
-    return next(c for c in ex.cur["choices"] if not exos.same(c, ex.cur["answer"]))
+    """A wrong choice not given yet (the same wrong answer twice is ignored: a double tap)."""
+    return next(c for c in ex.cur["choices"] if not exos.same(c, ex.cur["answer"]) and c not in ex.cur["faux"])
 
 
 LEAK = ("answer", "explication", "calc", "hint")
@@ -157,7 +173,7 @@ def game(tmp):
     p = ex.public()["cur"]
     check("a first wrong answer: the hint and a second try, the wrong choice remembered, Pixel encourages",
           r == "indice" and p["tries"] == 1 and p["hint"] and p["faux"] == [wrong] and "answer" not in p and ex.ev["kind"] == "faux" and ex.ev["essai"] == 1, str(p))
-    ex.repondre(wrong_of(ex) if len([c for c in ex.cur["choices"] if c != wrong]) else wrong)
+    ex.repondre(wrong_of(ex))
     p = ex.public()["cur"]
     check("a second wrong answer: the correction (the answer and how to find it)",
           p["etat"] == "resultat" and p["ok"] is False and p["answer"] and p["explication"] and ex.ev["kind"] == "faux" and ex.ev["essai"] == 2, str(p))
@@ -193,7 +209,7 @@ def game(tmp):
         clk.go(1)
         ex.tick()
         check(f"series: question {i + 1}/5, the next one waits a moment", ex.cur["etat"] == "resultat") if i == 0 else None
-        clk.go(2)
+        clk.go(4)                           # 5 s: a milestone holds the result a little longer (CHEER_MS)
         ex.tick()
     p = ex.public()["cur"]
     check("a series of 5: 1/5 to 5/5, then the summary 5/5 and Pixel celebrates", seen == [1, 2, 3, 4, 5] and p["etat"] == "bilan" and p["bons"] == 5 and p["total"] == 5
@@ -210,7 +226,7 @@ def game(tmp):
         m = re.fullmatch(r"7 × (\d+) = \?", ex.cur["q"])
         ks.append(int(m.group(1)) if m else -1)
         ex.repondre(str(7 * ks[-1]))
-        clk.go(3)
+        clk.go(5)
         ex.tick()
     check("« table de 7 »: 10 questions 7 × 1 to 7 × 10 in any order, all right by typing the product", sorted(ks) == list(range(1, 11)) and ex.cur["bons"] == 10, str(ks))
     ex.stop()
@@ -261,6 +277,73 @@ def game(tmp):
     ex2.nouveau()
     check("a mixed exercise takes the chosen kinds", ex2.cur["kind"] == "addition")
 
+    # double taps, late screens
+    ex4 = exos.Exos(None, clock=clk, rng=random.Random(4))
+    ex4.nouveau(kind="table", niveau=3)
+    w, i0 = wrong_of(ex4), ex4.cur["id"]
+    r1, r2 = ex4.repondre(w, i0), ex4.repondre(w, i0)
+    check("a double tap on a wrong choice: the hint and a second try, the second tap ignored (not the correction)",
+          r1 == "indice" and r2 is None and ex4.cur["etat"] == "question" and ex4.cur["tries"] == 1 and ex4.cur["faux"] == [w], str(ex4.cur["faux"]))
+    check("…the same wrong number typed again is ignored too", ex4.repondre(" " + w + " ") is None and ex4.cur["tries"] == 1)
+    check("an answer naming another exercise (a late screen) is ignored", ex4.repondre(answer_of(ex4), i0 - 1) is None and ex4.cur["etat"] == "question")
+    check("…its own id answers it", ex4.repondre(answer_of(ex4), str(i0)) is True)
+    ex4.nouveau(mode="serie", kind="double", niveau=1)
+    i1 = ex4.cur["id"]
+    ex4.passer(i1, "question")
+    ex4.passer(i1, "question")
+    check("a double tap on « Passer »: the answer shown, the second tap does not skip it", ex4.cur["etat"] == "resultat" and ex4.cur["id"] == i1 and ex4.cur["passe"])
+    ex4.passer(i1, "resultat")
+    check("…« Suivant » then goes on", ex4.cur["id"] != i1 and ex4.cur["etat"] == "question")
+    ex4.nouveau(mode="chrono", kind="addition", niveau=1)
+    i2, a2 = ex4.cur["id"], answer_of(ex4)
+    ex4.repondre(a2, i2)
+    i3, total = ex4.cur["id"], ex4.stats["total"]
+    check("the challenge: a double tap on the right answer is not a mistake on the next question",
+          ex4.repondre(a2, i2) is None and ex4.cur["id"] == i3 and ex4.stats["total"] == total and ex4.run["bons"] == 1 and ex4.last["ok"])
+    ex4.stop()
+
+    # his celebrations are not cut
+    ex5 = exos.Exos(None, clock=clk, rng=random.Random(5))
+    ex5.set_reglages(objectif=2)
+    ex5.nouveau(mode="serie", n=2, kind="double", niveau=1)
+    ex5.repondre(answer_of(ex5))
+    check("a series: a right answer, the next question 2 s later", ex5.cur["next_at"] - ex5.ms() == 2000)
+    clk.go(2)
+    ex5.tick()
+    ex5.repondre(answer_of(ex5))
+    wait = ex5.cur["next_at"] - ex5.ms()
+    check("its last one reaches the daily goal: the result stays 5 s, so « Objectif du jour » plays to its end before the summary",
+          ex5.ev["kind"] == "objectif" and wait >= exos.CHEER_MS, f"{ex5.ev} {wait}")
+    clk.go(2.2)
+    ex5.tick()
+    check("…no summary 2 s later", ex5.cur["etat"] == "resultat")
+    clk.go(3)
+    ex5.tick()
+    check("…then the summary", ex5.cur["etat"] == "bilan" and ex5.ev["kind"] == "serie" and ex5.ev["fin"])
+    ex5.stop()
+    ex5.nouveau(mode="serie", n=2, kind="double", niveau=1)
+    ex5.repondre(answer_of(ex5))
+    clk.go(2)
+    ex5.tick()
+    ex5.repondre(answer_of(ex5))
+    check("the last one of a series, no milestone: 3 s, his cheer ends before the summary", ex5.cur["next_at"] - ex5.ms() == 3000 and ex5.ev["kind"] == "juste")
+    ex5.stop()
+
+    # « encore », « une autre »
+    ex6 = exos.Exos(None, clock=clk, rng=random.Random(6))
+    check("nothing played: « encore » is not for the exercises", not ex6.wants_again())
+    ex6.nouveau(kind="double", niveau=1)
+    check("an exercise open: it is", ex6.wants_again())
+    ex6.repondre(answer_of(ex6))
+    clk.go(7)
+    ex6.tick()
+    check("just after one ended by itself: it is", ex6.cur is None and ex6.wants_again())
+    clk.go(150)
+    check("…but not minutes later (« une autre » is Claude's again)", not ex6.wants_again())
+    ex6.nouveau(kind="double", niveau=1)
+    ex6.stop(user=True)
+    check("nor after « Fini » or « stop exo »", not ex6.wants_again())
+
     # the daily goal
     ex3 = exos.Exos(None, clock=clk, rng=random.Random(3))
     got = []
@@ -289,6 +372,23 @@ def game(tmp):
     path.write_text("{pas du json")
     broken = exos.Exos(path, clock=clk)
     check("a broken exos.json: a fresh start, no crash", broken.stats["total"] == 0 and broken.reglages["objectif"] == 5)
+    shapes, crashed = ["null", "[]", '"x"', '{"reglages": "x"}', '{"reglages": {"save": true, "niveau": [1], "types": [{}]}}', '{"stats": "x"}',
+                       '{"stats": {"par_type": {"table": 5, "carre": {"n": 3, "ok": 9}}, "niveaux": {"table": "x", "carre": 9}, "trophees": [1, {}],'
+                       ' "montee": {"table": 99}, "total": true, "jour": 5, "niveau": 8}}'], []
+    for bad in shapes:
+        path.write_text(bad)
+        try:
+            b = exos.Exos(path, clock=clk)
+            b.public()
+            b.nouveau(kind="carre")
+            b.repondre(answer_of(b))
+            b.public()
+            b.summary()
+            if b.stats["par_type"].get("carre", {}).get("ok", 0) > b.stats["par_type"].get("carre", {}).get("n", 0) or b.stats["trophees"] != ["premier"]:
+                crashed.append(bad + " (kept as it was)")
+        except Exception as e:
+            crashed.append(f"{bad}: {type(e).__name__} {e}")
+    check("an exos.json of the wrong shape (null, a list, odd values): a fresh start for what is wrong, no crash", not crashed, " | ".join(crashed[:2]))
     s = exos.Exos(None, clock=clk)
     s.stats.update(total=12, justes=9, aujourdhui=2, serie_max=4)
     check("« mes scores »: a short summary", "Aujourd'hui : 2 exos sur 5" in s.summary() and "75 % de justes" in s.summary(), s.summary())
@@ -410,6 +510,61 @@ async def server(tmp):
             check("the stats are saved in the data folder (exos.json)", data["stats"]["total"] >= 2 and data["reglages"]["objectif"] == 8)
 
 
+async def commands_direct(tmp):
+    """The typed commands on a hub of their own, on a fake clock: what goes to the exercise, what stays Claude's."""
+    from pixel import commands
+    hub = Hub({"data_dir": tmp}, demo=True)
+    asked, toasts = [], []
+
+    @hub.action("chat.ask")
+    async def ask(text=""):
+        asked.append(text)
+        hub.s["screen"] = "claude"
+
+    hub.toast = lambda msg, ms=3000: toasts.append(msg)
+    ex = exos.setup(hub, tmp)
+    clk = Clock()
+    ex.clock = clk
+    ex.R = random.Random(8)
+
+    async def say(text):
+        n = len(asked)
+        await commands.run(hub, text)
+        return len(asked) > n                                 # True: it went to Claude
+
+    await say("exo")
+    await say("stop exo")
+    await say("raconte-moi une blague")
+    check("« une autre » after « stop exo » and a joke: Claude's (another joke), not an exercise", await say("une autre") and ex.cur is None)
+    check("« encore » too", await say("encore") and ex.cur is None)
+    await say("exo")
+    ex.repondre(answer_of(ex))
+    clk.go(7)
+    ex.tick()
+    check("« une autre » just after an exercise ended by itself: another exercise", not await say("une autre") and ex.cur is not None)
+    ex.stop()
+    clk.go(200)
+    check("…minutes later: Claude's", await say("une autre") and ex.cur is None)
+    ex.nouveau(kind="table", niveau=2)
+    hub.s["screen"] = "visage"
+    ex.repondre(answer_of(ex))
+    check("a number typed during the correction: neither Claude's nor an answer, a short word instead",
+          not await say("12") and hub.s["screen"] == "visage" and ex.cur["etat"] == "resultat" and toasts and "fini" in toasts[-1], str(toasts[-1:]))
+    ex.nouveau(mode="serie", kind="table", niveau=2)
+    ex.repondre(answer_of(ex))
+    check("…during a series: « La question suivante arrive ! »", not await say("réponse 12") and toasts[-1] == "La question suivante arrive !")
+    ex.stop()
+    for _ in range(50):
+        ex.nouveau(kind="addition", niveau=5)
+        if len(re.sub(r"\D", "", ex.cur["answer"])) >= 4:
+            break
+    v = int(re.sub(r"\D", "", ex.cur["answer"])) + 100
+    typed = f"{v // 1000} {v % 1000:03d}"
+    check(f"a number with a thousands space (« {typed} »): the exercise's answer, not Claude's", not await say(typed) and ex.cur["tries"] == 1, str(ex.cur["faux"]))
+    check("…and the right one the same way", not await say(ex.cur["answer"].replace("\u00a0", " ")) and ex.cur["ok"])
+    hub.exos_task.cancel()
+
+
 async def claude_tool(tmp):
     tool = next((t for t in TOOLS if t["name"] == "start_exercise"), None)
     check("Claude has a start_exercise tool (kind, mode, level, table)", tool and set(tool["input_schema"]["properties"]) == {"kind", "mode", "niveau", "table"}
@@ -433,6 +588,9 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as tmp:
         asyncio.run(claude_tool(tmp))
     with tempfile.TemporaryDirectory() as tmp:
+        asyncio.run(commands_direct(tmp))
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "exos.json").write_text("null")          # valid JSON of the wrong shape: Pixel starts all the same
         srv = start_server(PORT, tmp)
         try:
             asyncio.run(server(tmp))

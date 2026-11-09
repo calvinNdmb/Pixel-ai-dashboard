@@ -42,6 +42,7 @@ body[data-mode="pixel"] .exos,body.kiosk .exos,body.poche .exos{display:none!imp
 .ex-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .ex-pad button{font-size:calc(30px*var(--k-size))}
 .ex-pad button.ok{grid-column:1/-1;background:var(--k-cur);color:var(--k-curfg);border-color:var(--k-cur)}
+.ex-pad button.ok.half{grid-column:2/-1}
 .ex-actions{display:flex;gap:8px;margin-top:12px}
 .ex-actions button{flex:1}
 .ex-result{margin:0 0 12px;padding:10px 12px;border-radius:10px;border:2px solid var(--k-act)}
