@@ -243,11 +243,13 @@ function lidClip(x, y, w, h, lid, slant, happy, side) {
   if (happy > 0.01) { const r = 0.66 * w; X.beginPath(); X.rect(L, y - 3 * h, 4 * w, 6 * h + 4 * r); X.arc(x, y + h / 2 + r - happy * h * 0.75, r, 0, TAU); X.clip('evenodd'); }
 }
 /* the outline of an eye as a polygon, for the outlined styles (neon tubes, pencil): a rounded rect w x h whose
-   bottom is pushed up onto the happy-lid disc (^ eyes), then cut by the top lid line (sleepy, sad, angry) */
-function eyePoly(x, y, w, h, lid, slant, happy, side, rad = 0.44) {
+   bottom is pushed up onto the happy-lid disc (^ eyes), then cut by the top lid line (sleepy, sad, angry).
+   base: another outline (flat [x, y, ...], « Son look »'s eye shapes) cut the same way */
+function eyePoly(x, y, w, h, lid, slant, happy, side, rad = 0.44, base = null) {
   const r = Math.min(w, h) * rad, x0 = x - w / 2 + r, x1 = x + w / 2 - r, y0 = y - h / 2 + r, y1 = y + h / 2 - r;
   let pts = [];
-  for (const [ax, ay, a0] of [[x1, y0, -Math.PI / 2], [x1, y1, 0], [x0, y1, Math.PI / 2], [x0, y0, Math.PI]]) {
+  if (base) for (let i = 0; i < base.length; i += 2) pts.push([base[i], base[i + 1]]);
+  else for (const [ax, ay, a0] of [[x1, y0, -Math.PI / 2], [x1, y1, 0], [x0, y1, Math.PI / 2], [x0, y0, Math.PI]]) {
     for (let i = 0; i <= 6; i++) { const t = a0 + i / 6 * Math.PI / 2; pts.push([ax + Math.cos(t) * r, ay + Math.sin(t) * r]); }
     const [bx, by] = pts[pts.length - 1], nx = a0 === -Math.PI / 2 ? [x1 + r, y1] : a0 === 0 ? [x0, y1 + r] : a0 === Math.PI / 2 ? [x0 - r, y0] : [x1, y0 - r];
     for (let i = 1; i < 4; i++) pts.push([lerp(bx, nx[0], i / 4), lerp(by, nx[1], i / 4)]);
@@ -331,6 +333,82 @@ function extras(cx, cy, u, p, a, pen) {
   FX.bang(cx + 12.5 * u, cy - 14 * u, u, p.bang, t, pen); FX.quest(cx + 13 * u, cy - 10 * u, u, p.quest, t, pen);
   FX.anger(cx + 12.5 * u, cy - 9.5 * u, u, p.anger, t, pen); FX.sweat(cx + 13.5 * u, cy - 6.5 * u, u, p.sweat, t, pen);
 }
+/* =================== « Son look » (web/look.js): his eye shapes and colours, what he wears ===================
+   window.PixelLook, when loaded, compiles the look of the face being drawn (its cur(); with() for a visiting friend's Pixel).
+   look() is null for the look of every day: every face then draws exactly as before. Else { C, ph, t, L }: C the look (shape,
+   eye, cheek, mono, wear), ph what each slot wore a moment ago (a new hat drops in, an old one flies off; one memory per
+   PixelThemes, i.e. per canvas). Each face takes the outline of its open eyes from lookPts, its colours from lookEye and
+   lookCheek, and draws what he wears around its own anchors (lookA) with its own pen (lookWear); the pixel faces in blocks
+   (lookPix); the pack's engine gets hooks (pkFrame, pkVector). Never over his eyes and mouth: hats, moustache, bow tie and
+   lenses (in pixels) come first ('under'), only glasses' frames after them ('over'). */
+let LKtr = null;
+function look() {
+  const L = window.PixelLook; if (!L || !L.cur) return null;
+  const C = L.cur(); if (!C) return null;
+  if (!LKtr) LKtr = L.tracker();
+  const ph = LKtr.phases(C, H.now);
+  return C.plain && !ph.busy ? null : { C, ph, t: H.now, L };
+}
+const lookPts = (lk, x, y, w, h, side, happy = 0) => (lk && happy < 0.35 ? lk.L.shapePts(lk.C.shape, x, y, w, h, side) : null);
+const lookEye = (lk, kind) => (lk ? lk.L.eyeHex(lk.C, kind) : null);           // null (the theme's), a colour, or 'arc'
+const lookCheek = (lk, kind) => (lk ? lk.L.cheekHex(lk.C, kind) : null);
+function rainbowFill(x, y, w, h, alpha = 1) {                                   // a rainbow across an eye, drifting gently
+  const g = X.createLinearGradient(x - w / 2, y - h / 2, x + w / 2, y + h / 2), o = (H.now / 4200) % 1;
+  for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, `hsla(${Math.round(((i / 6 + o) % 1) * 360)},95%,64%,${alpha})`);
+  return g;
+}
+/* a vector face's anchors, in its body() frame: eyes at cx ± ex u on the line ey u above cy, open eyes ew x eh u (half
+   sizes), the mouth's top my u and the chin chin u below cy; the hat sits above the eyes, smaller when there is little room */
+function lookA(cx, cy, u, ex, ey, ew, eh, my, chin, top) {
+  const k = (2 * ex * u) / 32, eye = cy - ey * u, t = top !== undefined ? top : eye - eh * u - 1.4 * k;
+  return { k, x0: cx, eye, eyeL: cx - ex * u, eyeR: cx + ex * u, top: t, mouth: cy + my * u, chin: cy + chin * u, ew: ew * u / k, eh: eh * u / k,
+    side: (ex * u + ew * u) / k + 5.4, topF: (t - eye) / k, hs: clamp((t - 6) / (12.6 * k), 0.62, 1) };
+}
+/* a big face (his own screen): what he wears stops above the info line (y 434), whatever his moves */
+function lookClip(k) { if (k < 5) return; const m = X.getTransform(), S = SC(); X.setTransform(S, 0, 0, S, 0, 0); X.beginPath(); X.rect(-400, -400, 1600, 834); X.clip(); X.setTransform(m); }
+function lookWear(lk, layer, A, pen, kind) { if (!lk) return; X.save(); try { lookClip(A.k); lk.L.paint(lk.C, layer, A, pen, kind, lk.ph, lk.t); } finally { X.restore(); } }
+const lpath = (pts, close = true) => { X.beginPath(); for (let i = 0; i < pts.length; i += 2) i ? X.lineTo(pts[i], pts[i + 1]) : X.moveTo(pts[i], pts[i + 1]); if (close) X.closePath(); };
+/* the pens: how each theme draws what he wears */
+const MODPEN = {                    // Moderne: soft flat colours, a light rim, a shine
+  shape(pts, c, pr, a) { X.globalAlpha = a; lpath(pts); X.fillStyle = c; X.fill(); X.globalAlpha = a * 0.3; X.strokeStyle = '#ffffff'; X.lineWidth = 1.2; X.stroke(); X.globalAlpha = 1; },
+  line(pts, c, w, pr, a) { X.globalAlpha = a; lpath(pts, pr[0] === 'c'); X.strokeStyle = c; X.lineWidth = w; X.lineCap = X.lineJoin = 'round'; X.stroke(); X.globalAlpha = 1; },
+  glint(pts, a) { X.globalAlpha = a * 0.55; lpath(pts, false); X.strokeStyle = '#ffffff'; X.lineWidth = 2; X.lineCap = 'round'; X.stroke(); X.globalAlpha = 1; },
+};
+const kanPen = lw => ({             // Manga: flat colours in an ink outline, a white shine
+  shape(pts, c, pr, a) { X.globalAlpha = a; lpath(pts); X.fillStyle = c; X.fill(); X.strokeStyle = INK; X.lineWidth = lw; X.lineJoin = 'round'; X.stroke(); X.globalAlpha = 1; },
+  line(pts, c, w, pr, a) { X.globalAlpha = a; lpath(pts, pr[0] === 'c'); X.lineCap = X.lineJoin = 'round'; X.strokeStyle = INK; X.lineWidth = w + lw * 1.3; X.stroke(); X.strokeStyle = c; X.lineWidth = w; X.stroke(); X.globalAlpha = 1; },
+  glint(pts, a) { X.globalAlpha = a * 0.9; lpath(pts, false); X.strokeStyle = '#ffffff'; X.lineWidth = lw * 1.3; X.lineCap = 'round'; X.stroke(); X.globalAlpha = 1; },
+});
+const neoPen = lw => ({             // Néon: a tube of light along each outline, a faint glow inside
+  shape(pts, c, pr, a) { X.globalAlpha = a * (pr[1] === 'L' ? 0.75 : 0.16); lpath(pts); X.fillStyle = c; X.fill(); X.globalAlpha = a; if (pr[1] !== 'L') tube(c, lw, () => lpath(pts)); X.globalAlpha = 1; },
+  line(pts, c, w, pr, a) { X.globalAlpha = a; tube(c, Math.max(lw * 0.8, w * 0.65), () => lpath(pts, pr[0] === 'c')); X.globalAlpha = 1; },
+  glint() {},
+});
+const quiPen = (lw, amp) => ({      // Croquis: coloured-pencil hatching on white paper, a wobbly graphite outline
+  shape(pts, c, pr, a) { X.globalAlpha = a; lpath(pts); X.fillStyle = pr[1] === 'L' ? 'rgba(40,40,48,0.55)' : '#fffdf6'; X.fill(); if (pr[1] !== 'L') { X.fillStyle = hexA(c, 0.42); X.fill(); X.fillStyle = hatchPat(c, Math.max(3, lw * 2.4)); X.fill(); } pencil(pts, true, amp, boil() + pts.length, lw); X.globalAlpha = 1; },
+  line(pts, c, w, pr, a) { X.globalAlpha = a; pencil(pts, pr[0] === 'c', amp, boil() + 3, Math.max(lw, w * 0.75), pr[1] === 'F' || pr[1] === 'K' ? Q.fg : c); X.globalAlpha = 1; },
+  glint() {},
+});
+/* the pixel faces (Rétro, LCD): what he wears in blocks of A.k px, one cached sprite per drawing, theme and size */
+function lookPix(lk, layer, A, kind) {
+  const L = lk.L, mono = !!lk.C.mono, z = A.k, P = kind === 'retro' ? 8 : 0, E = kind === 'retro' ? 0 : 3;
+  X.save(); lookClip(z);
+  for (const b of L.bitmaps(lk.C, layer, A, lk.ph)) {
+    const lens = !!b.lens, px = b.bm.px.filter(p => (lens ? p[4] : !p[4]));          // a lens only under his eyes, from its own entry
+    if (!px.length) continue;
+    const spr = cached(`lk${kind}${mono ? 1 : 0}${b.key}${lens ? 'u' : layer}${z}`, b.bm.w * z + 2 * P + E, b.bm.h * z + 2 * P + E, g => {
+      for (const p of px) {
+        const c = L.pixRole(p, kind, mono, !lens), x = (p[0] - b.bm.x) * z + P, y = (p[1] - b.bm.y) * z + P;
+        if (kind === 'retro') g.drawImage(cached('rpx' + c + z, z + 16, z + 16, q => { q.shadowColor = c; q.shadowBlur = sb(10); q.fillStyle = c; q.fillRect(9, 9, z - 2, z - 2); }), x - 8, y - 8, z + 16, z + 16);
+        else g.drawImage(cached('lpx' + c + z, z + 3, z + 3, q => { q.fillStyle = 'rgba(32,44,24,0.2)'; q.fillRect(2.5, 2.5, z - 1, z - 1); q.fillStyle = c; q.fillRect(0.5, 0.5, z - 1, z - 1); }), x, y, z + 3, z + 3);
+      }
+    });
+    X.globalAlpha = b.k;
+    X.drawImage(spr, Math.round(b.ox + b.bm.x * z - P), Math.round(b.oy + (b.bm.y + b.dy) * z - P), spr.width / SC(), spr.height / SC());
+    X.globalAlpha = 1;
+  }
+  X.restore();
+}
 /* =================== shared pixel face rig (retro, lcd) ===================
    Bitmaps per mood; bounces, squash and tilt move whole blocks; a mood change dissolves block by block
    (ordered dither). put(x, y, s, key) draws one block; keys: '#' main colour, 'w' highlight, 'p' pink, 'a' accent, 'd' dim. */
@@ -373,12 +451,15 @@ function pixFace(cx, cy, s, md, a, put, ink, w, L = PL) {
   cy -= Math.round(a.hop * 1.2) * s;
   const q = Math.round(a.sq * 3), tl = Math.round(a.tilt * 9), ex = Math.round(a.lx) * s, ey = Math.round(a.ly) * s;
   const sick = md === 'malade', P = sick ? (x, y, ss, k) => put(x, y, ss, k === '#' ? 'd' : k) : put;
-  const eye = (id, x0, side) => { if (!id) return; const b = PE[id], bw = b[0].length; bm(b, x0 - (bw - 5) / 2 * s + side * q * s + ex, cy - (b.length > 6 ? L.ey + 0.5 : L.ey) * s + q * s + ey - side * tl * s, s, P); };
+  const lk = PLK, ec = lk && !sick ? lk.ec : null;                                   // « Son look »: his eyes' shape and colour, his cheeks
+  const EP = ec ? (x, y, ss, k) => P(x, y, ss, k === '#' ? (ec === 'arc' ? lk.L.rainbow((x - cx) / ss, t, lk.kind) : ec) : k === 'w' && lk.hi ? lk.hi : k) : P;
+  const eye = (id, x0, side) => { if (!id) return; const b = (lk && lk.L.pixEye(lk.C.shape, id)) || PE[id], bw = b[0].length; bm(b, x0 - (bw - 5) / 2 * s + side * q * s + ex, cy - (b.length > 6 ? L.ey + 0.5 : L.ey) * s + q * s + ey - side * tl * s, s, EP); };
   eye(le, cx - L.ex * s, -1); eye(re, cx + (L.ex - 5) * s, 1);
   const mx = Math.round(a.lx / 2) * s, my = cy + L.my * s - q * s;
   if (mo === 'bars') for (let i = 0; i < 7; i++) { const h = Math.round((0.5 + 0.5 * Math.sin(t / 85 + i * 1.9)) * 2.2 * Math.sin((i + 0.5) / 7 * Math.PI)); for (let k = -h; k <= h; k++) P(cx - 3.5 * s + i * s + mx, my + s + k * s, s, '#'); }
   else if (mo) { const b = PM[mo]; bm(b, cx - b[0].length * s / 2 + mx, my, s, P); }
-  if (m.ch) for (let c = 0; c < 3; c++) { P(cx - L.ch * s + c * s, cy + (L.cy ?? 2.5) * s, s, 'p'); P(cx + (L.ch - 3) * s + c * s, cy + (L.cy ?? 2.5) * s, s, 'p'); }
+  const ck = lk && lk.cc ? lk.cc : 'p';
+  if (m.ch) for (let c = 0; c < 3; c++) { P(cx - L.ch * s + c * s, cy + (L.cy ?? 2.5) * s, s, ck); P(cx + (L.ch - 3) * s + c * s, cy + (L.cy ?? 2.5) * s, s, ck); }
   const fx = m.fx, hs = Math.max(2, Math.round(s * 0.45)), half = Math.max(2, Math.round(s / 2)), f = L.fx || 1, A = (x, y, ss) => P(x, y, ss, 'a');
   if (fx === 'zzz') for (let k = 0; k < 3; k++) { const p = (t / 1500 + k / 3) % 1; X.globalAlpha = (1 - p) * w; H.txt('z', cx + 9 * f * s + p * 4 * s, cy - 8 * f * s - p * 6 * s, Math.round((1.6 + p * 2) * s), ink); X.globalAlpha = 1; }
   if (fx === 'hearts') for (let k = 0; k < 3; k++) { const p = (t / 1800 + k / 3) % 1; X.globalAlpha = 1 - p; bm(PHEART, cx + [-17, 14, 2][k] * f * s, cy - 2 * f * s - Math.round(p * 18) * s / 2, hs, P); X.globalAlpha = 1; }
@@ -398,6 +479,11 @@ function pixFace(cx, cy, s, md, a, put, ink, w, L = PL) {
   if (fx === 'yawn') { const p = cyc(a, 3000); if (p > 0.55 && p < 0.9) P(cx - (L.ex + 0.5) * s, cy - 2 * s + Math.round((p - 0.55) * 10) * half, half, 'w'); }
 }
 const PL = { ex: 10.5, ey: 6, my: 3.5, ch: 15.5 };
+/* « Son look » on a pixel face: PLK, set by retro.face and lcdFace around pixMorph, gives pixFace the look's eyes and colours;
+   pixLook makes it (kind: retro or lcd; hi: his eyes' shine); pixLift: how high pixFace lifts his face this frame */
+let PLK = null;
+function pixLook(lk, kind) { const ec = lookEye(lk, kind); return { ...lk, kind, ec, hi: ec && ec !== 'arc' && kind === 'retro' ? lk.L.mix(ec, '#ffffff', 0.55) : null, cc: lookCheek(lk, kind) }; }
+const pixLift = (a, s) => (a.mood === 'content' || a.mood === 'excite' ? Math.round(Math.abs(Math.sin(H.now / 240)) * 0.8) * s : 0) + Math.round(a.hop * 1.2) * s;
 function pixMorph(cx, cy, s, a, put, ink, L) {
   if (a.k >= 1 || a.from === a.mood) return pixFace(cx, cy, s, a.mood, a, put, ink, 1, L);
   const sel = k => (x, y, ss, key) => { if ((bayer(Math.round((x - cx) / s) + 40, Math.round((y - cy) / s) + 40) < a.k) === k) put(x, y, ss, key); };
@@ -418,7 +504,7 @@ function bmp(rows, x, y, s, c) {
   }
 }
 const RK = { '#': R.fg, w: R.hi, p: R.pink, a: R.accent, d: R.dim, f: R.faint };
-const rput = (x, y, s, k) => px(x, y, s, RK[k] || R.fg);
+const rput = (x, y, s, k) => px(x, y, s, RK[k] || (k && k[0] === '#' ? k : R.fg));       // k: a key of RK, or a colour (« Son look »)
 const BULB = ['.###.', '#####', '#####', '.###.', '.....', '.###.'], CLOUD = ['...###....', '..#####.##', '.#########', '##########', '.########.'];
 const MINI = { soleil: ['a.a.a', '.aaa.', 'aaaaa', '.aaa.', 'a.a.a'], nuage: ['.##..', '####.', '#####', '.....', '.....'], pluie: ['.##..', '####.', '#####', '.#.#.', '#.#..'],
   neige: ['.##..', '####.', '#####', 'w.w.w', '.w.w.'], orage: ['.##..', '####.', '#####', '..a..', '.a...'] };
@@ -466,7 +552,15 @@ const retro = {
     let x = cx - w / 2; for (const ch of str) { bmp(DIG[ch], x, y, u, col); x += DIG[ch][0].length * u + u; }
   },
   star(x, y, sz, near) { X.fillStyle = near ? R.fg : R.dim; X.fillRect(x, y, sz, sz); },
-  face(cx, cy, s, md, lx = 0, ly = 0, a) { a = life(a, md, lx, ly); pixMorph(cx, cy, s, a, rput, R.fg); },
+  face(cx, cy, s, md, lx = 0, ly = 0, a) {
+    a = life(a, md, lx, ly); const lk = look();
+    if (!lk) return pixMorph(cx, cy, s, a, rput, R.fg);
+    const z = Math.max(2, Math.round(s / 2)), y0 = cy - pixLift(a, s);             // « Son look »: in half blocks, around his eyes
+    const A = { k: z, x0: cx, eye: y0 - 3 * s, eyeL: cx - 8 * s, eyeR: cx + 8 * s, top: y0 - 6.4 * s, mouth: y0 + PL.my * s, chin: y0 + 7.6 * s,
+      ew: 2.5 * s / z, eh: 3 * s / z, side: 10.5 * s / z + 5.4, topF: -3.4 * s / z, hs: 1 };
+    PLK = pixLook(lk, 'retro');
+    try { lookPix(lk, 'under', A, 'retro'); pixMorph(cx, cy, s, a, rput, R.fg); lookPix(lk, 'over', A, 'retro'); } finally { PLK = null; }
+  },
 };
 
 /* =================== MODERNE =================== */
@@ -484,13 +578,16 @@ function modSun(x, y, k) {
 }
 const MT = moodTable({ surpris: { ew: 1.34, eh: 1.04 } }), modBG = { c: null, t: -1e9 };
 const MPEN = { ink: M.hi, accent: M.accent, love: M.pink, water: '#8fd3ff', lens: '#070b1a', frame: M.fg, spark: M.hi, lw: 0.45, z: 'z' };
-function modEye(x, y, u, p, side, t, col, g) {
+function modEye(x, y, u, p, side, t, col, g, lk) {
   const right = side > 0, open = p.open * (right ? p.rOpen : 1), happy = right ? Math.max(p.happy, p.rHappy) : p.happy, k = 1 - Math.max(p.heart, p.star);
   if (k > 0.03) {
-    const s = 0.35 + 0.65 * k, w = 7 * u * p.ew * s, h = Math.max(0.5 * u, 9 * u * p.eh * open) * s;
+    const s = 0.35 + 0.65 * k, w = 7 * u * p.ew * s, h = Math.max(0.5 * u, 9 * u * p.eh * open) * s, shp = lookPts(lk, x, y, w, h, side, happy);
     X.save(); lidClip(x, y, w, h, p.lid, p.slant, happy, side); X.globalAlpha = 1 - p.shades;
-    X.fillStyle = X.shadowColor = col; X.shadowBlur = g; rr(x - w / 2, y - h / 2, w, h, Math.min(w, h) * lerp(0.44, 0.5, clamp((p.ew - 1) / 0.3, 0, 1))); X.fill();
+    const outline = () => (shp ? poly(shp) : rr(x - w / 2, y - h / 2, w, h, Math.min(w, h) * lerp(0.44, 0.5, clamp((p.ew - 1) / 0.3, 0, 1))));
+    X.fillStyle = X.shadowColor = col === 'arc' ? rainbowFill(x, y, w, h) : col; if (col === 'arc') X.shadowColor = M.fg; X.shadowBlur = g; outline(); X.fill();
     const sh = (1 - happy) * (1 - p.lid) * (1 - p.shades) * clamp((open - 0.4) / 0.3, 0, 1) * k;
+    if (sh > 0.02 && shp) { X.shadowBlur = 0; outline(); X.clip(); }                 // « Son look »: his shines and his cat's slit stay in the shape
+    if (sh > 0.02 && lk && lk.C.shape === 'chat') { X.shadowBlur = 0; X.globalAlpha = sh; X.fillStyle = M.bg; ell(x, y, 0.55 * u * clamp(p.pup, 0.6, 1.2), h * 0.36); X.fill(); }
     if (sh > 0.02) { X.shadowBlur = 0; X.globalAlpha = sh * 0.9; X.fillStyle = '#ffffff'; const q = clamp(p.pup, 0.45, 1.2); ell(x - w * 0.17, y - h * 0.2, 0.95 * u * q, 1.2 * u * q); X.fill(); ell(x + w * 0.15, y + h * 0.12, 0.45 * u * q, 0.45 * u * q); X.fill(); X.globalAlpha = 1; }
     X.restore();
   }
@@ -502,18 +599,21 @@ function modEye(x, y, u, p, side, t, col, g) {
 }
 function modFace(cx, cy, u, md, lx = 0, ly = 0, a) {
   a = life(a, md, lx, ly);
-  const t = H.now, p = rig(a, MT), g = sb(26 * u / 16), col = p.tint > 0.01 ? mixC(M.fg, '#b8f27c', 0.85 * p.tint) : M.fg;
+  const lk = look(), lc = lookEye(lk, 'moderne'), base = lc && lc !== 'arc' ? lc : M.fg, ccol = lookCheek(lk, 'moderne');
+  const t = H.now, p = rig(a, MT), g = sb(26 * u / 16), col = p.tint > 0.01 ? mixC(base, '#b8f27c', 0.85 * p.tint) : lc === 'arc' ? 'arc' : base;
   cy += a.breath * 0.25 * u;                                        // floats gently
   X.save(); body(cx, cy, u, a);
-  const ex = a.lx * 1.35 * u, ey = a.ly * 1.15 * u, Ey = cy - 2.5 * u + ey + p.eyeY * u;
+  const ex = a.lx * 1.35 * u, ey = a.ly * 1.15 * u, Ey = cy - 2.5 * u + ey + p.eyeY * u, LA = lk && lookA(cx, cy, u, 8.5, 2.5, 3.5, 4.5, 4.3, 7.6);
+  if (lk) { X.shadowBlur = 0; lookWear(lk, 'under', LA, MODPEN, 'moderne'); }
   if (p.blush > 0.02) {
-    const ck = cached('mod-cheek-' + u, 6 * u, 6 * u, (q, w) => { const r = q.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, 'rgba(255,143,177,0.6)'); r.addColorStop(1, 'rgba(255,143,177,0)'); q.fillStyle = r; q.fillRect(0, 0, w, w); });
+    const cc = ccol ? hexA(ccol, 0.62).replace(/[^,]+\)$/, '') : 'rgba(255,143,177,', ck = cached('mod-cheek-' + u + (ccol || ''), 6 * u, 6 * u, (q, w) => { const r = q.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, cc + '0.6)'); r.addColorStop(1, cc + '0)'); q.fillStyle = r; q.fillRect(0, 0, w, w); });
     X.globalAlpha = p.blush; for (const s of [-1, 1]) X.drawImage(ck, cx + s * 13.4 * u - 3 * u, cy + 0.4 * u, 6 * u, 6 * u); X.globalAlpha = 1;
   }
-  for (const side of [-1, 1]) modEye(cx + side * 8.5 * u + ex, Ey, u, p, side, t, col, g);
+  for (const side of [-1, 1]) modEye(cx + side * 8.5 * u + ex, Ey, u, p, side, t, col, g, lk);
   FX.shades(cx - 8.5 * u + ex * 0.7, cx + 8.5 * u + ex * 0.7, Ey, u, p.shades, t, MPEN);
-  const mx = cx + a.lx * 0.6 * u, my = cy + 5.3 * u + ey * 0.4, pts = mouthPts(mx, my, u, p, t), la = 1 - p.mbars;
-  X.lineCap = X.lineJoin = 'round'; X.strokeStyle = X.fillStyle = X.shadowColor = col; X.shadowBlur = g * 0.5; X.lineWidth = 0.95 * u;
+  if (lk) { X.shadowBlur = 0; lookWear(lk, 'over', LA, MODPEN, 'moderne'); }
+  const mx = cx + a.lx * 0.6 * u, my = cy + 5.3 * u + ey * 0.4, pts = mouthPts(mx, my, u, p, t), la = 1 - p.mbars, mc = p.tint > 0.01 ? mixC(M.fg, '#b8f27c', 0.85 * p.tint) : M.fg;
+  X.lineCap = X.lineJoin = 'round'; X.strokeStyle = X.fillStyle = X.shadowColor = mc; X.shadowBlur = g * 0.5; X.lineWidth = 0.95 * u;
   if (la > 0.02) {
     const fa = smooth(clamp(p.mo / 0.25, 0, 1));
     X.globalAlpha = la; poly(pts); if (fa > 0.01) { X.globalAlpha = la * fa * 0.3; X.fill(); X.globalAlpha = la; } X.stroke();
@@ -524,7 +624,7 @@ function modFace(cx, cy, u, md, lx = 0, ly = 0, a) {
     }
     X.globalAlpha = 1;
   }
-  FX.bars(mx, my, u, p.mbars, t, { ink: col });
+  FX.bars(mx, my, u, p.mbars, t, { ink: mc });
   X.shadowBlur = 0;
   FX.thermo(mx + 1.4 * u, my + 0.6 * u, u, p.tint, t, {});
   FX.tear(cx - 11.6 * u + ex, Ey + 3.2 * u, u, p.tear, t, MPEN, a);
@@ -610,14 +710,17 @@ function screentone() {                       // paper with halftone dots in two
 function speedLines(cx, cy) { X.save(); X.strokeStyle = INK; for (let i = 0; i < 44; i++) { const a = i / 44 * TAU + (i % 3) * 0.03, r = 230 + (i * 13) % 60; X.lineWidth = 1 + (i * 7) % 4; X.beginPath(); X.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); X.lineTo(cx + Math.cos(a) * 900, cy + Math.sin(a) * 900); X.stroke(); } X.restore(); }
 function mEye(x, y, u, o) {           // a big shiny anime eye; o = {open, iris, lx, ly, heart, star, side, wide, lid, slant}
   const rx = 3.6 * u * (1 + 0.1 * o.wide), ry = 4.7 * u * (1 + 0.1 * o.wide) * o.open, cover = clamp(o.lid * 0.87 + Math.abs(o.slant) * 0.2, 0, 1);
+  const shp = lookPts(o.lk, x, y, 2 * rx, 2 * ry, o.side), ec = o.ec, outline = () => (shp ? poly(shp) : ell(x, y, rx, ry));   // « Son look »
   X.save(); if (cover > 0.01) lidClip(x, y, 2 * rx, 2 * ry, o.lid, o.slant, 0, o.side);
-  X.fillStyle = '#ffffff'; ell(x, y, rx, ry); X.fill();
-  X.save(); ell(x, y, rx, ry); X.clip();
+  X.fillStyle = '#ffffff'; outline(); X.fill();
+  X.save(); outline(); X.clip();
   const ix = x + o.lx * 0.9 * u, iy = y + o.ly * 0.8 * u + 0.3 * u, irx = 2.9 * u * o.iris, iry = 3.9 * u * o.iris, sp = Math.max(o.heart, o.star);
   if (sp < 0.98) {
-    const g = X.createLinearGradient(ix, iy - iry, ix, iy + iry); g.addColorStop(0, '#14204d'); g.addColorStop(0.55, '#2f63c9'); g.addColorStop(1, '#7fd0ff');
-    X.globalAlpha = 1 - sp; X.fillStyle = g; ell(ix, iy, irx, iry); X.fill(); X.lineWidth = 0.22 * u; X.strokeStyle = '#0c122c'; X.stroke();
-    X.fillStyle = '#0b1028'; ell(ix, iy - 0.3 * u, irx * 0.48, iry * 0.52); X.fill();
+    const g = X.createLinearGradient(ix, iy - iry, ix, iy + iry);
+    if (ec === 'arc') { g.addColorStop(0, '#3a1d6e'); g.addColorStop(1, '#ffffff'); } else if (ec) { g.addColorStop(0, mixC(ec, '#000000', 0.6)); g.addColorStop(0.55, ec); g.addColorStop(1, mixC(ec, '#ffffff', 0.55)); }
+    else { g.addColorStop(0, '#14204d'); g.addColorStop(0.55, '#2f63c9'); g.addColorStop(1, '#7fd0ff'); }
+    X.globalAlpha = 1 - sp; X.fillStyle = ec === 'arc' ? rainbowFill(ix, iy, 2 * irx, 2 * iry) : g; ell(ix, iy, irx, iry); X.fill(); X.lineWidth = 0.22 * u; X.strokeStyle = '#0c122c'; X.stroke();
+    X.fillStyle = '#0b1028'; if (o.lk && o.lk.C.shape === 'chat') ell(ix, iy - 0.2 * u, irx * 0.2, iry * 0.62); else ell(ix, iy - 0.3 * u, irx * 0.48, iry * 0.52); X.fill();
     const tw = 0.85 + 0.15 * Math.sin(H.now / 260);
     X.fillStyle = '#ffffff'; ell(ix - irx * 0.38, iy - iry * 0.38, 1.05 * u * tw * o.iris, 1.35 * u * tw * o.iris); X.fill();
     ell(ix + irx * 0.42, iy + iry * 0.36, 0.5 * u * o.iris, 0.5 * u * o.iris); X.fill();
@@ -627,10 +730,11 @@ function mEye(x, y, u, o) {           // a big shiny anime eye; o = {open, iris,
   if (o.star > 0.02) { const k = o.star * (1 + 0.1 * Math.sin(H.now / 140)); X.fillStyle = '#ffd400'; X.strokeStyle = INK; X.lineWidth = 0.22 * u; star(ix, iy + 0.2 * u, 3.4 * u * k, 5, 0.48, 0.1 * Math.sin(H.now / 500)); X.fill(); X.stroke(); X.fillStyle = '#fff'; ell(ix - 0.9 * u * k, iy - 0.9 * u * k, 0.55 * u * k, 0.45 * u * k); X.fill(); }
   X.restore(); X.restore();
   X.strokeStyle = INK; X.lineCap = 'round'; X.lineWidth = 0.95 * u;
+  if (shp) { X.save(); if (cover > 0.01) lidClip(x, y, 2 * rx, 2 * ry, o.lid, o.slant, 0, o.side); X.lineWidth = 0.5 * u; X.lineJoin = 'round'; poly(shp); X.stroke(); X.restore(); X.lineWidth = 0.95 * u; }   // the shape in ink
   if (cover > 0.04) {                  // the upper lid line follows the lid (sleepy, sad, angry)
     const sl = -o.side * o.slant * 0.5, top = y - ry + cover * 2 * ry, x0 = x - rx * 1.02, x1 = x + rx * 1.02;
     X.beginPath(); X.moveTo(x0, top + sl * (x0 - x)); X.lineTo(x1, top + sl * (x1 - x)); X.stroke();
-  } else { X.beginPath(); X.ellipse(x, y, rx * 1.04, ry * 1.02 + 0.1 * u, 0, Math.PI * 1.08, Math.PI * 1.92); X.stroke(); }
+  } else if (!shp) { X.beginPath(); X.ellipse(x, y, rx * 1.04, ry * 1.02 + 0.1 * u, 0, Math.PI * 1.08, Math.PI * 1.92); X.stroke(); }
   const ox = x + o.side * rx * 0.98, oy = y - ry * 0.35 + cover * ry * (o.side * o.slant < 0 ? 1.2 : 0.6);
   X.lineWidth = 0.6 * u; X.beginPath(); X.moveTo(ox, oy); X.lineTo(ox + o.side * 1.3 * u, oy - 1.0 * u); X.stroke();
   X.beginPath(); X.moveTo(ox - o.side * 0.2 * u, oy + 0.6 * u); X.lineTo(ox + o.side * 1.0 * u, oy + 0.1 * u); X.stroke();
@@ -647,7 +751,7 @@ function mSqueeze(x, y, u, side) {   // eyes squeezed shut (> <) for a big yawn
   X.moveTo(x - side * 2.6 * u, y - 2 * u); X.lineTo(x + side * 2.2 * u, y); X.lineTo(x - side * 2.6 * u, y + 2 * u); X.stroke();
 }
 function brow(x, y, u, side, lift, tilt) { X.strokeStyle = INK; X.lineCap = 'round'; X.lineWidth = 0.5 * u; X.beginPath(); X.moveTo(x - side * 2.3 * u, y - lift * u + tilt * u); X.quadraticCurveTo(x, y - (lift + 0.9) * u, x + side * 2.3 * u, y - lift * u - tilt * 0.3 * u); X.stroke(); }
-function blush(x, y, u) { X.fillStyle = 'rgba(255,159,181,0.6)'; ell(x, y, 2.4 * u, 1.05 * u); X.fill(); X.strokeStyle = '#e0607e'; X.lineWidth = 0.22 * u; X.lineCap = 'round'; for (let i = -1; i <= 1; i++) { X.beginPath(); X.moveTo(x + i * u - 0.4 * u, y + 0.5 * u); X.lineTo(x + i * u + 0.4 * u, y - 0.5 * u); X.stroke(); } }
+function blush(x, y, u, c) { X.fillStyle = c ? hexA(c, 0.6) : 'rgba(255,159,181,0.6)'; ell(x, y, 2.4 * u, 1.05 * u); X.fill(); X.strokeStyle = c ? mixC(c, '#000000', 0.2) : '#e0607e'; X.lineWidth = 0.22 * u; X.lineCap = 'round'; for (let i = -1; i <= 1; i++) { X.beginPath(); X.moveTo(x + i * u - 0.4 * u, y + 0.5 * u); X.lineTo(x + i * u + 0.4 * u, y - 0.5 * u); X.stroke(); } }
 function catMouth(mx, my, u) { X.strokeStyle = INK; X.lineCap = 'round'; X.lineWidth = 0.32 * u; for (const s of [-1, 1]) { X.beginPath(); X.arc(mx + s * 0.85 * u, my, 0.85 * u, 0.05 * Math.PI, 0.95 * Math.PI); X.stroke(); } }
 function mMouth(mx, my, u, p, t) {   // the morphing mouth, in ink: open = dark red with a tongue
   const pts = mouthPts(mx, my, u, p, t), op = smooth(clamp(p.mo / 0.18, 0, 1));
@@ -668,11 +772,13 @@ const KT = moodTable({ neutre: { cat: 1 }, ecoute: { cat: 1, mbars: 0, arcs: 1 }
 const KPEN = { ink: INK, out: INK, accent: K.accent, love: '#ff4f86', water: '#bfe6ff', lens: '#141418', frame: INK, anger: K.accent, spark: '#ffd400', lw: 0.4, z: 'Z' };
 function mangaFace(cx, cy, u, md, lx = 0, ly = 0, a) {
   a = life(a, md, lx, ly);
-  const t = H.now, p = rig(a, KT, KB);
+  const t = H.now, p = rig(a, KT, KB), lk = look(), ec = lookEye(lk, 'manga'), ccol = lookCheek(lk, 'manga');
   if (p.bang > 0.02 && u >= 12) { X.globalAlpha = p.bang; speedLines(cx, cy); X.globalAlpha = 1; }
   X.save(); body(cx, cy, u, a);
   cy -= Math.abs(Math.sin(t / 260)) * 0.6 * u * Math.max(p.happy, p.star);
   const Lx = cx - 8.6 * u, Rx = cx + 8.6 * u, Ey = cy - 3 * u + p.eyeY * u, by = Ey - 6.6 * u - p.eyeY * u * 0.5;
+  const LA = lk && lookA(cx, cy, u, 8.6, 3, 3.6, 4.7, 3.1, 6.8, cy - 8.6 * u), KP = lk && kanPen(Math.max(1.2, 0.3 * u));
+  if (lk) lookWear(lk, 'under', LA, KP, 'manga');                                  // « Son look »: his brows stay over the hat
   if (p.tint > 0.02) {                 // gloom lines on the forehead when sick
     X.strokeStyle = '#7d8fb3'; X.lineCap = 'round'; X.lineWidth = 0.22 * u; X.globalAlpha = p.tint;
     for (let i = 0; i < 9; i++) { const x = cx - 13 * u + i * 3.2 * u; X.beginPath(); X.moveTo(x, cy - 15 * u); X.lineTo(x, cy - (11 - (i % 3)) * u); X.stroke(); }
@@ -683,14 +789,15 @@ function mangaFace(cx, cy, u, md, lx = 0, ly = 0, a) {
   for (const side of [-1, 1]) {
     const x = side < 0 ? Lx : Rx, right = side > 0, happy = right ? Math.max(p.happy, p.rHappy) : p.happy, sleep = smooth(clamp((p.lid - 0.7) / 0.25, 0, 1));
     const squeeze = p.yawn * yawn(a).e, open = p.open * (right ? p.rOpen : 1) * (1 - happy) * (1 - sleep) * (1 - squeeze);
-    if (open > 0.2) { X.globalAlpha = smooth(clamp((open - 0.2) / 0.15, 0, 1)) * (1 - p.shades); mEye(x, Ey, u, { open, iris: p.pup, lx: a.lx, ly: a.ly, heart: p.heart, star: p.star, side, wide: clamp((p.ew - 1) / 0.12, 0, 1), lid: Math.min(p.lid, 0.6), slant: p.slant }); }
+    if (open > 0.2) { X.globalAlpha = smooth(clamp((open - 0.2) / 0.15, 0, 1)) * (1 - p.shades); mEye(x, Ey, u, { open, iris: p.pup, lx: a.lx, ly: a.ly, heart: p.heart, star: p.star, side, wide: clamp((p.ew - 1) / 0.12, 0, 1), lid: Math.min(p.lid, 0.6), slant: p.slant, lk, ec }); }
     const ca = 1 - smooth(clamp((open - 0.2) / 0.15, 0, 1));
     if (ca > 0.02) { X.globalAlpha = ca * (1 - p.shades); if (squeeze > 0.5) mSqueeze(x, Ey, u, side); else if (happy >= sleep) mClosed(x, Ey, u, true, side); else mClosed(x, Ey + u, u, false, side); }
     X.globalAlpha = 1;
   }
   FX.shades(Lx, Rx, Ey, u, p.shades, t, KPEN);
+  if (lk) lookWear(lk, 'over', LA, KP, 'manga');
   X.strokeStyle = INK; X.lineWidth = 0.25 * u; X.beginPath(); X.moveTo(cx + 0.2 * u, cy + 1.0 * u); X.lineTo(cx - 0.2 * u, cy + 1.5 * u); X.stroke();
-  if (p.blush > 0.02) { X.globalAlpha = p.blush; blush(cx - 12.6 * u, cy + 2.4 * u, u); blush(cx + 12.6 * u, cy + 2.4 * u, u); X.globalAlpha = 1; }
+  if (p.blush > 0.02) { X.globalAlpha = p.blush; blush(cx - 12.6 * u, cy + 2.4 * u, u, ccol); blush(cx + 12.6 * u, cy + 2.4 * u, u, ccol); X.globalAlpha = 1; }
   const mx = cx + a.lx * 0.4 * u, my = cy + 3.6 * u;
   if (p.cat > 0.02) { X.globalAlpha = p.cat; catMouth(mx, my, u); X.globalAlpha = 1; }
   if (p.cat < 0.98) { X.globalAlpha = 1 - p.cat; mMouth(mx, my - 0.2 * u, u * 0.78, p, t); X.globalAlpha = 1; }
@@ -818,22 +925,25 @@ function neonFace(cx, cy, u, md, lx = 0, ly = 0, a) {
   a = life(a, md, lx, ly);
   const t = H.now, p = rig(a, NT), lw = Math.max(1.6, 0.6 * u), flick = t % 23000 < 420 && Math.floor(t / 60) % 3 === 0;
   X.save(); X.shadowBlur = 0; cy += a.breath * 0.2 * u; body(cx, cy, u, a);
-  const ex = a.lx * 1.2 * u, ey = a.ly * 1.0 * u, Ey = cy - 2.5 * u + ey + p.eyeY * u, eyeC = p.tint > 0.01 ? mixC(N.pink, '#9dff6a', 0.85 * p.tint) : N.pink;
-  if (p.blush > 0.02) for (const s of [-1, 1]) { X.globalAlpha = p.blush * 0.85; tube(N.pink, Math.max(1.2, 0.32 * u), () => { X.beginPath(); for (let i = 0; i < 3; i++) { const x = cx + s * 13.6 * u + (i - 1) * 1.3 * u; X.moveTo(x - 0.5 * u, Ey + 6.6 * u); X.lineTo(x + 0.5 * u, Ey + 5.2 * u); } }); }
+  const lk = look(), lc = lookEye(lk, 'neon'), ccol = lookCheek(lk, 'neon') || N.pink, cat = !!lk && lk.C.shape === 'chat';
+  const ex = a.lx * 1.2 * u, ey = a.ly * 1.0 * u, Ey = cy - 2.5 * u + ey + p.eyeY * u, eyeC = p.tint > 0.01 ? mixC(lc && lc !== 'arc' ? lc : N.pink, '#9dff6a', 0.85 * p.tint) : lc && lc !== 'arc' ? lc : N.pink;
+  const LA = lk && lookA(cx, cy, u, 8.5, 2.5, 3.3, 4.2, 4.3, 7.6), NP = lk && neoPen(Math.max(1.4, 0.42 * u));
+  if (lk) lookWear(lk, 'under', LA, NP, 'neon');
+  if (p.blush > 0.02) for (const s of [-1, 1]) { X.globalAlpha = p.blush * 0.85; tube(ccol, Math.max(1.2, 0.32 * u), () => { X.beginPath(); for (let i = 0; i < 3; i++) { const x = cx + s * 13.6 * u + (i - 1) * 1.3 * u; X.moveTo(x - 0.5 * u, Ey + 6.6 * u); X.lineTo(x + 0.5 * u, Ey + 5.2 * u); } }); }
   X.globalAlpha = 1;
   for (const side of [-1, 1]) {
     const x = cx + side * 8.5 * u + ex, right = side > 0, happy = right ? Math.max(p.happy, p.rHappy) : p.happy, open = p.open * (right ? p.rOpen : 1), k = 1 - Math.max(p.heart, p.star);
     if (k > 0.03 && p.shades < 0.98) {
-      const s = 0.35 + 0.65 * k, w = 6.6 * u * p.ew * s, h = Math.max(0.6 * u, 8.4 * u * p.eh * open) * s, pts = eyePoly(x, Ey, w, h, p.lid, p.slant, happy, side, lerp(0.44, 0.5, clamp((p.ew - 1) / 0.3, 0, 1)));
+      const s = 0.35 + 0.65 * k, w = 6.6 * u * p.ew * s, h = Math.max(0.6 * u, 8.4 * u * p.eh * open) * s, pts = eyePoly(x, Ey, w, h, p.lid, p.slant, happy, side, lerp(0.44, 0.5, clamp((p.ew - 1) / 0.3, 0, 1)), lookPts(lk, x, Ey, w, h, side, happy));
       X.globalAlpha = (1 - p.shades) * (flick && side < 0 ? 0.25 : 1);
-      poly(pts); X.fillStyle = hexA(N.pink, 0.1); X.fill();
-      tube(eyeC, lw, () => poly(pts));
+      poly(pts); X.fillStyle = lc === 'arc' && !p.tint ? rainbowFill(x, Ey, w, h, 0.12) : hexA(lc && lc !== 'arc' ? lc : N.pink, 0.1); X.fill();
+      tube(lc === 'arc' && p.tint <= 0.01 ? rainbowFill(x, Ey, w, h) : eyeC, lw, () => poly(pts));
       const vis = open * (1 - happy) * (1 - p.lid) * k;
-      if (vis > 0.25) {                // the pupil, a cyan dot that follows the gaze
+      if (vis > 0.25) {                // the pupil, a cyan dot that follows the gaze (a cat's slit, « Son look »)
         X.save(); poly(pts); X.clip(); X.globalAlpha *= clamp((vis - 0.25) / 0.2, 0, 1);
-        const px = x + a.lx * 1.0 * u, py = Ey + a.ly * 1.2 * u + 0.5 * u, pr = 1.55 * u * p.pup;
-        X.fillStyle = hexA(N.fg, 0.3); ell(px, py, pr * 1.7, pr * 1.7); X.fill(); X.fillStyle = N.fg; ell(px, py, pr, pr); X.fill();
-        X.fillStyle = '#ffffff'; ell(px - pr * 0.35, py - pr * 0.35, pr * 0.35, pr * 0.35); X.fill(); X.restore();
+        const px = x + a.lx * 1.0 * u, py = Ey + a.ly * 1.2 * u + 0.5 * u, pr = 1.55 * u * p.pup, prx = cat ? pr * 0.42 : pr, pry = cat ? Math.min(pr * 2.3, h * 0.4) : pr;
+        X.fillStyle = hexA(N.fg, 0.3); ell(px, py, prx * 1.7, pry * 1.5); X.fill(); X.fillStyle = N.fg; ell(px, py, prx, pry); X.fill();
+        X.fillStyle = '#ffffff'; ell(px - prx * 0.35, py - pry * 0.35, pr * 0.35, pr * 0.35); X.fill(); X.restore();
       }
       X.globalAlpha = 1;
     }
@@ -850,6 +960,7 @@ function neonFace(cx, cy, u, md, lx = 0, ly = 0, a) {
     for (const x of [Lx, Rx]) { X.save(); lens(x); X.clip(); const gx = x - 8 * u + g * 26 * u; tube(N.fg, lw * 0.7, () => { X.beginPath(); X.moveTo(gx, Ey - 3 * u + dy); X.lineTo(gx - 2.6 * u, Ey + 3 * u + dy); }); X.restore(); }
     X.globalAlpha = 1;
   }
+  if (lk) lookWear(lk, 'over', LA, NP, 'neon');
   const mx = cx + a.lx * 0.6 * u, my = cy + 5.3 * u + ey * 0.4, pts = mouthPts(mx, my, u, p, t), la = 1 - p.mbars;
   if (la > 0.02) {
     const fa = smooth(clamp(p.mo / 0.25, 0, 1)); X.globalAlpha = la;
@@ -1002,22 +1113,25 @@ function croquisFace(cx, cy, u, md, lx = 0, ly = 0, a) {
   a = life(a, md, lx, ly);
   const t = H.now, p = rig(a, QT), sd = boil(), lw = Math.max(1.3, 0.34 * u), amp = Math.max(0.5, 0.09 * u);
   X.save(); X.shadowBlur = 0; body(cx, cy, u, a);
+  const lk = look(), lc = lookEye(lk, 'croquis'), ccol = lookCheek(lk, 'croquis'), cat = !!lk && lk.C.shape === 'chat';
   const ex = a.lx * 1.2 * u, ey = a.ly * 1.0 * u, Ey = cy - 2.5 * u + ey + p.eyeY * u;
+  if (lk) lookWear(lk, 'under', lookA(cx, cy, u, 8.5, 2.5, 3.2, 4.1, 4.3, 7.6), quiPen(lw, amp), 'croquis');
   if (p.blush > 0.02 || p.tint > 0.02) for (const s of [-1, 1]) {           // coloured-pencil cheeks (green when sick)
-    X.globalAlpha = Math.max(p.blush, p.tint); X.fillStyle = hatchPat(p.tint > 0.5 ? '#6fae4f' : Q.pink, Math.max(3, 0.32 * u)); ell(cx + s * 13 * u, cy + 3.2 * u, 2.6 * u, 1.3 * u); X.fill();
+    X.globalAlpha = Math.max(p.blush, p.tint); X.fillStyle = hatchPat(p.tint > 0.5 ? '#6fae4f' : ccol || Q.pink, Math.max(3, 0.32 * u)); ell(cx + s * 13 * u, cy + 3.2 * u, 2.6 * u, 1.3 * u); X.fill();
   }
   X.globalAlpha = 1;
   for (const side of [-1, 1]) {
     const x = cx + side * 8.5 * u + ex, right = side > 0, happy = right ? Math.max(p.happy, p.rHappy) : p.happy, open = p.open * (right ? p.rOpen : 1), k = 1 - Math.max(p.heart, p.star);
     if (k > 0.03 && p.shades < 0.98) {
-      const s = 0.35 + 0.65 * k, w = 6.4 * u * p.ew * s, h = Math.max(0.6 * u, 8.2 * u * p.eh * open) * s, pts = eyePoly(x, Ey, w, h, p.lid, p.slant, happy, side, lerp(0.46, 0.5, clamp((p.ew - 1) / 0.3, 0, 1)));
+      const s = 0.35 + 0.65 * k, w = 6.4 * u * p.ew * s, h = Math.max(0.6 * u, 8.2 * u * p.eh * open) * s, pts = eyePoly(x, Ey, w, h, p.lid, p.slant, happy, side, lerp(0.46, 0.5, clamp((p.ew - 1) / 0.3, 0, 1)), lookPts(lk, x, Ey, w, h, side, happy));
       X.globalAlpha = 1 - p.shades;
       poly(pts); X.fillStyle = '#ffffff'; X.fill();
       const vis = open * (1 - happy) * (1 - p.lid) * k;
-      if (vis > 0.2) {                 // graphite pupil with a shine, inside the eye
+      if (vis > 0.2) {                 // graphite pupil with a shine, inside the eye (« Son look »: a coloured-pencil iris, a cat's slit)
         X.save(); poly(pts); X.clip(); X.globalAlpha *= clamp((vis - 0.2) / 0.2, 0, 1);
-        const px = x + a.lx * 1.0 * u, py = Ey + a.ly * 1.2 * u + 0.6 * u, pr = 1.9 * u * p.pup;
-        X.fillStyle = Q.fg; ell(px, py, pr, pr * 1.08); X.fill(); X.fillStyle = hatchPat('#000000', 3, true); ell(px, py, pr, pr * 1.08); X.fill();
+        const px = x + a.lx * 1.0 * u, py = Ey + a.ly * 1.2 * u + 0.6 * u, pr = 1.9 * u * p.pup, prx = cat ? pr * 0.4 : pr, pry = cat ? Math.min(pr * 1.9, h * 0.42) : pr * 1.08;
+        if (lc) { ell(px, py, pr * 1.6, pr * 1.66); X.fillStyle = lc === 'arc' ? rainbowFill(px, py, pr * 3.2, pr * 3.2, 0.75) : hexA(lc, 0.5); X.fill(); if (lc !== 'arc') { X.fillStyle = hatchPat(lc, Math.max(3, 0.3 * u)); X.fill(); } }
+        X.fillStyle = Q.fg; ell(px, py, prx, pry); X.fill(); X.fillStyle = hatchPat('#000000', 3, true); ell(px, py, prx, pry); X.fill();
         X.fillStyle = '#ffffff'; ell(px - pr * 0.38, py - pr * 0.4, pr * 0.34, pr * 0.34); X.fill(); X.restore();
       }
       pencil(pts, true, amp, sd + side * 3, lw);
@@ -1027,6 +1141,7 @@ function croquisFace(cx, cy, u, md, lx = 0, ly = 0, a) {
     if (p.star > 0.03) { const r = 5.2 * u * p.star * (1 + 0.08 * Math.sin(t / 130)), sp = []; for (let i = 0; i <= 10; i++) { const an = i / 10 * TAU - Math.PI / 2, d = i % 2 ? r * 0.48 : r; sp.push(x + Math.cos(an) * d, Ey + 0.4 * u + Math.sin(an) * d); } X.beginPath(); for (let i = 0; i < sp.length; i += 2) i ? X.lineTo(sp[i], sp[i + 1]) : X.moveTo(sp[i], sp[i + 1]); X.fillStyle = HL; X.fill(); pencil(sp, true, amp, sd + side, lw); }
   }
   if (p.shades > 0.02) FX.shades(cx - 8.5 * u + ex * 0.7, cx + 8.5 * u + ex * 0.7, Ey, u, p.shades, t, QPEN);
+  if (lk) lookWear(lk, 'over', lookA(cx, cy, u, 8.5, 2.5, 3.2, 4.1, 4.3, 7.6), quiPen(lw, amp), 'croquis');
   const mx = cx + a.lx * 0.6 * u, my = cy + 5.3 * u + ey * 0.4, pts = mouthPts(mx, my, u, p, t), la = 1 - p.mbars;
   if (la > 0.02) {
     const fa = smooth(clamp(p.mo / 0.22, 0, 1)); X.globalAlpha = la;
@@ -1144,12 +1259,12 @@ function lpx(x, y, s, c) {          // one LCD pixel and its shadow (a cached sp
   const spr = cached('lpx' + c + s, s + 3, s + 3, g => { g.fillStyle = 'rgba(32,44,24,0.2)'; g.fillRect(2.5, 2.5, s - 1, s - 1); g.fillStyle = c; g.fillRect(0.5, 0.5, s - 1, s - 1); });
   X.drawImage(spr, x, y, s + 3, s + 3);
 }
-const lput = (x, y, s, k) => lpx(Math.round(x), Math.round(y), s, LK[k] || S3);
+const lput = (x, y, s, k) => lpx(Math.round(x), Math.round(y), s, LK[k] || (k && k[0] === '#' ? k : S3));   // k: a key of LK, or a colour (« Son look »)
 function lbmp(rows, x, y, s, c) { for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) { const v = rows[j][i]; if (v !== '.' && v !== ' ') lpx(Math.round(x + i * s), Math.round(y + j * s), s, v === '#' ? c : LK[v] || c); } }
 const LL = { ex: 8.5, ey: 5, my: 2.5, ch: 12, cy: 1.2, fx: 1.3 };
-function lcdHead(s, q) {            // the creature's head: a rounded block outline, shaded at the bottom right, with an antenna
+function lcdHead(s, q, ant = true) { // the creature's head: a rounded block outline, shaded at the bottom right, with an antenna (not under a hat)
   const hw = 32 + 2 * q, hh = 20 - 2 * q, pad = 2;
-  return cached('lhead' + s + '_' + q, (hw + pad * 2) * s, (hh + pad * 2 + 4) * s, g => {
+  return cached('lhead' + s + '_' + q + (ant ? '' : 'n'), (hw + pad * 2) * s, (hh + pad * 2 + 4) * s, g => {
     const inside = (i, j) => { const r = 5, cx = clamp(i, r, hw - 1 - r), cy = clamp(j, r, hh - 1 - r); return i >= 0 && j >= 0 && i < hw && j < hh && (i - cx) ** 2 + (j - cy) ** 2 <= r * r + 1; };
     const dot = (i, j, c) => { const x = (i + pad) * s, y = (j + pad + 4) * s; g.fillStyle = 'rgba(32,44,24,0.2)'; g.fillRect(x + 2.5, y + 2.5, s - 1, s - 1); g.fillStyle = c; g.fillRect(x + 0.5, y + 0.5, s - 1, s - 1); };
     for (let j = 0; j < hh; j++) for (let i = 0; i < hw; i++) {
@@ -1158,19 +1273,25 @@ function lcdHead(s, q) {            // the creature's head: a rounded block outl
       const shade = !edge && (!inside(i + 2, j) || !inside(i, j + 2)) && (i > hw / 2 || j > hh / 2);
       if (edge) dot(i, j, S3); else if (shade) dot(i, j, S1);
     }
-    const ax = Math.floor(hw / 2); for (let j = -3; j < 0; j++) dot(ax, j, S3);
+    if (ant) { const ax = Math.floor(hw / 2); for (let j = -3; j < 0; j++) dot(ax, j, S3); }
   });
 }
 function lcdFace(cx, cy, u, md, lx = 0, ly = 0, a) {
   a = life(a, md, lx, ly);
-  const s = Math.max(2, Math.round(u * 0.62)), q = clamp(Math.round(a.sq * 3), -2, 2), lift = Math.round(a.hop * 1.2) * s, t = H.now;
+  const s = Math.max(2, Math.round(u * 0.62)), q = clamp(Math.round(a.sq * 3), -2, 2), lift = Math.round(a.hop * 1.2) * s, t = H.now, lk = look(), hat = !!(lk && lk.C.wear.tete);
   const tilt = Math.round(a.tilt * 6) * s, bob = (md === 'content' || md === 'excite' ? Math.round(Math.abs(Math.sin(t / 240)) * 0.8) : 0) * s;
-  const head = lcdHead(s, q), hw = 32 + 2 * q, hh = 20 - 2 * q, hx = Math.round(cx - (hw / 2 + 2) * s) + tilt, hy = Math.round(cy - (hh / 2 + 6) * s) - lift - bob;
+  const head = lcdHead(s, q, !hat), hw = 32 + 2 * q, hh = 20 - 2 * q, hx = Math.round(cx - (hw / 2 + 2) * s) + tilt, hy = Math.round(cy - (hh / 2 + 6) * s) - lift - bob;
   X.drawImage(head, hx, hy, head.width / SC(), head.height / SC());
   const on = Math.floor(t / 600) % 2 || a.mood === 'excite' || a.mood === 'surpris';     // the antenna light blinks
   const bx = hx + (2 + Math.floor(hw / 2)) * s - s / 2, by = hy + s;
-  lpx(bx, by, s * 2, on ? S3 : S2);
-  pixMorph(Math.round(cx) + tilt, Math.round(cy - s) - lift, s, a, lput, S3, LL);
+  if (!hat) lpx(bx, by, s * 2, on ? S3 : S2);
+  const fx = Math.round(cx) + tilt, fy = Math.round(cy - s) - lift;
+  if (!lk) return pixMorph(fx, fy, s, a, lput, S3, LL);
+  const z = Math.max(2, Math.round(s / 2));                                          // « Son look »: on the creature's head, in half dots
+  const A = { k: z, x0: fx, eye: fy - 2 * s, eyeL: fx - 6 * s, eyeR: fx + 6 * s, top: hy + 6.6 * s, mouth: fy + LL.my * s, chin: hy + (6.5 + hh) * s,
+    ew: 2.5 * s / z, eh: 3 * s / z, side: (hw / 2) * s / z, topF: (hy + 6.6 * s - (fy - 2 * s)) / z, hs: 1 };
+  PLK = pixLook(lk, 'lcd');
+  try { lookPix(lk, 'under', A, 'lcd'); pixMorph(fx, fy, s, a, lput, S3, LL); lookPix(lk, 'over', A, 'lcd'); } finally { PLK = null; }
 }
 function lcdSun(cx, cy, u) {
   for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) { const d = i * i + j * j; if (d <= 18) lpx(cx + i * u, cy + j * u, u, d >= 12 ? S3 : (i + j) % 2 ? S1 : S2); }
@@ -1265,10 +1386,10 @@ function pkLayer(name) {                             // a 96x54 canvas and its p
   if (!l) { const c = document.createElement('canvas'); c.width = 96; c.height = 54; const g = c.getContext('2d'); l = pkLayers[name] = { c, g, img: g.createImageData(96, 54) }; }
   return l;
 }
-function pkFrame(st) {                               // the pack's frame, mixed with the previous one during a change
-  const P52 = window.Pixel52, a = P52.frame(st.id, st.time);
+function pkFrame(st, look) {                         // the pack's frame, mixed with the previous one during a change (look: « Son look »'s hooks)
+  const P52 = window.Pixel52, a = P52.frame(st.id, st.time, look);
   if (!st.from || st.k >= 1) return a;
-  const b = P52.frame(st.from.id, st.from.time), out = new Uint8Array(a.length);
+  const b = P52.frame(st.from.id, st.from.time, look), out = new Uint8Array(a.length);
   for (let j = 0; j < 54; j++) for (let i = 0; i < 96; i++) { const n = j * 96 + i; out[n] = bayer(i, j) < st.k ? a[n] : b[n]; }
   return out;
 }
@@ -1277,12 +1398,15 @@ function pkPaint(layer, buf, pal, alpha = 255) {     // palette indices -> pixel
   for (let n = 0; n < buf.length; n++) { const c = pal[buf[n]], o = n * 4; if (c) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = alpha; } else d[o + 3] = 0; }
   l.g.putImageData(l.img, 0, 0); return l.c;
 }
-/* pixel styles: o = {pal: 8 colours (index 0 unused), glow: halo alpha, shadow: [r, g, b, a] drop shadow, grid: gap colour} */
+/* pixel styles: o = {pal: 8 colours (index 0 unused), glow: halo alpha, shadow: [r, g, b, a] drop shadow, grid: gap colour,
+   kind: retro or lcd}. « Son look »: the frame gets its hooks, the palette its colours (web/look.js IDX, from 8 on) */
+const PK_SH48 = Array.from({ length: 48 }, (_, i) => (i ? [32, 44, 24] : null));
 function pkPixels(x, y, w, h, st, o) {
   if (!window.Pixel52) return;
-  const buf = pkFrame(st), s = w / 96, ga = X.globalAlpha, sm = X.imageSmoothingEnabled, sbv = X.shadowBlur; X.shadowBlur = 0;   // the glow is ours, not shadowBlur
-  if (o.shadow) { X.imageSmoothingEnabled = false; X.drawImage(pkPaint('shadow', buf, o.shadowPal, o.shadow[3]), x + s * 0.4, y + s * 0.4, w, h); }
-  const img = pkPaint('main', buf, o.pal);
+  const lk = look(), hk = lk ? lk.L.hookPix(lk.C, lk.ph, H.now, o.kind) : null;
+  const buf = pkFrame(st, hk), s = w / 96, ga = X.globalAlpha, sm = X.imageSmoothingEnabled, sbv = X.shadowBlur; X.shadowBlur = 0;   // the glow is ours, not shadowBlur
+  if (o.shadow) { X.imageSmoothingEnabled = false; X.drawImage(pkPaint('shadow', buf, hk ? PK_SH48 : o.shadowPal, o.shadow[3]), x + s * 0.4, y + s * 0.4, w, h); }
+  const img = pkPaint('main', buf, hk ? lk.L.palette(o.pal, o.kind, lk.C) : o.pal);
   if (o.glow) { X.imageSmoothingEnabled = true; X.globalAlpha = ga * o.glow; X.drawImage(img, x - s, y - s, w + 2 * s, h + 2 * s); X.globalAlpha = ga; }
   X.imageSmoothingEnabled = false; X.drawImage(img, x, y, w, h); X.imageSmoothingEnabled = sm;
   if (o.grid) X.drawImage(cached('pk-grid' + w + 'x' + h + o.grid, w, h, g => { g.fillStyle = o.grid; for (let i = 1; i < 96; i++) g.fillRect(i * s - 0.5, 0, 1, h); for (let j = 1; j < 54; j++) g.fillRect(0, j * s - 0.5, w, 1); }), x, y, w, h);
@@ -1291,8 +1415,10 @@ function pkPixels(x, y, w, h, st, o) {
 /* vector styles: the pack's Moderne or Manga, then our post effect: 'glow' (neon bloom) or 'graphite' (pencil on the paper) */
 function pkVector(x, y, w, h, st, theme, post) {
   const V = window.Pixel52Themes; if (!V) return;
-  const c = pkCanvas('v' + Math.round(w) + 'x' + Math.round(h), w, h);
-  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from });
+  const c = pkCanvas('v' + Math.round(w) + 'x' + Math.round(h), w, h), lk = look();
+  let tint = null;                                   // « Son look » in Croquis: its colours, laid over the graphite afterwards
+  if (lk && post === 'graphite') { const tc = pkCanvas('vt' + Math.round(w) + 'x' + Math.round(h), w, h); tint = tc.getContext('2d'); tint.setTransform(1, 0, 0, 1, 0, 0); tint.clearRect(0, 0, tc.width, tc.height); }
+  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from, look: lk ? lk.L.hookVec(lk.C, lk.ph, H.now, tint) : undefined });
   const ga = X.globalAlpha, op = X.globalCompositeOperation, b = X.shadowBlur; X.shadowBlur = 0;
   if (post === 'glow') {                             // cheap bloom: a small copy, blown up and added
     const sc = pkCanvas('vb' + Math.round(w) + 'x' + Math.round(h), w / 6, h / 6), g = sc.getContext('2d');
@@ -1300,7 +1426,9 @@ function pkVector(x, y, w, h, st, theme, post) {
     X.globalCompositeOperation = 'lighter'; X.globalAlpha = ga * 0.75; X.drawImage(sc, x - 8, y - 8, w + 16, h + 16); X.globalCompositeOperation = op; X.globalAlpha = ga;
   }
   if (post === 'graphite') X.globalCompositeOperation = 'luminosity';      // the drawing takes the paper's colour: graphite
-  X.drawImage(c, x, y, w, h); X.globalCompositeOperation = op; X.shadowBlur = b;
+  X.drawImage(c, x, y, w, h);
+  if (tint) { X.globalCompositeOperation = 'color'; X.drawImage(tint.canvas, x, y, w, h); }                   // coloured pencil over it
+  X.globalCompositeOperation = op; X.shadowBlur = b;
 }
 const PK_RETRO = [null, R.fg, R.hi, R.pink, R.accent, R.hi, R.dim, '#2c6e46'].map(c => c && rgb(c));
 const PK_LCD = [null, S3, S1, S2, S3, S2, S2, S1].map(c => c && rgb(c)), PK_LCD_SH = [null, 1, 1, 1, 1, 1, 1, 1].map(c => c && [32, 44, 24]);
@@ -1349,11 +1477,11 @@ retro.fg = () => {
   X.restore();
 };
 retro.faceFps = lcd.faceFps = 24; neon.calmFps = moderne.calmFps = 20;
-retro.packFace = (x, y, w, h, st) => pkPixels(x, y, w, h, st, { pal: PK_RETRO, glow: 0.42, grid: R.bg });
+retro.packFace = (x, y, w, h, st) => pkPixels(x, y, w, h, st, { pal: PK_RETRO, glow: 0.42, grid: R.bg, kind: 'retro' });
 lcd.packFace = (x, y, w, h, st) => {
-  const s = Math.max(2, Math.round(w / 45)), head = lcdHead(s, 0);   // the creature's head and antenna around the pack's face
-  if (w >= 300) { const hw = 32, hh = 20, hx = Math.round(x + w / 2 - (hw / 2 + 2) * s), hy = Math.round(y + h * 0.56 - (hh / 2 + 6) * s); X.drawImage(head, hx, hy, head.width / SC(), head.height / SC()); lpx(hx + (2 + hw / 2) * s - s / 2, hy + s, s * 2, Math.floor(H.now / 600) % 2 ? S3 : S2); }
-  pkPixels(x, y, w, h, st, { pal: PK_LCD, shadowPal: PK_LCD_SH, shadow: [32, 44, 24, 60], grid: S0 });
+  const lk = look(), ant = !(lk && lk.C.wear.tete), s = Math.max(2, Math.round(w / 45)), head = lcdHead(s, 0, ant);   // the creature's head and antenna around the pack's face (no antenna under a hat)
+  if (w >= 300) { const hw = 32, hh = 20, hx = Math.round(x + w / 2 - (hw / 2 + 2) * s), hy = Math.round(y + h * 0.56 - (hh / 2 + 6) * s); X.drawImage(head, hx, hy, head.width / SC(), head.height / SC()); if (ant) lpx(hx + (2 + hw / 2) * s - s / 2, hy + s, s * 2, Math.floor(H.now / 600) % 2 ? S3 : S2); }
+  pkPixels(x, y, w, h, st, { pal: PK_LCD, shadowPal: PK_LCD_SH, shadow: [32, 44, 24, 60], grid: S0, kind: 'lcd' });
 };
 moderne.packFace = (x, y, w, h, st) => pkVector(x, y, w, h, st, 'modern');
 manga.packFace = (x, y, w, h, st) => pkVector(x, y, w, h, st, 'manga');

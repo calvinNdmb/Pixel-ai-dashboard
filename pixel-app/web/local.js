@@ -162,7 +162,7 @@ addEventListener('online', () => { if (Date.now() - wAt > 10 * 60000) refresh();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - wAt > 30 * 60000) refresh(); });
 
 /* ---------- typed commands: the city, the help; the rest is demo-hub's parser, and what needs Claude says so ---------- */
-const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · thème … · météo Lyon (ta ville) · caractère câlin · mange une pomme · exo · table de 7 · le reste (lampes, Claude, Codex, agenda, cast) : relie Pixel à ton Pi";
+const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · thème … · météo Lyon (ta ville) · caractère câlin · mange une pomme · exo · table de 7 · mets ton chapeau · yeux de chat · le reste (lampes, Claude, Codex, agenda, cast) : relie Pixel à ton Pi";
 const cmd0 = A.cmd;                 // any other text goes to Claude (chat.ask): on the Pi, so he says so
 A.cmd = ({ text } = {}) => {
   const raw = String(text ?? '').trim(), t = hub.norm(raw); let m;

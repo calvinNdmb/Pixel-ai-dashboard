@@ -56,6 +56,7 @@ function send(action, args = {}) { if (ws && ws.readyState === 1) ws.send(JSON.s
 Screens.setSend(send);
 const POCHE = window.PixelPoche ? window.PixelPoche.app({ send, kiosk }) : null;   // poche.js: the phone sideways becomes a second Pixel
 if (window.PixelCaractere) window.PixelCaractere.app({ send, kiosk });            // caractere.js: the « Caractère » panel (his snapshot: screens.js)
+if (window.PixelLook) window.PixelLook.app({ send, kiosk });                      // look.js: the « Son look » panel (his snapshot: screens.js)
 
 function show(screen) {
   if (!NAV.includes(screen)) return;
@@ -101,15 +102,17 @@ if (!kiosk) {
    live with them. The page says once which ones it has ({panels}): an older Pi's page says nothing, the menu then has none. */
 const PANELS = { caractere: () => window.PixelCaractere && PixelCaractere.open(), nourrir: () => window.PixelNourrir && PixelNourrir.panel(true),
   exos: () => window.PixelExos && PixelExos.panel(true) };
+PANELS.look = () => window.PixelLook && PixelLook.open();                       // « Son look » (look.js)
 window.PixelPanel = id => {
   if (kiosk || !Object.hasOwn(PANELS, id) || document.body.classList.contains('poche')) return false;   // Pixel de poche: the whole phone is his face
   if (document.body.dataset.mode === 'pixel') setMode('both');
   PANELS[id](); return true;
 };
-if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos })[id]) });
+if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, look: window.PixelLook })[id]) });
 /* the phone app's back button closes an open panel first (PixelSheet.close(): true when one was), the topmost first; the page
    tells the app whether one is shown ({sheet}), so that the button knows (pixel-mobile src/plugs.ts) */
 const SHEETS = [['#exos', () => PixelExos.panel(false)], ['#nour', () => PixelNourrir.panel(false)], ['.car-sheet', () => PixelCaractere.close()]];
+SHEETS.push(['.look-sheet', () => PixelLook.close()]);                           // « Son look » (look.js)
 const openSheets = () => SHEETS.filter(([q]) => { const e = document.querySelector(q); return !!e && !e.hidden && e.getClientRects().length > 0; });
 let sheetTold = null;                                 // what the app was last told
 const tellSheet = () => { const now = openSheets().length > 0; if (now !== sheetTold) { sheetTold = now; toApp({ sheet: now }); } };

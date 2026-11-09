@@ -7,6 +7,7 @@ import unicodedata
 
 from . import anims, caractere, nourrir, scenes
 from . import exos                    # math exercises: « exo », « table de 7 », a number while one is open
+from . import look                    # his look: « mets ton chapeau », « yeux de chat », « look normal »
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -16,6 +17,7 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
         "visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · "
+        "mets ton chapeau · yeux de chat · "
         "sinon : Claude")
 # a few words that play an animation on their own
 BARE = {"danse": "danse", "chante": "chante", "coucou": "salut", "bisou": "bisou"}
@@ -156,6 +158,8 @@ async def run(hub, text):
     if await caractere.command(hub, t, raw):              # « sois grognon », « plus câlin », « appelle-toi Bip »… (pixel/caractere.py)
         return
     if await nourrir.command(hub, t):                       # « mange une pomme », « tu as faim ? », « à table ! » (pixel/nourrir.py)
+        return
+    if await look.run_command(hub, t, raw):                 # « mets ton chapeau », « yeux de chat », « look normal » (pixel/look.py)
         return
 
     await hub.dispatch("chat.ask", {"text": raw})

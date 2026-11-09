@@ -296,6 +296,11 @@ const EVENTS = {
   'exo-serie': 'Exos : une belle série, ou la fin d’une série',   // data.n: right in a row; or data.fin, bons, total, chrono
   'exo-objectif': 'Exos : l’objectif du jour est atteint',
   'exo-attente': 'Exos : tu réfléchis depuis un moment',
+  // his look (web/look.js, pixel/look.py): data.quoi yeux, couleur, porte, enleve, tenue, normal, avant, reglage (+ item, yeux, couleur...)
+  look: 'Son look change',
+  'look-nuit': 'Son look : il met son pyjama pour dormir',
+  'look-jour': 'Son look : il enlève son pyjama',
+  'look-saison': 'Son look : une tenue de saison arrive',   // data.item, data.saison
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the
@@ -634,7 +639,7 @@ function paint(box, m, fn) {                         // fn(D): props drawn with 
 }
 /* what he wears, drawn after his face, scene or not: his Santa hat all December, and in the Christmas scenes */
 const hatOn = () => new Date().getMonth() === 11 || (!!st.cur && ['neige', 'joyeux-noel'].includes(st.cur.sc.id));
-function decor(box, m) { if (hatOn()) paint(box, m, D => D.santa()); }
+function decor(box, m) { if (hatOn() && !(typeof window !== 'undefined' && window.PixelLook)) paint(box, m, D => D.santa()); }   // « Son look » (web/look.js) dresses him for the seasons instead
 function drawOver(box, m, opt) {                    // opt.noBubble: the caller shows the line itself (web/exos.js); returns the line of the moment
   const cur = st.cur; if (!cur) return '';
   const T = H.theme(), e = H.now() - cur.t0, sc = cur.sc, p = clamp(e / sc.dur, 0, 1);

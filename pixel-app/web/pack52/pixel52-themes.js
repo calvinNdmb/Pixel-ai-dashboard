@@ -1,6 +1,8 @@
 /* Vendored from the user's own animation pack "Pixel OS — 3 thèmes, 52 animations" (version 2.1.0, src/pixel-themes.js).
    Changes for Pixel OS: the globals are renamed so they do not clash with ours (window.PixelThemes is window.Pixel52Themes, and it reads window.Pixel52);
-   nothing else is modified. Loaded by index.html and the lab before themes.js. */
+   and draw() reads an optional options.look for « Son look » (web/look.js, through themes.js): look.eye may draw an eye its own
+   way (true) or leave it to the pack, look.cheek a cheek, look.under and look.over what he wears, in the face's frame. Without
+   it, nothing changes. Loaded by index.html and the lab before themes.js. */
 /* Pixel OS — smooth Modern and Manga renderers. Original artwork in Canvas 2D. */
 (function(scope){
   'use strict';
@@ -97,8 +99,11 @@
       if(manga){ctx.fillStyle='#d3b6de';ctx.globalAlpha=.15;for(let y=24;y<325;y+=12)for(let x=15;x<590;x+=12)if(x<58||x>542){ctx.beginPath();ctx.arc(x,y,.8,0,TAU);ctx.fill()}ctx.globalAlpha=1;}
     }
     ctx.save();ctx.translate(300+s.x,178+s.y);ctx.rotate(s.rot);ctx.translate(-300,-178);ctx.globalAlpha=s.energy;
+    const L=options.look;   // « Son look »: its hooks, or nothing
+    if(L&&L.under)L.under(ctx,s,manga);
     // Crisp digital blush for Modern; ink hatching for Manga.
     for(const x of [145,455]){
+      if(L&&L.cheek&&L.cheek(ctx,x,s,manga))continue;
       if(manga){oval(x,221,23+3*s.blush,10+2*s.blush,'#f6c4d880');for(let i=0;i<3;i++)line(x-10+i*9,216,x-14+i*9,227,pink,1.8);}
       else {const bx=x<300?160:440;ctx.save();ctx.globalAlpha=.62*clamp(s.blush,0,1.3);round(bx-9,218,18+4*Math.max(0,s.blush-1),5,2.5,pink);ctx.restore();}
     }
@@ -114,6 +119,7 @@
         ctx.translate(0,side*inquisitive*3);ctx.rotate(-side*inquisitive*.045);
         ctx.scale(s.sx*(1-spring*.65),s.sy*(1+spring+side*inquisitive*.05));
       }
+      if(L&&L.eye&&L.eye(ctx,kind,lid,side,manga,{ink,s,p,id})){ctx.restore();return;}
       if(kind==='heart'){heart(0,13,manga?40:48,manga?'#e977a9':'#ff97ad');if(manga)oval(-9,-10,5,3,'#ffffffbf');ctx.restore();return;}
       if(kind==='star'){star(0,0,38,manga?'#c698f0':'#ffe49c',5);star(-6,-8,8,'#fff');ctx.restore();return;}
       if(kind==='closed'||kind==='happy'||lid<.11){
@@ -177,6 +183,7 @@
     if(id==='reveil'&&p>.35&&p<.8){line(135,215,102,175,accent,6);line(465,215,498,175,accent,6);}
     if(id==='idle-etire'){const q=env(p,.25,.43,.58,.77);if(q>.05){line(135,220,110,220-70*q,accent,5);line(465,220,490,220-70*q,accent,5);}}
     if(id==='idle-gratouille'){const q=env(p,.25,.36,.63,.75);if(q>.1){line(481,257,486-q*24,252-q*27,accent,5);hand(486-q*24,246-q*29+3*sin(p,10)*q,-.2);}}
+    if(L&&L.over)L.over(ctx,s,manga);
     ctx.restore();
     switch(id){
       case 'clin-oeil':if(A>.5)star(479,110,5+6*A,gold);break;

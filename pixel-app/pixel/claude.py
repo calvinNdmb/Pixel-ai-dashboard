@@ -10,6 +10,7 @@ from . import anims, caractere, nourrir, scenes
 from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
 from . import exos                    # start_exercise: a little math exercise on Pixel's screen
+from . import look                    # set_look: his eyes, colours and what he wears (pixel/look.py)
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (
@@ -54,6 +55,7 @@ TOOLS = [
 ]
 TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (pixel/nourrir.py)
 TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
+TOOLS.append(look.TOOL)                     # pixel/look.py: set_look
 
 # ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
 TOOLS.append(tool(
@@ -102,6 +104,8 @@ def check(name, a):
         return "entrée invalide"
     if name == nourrir.TOOL["name"]:
         return nourrir.check_tool(a)
+    if name == look.TOOL["name"]:
+        return look.check_tool(a)
     ok = {
         "get_status": True,
         "set_lights": isinstance(a.get("room"), str) and isinstance(a.get("on", True), bool)
@@ -177,6 +181,8 @@ class Claude:
             c = h.exos.cur
             out["exos"] = h.exos.summary() + (f" Un exo est ouvert sur ton écran ({c.get('type')}) : « {c.get('q')} ». Ne donne pas la réponse ; "
                                                "un indice si on te le demande." if c and c.get("etat") == "question" else "")
+        if getattr(h, "look", None) is not None:   # his look (pixel/look.py): what he looks like and wears now
+            out["look"] = h.look.status()
         return out
 
     def _timer_left(self):
@@ -228,6 +234,8 @@ class Claude:
                     + (f", tu l'appelles {c['surnom']}" if c["surnom"] else ""))
         if name == "start_exercise":
             return await exos.run_tool(h, a)
+        if name == look.TOOL["name"]:
+            return await look.run_tool(h, a)
         return "outil inconnu"
 
     # ---- conversation ----
