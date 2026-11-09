@@ -263,6 +263,9 @@ P('nourrirBeurk', (D, e, q) => {
 /* ---------- a meal: one scene per reaction (web/nourrir.js plays 'nourrir-repas' when the server says he ate) ---------- */
 const RX = ['prefere', 'aime', 'beurk', 'refuse', 'plein', 'eclate', 'sucre', 'legume', 'robot'];
 const meal = r => ({ on: ['nourrir-repas'], urgent: true, when: d => d.reaction === r });
+/* after the meal, his character speaks (o.gourmand: his trait, 0..100, from web/nourrir.js): a glutton wants more, a small eater has
+   had enough; in between, the lines of every day (the same pick) */
+const appetit = (base, plus, moins) => o => pick(o.gourmand >= 70 ? plus : o.gourmand <= 30 ? moins : base);
 const MIAM = { at: 700, bites: bites(1300) }, AIME = { at: 650, bites: bites(1200) }, PREF = { at: 800, bites: bites(2500, 550) };
 const BEURK = { at: 700, bites: bites(3700, 850) }, REF = { at: 700, back: [3000, 3700] }, PLEIN = { at: 700, back: [3100, 3800] };
 const ECL = { at: 650, bites: bites(1100, 600) }, SUC = { at: 600, bites: bites(900, 380) }, LEG = { at: 650, bites: bites(1200) };
@@ -272,12 +275,12 @@ const R2 = { pile: 'Bzzzt… recharge…', prise: 'Bzzz… 220 volts… miam…'
 
 S('nourrir-miam', 'Il mange', 'evt', { dur: 5600, on: ['nourrir-repas'], urgent: true, when: d => !RX.includes(d.reaction), anim: [[0, 'curieux'], [600, 'surpris'], [1100, 'parle'], [3200, 'content']], mood: 'content',
   init: dish(() => pick(['pomme', 'croissant', 'soupe', 'fromage', 'banane'])),
-  say: [[150, 1100, L('Oh, à manger !', 'C’est pour moi ?', 'Miam ?')], [1300, 3100, L('Miam miam…', 'Scrountch…', 'Mmmh…')], [3300, 4600, L('Miam ! Merci !', 'C’était bon !', 'Merci !')], [4700, 5500, o => (o.rot ? 'Burp ! …pardon.' : null)]],
+  say: [[150, 1100, L('Oh, à manger !', 'C’est pour moi ?', 'Miam ?')], [1300, 3100, L('Miam miam…', 'Scrountch…', 'Mmmh…')], [3300, 4600, appetit(['Miam ! Merci !', 'C’était bon !', 'Merci !'], ['Encore ! Il en reste ?', 'Déjà fini ? Encore !', 'Miam ! Et le dessert ?'], ['Merci, ça me suffit.', 'Juste ce qu’il faut.', 'Une bouchée, c’est assez.'])], [4700, 5500, o => (o.rot ? 'Burp ! …pardon.' : null)]],
   move: (e, p, o) => { const m = eat(e, MIAM.bites); return { ...m, y: m.y - 8 * bump(seg(e, 3200, 3700)) + burp(e, o, 4700) }; },
   props: (D, e, p, o) => { D.nourrirPlat(e, o, MIAM); if (o.rot && e > 4700) D.nourrirRot(e - 4700, fin(e, 5200, 5600)); } });
 S('nourrir-aime', 'Il adore', 'evt', { dur: 6200, ...meal('aime'), anim: [[0, 'curieux'], [500, 'surpris'], [1000, 'parle'], [3200, 'amoureux']], mood: 'amoureux',
   init: dish(() => PF.state.gouts.aime[0] || 'cookie'),
-  say: [[150, 1000, L('Oh ! J’adore ça !', 'Ooh, c’est bon ça !')], [1200, 3000, L('Miam miam…', 'Scrountch, scrountch…')], [3300, 5000, L('Trop bon !', 'J’adore ça !', 'Encore, encore !')], [5100, 6000, o => (o.rot ? 'Burp ! Hihi.' : null)]],
+  say: [[150, 1000, L('Oh ! J’adore ça !', 'Ooh, c’est bon ça !')], [1200, 3000, L('Miam miam…', 'Scrountch, scrountch…')], [3300, 5000, appetit(['Trop bon !', 'J’adore ça !', 'Encore, encore !'], ['Encore, encore, encore !', 'J’en reprendrais bien trois fois !'], ['C’était bon, merci.', 'Délicieux. Ça me suffit.'])], [5100, 6000, o => (o.rot ? 'Burp ! Hihi.' : null)]],
   move: (e, p, o) => { const m = eat(e, AIME.bites); return { ...m, r: 0.05 * Math.sin(e / 260) * io(e, 3200, 3500, 5000, 5500), y: m.y + burp(e, o, 5100) }; },
   props: (D, e, p, o) => { D.nourrirPlat(e, o, AIME); if (e > 3200 && e < 5600) D.hearts(e - 3200, fin(e, 5000, 5600)); if (o.rot && e > 5100) D.nourrirRot(e - 5100, 1); } });
 S('nourrir-prefere', 'Son plat préféré', 'evt', { dur: 8000, ...meal('prefere'), anim: [[0, 'surpris'], [350, 'etoiles'], [2300, 'parle'], [4200, 'danse'], [7200, 'content']], mood: 'excite',

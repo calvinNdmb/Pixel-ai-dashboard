@@ -25,7 +25,9 @@ const nowMs = () => (K ? K.now : performance.now());
 const srv = () => (K ? K.srv() : Date.now());
 const NUM = s => /^−?[\d\u00a0]+(?:,\d+)?(?:\u00a0min)?$/.test(s);
 function trait(name) {                              // his character (another add-on): 0..100, 50 when there is none
-  const t = P && P.caractere && P.caractere.traits, v = t && t[name];
+  const car = P && P.caractere, C = window.PixelCaractere; let t = car && car.traits;
+  if (t && car.humeur_jour === true && C && C.today) try { t = C.today(car); } catch (e) { /* the plain traits */ }   // his mood of the day
+  const v = t && t[name];
   return typeof v === 'number' && isFinite(v) ? clamp(v, 0, 100) : 50;
 }
 function send(action, args) { if (K) K.send(action, args || {}); }
@@ -70,8 +72,11 @@ const FX = 8, FY = 54, FW = 288, FH = 162, RX = 316, RW = 476;   // his face (le
 const CH = [[RX, 292], [RX + 244, 292], [RX, 380], [RX + 244, 380]], CW = 232, CHH = 80;
 const M0 = { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 };
 function offering() { return !!PER && PER.state.cur === 'exo-envie'; }
+/* over his face screen, first come: a cast (pixel/cast.py, when there: snapshot "cast"), the quick menu, then an open exercise,
+   then its offer, then Nourrir's tray and plate (web/nourrir.js gives way to both) */
+function castOn() { const c = P && P.cast; return !!(c && c.id && (!c.until || srv() < c.until)); }
 const ad = {
-  on: scr => scr === 'visage' && L.boot < 0 && !!E && (open() || offering()),
+  on: scr => scr === 'visage' && L.boot < 0 && !!E && !castOn() && (open() || offering()),
   instead: () => open(),
   busy: () => open(),
   fps: calm => (!open() ? 0 : cur().mode === 'chrono' && cur().etat === 'question' ? 20 : V.flash && nowMs() - V.flash.at < 1600 ? 30 : calm),
@@ -234,7 +239,7 @@ function submit() {
 }
 addEventListener('keydown', e => {
   const c = cur();
-  if (!c || L.scr !== 'visage' || L.boot >= 0 || e.ctrlKey || e.metaKey || e.altKey || !visible()) return;
+  if (!c || L.scr !== 'visage' || L.boot >= 0 || castOn() || e.ctrlKey || e.metaKey || e.altKey || !visible()) return;
   const t = e.target; if (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]')) return;
   const q = c.etat === 'question', key = e.key;
   let done = true;
@@ -260,7 +265,7 @@ function mountPanel() {
   const foot = document.querySelector('.kb .kfoot > span'); if (!foot || kioskPage || panel) return;
   goBtn = $el('button', 'follow exos-go', 'Exos'); goBtn.type = 'button'; goBtn.setAttribute('aria-expanded', 'false'); goBtn.title = 'Les exos de maths de Pixel';
   goBtn.addEventListener('click', () => togglePanel());
-  foot.append(goBtn);
+  const apk = foot.querySelector('#apk'); if (apk) apk.before(goBtn); else foot.append(goBtn);   // with Caractère and Nourrir, before the Android app's link
   panel = $el('section', 'exos'); panel.id = 'exos'; panel.hidden = true; panel.setAttribute('aria-label', 'Exos de maths');
   const head = $el('header', 'ex-head'), h2 = $el('h2', null, 'Exos de maths'), day = $el('span', 'ex-day'), x = $el('button', 'ex-x', '×');
   day.id = 'exDay'; x.type = 'button'; x.setAttribute('aria-label', 'Fermer les exos'); x.addEventListener('click', () => togglePanel(false));
@@ -397,9 +402,9 @@ function renderMore() {
 if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountPanel); else setTimeout(mountPanel); }
 
 return {
-  get state() { return E; }, get open() { return open(); }, get buffer() { return V.buf; }, trait,
+  get state() { return E; }, get open() { return open(); }, get offering() { return offering(); }, get buffer() { return V.buf; }, trait,
   canPropose(c) {                                           // exo-envie (a moment of life): the setting on, in the day, not too often
-    if (!E || open() || !E.reglages || !E.reglages.propose || !c || !c.day) return false;
+    if (!E || open() || !E.reglages || !E.reglages.propose || !c || !c.day || castOn() || (window.PixelNourrir && window.PixelNourrir.trayOpen)) return false;   // not over a cast or his food tray
     const t = Date.now(); if (t - V.offerAt < 25 * 60000 || t - V.exoAt < 20 * 60000) return false;
     return Math.random() * 100 < 25 + 0.75 * trait('studieux');
   },

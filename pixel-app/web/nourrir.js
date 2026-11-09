@@ -36,7 +36,7 @@ function heard(p) {
   if (first) { seenMeal = d ? d.t : 0; seenFaim = faim; return panelDraw(); }      // old news stays old
   if (d && d.t !== seenMeal) {
     seenMeal = d.t;
-    if ((p.server_now || Date.now()) - d.t < 15000) { closeTray(true); Sc.event('nourrir-repas', { plat: d.plat, reaction: d.reaction, rot: !!d.rot }, true); }
+    if ((p.server_now || Date.now()) - d.t < 15000) { closeTray(true); Sc.event('nourrir-repas', { plat: d.plat, reaction: d.reaction, rot: !!d.rot, gourmand: gourmand() }, true); }
   }
   if (n.on && faim > seenFaim) hint(faim);
   seenFaim = faim;
@@ -45,15 +45,25 @@ function heard(p) {
 }
 function hint(niveau) {             // his belly just got emptier: he may say so, if nothing else is going on
   const h = new Date().getHours(), cur = PER && PER.state.cur, g = cur && (PER.scenes.find(s => s.id === cur) || {}).group;
-  if (h >= 23 || h < 6 || !PF.hintOk() || (g && g !== 'vie')) return '';
+  const night = PER && PER.isNight ? PER.isNight(h) : h >= 23 || h < 6;           // his quiet hours (his character's, 23 h to 6 h by default)
+  if (night || !PF.hintOk() || (g && g !== 'vie') || (window.PixelExos && window.PixelExos.open)) return '';   // nor during an exercise
   return Sc.event('nourrir-faim', { niveau });
+}
+function gourmand() {               // his character's trait of today (web/persona.js, web/caractere.js), 50 without one
+  const v = PER && PER.traits && PER.traits.gourmand; return typeof v === 'number' && isFinite(v) ? v : 50;
 }
 const feed = id => { if (!PF.BY[id]) return; send('nourrir.donner', { plat: id }); sentAt = Date.now(); panelDraw(); };
 
 /* ---------- the tray (the Pi's touch screen, the Pixel de poche, the lab) ---------- */
 const tray = { open: false, t: -1e9 }, TR = { x: 8, w: 784, h: 196, gx: 19, gy: 62, cell: 58, step: 64 }, HANDLE = { x: 736, y: 352, w: 64, h: 64 };
 const shown = () => !!(P && P.nourrir && P.nourrir.on) && L.scr === 'visage' && L.boot < 0 && !Sc.menuOpen
-  && (L.kiosk || !!(window.PixelPoche && window.PixelPoche.on)) && !(PER && PER.state.cur === 'poche-part');   // not on the Pi's empty screen while he is in your pocket
+  && (L.kiosk || !!(window.PixelPoche && window.PixelPoche.on)) && !(PER && PER.state.cur === 'poche-part') && !above();   // not on the Pi's empty screen while he is in your pocket
+/* over his face screen, these come first: a cast (pixel/cast.py, when there: snapshot "cast"), the quick menu, an open exercise
+   and its offer « Une petite question ? » (web/exos.js); the tray and its plate wait, and come back after */
+function above() {
+  const X = window.PixelExos, c = P && P.cast;
+  return !!(X && (X.open || X.offering)) || !!(c && c.id && (!c.until || Date.now() < c.until));
+}
 function openTray() { if (tray.open || !shown()) return false; tray.open = true; tray.t = realNow(); fastFor(320); return true; }
 function closeTray(quick) { if (!tray.open) return; tray.open = false; tray.t = quick || RM ? -1e9 : realNow(); fastFor(320); }
 let grid = null;
