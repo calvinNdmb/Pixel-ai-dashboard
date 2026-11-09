@@ -151,6 +151,13 @@
         <button type="button" id="castRawBtn" aria-pressed="false" hidden>Couleurs d'origine</button>
         <button type="button" data-act="cast.stop">Arrêter</button>
       </div>
+      <div class="btns">
+        <button type="button" data-act="lab.ecran" data-args='{"what":"pc"}'>Écran d'un PC</button>
+        <button type="button" data-act="lab.ecran" data-args='{"what":"phone"}'>Écran d'un téléphone</button>
+        <button type="button" data-act="ecran.code">Code de partage</button>
+        <button type="button" data-act="lab.ecran" data-args='{"what":"pin"}'>AirPlay : code</button>
+        <button type="button" data-act="lab.ecran" data-args='{"what":"airplay"}'>AirPlay</button>
+      </div>
       <form class="inline" id="castForm" autocomplete="off"><label class="sr" for="castInput">Un texte ou un lien à caster</label><input id="castInput" type="text" maxlength="280" value="Bon appétit !" enterkeyhint="send"><button type="submit">Caster</button></form>
       <p class="note" id="castNote">Ce que ton téléphone envoie à Pixel (son panneau « Caster sur Pixel », ou Partager → Pixel) : ça s'affiche par-dessus l'écran ouvert, puis Pixel y revient. Touche l'écran pour arrêter. Ici, tes fichiers restent dans la page.</p>
     </section>
@@ -279,6 +286,7 @@
 <script src="../scenes/toucher.js"></script>
 <script src="../scenes/vie.js"></script>
 <script src="../scenes/surprises.js"></script>
+<script src="../ecran.js"></script>
 <script src="../screens.js"></script>
 <script src="demo-hub.js"></script>
 <script src="testcard.js"></script>

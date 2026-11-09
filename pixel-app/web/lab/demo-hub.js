@@ -82,8 +82,9 @@ const S = {
   timer: { mode: 'TRAVAIL', total: 1500, left: 1500, running: false, ends_at: 0, done: 2 },
   sys: { temps: [], cpus: [], bright: 1, hw_bright: false, host: 'pixel', temp: 46, cpu: 8, ram_used: 1.2e9, ram_total: 4.1e9, wifi: -52, uptime: 3 * 86400 + 4 * 3600, disk: 24, ip: '192.168.1.42' },
   settings: { url: 'http://pixel.local:8080/?t=demo', ip_url: 'http://192.168.1.42:8080/?t=demo', qr: QR, demo: true, sleep_min: 10, claude: 'démo (pas de clé API)', deck: 'Stream Deck MK.2 (15 touches)', themes: THEMES.map(t => t.id),
-    cast: { max_mb: 40, seconds: 120 } },
+    cast: { max_mb: 40, seconds: 120 }, ecran: { page: 'http://pixel.local:8080/ecran', ip_page: 'http://192.168.1.42:8080/ecran', https: '', launcher: '/ecran/lanceur.html' } },
   cast: null,                     // pixel/cast.py: what a phone shows on Pixel's screen, and the last ones
+  airplay: { on: false, status: 'off', client: '', name: 'Pixel', error: '' },     // pixel/airplay.py: off unless [airplay] enabled
   cast_recent: [],
   toast: null,
   boot_at: 0,
@@ -327,6 +328,20 @@ async function castSample(what, opts = {}) {
   return '';
 }
 
+/* ---------- a shared screen (pixel/ecran.py, pixel/airplay.py): its cards, and a fake desktop as its picture (../ecran.js) ---------- */
+const ECRAN_WHY = { mjpeg: 'Pixel ne trouve pas ScreenStream sur ton téléphone. Lance-le en mode Local, sans code PIN, sur le même Wi-Fi.',
+  webrtc: 'Le navigateur de Pixel ne sait pas recevoir un écran partagé (WebRTC).', reseau: "La connexion avec l'écran partagé s'est perdue.", signal: "Pixel a perdu le contact avec l'ordinateur." };
+function ecranCard(phase, title, note, extra = {}) {      // ecran.py _show(): over whatever screen is open, like the other casts
+  S.cast = { kind: 'screen', via: 'webrtc', phase, title, note, id: Math.random().toString(36).slice(2, 10), t0: Date.now(), until: 0, raw: false, ...extra };
+  return S.cast;
+}
+const ECRAN_LAB = {                                       // the lab's buttons: what a computer, a phone, an iPhone would show
+  pc: () => ecranCard('live', 'Écran : PC du labo', "L'écran de l'ordinateur est sur Pixel, en direct.", { via: 'demo' }),
+  phone: () => ecranCard('live', 'Écran du téléphone', 'ScreenStream, en direct.', { via: 'demo', shape: 'portrait' }),
+  pin: () => ecranCard('pin', 'AirPlay', "Sur l'iPhone, tape ce code pour recopier ton écran sur Pixel.", { via: 'airplay', code: '4821', until: Date.now() + 90e3 }),
+  airplay: () => ecranCard('live', 'AirPlay : iPhone du labo', "Sur le vrai Pixel, l'écran de l'iPhone s'affiche par-dessus (la fenêtre d'UxPlay). Pour arrêter : « Arrêter la recopie » sur l'iPhone.", { via: 'airplay' }),
+};
+
 /* ---------- actions: same names and arguments as the real server ---------- */
 const A = {
   'theme.set': ({ name }) => {
@@ -390,8 +405,15 @@ const A = {
     if (error) toast({ video: "Pixel n'arrive pas à lire cette vidéo (format ?).", image: "Pixel n'arrive pas à afficher cette image." }[error] || "Pixel n'arrive pas à l'afficher.", 4000);
   },
   'cast.colors': ({ raw = null } = {}) => { if (S.cast) S.cast.raw = raw == null ? !S.cast.raw : !!raw; },
+  'ecran.code': () => {                                   // ecran.py: a one-time code on Pixel's screen (the phone app shows it too)
+    if (S.cast && S.cast.kind === 'screen' && S.cast.phase === 'code' && Date.now() < S.cast.until) return;
+    ecranCard('code', "Partage d'écran", "Sur l'ordinateur, tape ce code dans la page « Partager mon écran » (pixel.local:8080/ecran).", { code: String(Math.floor(Math.random() * 1e6)).padStart(6, '0'), until: Date.now() + 180e3 });
+  },
+  'ecran.fail': ({ id, why = '' }) => { if (!S.cast || S.cast.id !== id || S.cast.kind !== 'screen') return; S.cast = null; toast(ECRAN_WHY[why] || "Pixel n'arrive pas à afficher cet écran.", 6000); },
+  'airplay.stop': () => { if (S.cast && S.cast.via === 'airplay') S.cast = null; },
 
   /* lab-only actions */
+  'lab.ecran': ({ what = 'pc' } = {}) => { if (ECRAN_LAB[what]) ECRAN_LAB[what](); },
   'lab.toast': ({ msg, ms = 4000, mood: m = null }) => { toast(String(msg || '').slice(0, 300) || 'NOTIFICATION', ms); if (m) mood(m, 1800); },
   'lab.chat': () => { chatScript(); },
   'lab.codex': ({ fail = false, task = 'corrige le test qui échoue' } = {}) => codexStart(task, !!fail),

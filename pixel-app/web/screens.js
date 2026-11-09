@@ -463,11 +463,12 @@ function drawBanner() {
    [cast] seconds), videos at their end (Pixel's screen tells the server: cast.end), at once on a touch (cast.stop).
    The picture keeps its true colours, sharp, letterboxed on black: while anything is cast, no CRT effect in any theme
    (frame(): no theme.fg, and the "casting" class hides the page's scanlines, style.css); all of it is back when it ends.
-   A little Pixel peeks in from the corner and reacts.
+   A little Pixel peeks in from the corner and reacts. A shared screen (kind "screen": a computer by WebRTC, Android with
+   ScreenStream, AirPlay) is received by ecran.js, and drawn here like a video.
    A video plays in a hidden <video>, drawn every frame (60 im/s: wantFps); a GIF is decoded frame by frame (ImageDecoder:
    a canvas only ever draws the first frame of a GIF); YouTube and Vimeo play in their own player over the canvas, on
    Pixel's screen only (a phone shows a card). The sound plays on Pixel's screen only (kiosk.sh lets it start alone). */
-const CA = { id: null, kind: '', t: 0, img: null, vid: null, gif: null, frame: null, ifr: null, err: '', ended: false, peek: 0 };
+const CA = { id: null, kind: '', t: 0, img: null, vid: null, gif: null, frame: null, ifr: null, err: '', ended: false, peek: 0, fps: 0 };   // fps: ecran.js's own rate
 const PEEK = PackPlayer(), PEEKLIFE = PixelLife();
 const EMB = { x: 16, y: 58, w: 584, h: 328 };          // where YouTube and Vimeo play (16:9), Pixel beside them
 const caps = s => T.upper ? s.toUpperCase() : s;
@@ -486,6 +487,8 @@ function castLoad(c) {                // a new cast: its picture, its animation,
   if (c.kind === 'gif') castGif(c);
   else if (c.kind === 'video') castVideo(c);
   else if (c.kind === 'link' && c.embed && L.kiosk) castFrame(c);
+  else if (c.kind === 'screen' && window.PixelEcran) window.PixelEcran.open(c, CA, { kiosk: L.kiosk, send, redraw: () => { L.dirty = true; },
+    muted: !!(SON() && SON().on && SON().volume === 0) });   // a shared screen: its <video> or <img> lands in CA.vid / CA.img
 }
 async function castGif(c) {
   const id = c.id;
@@ -538,11 +541,12 @@ addEventListener('message', e => {
   if (over && !CA.ended) { CA.ended = true; if (L.kiosk) send('cast.end', { id: CA.id }); }
 });
 function castDrop() {                 // the cast is over: its video, its decoder and its player go
+  if (CA.kind === 'screen' && window.PixelEcran) window.PixelEcran.close();   // the shared screen's connection
   const v = CA.vid; if (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { /* already gone */ } }
   try { if (CA.gif) CA.gif.dec.close(); if (CA.frame) CA.frame.close(); } catch (e) { /* already closed */ }
   if (CA.ifr) CA.ifr.remove();
   if (CA.id && L.kiosk) L.lastInput = now;
-  Object.assign(CA, { id: null, kind: '', img: null, vid: null, gif: null, frame: null, ifr: null, err: '', peek: 0 });
+  Object.assign(CA, { id: null, kind: '', img: null, vid: null, gif: null, frame: null, ifr: null, err: '', peek: 0, fps: 0 });
 }
 function castSync() {                 // every frame: what is cast now (null: nothing, or Pixel is starting up)
   const c = L.boot >= 0 ? null : castLive();
@@ -556,7 +560,7 @@ function castSrc() {                  // what to draw, and its size: the GIF's f
   if (CA.img && CA.img.complete && CA.img.naturalWidth) return [CA.img, CA.img.naturalWidth, CA.img.naturalHeight];
   return null;
 }
-function castMedia(c) {               // a photo, a GIF or a video: as big as it fits, centred on black, in its own colours
+function castMedia(c) {               // a photo, a GIF, a video or a shared screen: as big as it fits, centred on black, in its own colours
   X.shadowBlur = 0; X.fillStyle = '#000'; X.fillRect(0, 0, W, H);
   if (CA.gif && now >= CA.gif.next) gifNext();
   const s = castSrc();
@@ -564,7 +568,7 @@ function castMedia(c) {               // a photo, a GIF or a video: as big as it
   const [src, w, h] = s, k = Math.min(W / w, H / h), r = { w: w * k, h: h * k };
   r.x = (W - r.w) / 2; r.y = (H - r.h) / 2;
   X.imageSmoothingEnabled = true; X.imageSmoothingQuality = 'high'; X.drawImage(src, r.x, r.y, r.w, r.h);
-  if (CA.vid && CA.vid.duration > 0) { X.globalAlpha = 0.8; X.fillStyle = D; X.fillRect(0, H - 3, W * CA.vid.currentTime / CA.vid.duration, 3); X.globalAlpha = 1; }   // how far the video is
+  if (CA.vid && CA.vid.duration > 0 && CA.vid.duration < Infinity) { X.globalAlpha = 0.8; X.fillStyle = D; X.fillRect(0, H - 3, W * CA.vid.currentTime / CA.vid.duration, 3); X.globalAlpha = 1; }   // how far the video is
   glow();
 }
 function castSign(c) {                // a text: a big sign, in the theme's font, as big as it fits
@@ -598,12 +602,22 @@ function castPlayer(c) {              // Pixel's screen, YouTube or Vimeo: a TV 
   hit(612, 48, W - 612, H - 48, () => send('cast.stop'));                  // the column beside the player stops it
   const vis = L.menu ? 'hidden' : 'visible'; if (CA.ifr.style.visibility !== vis) CA.ifr.style.visibility = vis;   // under the quick menu
 }
+function castScreen(c) {              // a shared screen before its picture: the code to type, "connecting…", AirPlay (its window is above)
+  header(c.title || "Partage d'écran");
+  let y = 196;
+  if (c.code) {                                                           // the one-time code (pixel/ecran.py), AirPlay's PIN
+    txt(caps(c.via === 'airplay' ? 'Code AirPlay' : 'Code'), 400, 70, 30, D, 'center');
+    txt(String(c.code).replace(/^(\d{3})(\d{3})$/, '$1 $2'), 400, 104, 118, WH, 'center', 'title'); y = 246;
+  } else txt(fit(caps({ paired: 'Prêt', live: 'En direct' }[c.phase] || 'Connexion' + '.'.repeat(1 + Math.floor(now / 400) % 3)), 720, 48), 400, 116, 48, WH, 'center', 'title');
+  wrap(c.note || '', 720, 26).slice(0, 3).forEach((l, i) => txt(l, 40, y + i * 32, 26, G));
+}
 function castFace(c, e, player) {     // the little Pixel: he peeks in from the corner, reacts, ducks away, comes back now and then
-  const media = c.kind === 'image' || c.kind === 'gif' || c.kind === 'video', show = !media || e < 7000 || (e - 7000) % 30000 > 25000;
+  const shot = c.kind === 'screen' && !!castSrc();                       // a shared screen: he looks once, then leaves it alone
+  const media = c.kind === 'image' || c.kind === 'gif' || c.kind === 'video' || shot, show = !media || e < 7000 || (!shot && (e - 7000) % 30000 > 25000);
   CA.peek = clamp(CA.peek + (show ? 1 : -1) * fdt / 450, 0, 1);
   if (CA.peek <= 0) return;
   const k = 1 - (1 - CA.peek) ** 3, w = 192, h = 108;
-  const react = e < 1400 ? 'surpris' : e < 4600 ? { image: 'amoureux', gif: 'rire', video: 'etoiles', text: 'reflechit', link: c.embed ? 'etoiles' : 'idee' }[c.kind] : (c.kind === 'video' || c.embed ? 'ecoute' : null);
+  const react = e < 1400 ? 'surpris' : e < 4600 ? { image: 'amoureux', gif: 'rire', video: 'etoiles', text: 'reflechit', link: c.embed ? 'etoiles' : 'idee', screen: 'etoiles' }[c.kind] : (c.kind === 'video' || c.embed || c.kind === 'screen' ? 'ecoute' : null);
   const md = { surpris: 'surpris', amoureux: 'amoureux', rire: 'content', etoiles: 'excite', reflechit: 'reflechit', idee: 'content', ecoute: 'ecoute' }[react] || 'neutre';
   let x = W - w - 26, y = Math.round(H - h - 6 + (1 - k) * (h + 50));     // his box goes on under the edge, as if he leaned in
   if (player) { x = 606; y = 110; X.globalAlpha = k; }
@@ -617,6 +631,7 @@ function drawCast(c) {
   if (c.kind === 'text') castSign(c);
   else if (player) castPlayer(c);
   else if (c.kind === 'link') castCard(c);
+  else if (c.kind === 'screen' && !castSrc()) castScreen(c);
   else castMedia(c);
   if (!player) hit(0, 0, W, H, () => send('cast.stop'));                   // a touch anywhere: back to where he was
   X.shadowBlur = 0; castFace(c, e, player); glow();
@@ -704,7 +719,7 @@ function fast(ms = 150) { L.fastUntil = Math.max(L.fastUntil, realNow() + ms); }
 function wantFps() {
   const r = realNow();
   if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (PV.id && L.scr === 'visage') || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
-  if (CA.id) return CA.vid || CA.gif || now - CA.t < 1500 ? 60 : Math.min(T.faceFps || 30, 30);   // a cast: a video or a GIF at full speed
+  if (CA.id) return CA.vid || CA.gif || now - CA.t < 1500 ? 60 : CA.fps || Math.min(T.faceFps || 30, 30);   // a cast: a video, a GIF, a shared screen at full speed
   const calm = T.calmFps || 10;                       // still screens: the clock, a blinking cursor
   switch (L.scr) {
     case 'visage': {

@@ -1,0 +1,43 @@
+# What UxPlay 1.73.7 writes while an iPhone mirrors its screen, then plays a video from the YouTube app (-hls), for
+# tests/test_airplay.py. Rebuilt from the log() calls of UxPlay's sources (uxplay.cpp, lib/httpd.c, lib/raop.c,
+# lib/raop_handlers.h, lib/raop_rtp_mirror.c): not a capture from a real iPhone, which Pixel's tests do not have.
+# Lines starting with # are this note. "= phase" lines are what the parser must say after the line above them.
+UxPlay 1.73.7: An Open-Source AirPlay mirroring and audio-streaming server.
+using system MAC address 2c:cf:67:12:34:56
+Initialized server socket(s)
+Accepted IPv4 client on socket 31
+Local IPv4: 192.168.1.42
+Remote IPv4: 192.168.1.23
+Connection closed on socket 31
+Removing connection for socket 31
+= idle
+Accepted IPv4 client on socket 33
+*** CLIENT MUST NOW ENTER PIN = "4821" AS AIRPLAY PASSWORD
+= pin 4821
+Accepted IPv6 client on socket 34
+connection request from Marie's iPhone (iPhone14,2) with deviceID = 4A:3B:2C:1D:0E:9F
+= connecting Marie's iPhone
+raop_rtp_mirror starting mirroring
+= live Marie's iPhone
+begin video stream wxh = 1170x2532; source 1170x2532
+on_video_play: location = http://192.168.1.23:7100/master.m3u8
+= live Marie's iPhone
+hls video has sent EOS
+= live Marie's iPhone
+Connection closed on socket 34
+= live Marie's iPhone
+Connection closed on socket 33
+= idle
+Removing connection for socket 33
+= idle
+Accepted IPv4 client on socket 35
+connection request from Paul's iPad (iPad13,1) with deviceID = 11:22:33:44:55:66
+= connecting Paul's iPad
+on_video_play: location = http://192.168.1.24:7100/master.m3u8
+= live Paul's iPad
+on_video_stop
+= connecting Paul's iPad
+raop_rtp_mirror starting mirroring
+= live Paul's iPad
+ERROR lost connection with client
+= idle

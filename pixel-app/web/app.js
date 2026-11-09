@@ -82,6 +82,7 @@ function render() {
   $('cmdForm').style.bottom = osk ? $('osk').offsetHeight + 'px' : '';
   $('cmdForm').classList.toggle('hide', kiosk && !osk && !['claude', 'codex'].includes(L.scr) && document.activeElement !== $('cmd'));
   castRender();
+  if (window.PixelEcran && !kiosk) PixelEcran.panel(P, send, token);   // « Partager un écran » (ecran.js)
 }
 $('follow').setAttribute('aria-pressed', String(follow));
 $('follow').addEventListener('click', () => {

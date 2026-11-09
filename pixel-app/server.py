@@ -22,10 +22,12 @@ from aiohttp import WSMsgType, web
 
 from pixel import anims, commands, scenes, timer
 from pixel.agenda import Agenda
+from pixel.airplay import AirPlay
 from pixel.cast import Cast, local_page
 from pixel.claude import Claude
 from pixel.codex import Codex
 from pixel.deck import Deck
+from pixel.ecran import Ecran
 from pixel.hue import Hue
 from pixel.keys import FACES, NAV, THEMES
 from pixel.state import Hub
@@ -182,6 +184,8 @@ async def serve(args, cfg, datadir, token):
     deck = Deck(hub, cfg.get("streamdeck", {}))
     hub.s["settings"]["claude"] = claude.C["status"]
     cast = Cast(hub, cfg.get("cast", {}), datadir, token, qr_rows)     # photos, videos, texts and links from a phone
+    ecran = Ecran(hub, cfg.get("ecran", {}), HERE / "web", datadir, token, host=host, port=port, ip=local_ip())   # a PC's screen (WebRTC), Android's
+    airplay = AirPlay(hub, cfg.get("airplay", {}))                    # iPhone, iPad, Mac: UxPlay, when [airplay] enabled = true
 
     @hub.action("cmd")
     async def cmd(text):
@@ -243,15 +247,18 @@ async def serve(args, cfg, datadir, token):
     app.router.add_post("/api/cast", cast.api)
     app.router.add_post("/share", cast.share)              # the Android share sheet (manifest.webmanifest share_target)
     app.router.add_get("/cast/{name}", cast.file)
+    ecran.routes(app.router)                               # /ecran: « Partager mon écran », its signalling, Android's screen
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
         app.router.add_get(path, lab)
     app.router.add_static("/app/", HERE / "web")
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, args.host, port).start()
+    await ecran.serve_tls(runner, args.host)                # the optional https address ([ecran] https_port)
 
     jobs = [hub.broadcaster(), hub.every(1, system.sample), hub.every(5, hue.refresh), hub.every(1200, weather.refresh),
-            hub.every(600, agenda.refresh), hub.every(0.25, tick), hub.every(10, deck.connect), hub.every(1, cast.tick)]
+            hub.every(600, agenda.refresh), hub.every(0.25, tick), hub.every(10, deck.connect), hub.every(1, cast.tick),
+            hub.every(1, ecran.tick), airplay.run()]
     log.info("Pixel prêt. Écran : http://localhost:%s/?kiosk=1   Téléphone : %s", port, url)
     hub.s["boot_at"] = 0
     hub.mark()
