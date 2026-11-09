@@ -62,5 +62,13 @@ name = "Pixel"              # son nom dans la liste « Recopie de l'écran »
 pin = true                  # l'iPhone tape le code à 4 chiffres que Pixel affiche (sans lui, tout le Wi-Fi peut s'afficher sur Pixel)
 # args = ["-bt709"]         # Pi 4 : si les couleurs sont fausses ; ["-avdec"] : décoder la vidéo avec le processeur
 
+[amis]
+# Les amis de Pixel (docs/AMIS.md) : ton Pixel rend visite au Pixel d'un copain, d'une maison à l'autre. Rien ne sort
+# de la maison tant qu'il n'a pas d'ami, et tout ce qui passe par le relais est chiffré de bout en bout.
+# enabled = false            # le verrou des parents : plus d'amis du tout (le bouton « Amis » du téléphone ne le rallume pas)
+# relay = "https://ntfy.sh"  # le relais (compatible ntfy) : celui de ntfy.sh, ou le tien (docs/AMIS.md, « Ton propre relais »)
+# token = "tk_..."           # le jeton d'accès de ton relais, s'il en demande un
+# visite_secondes = 180      # la durée d'une visite (de 20 à 600)
+
 # [security]
 # token = "..."             # code d'accès des téléphones ; créé tout seul sinon

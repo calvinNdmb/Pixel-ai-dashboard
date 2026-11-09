@@ -537,6 +537,30 @@ Pixel se souvient de toi. Il retient ton anniversaire et le jour de votre rencon
 
 **Ses fichiers :** `pixel/souvenirs.py` (ses souvenirs et le carnet, gardés dans `souvenirs.json` et `humeur.json` ; un fichier abîmé ne bloque jamais le démarrage), `pixel/album.py` (les photos, `POST /api/album` et `GET /album/…`), `web/scenes/souvenirs.js` (ses scènes), `web/souvenirs.js` et `web/souvenirs.css` (son écran, le panneau du téléphone, les mêmes règles pour Pixel Lab et sans Pi), `web/album.js` (la prise des photos), `web/lab/souvenirs-lab.js` (le panneau de Pixel Lab).
 <!-- fin des souvenirs -->
+<!-- amis de Pixel -->
+## Les amis de Pixel
+
+Ton Pixel peut **rendre visite au Pixel d'un copain**, d'une maison à l'autre, comme le Pixel de poche part dans ton téléphone. Il sort de ton écran avec sa valise, arrive sur l'écran de son ami, à côté de lui, et ils jouent environ 3 minutes : bonjour, danse, « tape là », course, goûter, cache-cache, blague, bavardage, photo souvenir, et dodo côte à côte s'il est tard. Puis il rentre et te raconte : « J'ai joué avec Bip ! On a dansé, et on a fait la course ! » Le mode d'emploi complet, pour les parents aussi : [`docs/AMIS.md`](docs/AMIS.md).
+
+**Devenir amis :** sur ton téléphone, **Amis** sous les touches ouvre **Ses amis**. **Créer mon code** donne un code d'ami : trois mots et un nombre (`lapin · soleil · tarte · 4271`), avec un QR code, valable 24 h et une seule fois. Ton copain le tape sur son Pixel (**Ajouter un ami**, ou `ajoute l'ami lapin soleil tarte 4271`) : les deux Pixels font la fête, ils sont amis. Un mot mal tapé est signalé tout de suite, avec le bon mot.
+
+**Ensuite :** **Va le voir** (ou `va voir Bip`), **Coucou** (`dis coucou à Bip`), un des 12 **autocollants** (`envoie un cœur à Bip`), **Retirer** (les deux Pixels oublient l'amitié). Pendant qu'il est parti, ton écran montre une petite maison « Chez Bip », le temps qu'il reste et **Rappelle-le**. S'il ne trouve personne, il revient et dit pourquoi (« Bip n'a pas répondu… il doit dormir »). Tape `mes amis` pour la liste, `mon code d'ami` pour l'afficher en grand sur l'écran de Pixel. Claude peut lister ses amis, l'envoyer en visite et faire coucou (outil `pixel_friends`), jamais ajouter un ami ni écrire.
+
+**Chez toi :** un ami entre, ton Pixel se pousse à gauche, ils jouent, chacun son nom dessous, le visiteur avec son propre look dans les couleurs de ton thème. Touche-le : il rigole. Personne ne vient pendant la nuit (ses heures calmes), pendant un cast ou un exo. Sur l'écran du Pi, une chose à la fois : ce que tu castes, le menu rapide et un exo ouvert passent devant une visite, qui attend dessous ; l'assiette et les questions de maths attendent la fin de la visite.
+
+**Les parents :** **Accepter les visites**, **Me demander avant** (« Bip veut venir jouer ! » : **Non merci** / **Oui !** sur l'écran ou le téléphone) et l'interrupteur **Amis**, qui coupe tout. Verrou sur le Pi : `enabled = false` dans `[amis]` de `config.toml`. Le journal garde les 30 dernières choses. Seuls les Pixels qui ont échangé un code se joignent ; aucun texte libre, aucune photo, aucune position, aucun prénom ne passe entre deux maisons : seulement le nom des Pixels, des coucous, 12 autocollants et les visites. 20 amis au plus, et tout est limité (coucous, messages par jour, une visite à la fois).
+
+**Sans serveur à nous, sans rien ouvrir sur ta box :** les Pixels se parlent par un relais compatible ntfy (ntfy.sh au départ, ou le tien : `relay = "…"` dans `[amis]`). Tant que ton Pixel n'a pas d'ami, il ne le contacte même pas. Tout ce qui y passe est chiffré de bout en bout (AES-GCM ; clés tirées d'un échange X25519 et du code, étiré par scrypt puis HKDF ; le code ne voyage jamais) et signé ; un message modifié, rejoué, trop vieux ou pas pour lui est jeté. Il faut le paquet Python `cryptography` (installé par `deploy/install.sh`). Gardé sur le Pi dans `~/.config/pixel/amis.json` (lisible par toi seul : il contient les clés).
+
+**Sans Pi**, l'appli Android n'a pas encore d'amis (ils vivent sur le Pi). **Dans Pixel Lab**, le panneau **Les amis** a un ami de démo, **Bip**, joué par la page : fais-le venir, envoie Pixel chez lui, joue chaque scène à deux.
+
+**Vérifié** (`test_amis.py`, `test_amis.js`, avec un faux relais, jamais ntfy.sh) : les codes (40 bits, tapés n'importe comment, une faute signalée), la boîte chiffrée (un bit changé, un autre sujet, une autre clé : refusé), aucune connexion sans ami, deux serveurs qui deviennent amis sans qu'un seul mot passe en clair dans le relais, un code utilisé une fois, les messages rejoués (même après un redémarrage), trop vieux, du futur, renvoyés à leur auteur ou pour un autre : refusés ; les limites (un flot de messages jeté avant d'être lu, les coucous, le compte du jour) ; les visites dans les deux sens, leur programme et les souvenirs ; les refus (il dort : `habitudes` ou ses heures calmes, cast, exo, visites fermées) ; « Me demander avant » (oui, non, pas de réponse) ; « Rappelle-le » ; partir en même temps ; un relais qui coupe, ne répond plus ou refuse ; le Pi d'un ami éteint ; retirer un ami (les deux oublient) ; l'interrupteur des parents ; `amis.json` (0600, cassé : mis de côté) ; les commandes et l'outil de Claude. Dans Chromium, deux serveurs de démo : devenir amis depuis les deux téléphones (390 × 844), la visite sur l'écran de l'hôte (800 × 480) dans plusieurs thèmes, un cast et un exo par-dessus, la maison « Chez Bip » et le retour qui raconte, « Me demander avant » et « Rappelle-le » au doigt, l'ami de démo de Pixel Lab.
+
+```
+python3 tests/test_amis.py           # le faux relais sur le port 8460 (AMIS_PY_PORT=… pour un autre)
+node tests/test_amis.js              # faux relais 8461, serveurs 8462 et 8463 (AMIS_RELAY_PORT, AMIS_A_PORT, AMIS_B_PORT) ; --shots DOSSIER
+```
+<!-- fin des amis de Pixel -->
 
 ## Tes agendas (Google et Samsung)
 
@@ -636,6 +660,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Données réelles** (`test_real.py`) : la vraie météo d'Open-Meteo, un agenda iCal avec un événement sur la journée et un événement répété, et les 15 touches du Stream Deck dessinées dans chaque thème.
 - **Agendas** (`test_agenda.py`) : un agenda Google (heure de Paris, événement répété, vacances sur plusieurs jours, soirée après minuit, événement annulé), un fichier Samsung .vcs importé puis réimporté, un rendez-vous présent dans deux agendas affiché une seule fois, les erreurs (404, page web, pas d'internet), le fichier privé, et l'adresse secrète qui n'arrive jamais sur les écrans.
 - **Pixel Lab** : 140 vérifications dans Chromium, sur ordinateur, téléphone et en plein écran 800 × 480.
+- **Les amis de Pixel** (`test_amis.py`, `test_amis.js`, un faux relais ntfy, jamais ntfy.sh) : le détail est à la fin de « Les amis de Pixel ».
 - **Caster** (`test_cast.py`, `test_cast.js`) :
   - les photos, GIF et vidéos sont reconnus à leurs premiers octets, jamais à leur nom : PNG, JPEG, GIF, WebP, MP4 (et le .mov de l'iPhone), WebM. Le HTML déguisé en .png, le HEIC, le Matroska et un fichier vide sont refusés.
   - la limite de taille marche, même sans taille annoncée ; rien n'est gardé d'un envoi refusé ; un nom avec `../` donne un nom au hasard dans `cast/`. Seuls les 3 derniers fichiers restent.
@@ -740,12 +765,14 @@ Pas encore testé avec le vrai matériel :
 | `pixel/nourrir.py`, `web/nourrir.js` | le nourrir : son ventre, ses goûts, ses repas ; l'assiette et le plateau du Pi, le panneau **Nourrir** du téléphone (`nourrir.css`) ; le menu, ses dessins et ses scènes dans `scenes/nourrir.js` |
 | `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
 | `pixel/souvenirs.py`, `pixel/album.py`, `web/souvenirs.js`, `web/album.js` | ses souvenirs, le carnet d'humeur et l'album photo : le serveur, son écran, le panneau **Souvenirs** du téléphone (`souvenirs.css`) ; ses scènes dans `scenes/souvenirs.js` |
+| `pixel/amis.py`, `pixel/relais.py`, `web/amis.js` | les amis de Pixel : les codes d'ami, les amitiés et les visites ; le relais ntfy et la boîte chiffrée ; l'ami en visite sur l'écran du Pi et le panneau **Ses amis** du téléphone (`amis.css`) ; les scènes à deux, les autocollants dans `scenes/amis.js` ; le labo dans `lab/amis-lab.js` |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |
 | `sidecar/ytcast/` | facultatif : le petit programme Node qui met Pixel dans le bouton Caster de l'appli YouTube |
 | `docs/CAST.md` | caster sur Pixel : le mode d'emploi, le partage d'écran depuis chaque appareil, et les autres façons de caster sur un Raspberry Pi |
+| `docs/AMIS.md` | les amis de Pixel : devenir amis, les visites, les réglages des parents, ce qui protège les enfants, ton propre relais, et comment c'est fait |
 | `tests/` | les tests et les captures d'écran |
 | `tools/` | `build_lab_artifact.py` fait du labo une seule page HTML, `build_app_bundle.py` fait de la page du téléphone le Pixel hors ligne de l'appli Android |
 | `deploy/` | installation sur le Pi : script, service systemd, ouverture en plein écran, règles d'accès |

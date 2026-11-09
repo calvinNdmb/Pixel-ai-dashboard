@@ -306,6 +306,13 @@ const EVENTS = {
   'humeur-question': 'Carnet d’humeur : il te demande comment tu vas',
   'humeur-note': 'Carnet d’humeur : tu lui dis comment tu vas',                        // data.m: super, bien, bof, triste, colere; data.chips
   'humeur-rappel': 'Carnet d’humeur : il repense à hier',                              // data.texte
+  // the friends' Pixels, from house to house (web/amis.js, pixel/amis.py, web/scenes/amis.js)
+  'ami-nouveau': 'Amis : un nouvel ami',                            // data.ami: his Pixel's name
+  'ami-coucou': 'Amis : un ami fait coucou',                        // data.ami
+  'ami-sticker': 'Amis : un ami envoie un autocollant',             // data.ami, data.s (PixelAmisArt.STICKERS), data.sn: its name
+  'ami-retour': 'Amis : il rentre de chez un ami',                  // data.ami, data.fait (what they did) or data.refus (why not), data.par
+  'ami-question': 'Amis : un ami frappe à la porte',                // data.ami (« me demander avant »)
+  'ami-envoi': 'Amis : il fait coucou à un ami',                    // data.ami, data.s and data.sn for a sticker
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the

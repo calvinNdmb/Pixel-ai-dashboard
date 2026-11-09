@@ -11,6 +11,7 @@ from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
 from . import exos                    # start_exercise: a little math exercise on Pixel's screen
 from . import souvenirs               # souvenirs: your birthday, a photo for his album, your mood (only if you allow it)
+from . import amis                    # pixel_friends: his friends' Pixels (the list, a visit, a coucou)
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (
@@ -56,6 +57,7 @@ TOOLS = [
 TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (pixel/nourrir.py)
 TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
 TOOLS.append(souvenirs.TOOL)                # pixel/souvenirs.py: souvenirs (birthday, photo, mood: the mood only if allowed)
+TOOLS.append(amis.TOOL)                     # pixel/amis.py: pixel_friends (no free text, no new friend: the list, a visit, a coucou)
 
 # ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
 TOOLS.append(tool(
@@ -106,6 +108,8 @@ def check(name, a):
         return nourrir.check_tool(a)
     if name == souvenirs.TOOL["name"]:
         return souvenirs.check_tool(a)
+    if name == amis.TOOL["name"]:
+        return amis.check_tool(a)
     ok = {
         "get_status": True,
         "set_lights": isinstance(a.get("room"), str) and isinstance(a.get("on", True), bool)
@@ -236,6 +240,8 @@ class Claude:
             return await exos.run_tool(h, a)
         if name == souvenirs.TOOL["name"]:
             return await souvenirs.run_tool(h, a)
+        if name == amis.TOOL["name"]:
+            return await amis.run_tool(h, a)
         return "outil inconnu"
 
     # ---- conversation ----

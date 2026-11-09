@@ -1,0 +1,76 @@
+/* Les amis de Pixel (amis.js): the « Amis » button under the keys, and « Ses amis », its panel on the phone, in the colours and
+   fonts of the current theme (the --k-* and --c-* of style.css): a sheet from the bottom on a phone, a dialog on a computer. */
+.amis-go{font-family:var(--f-ui)}
+.amis-go.live{background:var(--amber);border-color:#a8641a;color:#141713}       /* a visit is on: here or away */
+body.amis-on{overflow:hidden}
+body.poche .amis,body.poche .amis-go,body.kiosk .amis-go{display:none!important}
+.amis{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.55);padding-top:max(16px,env(safe-area-inset-top))}
+.amis-sheet{width:min(560px,100%);max-height:100%;overflow:auto;overscroll-behavior:contain;background:var(--k-bg);color:var(--c-fg);border:2px solid var(--c-line);border-bottom:0;
+  border-radius:18px 18px 0 0;padding:14px 16px max(18px,env(safe-area-inset-bottom));font:max(15px,calc(21px*var(--k-size)))/1.3 var(--c-font);display:flex;flex-direction:column;gap:12px}
+@media (min-width:700px) and (min-height:600px){.amis{align-items:center;padding:24px}.amis-sheet{border-bottom:2px solid var(--c-line);border-radius:18px;max-height:min(860px,100%)}}
+.amis h2,.amis h3{margin:0;font-family:var(--k-font);font-weight:400;color:var(--k-fg);letter-spacing:.02em}
+.amis h2{font-size:calc(30px*var(--k-size))}
+.amis h3{font-size:calc(22px*var(--k-size));color:var(--c-dim)}
+.amis-head{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-14px;background:var(--k-bg);padding:4px 0 6px;margin-top:-4px;z-index:1}
+.amis button,.amis input{font:inherit;color:var(--k-fg);-webkit-tap-highlight-color:transparent}
+.amis button{cursor:pointer}
+.amis button:focus-visible,.amis input:focus-visible{outline:2px solid var(--k-cur);outline-offset:2px}
+.amis-x{min-width:48px;min-height:48px;border:2px solid var(--c-line);border-radius:12px;background:transparent;font-size:30px!important;line-height:1;padding:0}
+.amis-body{display:flex;flex-direction:column;gap:14px}
+.amis-body>section{display:flex;flex-direction:column;gap:10px;border-top:2px solid var(--c-line);padding-top:12px}
+.amis-body>section[hidden]{display:none}
+.amis-etat{margin:0;color:var(--c-dim);font-size:.9em}
+.amis-off{margin:0;padding:10px 12px;border:2px dashed var(--c-line);border-radius:12px;color:var(--c-dim)}
+.amis-note,.amis-hint,.amis-tip{margin:0;color:var(--c-dim);font-size:.9em}
+.amis-tip{border-left:3px solid var(--k-act);padding-left:10px}
+.amis-hint:empty,.amis-res:empty,.amis-arrivent[hidden]{display:none}
+.amis-big{margin:0;font-family:var(--k-font);font-size:calc(26px*var(--k-size));color:var(--k-act)}
+.amis-visite{border:2px solid var(--k-act)!important;border-radius:14px;padding:12px!important}
+.amis-acts{display:flex;flex-wrap:wrap;gap:8px}
+.amis-btn{min-height:48px;padding:0 14px;border:2px solid var(--c-line);border-radius:12px;background:transparent}
+.amis-btn.main{background:var(--k-cur);border-color:var(--k-cur);color:var(--k-curfg)!important}
+.amis-btn.warn{color:var(--c-dim)!important;border-style:dashed}
+.amis-btn[data-sure="1"]{color:var(--k-act)!important;border-color:var(--k-act);border-style:solid}
+.amis-btn:disabled{opacity:.45;cursor:default}
+.amis-btn:active:not(:disabled){transform:translateY(2px)}
+/* the friends */
+.amis-cards{display:flex;flex-direction:column;gap:10px}
+.amis-card{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;padding:10px;border:2px solid var(--c-line);border-radius:14px}
+.amis-face{width:72px;height:48px;border-radius:8px;image-rendering:pixelated;image-rendering:crisp-edges}
+.amis-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.amis-nom{font-family:var(--k-font);font-weight:400;font-size:calc(26px*var(--k-size));color:var(--k-fg);overflow-wrap:anywhere}
+.amis-info small{color:var(--c-dim);font-size:.82em}
+.amis-card .amis-acts{grid-column:1/-1}
+.amis-card .amis-btn{flex:1 1 auto}
+.amis-stickers{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.amis-stickers[hidden]{display:none}
+.amis-sticker{min-height:52px;border:2px solid var(--c-line);border-radius:12px;background:var(--c-bg);display:grid;place-items:center;padding:4px}
+.amis-sticker canvas{width:36px;height:36px;image-rendering:pixelated;image-rendering:crisp-edges}
+.amis-arrivent{margin:0;color:var(--k-act)}
+/* my code */
+.amis-codebox{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.amis-mots{margin:0;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;font-family:var(--k-font);font-size:calc(30px*var(--k-size));color:var(--k-fg);flex:1 1 220px}
+.amis-mots span{padding:2px 10px;border:2px solid var(--c-line);border-radius:10px}
+.amis-mots b{font-weight:400;color:var(--k-act);font-size:1.15em;letter-spacing:.06em}
+.amis-qr{width:132px;height:132px;image-rendering:pixelated;image-rendering:crisp-edges;border-radius:8px;flex:none}
+/* a friend's code */
+.amis-form{display:flex;gap:8px}
+.amis-form input{flex:1;min-width:0;min-height:48px;padding:0 12px;border:2px solid var(--c-line);border-radius:12px;background:var(--c-bg);color:var(--c-fg)}
+.amis-form input::placeholder{color:var(--c-dim);opacity:.8}
+.amis-res{margin:0}
+.amis-res.ok{color:var(--k-act)}
+.amis-res.erreur{color:var(--k-act)}
+/* settings */
+.amis-sw{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:12px;text-align:left;align-items:center;min-height:56px;padding:6px 0;border:0;background:transparent}
+.amis-sw-t{font-family:var(--k-font);font-size:calc(22px*var(--k-size));color:var(--k-fg)}
+.amis-sw small{grid-column:1;color:var(--c-dim);font-size:.82em}
+.amis-knob{grid-column:2;grid-row:1/3;width:52px;height:30px;border-radius:999px;border:2px solid var(--c-line);position:relative;font-style:normal}
+.amis-knob::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--c-dim);transition:left .15s}
+.amis-sw[aria-checked="true"] .amis-knob{background:var(--k-cur);border-color:var(--k-cur)}
+.amis-sw[aria-checked="true"] .amis-knob::after{left:25px;background:var(--k-curfg)}
+/* the journal */
+.amis-journal ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.amis-journal li{display:grid;grid-template-columns:auto 1fr;gap:10px;font-size:.92em;align-items:baseline}
+.amis-journal time{color:var(--c-dim);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.85em}
+.amis-journal li.amis-none{display:block;color:var(--c-dim)}
+@media (prefers-reduced-motion:reduce){.amis-knob::after{transition:none}}

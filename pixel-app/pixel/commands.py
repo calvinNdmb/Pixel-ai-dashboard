@@ -8,6 +8,7 @@ import unicodedata
 from . import anims, caractere, nourrir, scenes
 from . import exos                    # math exercises: « exo », « table de 7 », a number while one is open
 from . import souvenirs               # « prends une photo », « montre l'album », « mon anniversaire c'est le 12 mars », « je suis triste »
+from . import amis                    # his friends: « va voir Bip », « dis coucou à Bip », « mes amis », « ajoute l'ami … »
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -159,6 +160,8 @@ async def run(hub, text):
     if await nourrir.command(hub, t):                       # « mange une pomme », « tu as faim ? », « à table ! » (pixel/nourrir.py)
         return
     if await souvenirs.command(hub, t, raw):                # « prends une photo », « je suis triste », « mon anniversaire c'est le… » (pixel/souvenirs.py)
+        return
+    if await amis.command(hub, raw, t):                     # « va voir Bip », « dis coucou à Bip », « mes amis » (pixel/amis.py)
         return
 
     await hub.dispatch("chat.ask", {"text": raw})

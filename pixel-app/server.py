@@ -41,6 +41,7 @@ from pixel import caractere              # his character: traits, presets, his n
 from pixel import nourrir                # Nourrir: his belly, his tastes, his meals
 from pixel import exos                   # little math exercises (and riddles)
 from pixel import souvenirs, album       # his memories and your mood journal; his photo album (/api/album, /album/NAME)
+from pixel import amis                   # les amis de Pixel: visits from house to house, through a relay (docs/AMIS.md)
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -181,6 +182,7 @@ async def serve(args, cfg, datadir, token):
     nourrir.setup(hub, datadir)          # Nourrir: feeding Pixel (data_dir/nourrir.json)
     exos.setup(hub, datadir)             # math exercises: the exos.* actions, data_dir/exos.json
     souvenirs.setup(hub, datadir)        # souvenirs.* and humeur.*: data_dir/souvenirs.json, humeur.json (after exos and nourrir: he reads them)
+    amis.setup(hub, datadir)             # his friends: the amis.* actions, data_dir/amis.json, the relay once there is a friend
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"
