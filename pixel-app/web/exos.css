@@ -71,3 +71,6 @@ body[data-mode="pixel"] .exos,body.kiosk .exos,body.poche .exos{display:none!imp
 .ex-seg button{min-width:56px}
 .ex-seg output{min-width:44px;text-align:center;font:calc(26px*var(--k-size)) var(--k-font)}
 .ex-note{margin:10px 0 12px;color:var(--c-dim);font-size:calc(16px*var(--k-size))}
+@media (max-width:359px){            /* a small phone (320 px): the 5 levels share the row, a third action goes under the others */
+  .ex-seg{flex:1 1 100%;gap:4px}.ex-seg button{flex:1 1 0;min-width:0;padding-inline:2px}
+  .ex-actions{flex-wrap:wrap}.ex-actions button{flex:1 1 auto}}

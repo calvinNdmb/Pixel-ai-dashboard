@@ -401,6 +401,44 @@ def game(tmp):
         except Exception as e:
             crashed.append(f"{bad}: {type(e).__name__} {e}")
     check("an exos.json of the wrong shape (null, a list, odd values): a fresh start for what is wrong, no crash", not crashed, " | ".join(crashed[:2]))
+    path.write_text('{"stats": {"total": 42, "trophees": ["premier", "cent"]}, "reglages": {"niveau": 1e999, "objectif": Infinity, "auto": true}}')
+    inf = exos.Exos(path, clock=clk)
+    check("a setting out of range in exos.json (1e999, Infinity): that setting by default, the stats and trophies kept",
+          inf.stats["total"] == 42 and inf.stats["trophees"] == ["premier", "cent"] and inf.reglages["niveau"] == 2 and inf.reglages["objectif"] == 5, str(inf.stats["total"]))
+    inf.set_reglages(niveau=float("inf"), objectif=float("-inf"), save=False)
+    inf.nouveau(n=float("inf"), niveau=float("nan"), table=float("inf"))
+    check("…and the same values from a screen (exos.reglages, exos.nouveau): ignored, no error", inf.reglages["niveau"] == 2 and inf.cur and inf.run["total"] == 1)
+    src = exos.Exos(None, clock=clk)
+    src.nouveau(source="x" * 100000)
+    big = src.public()["ev"]["source"]
+    src.nouveau(source="envie")
+    check("who asked for it (source) goes out in every snapshot: only a known word (claude, envie), not 100 kB",
+          big == "" and src.public()["ev"]["source"] == "envie" and len(json.dumps(src.public())) < 20000, repr(big[:20]))
+    got = []
+    one = exos.Exos(None, clock=clk, rng=random.Random(9))
+    one.on_toast = got.append
+    one.set_reglages(objectif=1, save=False)
+    one.nouveau(kind="addition", niveau=1)
+    one.repondre(answer_of(one))
+    check("one answer, one banner (screens show the last one only): the goal (« 1 exo ») and both trophies",
+          got == ["Objectif du jour atteint : 1 exo ! · Trophées : Premier exo, Objectif du jour !"], str(got))
+    # the clock set back (by hand; NTP after a boot: the Pi has no RTC): what is in play lasts what it should
+    back = exos.Exos(None, clock=clk, rng=random.Random(10))
+    back.nouveau(mode="chrono")
+    clk.go(-3600)
+    for _ in range(80):
+        clk.go(0.25)
+        back.tick()
+    c = back.public()["cur"]
+    check("the clock set back an hour in the 60 s challenge: 20 s later, 40 s left (not an hour)", c and c["etat"] == "question" and 38 <= c["left"] <= 41, str(c and c.get("left")))
+    back.stop()
+    back.nouveau(kind="addition", niveau=1)
+    back.repondre(answer_of(back))
+    clk.go(-3600)
+    for _ in range(28):
+        clk.go(0.25)
+        back.tick()
+    check("…a right answer, then the clock set back: the result goes after its 6 s, not an hour", back.cur is None)
     s = exos.Exos(None, clock=clk)
     s.stats.update(total=12, justes=9, aujourdhui=2, serie_max=4)
     check("« mes scores »: a short summary", "Aujourd'hui : 2 exos sur 5" in s.summary() and "75 % de justes" in s.summary(), s.summary())
@@ -574,6 +612,10 @@ async def commands_direct(tmp):
     typed = f"{v // 1000} {v % 1000:03d}"
     check(f"a number with a thousands space (« {typed} »): the exercise's answer, not Claude's", not await say(typed) and ex.cur["tries"] == 1, str(ex.cur["faux"]))
     check("…and the right one the same way", not await say(ex.cur["answer"].replace("\u00a0", " ")) and ex.cur["ok"])
+    tables = []
+    for text in ("révisons la table de 7", "révise la table de 6", "les tables de 9"):
+        tables.append(not await say(text) and ex.cur and ex.cur["mode"] == "table" and ex.cur["table"])
+    check("« révisons la table de 7 », « révise la table de 6 », « les tables de 9 »: those tables", tables == [7, 6, 9], str(tables))
     hub.exos_task.cancel()
 
 

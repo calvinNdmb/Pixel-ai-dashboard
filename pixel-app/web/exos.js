@@ -18,7 +18,8 @@ const L = Sc.local, PER = Sc.persona, W = 800;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const kioskPage = typeof location !== 'undefined' && /[?&]kiosk\b/.test(location.search);
 let P = null, E = null, K = null;                   // the last snapshot, its "exos", the screens' kit
-const V = { buf: '', pressed: -1, pressAt: 0, ev: -1, cur: -1, nudged: false, flash: null, lastId: -1, offerAt: -1e12, exoAt: -1e12, offering: false, line: '', lineAt: 0 };
+const V = { buf: '', pressed: -1, pressAt: 0, ev: -1, cur: -1, nudged: false, flash: null, lastId: -1, offerAt: -1e12, exoAt: -1e12, offering: false, line: '', lineAt: 0,
+  seenId: -1, drawnAt: -1e12, hidden: 0 };            // the question drawn: which, when last, and how long it was not (under a cast…)
 const cur = () => (E && E.cur) || null;
 const open = () => !!cur();
 const nowMs = () => (K ? K.now : performance.now());
@@ -72,9 +73,10 @@ const FX = 8, FY = 54, FW = 288, FH = 162, RX = 316, RW = 476;   // his face (le
 const CH = [[RX, 292], [RX + 244, 292], [RX, 380], [RX + 244, 380]], CW = 232, CHH = 80;
 const M0 = { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 };
 function offering() { return !!PER && PER.state.cur === 'exo-envie'; }
-/* over his face screen, first come: a cast (pixel/cast.py: screens.js draws it instead of the screen and of this view), the
-   quick menu, then an open exercise, then its offer, then Nourrir's tray and plate (web/nourrir.js gives way to both). Under a
-   cast an open exercise waits as it is: not drawn, its answers take no touch nor key, and it comes back when the cast ends. */
+/* over his face screen, first come: the quick menu (over everything, a cast too), a cast (pixel/cast.py: screens.js draws it
+   instead of the screen and of this view), then an open exercise, then its offer, then Nourrir's tray and plate (web/nourrir.js
+   gives way to both). Under a cast an open exercise waits as it is: not drawn, its answers take no touch nor key, and it
+   comes back when the cast ends. */
 function castOn() { return !!Sc.casting; }
 const ad = {
   on: scr => scr === 'visage' && L.boot < 0 && !!E && !castOn() && (open() || offering()),
@@ -163,8 +165,11 @@ function drawExo(k) {
     button(k, FX, yb, 148, hb, 'Encore', () => send('exos.encore'), { fill: true });
     button(k, FX + 156, yb, 148, hb, 'Fini', () => send('exos.stop'));
   }
-  // a gentle nudge after 40 s on the same question
-  if (c.etat === 'question' && c.mode !== 'chrono' && !V.nudged && e > 40000 && !PV.id) { V.nudged = true; if (Sc.event) Sc.event('exo-attente', {}); }
+  // a gentle nudge after 40 s on the same question, counted while it shows: not under a cast, nor while another screen is open
+  if (c.id !== V.seenId) { V.seenId = c.id; V.hidden = Math.max(0, e - 1500); }   // opened under a cast: shown from now on
+  else if (k.now - V.drawnAt > 1500) V.hidden += k.now - V.drawnAt;                 // drawn 10 times a second at least while it shows
+  V.drawnAt = k.now;
+  if (c.etat === 'question' && c.mode !== 'chrono' && !V.nudged && e - V.hidden > 40000 && !PV.id) { V.nudged = true; if (Sc.event) Sc.event('exo-attente', {}); }
 }
 function fitText(k, s, w, h, sizes, kind) {                  // the biggest size at which the text fits the box
   for (const fs of sizes) { const ls = k.wrap(s, w, fs, kind); if (ls.length * (fs + 6) <= h && ls.every(l => { k.X.font = k.T.font(fs, kind); return k.X.measureText(l).width <= w; })) return { fs, ls }; }

@@ -492,6 +492,7 @@ function command(raw) {
   if (['stop cast', 'arrete le cast', 'arrete de caster', 'fin du cast'].includes(t) || (['stop', 'arrete', 'arreter'].includes(t) && S.cast)) return A['cast.stop']();   // commands.py: casting
   if (['code tv', 'code tele', 'code youtube', 'code tv youtube'].includes(t)) return A['ytcast.code']?.();
   if (/^(?:cast|caste|caster)\s+\S/.test(t)) { const rest = raw.replace(/^\S+\s+/, '').trim(); return /^https?:\/\//i.test(rest) ? A['cast.link']({ url: rest }) : A['cast.text']({ text: rest }); }
+  if (exCommand(raw)) return;                            // the exercises (below): their own words, a bare number while one is open
   if (t.startsWith('codex ') && raw.length > 6) { A['screen.show']({ screen: 'codex' }); return A['codex.run']({ task: raw.slice(6).trim() }); }
   if ((m = t.match(/^(minuteur|timer|chrono)(?:\s+(\d+(?:[.,]\d+)?))?\s*(?:min|minutes?)?$/))) { A['screen.show']({ screen: 'minuteur' }); if (m[2]) A['timer.start']({ minutes: parseFloat(m[2].replace(',', '.')) }); return; }
   if (['pause', 'reprendre', 'stop'].includes(t) && (T.running || t === 'reprendre')) return A['timer.toggle']();
@@ -850,11 +851,11 @@ function exNouveau({ kind = null, niveau = null, mode = 'exo', n = null, table =
   mode = ['exo', 'serie', 'table', 'chrono'].includes(mode) ? mode : 'exo'; kind = EXL[kind] ? kind : null;
   table = table == null ? null : Math.max(2, Math.min(12, Math.trunc(num(table, 7))));
   if (mode === 'table') { kind = 'table'; table = table || exRi(2, 9); } else if (kind !== 'table') table = null;
-  const lv = niveau == null ? null : Math.max(1, Math.min(5, Math.trunc(num(niveau, 2)))), total = mode === 'chrono' ? 0 : n ? Math.max(1, Math.min(20, Math.trunc(num(n, 5)))) : { exo: 1, serie: 5, table: 10 }[mode];
+  const lv = niveau == null ? null : Math.max(1, Math.min(5, Math.trunc(num(niveau, 2)))), total = mode === 'chrono' ? 0 : n != null ? Math.max(1, Math.min(20, Math.trunc(num(n, 5)))) : { exo: 1, serie: 5, table: 10 }[mode];
   EX.run = { mode, kind, pool: Array.isArray(pool) ? pool : null, table, niveau: lv, total, i: 0, bons: 0, ends_at: mode === 'chrono' ? Date.now() + 60000 : 0 };
   if (mode === 'table') EX.run.ks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].sort(() => Math.random() - 0.5);
   EX.again = { kind, niveau: lv, mode, n, table, pool: EX.run.pool };
-  exDay(); exNext(); exEvent('propose', { mode, source: source || '' });
+  exDay(); exNext(); exEvent('propose', { mode, source: ['claude', 'envie'].includes(source) ? source : '' });   // exos.py SOURCES
   S.anim = null; S.screen = 'visage';
 }
 function exAdapt(kind, ok, clean) {
@@ -867,19 +868,19 @@ function exAdapt(kind, ok, clean) {
   return up;
 }
 function exResolve(ok, value, first, passe = false) {
-  const c = EX.cur, r = EX.run; exDay(); let up = false, ev = null;
+  const c = EX.cur, r = EX.run; exDay(); let up = false, ev = null; const says = [];   // one banner for the answer (exos.py _resolve)
   if (!passe) {
     EXS.total++; EXS.aujourdhui++; const pt = EXS.par_type[c.kind] || (EXS.par_type[c.kind] = { n: 0, ok: 0 }); pt.n++;
     if (ok) { EXS.justes++; EXS.justes_jour++; pt.ok++; }
     if (ok && first) { EXS.serie++; EXS.serie_max = Math.max(EXS.serie_max, EXS.serie); if ([5, 10, 15, 20, 30, 40, 50, 75, 100].includes(EXS.serie)) ev = ['serie', { n: EXS.serie }]; } else EXS.serie = 0;
     up = exAdapt(c.kind, ok, ok && first && !c.hint_on);
-    if (EXS.aujourdhui >= EXR.objectif && EXS.coupe_jour !== EXS.jour) { EXS.coupe_jour = EXS.jour; EXS.coupes++; ev = ['objectif', { objectif: EXR.objectif }]; toast(`Objectif du jour atteint : ${EXR.objectif} exos !`, 5000); }
+    if (EXS.aujourdhui >= EXR.objectif && EXS.coupe_jour !== EXS.jour) { EXS.coupe_jour = EXS.jour; EXS.coupes++; ev = ['objectif', { objectif: EXR.objectif }]; says.push(`Objectif du jour atteint : ${EXR.objectif} exo${EXR.objectif > 1 ? 's' : ''} !`); }
   } else EXS.serie = 0;
   if (ok && r) r.bons++;
   Object.assign(c, { etat: 'resultat', ok: !!ok, valeur: value, passe, monte: up });
   EX.last = { id: c.id, ok: !!ok, answer: c.answer, explication: c.explication, value, kind: c.kind, q: c.q, passe, t: Date.now(), monte: up };
   if (ev) exEvent(...ev); else if (c.mode !== 'chrono' && !passe) exEvent(ok ? 'juste' : 'faux', { essai: first ? 1 : 2, serie: EXS.serie });
-  for (const [id, lab, cond] of EXTR) if (!EXS.trophees.includes(id) && cond(EXS)) { EXS.trophees.push(id); toast(`Trophée : ${lab} !`, 5000); }
+  exSay([...says, ...exTrophies()]);
   let wait = (c.mode === 'serie' || c.mode === 'table') && c.n > 1 ? (ok ? 2000 : 5000) : (ok ? 6000 : 11000);
   if ((c.mode === 'serie' || c.mode === 'table') && c.i >= c.n) wait = Math.max(wait, 3000);   // the last one: his cheer ends before the summary
   if (ev) wait = Math.max(wait, 5000);                                                           // a milestone: his celebration is not cut
@@ -896,8 +897,13 @@ function exBilan() {
   const r = EX.run, chrono = r.mode === 'chrono', total = chrono ? r.i : r.total, rec = EXS.record_chrono, nw = chrono && r.bons > rec;
   if (nw) EXS.record_chrono = r.bons;
   EX.cur = { id: ++EX.id, mode: r.mode, kind: r.kind || '', type: r.mode === 'table' ? `Table de ${r.table}` : EXL[r.kind] || 'Mélange', etat: 'bilan', bons: r.bons, total, record: chrono ? Math.max(rec, r.bons) : 0, nouveau_record: !!nw, t0: Date.now(), next_at: Date.now() + 14000 };
-  EX.run = null; exEvent('serie', { fin: true, bons: r.bons, total, chrono, record: !!nw });
+  EX.run = null; exEvent('serie', { fin: true, bons: r.bons, total, chrono, record: !!nw }); exSay(exTrophies());
 }
+function exTrophies() {                                   // exos.py _trophies(): the ones just won, as one line
+  const got = []; for (const [id, lab, cond] of EXTR) if (!EXS.trophees.includes(id) && cond(EXS)) { EXS.trophees.push(id); got.push(lab); }
+  return got.length ? [`Trophée${got.length > 1 ? 's' : ''} : ${got.join(', ')} !`] : [];
+}
+const exSay = says => { if (says.length) toast(says.join(' · '), says.length > 1 ? 8000 : 5000); };
 function exPub() {
   const c = EX.cur; let cur = null;
   if (c && c.etat === 'bilan') cur = { ...c }, delete cur.next_at;
@@ -943,49 +949,62 @@ Object.assign(A, {
   },
   'lab.exos': ({ juste = true } = {}) => { const c = EX.cur; if (!c || c.etat !== 'question') return; exAnswer(juste ? c.answer : c.choices.find(x => !exSame(x, c.answer) && !c.faux.includes(x)) || 'x'); exPub(); },
 });
-const exCmd0 = A.cmd;                                      // the typed commands: pixel/exos.py command(), first (after the cast's « stop », as in commands.py)
-A.cmd = ({ text }) => {
-  const raw = String(text).slice(0, 2000).trim(), t = kw(raw).replace(/\s+/g, ' ').replace(/[ !?.]+$/, ''), c = EX.cur;
-  if (S.cast && ['stop', 'arrete', 'arreter'].includes(t)) return exCmd0({ text });   // a cast over an exercise: « stop » ends the cast first
+/* The typed commands: pixel/exos.py command(), word for word (tests/test_perso.js runs one list through both). command()
+   above asks it right after the cast's words, as commands.py does. True when it was one of its commands. */
+const EXWORDS = { addition: 'addition', additions: 'addition', plus: 'addition', soustraction: 'soustraction', soustractions: 'soustraction',   // exos.py KIND_WORDS
+  moins: 'soustraction', multiplication: 'table', multiplications: 'table', tables: 'table', table: 'table', fois: 'table',
+  division: 'division', divisions: 'division', partage: 'division', complement: 'complement', complements: 'complement',
+  double: 'double', doubles: 'double', moitie: 'double', moities: 'double', 'calcul mental': 'mental', priorites: 'mental',
+  mental: 'mental', comparaison: 'comparaison', comparaisons: 'comparaison', suite: 'suite', suites: 'suite',
+  'suite logique': 'suite', 'suites logiques': 'suite', probleme: 'probleme', problemes: 'probleme', heure: 'heure', heures: 'heure',
+  duree: 'heure', durees: 'heure', fraction: 'fraction', fractions: 'fraction', pourcentage: 'pourcentage',
+  pourcentages: 'pourcentage', carre: 'carre', carres: 'carre', enigme: 'enigme', enigmes: 'enigme', devinette: 'enigme',
+  devinettes: 'enigme', logique: 'enigme' };
+const EXO = "(?:un |une |des |mon |un petit |une petite )?(?:exo|exos|exercice|exercices)";
+const EXNUM = /^(?:(?:la )?reponse(?: est)?|rep|=|c'est|c est)?\s*(−?-?(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)(?:[.,]\d+)?(?:\s*h\s*\d{0,2})?)\s*(?:min|minutes|€|euros?|%|h)?\s*[!.]?$/;
+const EXHARD = new RegExp('^' + EXO + "(?: de maths?| maths?| de calcul| de mathematiques)?(?: (facile|difficile|dur|simple|tres difficile))?$");
+const EXKIND = new RegExp('^' + EXO + " (?:de |d'|sur les |sur |des |avec des |avec les )?(.+?)(?: (facile|difficile|dur))?$");
+function exCommand(raw) {
+  const t = kw(raw).replace(/\s+/g, ' ').replace(/^[ !?.]+|[ !?.]+$/g, ''), c = EX.cur, has = (list, x) => list.includes(x);
   const go = a => { A['exos.nouveau'](a); return true; };
-  const done = (() => {
-    let m;
-    const num = /^(?:(?:la )?reponse(?: est)?|rep|=|c'est|c est)?\s*(−?-?(?:\d{1,3}(?: \d{3})+|\d+)(?:[.,]\d+)?(?:\s*h\s*\d{0,2})?)\s*(?:min|minutes|€|euros?|%|h)?$/.exec(t);
-    if (c && c.etat !== 'question' && (num || /^(?:la )?reponse\b/.test(t))) {   // open, but waiting for no answer: not Claude's either
-      toast(c.etat === 'resultat' && EX.run && c.i < c.n ? 'La question suivante arrive !' : 'Cet exo est fini. Tape « encore » pour un autre !', 3000); return true;
-    }
-    if (c && c.etat === 'question') {
-      if ((m = num)) { A['exos.repondre']({ value: m[1], id: c.id }); return true; }
-      if ((m = /^(?:la )?reponse(?: est)?\s*:?\s*(.+)$/.exec(t))) { A['exos.repondre']({ value: m[1], id: c.id }); return true; }
-      if (c.choices.some(x => exSame(t, x)) && !/^[a-z]{1,2}$/.test(t)) { A['exos.repondre']({ value: t, id: c.id }); return true; }
-      if (['indice', 'un indice', 'aide moi', 'je sais pas', 'je ne sais pas'].includes(t)) { A['exos.indice'](); return true; }
-    }
-    if (c && (['passe', 'je passe', 'passer', 'joker'].includes(t) || (c.etat !== 'question' && ['suivant', 'ok', 'la suite', 'continue'].includes(t)))) { A['exos.passer'](); return true; }
-    if (c && ['stop', 'fini', 'arrete', 'on arrete'].includes(t) && !T.running) { A['exos.stop'](); return true; }
-    if (/^(?:stop|arrete|arreter|fini|finis|termine)(?: les| l'| le)? ?(?:exo|exos|exercice|exercices|maths?)$/.test(t)) { A['exos.stop'](); return true; }
-    if (['mes scores', 'scores', 'mon score', 'mes stats', 'mes resultats', 'mes trophees'].includes(t)) { exPub(); toast(exSummary(), 9000); return true; }
-    if (['encore', 'encore un', 'encore une', 'un autre', 'une autre', 'on continue', 'on recommence'].includes(t) && exWantsAgain()) { A['exos.encore'](); return true; }
-    if ((m = /^(?:revise |la |les )?tables? (?:de |du |des )?(\d{1,2})$/.exec(t)) && +m[1] >= 2 && +m[1] <= 12) return go({ mode: 'table', table: +m[1] });
-    if (/^(?:un |le )?(?:defi chrono|defi|defi maths?|chrono maths?)$/.test(t)) return go({ mode: 'chrono' });
-    if ((m = /^(?:une |la )?serie(?: de (\d{1,2}))?(?: (?:exos|exercices|questions|calculs))?$/.exec(t))) return go({ mode: 'serie', n: +(m[1] || 5) });
-    if (/^(?:une |une petite )?question (?:de )?(?:maths?|calcul)$/.test(t)) return go({});
-    if (/^(?:une |des )?(?:enigme|enigmes|devinette|devinettes)$/.test(t)) return go({ kind: 'enigme' });
-    if (/^(?:un |des )?(?:petit )?calculs?$/.test(t)) return go({ pool: EXCALC });
-    if ((m = /^(?:un |une |des |mon |un petit |une petite )?(?:exo|exos|exercice|exercices)(?: de maths?| maths?| de calcul)?(?: (facile|difficile|dur))?$/.exec(t))) {
-      const lv = exG(); return go({ niveau: !m[1] ? null : m[1] === 'facile' ? Math.max(1, lv - 2) : Math.min(5, lv + 2) });
-    }
-    if ((m = /^(?:un |une |des )?(?:exo|exos|exercice|exercices) (?:de |d'|sur les |sur )?(.+?)$/.exec(t))) {
-      const w = { additions: 'addition', soustractions: 'soustraction', multiplications: 'table', tables: 'table', divisions: 'division', fractions: 'fraction', pourcentages: 'pourcentage',
-        carres: 'carre', enigmes: 'enigme', heures: 'heure', durees: 'heure', problemes: 'probleme', suites: 'suite', comparaisons: 'comparaison', doubles: 'double', moities: 'double',
-        complements: 'complement', 'calcul mental': 'mental' }[m[1]] || (EXL[m[1]] ? m[1] : null);
-      if (w) return go({ kind: w });
-    }
-    return false;
-  })();
-  if (!done) exCmd0({ text });
-};
+  let m;
+  if (c && c.etat !== 'question' && (EXNUM.test(t) || /^(?:la )?reponse\b/.test(t))) {   // open, but waiting for no answer: not Claude's either
+    toast(c.etat === 'resultat' && EX.run && c.i < c.n ? 'La question suivante arrive !' : 'Cet exo est fini. Tape « encore » pour un autre !', 3000); return true;
+  }
+  if (c && c.etat === 'question') {
+    if ((m = EXNUM.exec(t))) { A['exos.repondre']({ value: m[1], id: c.id }); return true; }
+    if ((m = /^(?:la )?reponse(?: est)?\s*:?\s*(.+)$/.exec(t))) { A['exos.repondre']({ value: m[1], id: c.id }); return true; }
+    if (c.choices.some(x => exSame(t, x)) && !/^[a-z]{1,2}$/.test(t)) { A['exos.repondre']({ value: t, id: c.id }); return true; }
+    if (has(['indice', 'un indice', 'aide-moi', 'aide moi', 'je sais pas', 'je ne sais pas', 'help'], t)) { A['exos.indice'](); return true; }
+  }
+  if (c && (has(['passe', 'je passe', 'passer', 'joker'], t) || (c.etat !== 'question' && has(['suivant', 'suivante', 'ok', 'la suite', 'continue'], t)))) { A['exos.passer'](); return true; }
+  if (c && has(['stop', 'fini', "j'arrete", 'arrete', 'on arrete', 'termine'], t) && !T.running) { A['exos.stop'](); return true; }
+  if (/^(?:stop|arrete|arreter|fini|finis|termine)(?: les| l'| le)? ?(?:exo|exos|exercice|exercices|maths?)$/.test(t)) { A['exos.stop'](); return true; }
+  if (has(['mes scores', 'scores', 'mon score', 'mes stats', 'mes statistiques', 'mes resultats', 'mes exos', 'mes trophees'], t)) { exPub(); toast(exSummary(), 9000); return true; }
+  if (has(['encore', 'encore un', 'encore une', 'un autre', 'une autre', 'on continue', 'on recommence'], t) && exWantsAgain()) { A['exos.encore'](); return true; }
+  if ((m = /^(?:(?:revise|revisons) )?(?:la |les )?(?:table|tables) (?:de |du |des )?(\d{1,2})$/.exec(t)) && +m[1] >= 2 && +m[1] <= 12) return go({ mode: 'table', table: +m[1] });
+  if (/^(?:un |le |mon )?(?:defi chrono|defi|defi maths?|chrono maths?|defi de maths?)$/.test(t)) return go({ mode: 'chrono' });
+  if ((m = /^(?:(?:une |la )?serie(?: de (\d{1,2}))?(?: (?:exos|exercices|questions|calculs))?|(\d{1,2}) (?:exos|exercices|questions|calculs))$/.exec(t))) return go({ mode: 'serie', n: +(m[1] || m[2] || 5) });
+  if (/^(?:une |une petite )?question (?:de )?(?:maths?|calcul)$/.test(t)) return go({});   // not a bare « une question »: that one is for Claude
+  if (/^(?:une |des )?(?:enigme|enigmes|devinette|devinettes)(?: logique| logiques)?$/.test(t)) return go({ kind: 'enigme' });
+  if (/^(?:un |des )?(?:petit )?calculs?(?: mental)?$/.test(t)) return t.includes('mental') ? go({ kind: 'mental' }) : go({ pool: EXCALC });
+  if ((m = EXHARD.exec(t))) {
+    const lv = exG(), hard = m[1];
+    return go({ niveau: !hard ? null : ['difficile', 'dur', 'tres difficile'].includes(hard) ? Math.min(5, lv + 2) : Math.max(1, lv - 2) });
+  }
+  if ((m = EXKIND.exec(t)) && Object.hasOwn(EXWORDS, m[1].trim())) {
+    const k = EXWORDS[m[1].trim()], hard = m[2], lv = exLevel(k);
+    return go({ kind: k, niveau: !hard ? null : hard !== 'facile' ? Math.min(5, lv + 2) : Math.max(1, lv - 2) });
+  }
+  return false;
+}
 setInterval(() => {                                        // pixel/exos.py tick(): the result shown long enough, the challenge over, left alone
-  const c = EX.cur, t = Date.now(); if (!c) return;
+  const c = EX.cur, t = Date.now(), back = (EX.seen || t) - t; EX.seen = t;
+  if (back > 5000) {                                       // the clock set back (exos.py ms()): the times in play move with it
+    if (c) for (const k of ['t0', 'next_at', 'hidden_at']) if (k in c) c[k] -= back;
+    if (EX.run && EX.run.ends_at) EX.run.ends_at -= back; EX.ended -= back;
+  }
+  if (!c) return;
   if (S.cast && c.etat === 'question') c.hidden_at = t;   // under a cast (exos.py tick hidden): not left alone
   if (c.mode === 'chrono' && EX.run && t >= EX.run.ends_at && c.etat !== 'bilan') exBilan();
   else if (c.etat === 'resultat' && t >= c.next_at) exAdvance();

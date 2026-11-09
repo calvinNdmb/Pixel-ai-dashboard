@@ -58,8 +58,9 @@ const feed = id => { if (!PF.BY[id]) return; send('nourrir.donner', { plat: id }
 const tray = { open: false, t: -1e9 }, TR = { x: 8, w: 784, h: 196, gx: 19, gy: 62, cell: 58, step: 64 }, HANDLE = { x: 736, y: 352, w: 64, h: 64 };
 const shown = () => !!(P && P.nourrir && P.nourrir.on) && L.scr === 'visage' && L.boot < 0 && !Sc.menuOpen
   && (L.kiosk || !!(window.PixelPoche && window.PixelPoche.on)) && !(PER && PER.state.cur === 'poche-part') && !above();   // not on the Pi's empty screen while he is in your pocket
-/* over his face screen, these come first: a cast (pixel/cast.py: screens.js draws it instead, and does not call over()), the
-   quick menu, an open exercise and its offer « Une petite question ? » (web/exos.js); the tray and its plate wait, and come back after */
+/* over his face screen, these come first: the quick menu (over everything, a cast too), a cast (pixel/cast.py: screens.js draws
+   it instead, and does not call over()), an open exercise and its offer « Une petite question ? » (web/exos.js); the tray and
+   its plate wait, and come back after */
 function above() {
   const X = window.PixelExos;
   return !!Sc.casting || !!(X && (X.open || X.offering));
