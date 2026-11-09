@@ -252,9 +252,13 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
    - allumé, ton téléphone montre et change l'écran de Pixel ;
    - éteint, tu navigues de ton côté sans changer l'écran de Pixel.
 
-**L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/)) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
+**L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/), version 1.1) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
 - Pose l'APK dans le dossier de données de Pixel, sous le nom `~/.config/pixel/pixel.apk`. Dans Chrome sur Android, un lien **Appli Android** apparaît alors sous le clavier.
 - Au premier lancement, l'appli scanne le QR code de Pixel, puis s'en souvient.
+- **Partager sur Pixel :** dans n'importe quelle appli, **Partager**, puis **Pixel**, envoie sur son écran un lien (une vidéo YouTube s'y lance), un texte, une photo, un GIF ou une vidéo (40 Mo au plus).
+- **Les notifications du téléphone** (désactivées au départ) : Pixel réagit à celles des applis que tu choisis, et ses scènes de notification se jouent. Il ne reçoit que le nom de l'appli (« 📱 Nouveau message WhatsApp »), le titre seulement si tu le permets (« 📱 WhatsApp : Maman »), jamais le texte. Les règles complètes sont dans le [README de l'appli](../pixel-mobile/README.md).
+- **Le Pixel de poche** a tous ses sens dans l'appli, même en http (voir plus bas).
+- **Pour passer de la 1.0 à la 1.1,** désinstalle une fois l'ancienne appli : la 1.1 est signée avec une nouvelle clé. Installe la nouvelle, puis scanne à nouveau le QR code.
 
 L'appli marche sur ton Wi-Fi, en IPv4 comme en IPv6 : un téléphone trouve souvent `pixel.local` par son adresse IPv6. Pixel ne répond qu'aux appareils de la maison, même si ta box laisse passer l'IPv6 depuis Internet. Sans le code d'accès, un autre appareil du réseau voit la page mais ne peut rien faire.
 
@@ -275,7 +279,7 @@ Sur une tablette, ou si la rotation de ton téléphone est bloquée, touche **Pi
 - **la batterie du téléphone** à 15 % puis à 5 % : « Branche-moi ! » ; branché : « Miam, de l'électricité ! » (Android seulement, l'iPhone ne donne pas sa batterie à une page) ;
 - **loin de la maison** (le Pi ne répond plus) : il continue de vivre sur le téléphone et dit qu'il ne capte plus la maison ; dès que le Pi répond, il se reconnecte tout seul. Si le téléphone a fermé la page entre-temps, elle ne se rouvre sans le Pi que sur une adresse en https : le téléphone garde alors l'appli et le dernier état de Pixel. En http, il faut la rouvrir à la maison.
 
-**Ses sens demandent une adresse en https.** Un téléphone ne donne ses mouvements (secouer, pencher), sa batterie et « l'écran reste allumé » qu'à une page sûre : en https, ou ouverte sur l'appareil lui-même. Sur l'adresse habituelle de Pixel, en http, le Pixel de poche vit quand même, réagit au doigt et aux câlins, connaît son jumeau et fait le voyage, mais il ne sent pas le téléphone ; il le dit une fois, en bas de l'écran. Dans l'appli Android, l'écran reste allumé même en http : c'est l'appli qui s'en charge. Pour tout avoir, ouvre Pixel par une adresse en https dont le téléphone accepte le certificat.
+**Ses sens demandent une adresse en https.** Un téléphone ne donne ses mouvements (secouer, pencher), sa batterie et « l'écran reste allumé » qu'à une page sûre : en https, ou ouverte sur l'appareil lui-même. Sur l'adresse habituelle de Pixel, en http, le Pixel de poche vit quand même, réagit au doigt et aux câlins, connaît son jumeau et fait le voyage, mais il ne sent pas le téléphone ; il le dit une fois, en bas de l'écran. Dans l'appli Android, l'écran reste allumé même en http : c'est l'appli qui s'en charge. Depuis la version 1.1, l'appli lui prête aussi les sens du téléphone : l'accéléromètre et la batterie. Elle tient l'écran en paysage et cache les barres du téléphone tant qu'il est là. Dans un navigateur, pour tout avoir, ouvre Pixel par une adresse en https dont le téléphone accepte le certificat.
 
 **Les deux Pixels se connaissent.** Caresse celui du téléphone : celui du Pi est jaloux (« Hé ! Tu caresses l'autre ?! »). Touche-le ou secoue-le : celui du Pi s'inquiète pour son jumeau. Quand tu allumes le Pixel de poche, celui du Pi lui fait coucou. Et dans l'autre sens, si on touche ou caresse le Pixel du Pi, celui de ta poche le remarque.
 
@@ -283,7 +287,7 @@ Sur une tablette, ou si la rotation de ton téléphone est bloquée, touche **Pi
 
 **Le téléphone :**
 - l'écran reste allumé tant que Pixel est réveillé (en https, ou dans l'appli Android). S'il s'endort (10 minutes sans le toucher, comme sur le Pi), le téléphone peut se mettre en veille ;
-- sur Android, la première touche le met en plein écran ; avec le bouton **Pixel de poche**, il reste en paysage. Un iPhone ne permet ni l'un ni l'autre à une page : tourne-le simplement ;
+- sur Android, la première touche le met en plein écran ; avec le bouton **Pixel de poche**, il reste en paysage. Dans l'appli, c'est elle qui s'en charge : même posé à plat, il reste en paysage, et il rend la télécommande quand tu remets le téléphone droit. Un iPhone ne permet ni l'un ni l'autre à une page : tourne-le simplement ;
 - sur iPhone, la première touche demande la permission d'utiliser les mouvements (secouer, pencher) ;
 - l'image est nette, à la densité de pixels du téléphone ; les côtés prennent le fond du thème ; pas de défilement ni de zoom ;
 - il reste muet. Pour essayer ses bips quand même, ouvre l'appli avec `?son=1` au bout de l'adresse.
@@ -408,7 +412,13 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
   - les lumières, une scène demandée par le serveur, et les 60 images par seconde quand il bouge.
 
   `test_pixel.py` vérifie `scene.play`, les commandes `fais …` et `scènes`, et l'outil de Claude.
-- **Pixel de poche** (`test_poche.js`, dans Chromium) : en paysage, sur un Pixel 7 et un iPhone 14 simulés, il s'affiche en plein écran, net et sans erreur dans les 6 thèmes ; l'écran reste allumé ; une tape le fait réagir, un appui long le câline ; secoué, penché, sa batterie, le Pi arrêté puis relancé (et la page rechargée sans le Pi), la sortie de la poche ; en portrait, la télécommande revient ; ni un écran partagé, ni le clavier, ni un aller-retour rapide ne le font apparaître. L'iPhone est imité dans Chromium (pas de plein écran, la permission des mouvements seulement sur une touche, ses axes à l'envers, `window.orientation`). Une adresse en http sans aucune imitation : il vit sans les sens du téléphone et le dit ; dans l'appli Android, il lui demande de garder l'écran allumé. À côté, l'écran du Pi : le Pixel jaloux, le jumeau qui remarque, le voyage aller et retour. Et le cadre de Pixel Lab. `test_poche.py` vérifie les actions `poche.touch` et `poche.voyage` du serveur.
+- **Pixel de poche** (`test_poche.js`, dans Chromium) : en paysage, sur un Pixel 7 et un iPhone 14 simulés, il s'affiche en plein écran, net et sans erreur dans les 6 thèmes ; l'écran reste allumé ; une tape le fait réagir, un appui long le câline ; secoué, penché, sa batterie, le Pi arrêté puis relancé (et la page rechargée sans le Pi), la sortie de la poche ; en portrait, la télécommande revient ; ni un écran partagé, ni le clavier, ni un aller-retour rapide ne le font apparaître. L'iPhone est imité dans Chromium (pas de plein écran, la permission des mouvements seulement sur une touche, ses axes à l'envers, `window.orientation`). Une adresse en http sans aucune imitation : il vit sans les sens du téléphone et le dit ; dans l'appli Android, il lui demande de garder l'écran allumé. L'appli 1.1, imitée : elle apprend quand il est là (`{poche: true}`, puis `false`), et ses sens à elle le font tourner, pencher, réclamer le chargeur. À côté, l'écran du Pi : le Pixel jaloux, le jumeau qui remarque, le voyage aller et retour. Et le cadre de Pixel Lab. `test_poche.py` vérifie les actions `poche.touch` et `poche.voyage` du serveur.
+- **Notifications du téléphone** (`test_telephone.py`) : `POST /api/notif`, ce que l'appli Android envoie. Le Pi lui-même passe sans code, mais pas une page d'un autre site sur son écran. Un autre appareil passe avec le code d'accès, en en-tête `X-Pixel-Token` ou en `?t=`. Le test vérifie aussi :
+  - les refus : pas du JSON, illisible, sans nom d'appli, trop long ;
+  - les noms et les titres coupés proprement ;
+  - les limites, par appli et par minute ;
+  - le bandeau (« 📱 WhatsApp : Maman », « 📱 Nouveau message WhatsApp ») qui fait jouer ses scènes de notification ;
+  - `telephone.last` dans l'état partagé, sans jamais le titre.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
@@ -424,6 +434,7 @@ node tests/test_pack.js
 node tests/test_persona.js
 python3 tests/test_poche.py
 node tests/test_poche.js             # il faut Playwright ; --shots DOSSIER pour les captures
+python3 tests/test_telephone.py
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -440,7 +451,7 @@ Pas encore testé avec le vrai matériel :
 | Fichier | Rôle |
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
-| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
+| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations), `scenes` (ses moments de personnalité), `poche` (le Pixel de poche) et `telephone` (les notifications du téléphone, pour l'appli Android) |
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`) |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |

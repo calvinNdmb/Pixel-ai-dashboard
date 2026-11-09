@@ -11,7 +11,9 @@
 //   the "Pixel de poche" button on an upright phone, what is not a turn (split screen, the keyboard, a wobble), and Pixel
 //   Lab's phone frame;
 // - the Pi's usual http address (http://pixel.lan, mapped to this machine: not a secure page), with no imitation at all:
-//   no motion, battery nor Wake Lock, he lives without them and says so; in the Pixel app, he asks it to keep the screen on.
+//   no motion, battery nor Wake Lock, he lives without them and says so; in the Pixel app, he asks it to keep the screen on;
+//   in the Pixel app 1.1 (pixel-mobile), he tells it he is shown ({poche: true/false}: sideways, no system bars) and lives on
+//   its senses (PixelPoche.native: the phone's accelerometer and battery), even on http.
 // --shots DIR: screenshots at the phone's real resolution.
 // Playwright must be installed (require('playwright')); nothing else.
 const { chromium, devices } = require('playwright');
@@ -388,8 +390,56 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
   check('woken up: the screen on again', (await lastMode()) === 'pixel', JSON.stringify(await modes()));
   await ap.locator('.poche-x').tap(); await ap.waitForTimeout(300);
   check('× (back to the remote): the page\'s own mode', !(await ap.evaluate(() => PixelPoche.on)) && (await lastMode()) === 'both', JSON.stringify(await modes()));
+  const apo = await ap.evaluate(() => window.__rn.filter(m => 'poche' in m).map(m => m.poche));
+  check('…and the app heard {poche: true} when he showed, {poche: false} when he left', apo[0] === true && apo[apo.length - 1] === false, JSON.stringify(apo));
   check('the app: no page or console errors', aErr.length === 0, aErr.slice(0, 4).join(' | '));
   await ac.close();
+
+  /* ================= the Pixel app 1.1: its own senses for him, on http too ================= */
+  const nc = await browser.newContext({ ...P7 });
+  await nc.addInitScript(() => { window.__rn = []; window.ReactNativeWebView = { postMessage: m => window.__rn.push(JSON.parse(m)) }; window.PixelApp = { senses: true }; });
+  const np = await nc.newPage(), nErr = errors(np);
+  const poches = () => np.evaluate(() => window.__rn.filter(m => 'poche' in m));
+  // what App.tsx injects: the phone's acceleration in its own axes (m/s², gravity included); [rx, ry] here in the screen's axes
+  const native = (list, every = 120) => np.evaluate(async ({ list, every }) => {
+    const a = ((screen.orientation && screen.orientation.angle) ?? 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    for (const [rx, ry, rz = 0] of list) { PixelPoche.native.motion(rx * c + ry * s, -rx * s + ry * c, rz); await new Promise(r => setTimeout(r, every)); }
+  }, { list, every });
+  await np.goto(LAN + '/'); await until(() => np.evaluate(() => !!window.PixelPoche && PixelPoche.on && document.getElementById('conn').textContent === 'connecté'), 8000);
+  await np.waitForTimeout(900);
+  let npo = await poches();
+  check('the app 1.1, sideways: {poche: true} with the theme\'s background (the app holds the phone sideways, hides its bars)', npo.length > 0 && npo[npo.length - 1].poche === true && !!npo[npo.length - 1].bg, JSON.stringify(npo));
+  check('…no note about https: the app lends him its senses', await np.evaluate(() => { const n = document.querySelector('.poche-note'); return !n || n.hidden; }));
+  p = await facePoint(np); await np.touchscreen.tap(p.x, p.y); await np.waitForTimeout(300);
+  check('…a touch: a reaction, and no full screen asked by the page (the app does it)', ['tap', 'fache', 'retour'].includes(await group(np, await scene(np))) && await np.evaluate(() => !document.fullscreenElement), await scene(np));
+  await np.waitForTimeout(2500); await free(np);
+  await native([[0, 9.8], [0, 9.8], [0, 9.8], [-22, 18], [20, -6], [-24, 25], [22, -8], [-20, 20]]);
+  cur = await scene(np);
+  check('the app\'s accelerometer: shaken, he gets dizzy', ['poche-tournis', 'poche-cocktail'].includes(cur), cur);
+  await np.waitForTimeout(3800); await free(np);
+  await np.evaluate(async () => {                         // the page's own devicemotion is not listened to as well (no double count)
+    for (const [x, y] of [[0, 9.8], [-22, 18], [20, -6], [-24, 25], [22, -8], [-20, 20]]) {
+      window.dispatchEvent(Object.assign(new Event('devicemotion'), { accelerationIncludingGravity: { x, y, z: 0 } })); await new Promise(r => setTimeout(r, 120));
+    }
+  });
+  cur = await scene(np);
+  check('…the page\'s own motion events are left to the app', !['poche-tournis', 'poche-cocktail'].includes(cur), cur);
+  await free(np);
+  await native([[0, 9.8], [0, 9.8], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6], [-6, 7.6]], 100);
+  const nLean = await np.evaluate(() => Screens.local.lean);
+  check('…tilted to the right: he leans that way', !!nLean && nLean.x > 40 && nLean.r < 0, JSON.stringify(nLean));
+  await native(Array(12).fill([0, 9.8]), 100); await np.waitForTimeout(800); await free(np);
+  await np.evaluate(() => { PixelPoche.native.battery(0.5, false); PixelPoche.native.battery(0.12, false); }); await np.waitForTimeout(100);
+  check('the app\'s battery low: "plus que 12 % de batterie…"', (await scene(np)) === 'poche-batterie', await scene(np));
+  await np.waitForTimeout(1500);
+  await np.evaluate(() => PixelPoche.native.battery(0.12, true)); await np.waitForTimeout(100);
+  check('…plugged in: "miam, de l\'électricité !"', (await scene(np)) === 'poche-recharge', await scene(np));
+  await np.waitForTimeout(500);
+  await np.locator('.poche-x').tap(); await np.waitForTimeout(300);
+  npo = await poches();
+  check('× (back to the remote): {poche: false}, the app lets the phone turn again', npo[npo.length - 1].poche === false && !(await np.evaluate(() => PixelPoche.on)), JSON.stringify(npo));
+  check('the app 1.1: no page or console errors', nErr.length === 0, nErr.slice(0, 4).join(' | '));
+  await nc.close();
 
   /* ================= Pixel Lab: the phone frame ================= */
   const lc = await browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 1 });

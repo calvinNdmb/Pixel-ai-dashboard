@@ -1,0 +1,16 @@
+// Pixel's native parts (Kotlin, Expo Modules API): the share screen, the notification listener, their settings.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.mopi.pixelnative'
+version = '1.1.0'
+
+android {
+  namespace "com.mopi.pixelnative"
+  defaultConfig {
+    versionCode 2
+    versionName "1.1.0"
+  }
+}

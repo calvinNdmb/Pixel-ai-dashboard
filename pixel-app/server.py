@@ -31,6 +31,7 @@ from pixel.state import Hub
 from pixel.system import System, local_ip
 from pixel.weather import Weather
 from pixel import poche                  # Pixel de poche: the phone held sideways
+from pixel import telephone              # the Android app: the phone's notifications
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -239,6 +240,7 @@ async def serve(args, cfg, datadir, token):
     app.router.add_get("/sw.js", worker)
     app.router.add_get("/pixel.apk", apk)
     app.router.add_get("/ws", ws_handler)
+    telephone.setup(hub, app, token)       # POST /api/notif: the phone's notifications, a toast for his scenes
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
         app.router.add_get(path, lab)
     app.router.add_static("/app/", HERE / "web")
