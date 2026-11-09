@@ -17,7 +17,8 @@
 //   forecast is on its way never gets that one's forecast; a typo keeps the good city; without network, a word, no error;
 // - a phone held sideways: the Pixel de poche, his face alone; a tap, a long press (a cuddle); no voyage button (no Pi);
 //   the phone going offline is no reason to say he is far from home; the app hears {poche: true, bg} and its accelerometer
-//   (PixelPoche.native, as pixel-mobile/src/poche.ts feeds it) makes him dizzy.
+//   (PixelPoche.native, as pixel-mobile/src/poche.ts feeds it) makes him dizzy; the phone tilted in hand counts as play for
+//   the app's ping, a phone still on its stand does not.
 // --shots DIR: screenshots. Playwright must be installed (require('playwright')); nothing else.
 const { chromium, devices } = require('playwright');
 const { execFileSync } = require('child_process');
@@ -367,6 +368,13 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
     for (const [rx, ry] of [[0, 9.8], [0, 9.8], [0, 9.8], [-22, 18], [20, -6], [-24, 25], [22, -8], [-20, 20]]) { PixelPoche.native.motion(rx * c + ry * s, -rx * s + ry * c, 0); await new Promise(r => setTimeout(r, 120)); }
   });
   check('…the app\'s accelerometer: shaken, he gets dizzy (Pixel de poche works on the phone\'s own Pixel too)', ['poche-tournis', 'poche-cocktail'].includes(await scene(page)), String(await scene(page)));
+  // the app's ping before it goes back to his Pi by itself (Linked.tsx): the phone in hand is play, a phone on its stand is not
+  await page.evaluate(() => PixelPoche.native.motion(0, 9.8, 0)); await page.waitForTimeout(1500);
+  await page.evaluate(() => PixelPoche.native.motion(0.03, 9.79, 0.02));
+  const still = await S(page, () => PixelLocal.ping().idle);
+  await page.evaluate(() => PixelPoche.native.motion(4, 8.9, 0.5));
+  const tilted = await S(page, () => PixelLocal.ping().idle);
+  check('…tilted by hand, he is played with (the app\'s ping); still on a stand, he is not', still >= 1400 && tilted < 300, `${Math.round(still)} ${Math.round(tilted)}`);
   check('the Pixel de poche: no page or console errors', errs.length === 0, errs.slice(0, 4).join(' | '));
   await ctx.close();
 

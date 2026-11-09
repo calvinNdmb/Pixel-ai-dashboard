@@ -8,7 +8,7 @@
    the phone's senses. The back button goes back in the Pi's page, then opens the app's menu (src/PixelMenu.tsx); once
    more, it leaves. */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { NavigationBar } from 'expo-navigation-bar';
 import * as SecureStore from 'expo-secure-store';
@@ -16,9 +16,10 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import PixelNative from './modules/pixel-native';
+import { LAYER, useBack } from './src/back';
 import { Linked, type LinkedHandle, type PiLink } from './src/Linked';
 import { LocalPixel } from './src/LocalPixel';
-import { forgetPi, readHome, saveHome, type Home } from './src/localStore';
+import { forgetPi, readHome, saveHome, takeLink, type Home } from './src/localStore';
 import { Notifs } from './src/Notifs';
 import { PixelMenu } from './src/PixelMenu';
 import { showOnPhone } from './src/plugs';
@@ -27,7 +28,8 @@ import { C } from './src/theme';
 import { parseMessage, sameOrigin, usePlugs, webProps } from './src/webBridge';
 
 const KEY = 'pixel_url';                                       // what Pixel's QR code holds: http://pixel.local:8080/?t=<code>
-const LINK_URL = 'pixel://relier';                             // the share card's « Relier à mon Pixel » (ShareActivity.kt LINK_URL)
+const LINK_URL = /^pixel:\/\/relier\?at=(\d{1,15})$/;           // the share card's « Relier à mon Pixel » (ShareActivity.kt LINK_URL), and when
+const LINK_MS = 120000;                                        // a link older than that is an old intent given again
 const isPixelUrl = (u: string) => /^https?:\/\/[^/\s?]+\/?\?t=[\w-]+$/.test(u.trim());
 const hostOf = (u: string) => u.replace(/^https?:\/\//, '').replace(/\/?\?.*$/, '');
 const mirror = (u: string | null) => { PixelNative?.setPixel(u).catch(() => {}); };   // for the share screen and the notifications
@@ -43,10 +45,15 @@ export default function App() {
     Promise.all([SecureStore.getItemAsync(KEY).catch(() => null), readHome()]).then(([u, h]) => { setHome(h); setUrl(u); mirror(u); });
   }, []);
   useEffect(() => {                                                      // opened from the share card, with no Pi linked: the link screen
-    const ask = (u?: string | null) => { if (u === LINK_URL) { setPanel('none'); setSetup(true); } };
+    let alive = true;
+    const ask = async (u?: string | null) => {                           // each link once, and only a fresh one
+      const at = Number(LINK_URL.exec(u ?? '')?.[1]);
+      if (!at || Math.abs(Date.now() - at) > LINK_MS || !(await takeLink(at)) || !alive) return;
+      setPanel('none'); setSetup(true);
+    };
     Linking.getInitialURL().then(ask, () => {});
     const sub = Linking.addEventListener('url', e => ask(e.url));
-    return () => sub.remove();
+    return () => { alive = false; sub.remove(); };
   }, []);
   const save = useCallback(async (u: string) => {
     await SecureStore.setItemAsync(KEY, u.trim()); mirror(u.trim()); await saveHome('pi'); setHome('pi'); setUrl(u.trim()); setSetup(false);
@@ -67,7 +74,7 @@ export default function App() {
       <SafeAreaView style={[s.fill, poche.on && poche.bg ? { backgroundColor: poche.bg } : null]}>
         {url === undefined ? <ActivityIndicator style={s.fill} color={C.green} />
           : setup ? <Setup onDone={save} onCancel={() => setSetup(false)} />
-          : piUrl ? <Linked ref={linked} url={piUrl} Page={PixelPage} onMenu={openMenu} onRelink={() => setSetup(true)} onWhere={setSeen} />
+          : piUrl ? <Linked ref={linked} url={piUrl} Page={PixelPage} hold={panel !== 'none'} onMenu={openMenu} onRelink={() => setSetup(true)} onWhere={setSeen} />
           : <LocalPixel onMenu={openMenu} />}
         {panel === 'menu' && !setup && url !== undefined ? (
           <PixelMenu where={piUrl ? (seen === 'phone' ? 'fallback' : 'pi') : 'phone'} host={url ? hostOf(url) : null} onClose={closePanel}
@@ -86,10 +93,7 @@ function Setup({ onDone, onCancel }: { onDone: (u: string) => void; onCancel: ()
   const [scan, setScan] = useState(false);
   const [typed, setTyped] = useState('http://pixel.local:8080/?t=');
   const done = useRef(false);
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { if (scan) setScan(false); else onCancel(); return true; });
-    return () => sub.remove();
-  }, [scan, onCancel]);
+  useBack(LAYER.setup, () => { if (scan) setScan(false); else onCancel(); });
   if (scan && perm?.granted) {
     return (
       <View style={s.fill}>
@@ -124,16 +128,13 @@ function Setup({ onDone, onCancel }: { onDone: (u: string) => void; onCancel: ()
 /* the Pi's page, full screen; when it does not answer, Linked.tsx shows the phone's own Pixel instead (never a dead end) */
 function PixelPage({ url, link }: { url: string; link: PiLink }) {
   const web = useRef<WebView<object>>(null), canGoBack = useRef(false);   // <object>: its default <undefined> types every prop as never
-  const plugs = usePlugs('pi', web);                              // the native features (src/plugs.ts), the same on both pages
+  const [round, setRound] = useState(0);                          // a new round: the page loads again (its process was gone)
+  const plugs = usePlugs('pi', web, round);                       // the native features (src/plugs.ts), the same on both pages
   const poche = usePoche();
-  const [round, setRound] = useState(0);                          // a new round: the page loads again
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (!canGoBack.current) { link.onMenu(); return true; }     // on Pixel's page: the app's menu
-      web.current?.goBack(); return true;
-    });
-    return () => sub.remove();
-  }, [link]);
+  useBack(LAYER.page, () => {
+    if (!canGoBack.current) link.onMenu();                        // on Pixel's page: the app's menu
+    else web.current?.goBack();
+  });
   const onMessage = (e: WebViewMessageEvent) => {                 // the page says which mode is on, the Pixel de poche, whether the Pi answers, or that it has no access
     const m = sameOrigin(e.nativeEvent.url, url) ? parseMessage(e.nativeEvent.data) : null; if (!m) return;   // the Pi's own page only
     link.onMessage(m); plugs.message(m);
@@ -143,7 +144,7 @@ function PixelPage({ url, link }: { url: string; link: PiLink }) {
       originWhitelist={['*']} {...webProps}
       injectedJavaScriptBeforeContentLoaded={plugs.beforeLoad ? plugs.beforeLoad + '\ntrue;' : undefined}
       onMessage={onMessage} onNavigationStateChange={n => { canGoBack.current = n.canGoBack; }}
-      onLoadStart={plugs.start}
+      onLoadStart={e => plugs.start(e.nativeEvent.url)}
       onLoad={() => { link.onLoaded(); plugs.ready(); }}
       onError={() => link.onDown('down')}
       onHttpError={e => { const c = e.nativeEvent.statusCode; if (c >= 400) link.onDown(c === 403 ? 'refus' : 'down'); }}   // 403: Pixel only answers the devices at home

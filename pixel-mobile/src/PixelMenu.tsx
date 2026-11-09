@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import PixelNative from '../modules/pixel-native';
+import { LAYER, useBack } from './back';
 import { C } from './theme';
 
 type Props = {
@@ -17,10 +18,7 @@ const SAYS = { phone: 'Pixel vit sur ce téléphone.', fallback: 'Ton Pixel (Pi)
 export function PixelMenu({ where, host, onClose, onPi, onPhone, onLink, onForget, onNotifs }: Props) {
   const [sure, setSure] = useState(false);
   const [notif, setNotif] = useState('');
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { BackHandler.exitApp(); return true; });
-    return () => sub.remove();
-  }, []);
+  useBack(LAYER.menu, () => BackHandler.exitApp());
   useEffect(() => { if (!sure) return; const t = setTimeout(() => setSure(false), 4000); return () => clearTimeout(t); }, [sure]);
   useEffect(() => {
     PixelNative?.getNotif().then(n => {

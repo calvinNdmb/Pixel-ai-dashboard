@@ -345,8 +345,9 @@ return {
   get city() { return city ? { ...city } : null; },
   weather: () => weather(true),
   /* the app asks before it goes back to the Pi: how long nobody has touched him, and whether something runs here */
-  ping() {
-    const idle = Sc ? Math.max(0, performance.now() - Sc.local.lastInput) : 0;
+  ping() {                                            // Pixel de poche: the phone tilted or shaken is play too, not just a touch
+    const PP = window.PixelPoche, moved = PP && PP.on ? PP.movedAt : -1e9;
+    const idle = Sc ? Math.max(0, performance.now() - Math.max(Sc.local.lastInput, moved)) : 0;
     post({ local_idle: Math.round(idle), busy: !!S.timer.running });
     return { idle, busy: !!S.timer.running };
   },

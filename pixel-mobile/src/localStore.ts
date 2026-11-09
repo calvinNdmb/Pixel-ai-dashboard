@@ -9,7 +9,7 @@
    limit, checked when written and when read. */
 import { File, Paths } from 'expo-file-system';
 
-const STATE = 'pixel-local-state.json', SEED = 'pixel-pi-seed.json', HOME = 'pixel-home.json';
+const STATE = 'pixel-local-state.json', SEED = 'pixel-pi-seed.json', HOME = 'pixel-home.json', LINK = 'pixel-link.json';
 export const MAX_STATE = 256 * 1024, MAX_SEED = 512 * 1024;
 export type Home = 'pi' | 'phone';
 type Obj = Record<string, unknown>;
@@ -77,6 +77,15 @@ export async function readHome(): Promise<Home> {
   return isObj(h) && h.home === 'phone' ? 'phone' : 'pi';
 }
 export const saveHome = (home: Home) => write(HOME, { home }, 1024);
+
+/* the share card's « Relier à mon Pixel » (App.tsx), once: Android gives a recreated activity its first intent again (the
+   task kept in Recents), with the same time in it. false: already taken */
+export async function takeLink(at: number): Promise<boolean> {
+  const was = await read(LINK, 1024);
+  if (isObj(was) && was.at === at) return false;
+  await write(LINK, { at }, 1024);
+  return true;
+}
 
 /* "Oublier mon Pixel": his Pi's snapshot goes; the Pixel of the phone keeps what he already has */
 export function forgetPi() {

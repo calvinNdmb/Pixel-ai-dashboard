@@ -380,10 +380,11 @@ class ShareActivity : Activity() {
   private fun mb(v: Double) = if (v % 1.0 == 0.0) v.toLong().toString() else String.format(Locale.FRANCE, "%.1f", v)
 
   /** link: straight on its "Relier à mon Pixel" screen (App.tsx reads LINK_URL with React Native's Linking; the intent
-   *  names the app's own activity, so no other app is asked and no URL scheme is declared) */
+   *  names the app's own activity, so no other app is asked and no URL scheme is declared). It carries the time: Android
+   *  hands the activity its first intent again when it recreates it from Recents, and App.tsx takes each link once */
   private fun openApp(link: Boolean = false) {
     packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
-      val i = if (link) Intent(Intent.ACTION_VIEW, Uri.parse(LINK_URL)).setComponent(launch.component) else launch
+      val i = if (link) Intent(Intent.ACTION_VIEW, Uri.parse("$LINK_URL?at=${System.currentTimeMillis()}")).setComponent(launch.component) else launch
       startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
     finish()
@@ -501,7 +502,7 @@ class ShareActivity : Activity() {
     private val JPEG = setOf("image/jpeg", "image/jpg", "image/pjpeg")
     private const val HINT_BIG = "Envoie une vidéo plus courte, ou plutôt son lien (YouTube…)."
     private val NO_ANSWER_HINT = PixelHttp.NO_ANSWER.substringAfter(". ")
-    const val LINK_URL = "pixel://relier"                  // App.tsx: the same string
+    const val LINK_URL = "pixel://relier"                  // App.tsx: the same string, then ?at=<ms>
     // the app's colours (App.tsx)
     private const val DESK = 0xFF141713.toInt()
     private const val PLASTIC = 0xFFD9D2BD.toInt()

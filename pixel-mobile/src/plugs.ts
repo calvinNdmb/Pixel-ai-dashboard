@@ -11,9 +11,8 @@ import { saveSeed } from './localStore';
 import { pochePlug } from './poche';
 import type { Page, Plug } from './webBridge';
 
-const keepAwake: Plug = {
+const keepAwake: Plug = {                               // no start(): every page load says its {mode} again (app.js setMode)
   message(m) { if (m.mode === 'pixel') activateKeepAwakeAsync('pixel'); else if (m.mode) deactivateKeepAwake('pixel'); },
-  start() { deactivateKeepAwake('pixel'); },
   gone() { deactivateKeepAwake('pixel'); },
 };
 

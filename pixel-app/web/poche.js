@@ -104,7 +104,7 @@ function tiltTo(down) {             // down: how hard gravity pulls him to the r
   lean.tr = RM || !on ? 0 : -Math.asin(clamp(a / 9.81, -1, 1)) * 0.45;           // he stays a little upright, like a standing toy
   if (on && Math.abs(down) > 6.5 && performance.now() - glisseAt > 8000) { glisseAt = performance.now(); say('poche-glisse', { side: Math.sign(down) }); }
 }
-let sgn = 0, lastA = null, peaks = [], shakeAt = -1e9, stillSince = 0;
+let sgn = 0, lastA = null, peaks = [], shakeAt = -1e9, stillSince = 0, restA = null, movedAt = -1e9;
 function feel(rx, ry, rz) {         // the phone's acceleration with gravity, in the screen's axes (x to the right, y up)
   const t = performance.now();
   if (Math.abs(ry) > 5 && Math.abs(rx) < 4) sgn = clamp(sgn + Math.sign(ry), -40, 40);   // held upright: learn which way is up (Android and iOS disagree)
@@ -112,6 +112,7 @@ function feel(rx, ry, rz) {         // the phone's acceleration with gravity, in
   const d = lastA ? Math.hypot(rx - lastA[0], ry - lastA[1], rz - lastA[2]) : 0, m = Math.hypot(rx, ry, rz); lastA = [rx, ry, rz];
   if ((d > 12 || Math.abs(m - 9.81) > 9) && (!peaks.length || t - peaks[peaks.length - 1] > 90)) peaks = [...peaks.filter(x => t - x < 1200), t];
   if (peaks.length >= 3 && t - shakeAt > 3000) { shakeAt = t; peaks = []; shake(); }   // three jolts within a second: shaken
+  if (!restA || Math.hypot(rx - restA[0], ry - restA[1], rz - restA[2]) > 1.5) { restA = [rx, ry, rz]; movedAt = t; }   // handled (tilted, shaken), not just lying on its stand
   if (d < 0.35) { if (!stillSince) stillSince = t; }
   else if (d > 1.5) { if (stillSince && t - stillSince > 120000) revoila(); stillSince = 0; }   // picked up again after lying still
 }
@@ -124,7 +125,7 @@ let feeling = false;
 function motion(want) {
   want = want && on && how !== 'labo' && !document.hidden;
   if (want === feeling) return; feeling = want;
-  if (want) { if (!appSenses()) addEventListener('devicemotion', onMotion); } else { removeEventListener('devicemotion', onMotion); lastA = null; peaks = []; stillSince = 0; tiltTo(0); }
+  if (want) { if (!appSenses()) addEventListener('devicemotion', onMotion); } else { removeEventListener('devicemotion', onMotion); lastA = null; restA = null; peaks = []; stillSince = 0; tiltTo(0); }
 }
 let asked = false;
 function askMotion() {              // iPhone: motion needs a yes, asked on a touch (an http page never gets it: no use asking)
@@ -354,6 +355,7 @@ const api = {
   enter: h => enter(h || 'fixe'), leave, state,
   get on() { return on; }, get where() { return where; }, get how() { return how; }, get awake() { return !!lock; }, get visiting() { return visiting(); },
   get linked() { return online; },  // does he think the Pi is reachable
+  get movedAt() { return on ? movedAt : -1e9; },   // the phone last handled (performance.now()): local.js ping(), is he played with
   /* the Pixel app's senses (pixel-mobile/src/poche.ts injects them while he is shown): its accelerometer, in m/s² with gravity
      and in the phone's own axes like devicemotion, and its battery (0..1, plugged in or not) */
   native: {

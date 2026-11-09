@@ -3,8 +3,9 @@
    app closed. No Pi: they stay on the phone, and only the phone's own Pixel sees them, while the app is open (plugs.ts).
    Linking a Pi switches them off: sending them out to him is a choice of its own (PixelNativeModule setPixel). */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, BackHandler, FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { AppState, FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import PixelNative, { type NotifSettings, type PhoneApp } from '../modules/pixel-native';
+import { LAYER, useBack } from './back';
 import { C } from './theme';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -27,10 +28,7 @@ export function Notifs({ linked, onClose, onLocalTest }: Props) {
     const sub = AppState.addEventListener('change', a => { if (a === 'active') refresh(); });   // back from Android's settings
     return () => sub.remove();
   }, [refresh]);
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { onClose(); return true; });
-    return () => sub.remove();
-  }, [onClose]);
+  useBack(LAYER.notifs, onClose);
   const shown = useMemo(() => (apps || []).filter(a => !find.trim() || norm(a.label).includes(norm(find.trim()))), [apps, find]);
 
   if (!PixelNative) {

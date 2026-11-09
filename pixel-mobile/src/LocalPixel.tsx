@@ -6,13 +6,14 @@
    of his Pi: window.PIXEL_LOCAL_STATE, read by pixel-app/web/local.js. The native features (plugs.ts) work here as on the
    Pi's page: Pixel de poche with the phone's senses, the screen kept on, and the phone's notifications when no Pi is linked. */
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
-import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Asset } from 'expo-asset';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import { LAYER, useBack } from './back';
 import { readLocal, saveState } from './localStore';
 import { usePoche } from './poche';
 import { C } from './theme';
-import { parseMessage, sameOrigin, usePlugs, webProps } from './webBridge';
+import { fromFile, parseMessage, usePlugs, webProps } from './webBridge';
 
 const BUNDLE: number = require('../assets/pixel-local.html');   // metro.config.js: a page that says how to build it when it is missing
 
@@ -30,11 +31,11 @@ const restoreScript = (given: object) =>
 
 export function LocalPixel({ ref, onMenu, onIdle }: Props) {
   const web = useRef<WebView<object>>(null);
-  const plugs = usePlugs('phone', web);
-  const poche = usePoche();
   const [page, setPage] = useState<{ uri: string; boot: string } | null>(null);
   const [broken, setBroken] = useState(false);
   const [round, setRound] = useState(0);                // a new round: the page loads again (its process was killed)
+  const plugs = usePlugs('phone', web, round);
+  const poche = usePoche();
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -45,12 +46,9 @@ export function LocalPixel({ ref, onMenu, onIdle }: Props) {
     return () => { alive = false; };
   }, [round]);
   useImperativeHandle(ref, () => ({ ping: () => plugs.page.inject('window.PixelLocal && window.PixelLocal.ping();') }), [plugs]);
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { onMenu(); return true; });   // no history here: the menu
-    return () => sub.remove();
-  }, [onMenu]);
+  useBack(LAYER.page, onMenu);                          // no history here: the menu
   const onMessage = (e: WebViewMessageEvent) => {
-    const m = page && sameOrigin(e.nativeEvent.url, page.uri) ? parseMessage(e.nativeEvent.data) : null; if (!m) return;   // his own page only
+    const m = page && fromFile(e.nativeEvent.url) ? parseMessage(e.nativeEvent.data) : null; if (!m) return;   // his own page only
     if (m.local_save !== undefined) saveState(m.local_save);
     if (m.menu === true) onMenu();
     if (typeof m.local_idle === 'number') onIdle?.(m.local_idle, m.busy === true);
@@ -72,7 +70,7 @@ export function LocalPixel({ ref, onMenu, onIdle }: Props) {
     <WebView<object> key={round} ref={web} source={{ uri: page.uri }} style={[s.fill, poche.on && poche.bg ? { backgroundColor: poche.bg } : null]} {...webProps}
       originWhitelist={['file://*']} allowFileAccess
       injectedJavaScriptBeforeContentLoaded={page.boot + '\n' + plugs.beforeLoad + '\ntrue;'}
-      onMessage={onMessage} onLoadStart={plugs.start}
+      onMessage={onMessage} onLoadStart={e => plugs.start(e.nativeEvent.url)}
       onLoadEnd={() => { plugs.page.inject(page.boot); plugs.ready(); }}
       onRenderProcessGone={() => setRound(r => r + 1)} />
   );

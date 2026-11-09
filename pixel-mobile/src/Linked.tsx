@@ -28,6 +28,7 @@ export type LinkedHandle = { retry(): void };       // the menu's "Mon Pixel (Pi
 type Props = {
   url: string; Page: ComponentType<{ url: string; link: PiLink }>;
   ref?: Ref<LinkedHandle>;
+  hold?: boolean;                                        // the app's menu or settings are open: no going back to the Pi by itself
   onMenu(): void; onRelink(): void; onWhere?(where: 'pi' | 'phone'): void;
 };
 
@@ -43,15 +44,16 @@ async function probe(url: string): Promise<'up' | Why> {
   } catch { return 'down'; } finally { clearTimeout(t); }
 }
 
-export function Linked({ ref, url, Page, onMenu, onRelink, onWhere }: Props) {
+export function Linked({ ref, url, Page, hold, onMenu, onRelink, onWhere }: Props) {
   const [on, setOn] = useState<'pi' | 'phone'>('pi');
   const [why, setWhy] = useState<Why | null>(null);
   const [back, setBack] = useState(false);              // the Pi answers again
   const [hidden, setHidden] = useState(false);          // the banner closed (until something changes)
   const [round, setRound] = useState(0);                // each visit to the Pi: a new page
   const poche = usePoche();                             // Pixel de poche: the whole screen is his, no banner
-  const local = useRef<LocalHandle>(null), fails = useRef(0), upSince = useRef(0), backRef = useRef(false);
+  const local = useRef<LocalHandle>(null), fails = useRef(0), upSince = useRef(0), backRef = useRef(false), holdRef = useRef(false);
   useEffect(() => { backRef.current = back; }, [back]);
+  useEffect(() => { holdRef.current = !!hold; }, [hold]);
   useEffect(() => { onWhere?.(on); }, [on, onWhere]);
   const down = useCallback((w: Why) => {
     if (w === 'down' && upSince.current && Date.now() - upSince.current > MAX_MS) fails.current = 0;   // he had been up a good while
@@ -102,7 +104,7 @@ export function Linked({ ref, url, Page, onMenu, onRelink, onWhere }: Props) {
     const sub = AppState.addEventListener('change', st => { if (st === 'active') { delay = FIRST_MS; next(800); } else clearTimeout(t); });
     return () => { alive = false; clearTimeout(t); sub.remove(); };
   }, [on, why, url]);
-  const onIdle = useCallback((idle: number, busy: boolean) => { if (backRef.current && idle >= IDLE_MS && !busy) goPi(); }, [goPi]);
+  const onIdle = useCallback((idle: number, busy: boolean) => { if (backRef.current && !holdRef.current && idle >= IDLE_MS && !busy) goPi(); }, [goPi]);
 
   if (on === 'pi') return <Page key={round} url={url} link={link} />;
   const text = back ? 'Ton Pixel (Pi) répond à nouveau' : why === 'refus' ? 'Ton Pixel (Pi) ne reconnaît pas ce téléphone : Pixel vit sur ton téléphone'

@@ -33,7 +33,7 @@ L'adresse et le code d'accès sont gardés dans le stockage sécurisé du télé
 
 - **Quand ton Pi ne répond pas** (éteint, loin de la maison, téléphone hors réseau, une page d'erreur à son adresse, ou un code refusé), Pixel continue sur ton téléphone, avec un petit bandeau : « Ton Pixel (Pi) ne répond pas : Pixel vit sur ton téléphone ». Jamais d'écran bloqué. Le bandeau se ferme avec ×, et reste fermé.
 - **L'appli redemande au Pi**, de moins en moins souvent : après 5 s, 10 s, 20 s… puis toutes les 2 minutes. Jamais quand l'appli est en arrière-plan, pour ta batterie. Elle vérifie que c'est bien Pixel qui répond, et pas un autre appareil à la même adresse.
-- **Quand ton Pi répond à nouveau :** si personne n'a touché le Pixel du téléphone depuis une minute et qu'aucun minuteur n'y tourne, l'appli revient au Pi toute seule. Un téléphone posé sur son support retrouve ainsi le vrai Pixel. Sinon, touche **Revenir** sur le bandeau : un câlin, une commande ou un minuteur en cours ne sont jamais coupés. Pour rester sur le Pixel du téléphone, choisis **Rester sur ce téléphone** dans le menu.
+- **Quand ton Pi répond à nouveau :** si personne n'a touché le Pixel du téléphone depuis une minute (ni secoué, ni penché en Pixel de poche), qu'aucun minuteur n'y tourne et que le menu est fermé, l'appli revient au Pi toute seule. Un téléphone posé sur son support retrouve ainsi le vrai Pixel. Sinon, touche **Revenir** sur le bandeau : un câlin, une partie de Pixel de poche, une commande ou un minuteur en cours ne sont jamais coupés. Pour rester sur le Pixel du téléphone, choisis **Rester sur ce téléphone** dans le menu.
 - **Le même Pixel :** tant que l'appli montre ton Pi, elle garde sa dernière image de lui : son thème, ses thèmes activés, ses réglages, sa ville et ce qu'il retient de lui (son caractère, par exemple). Sans le Pi, le Pixel du téléphone les reprend. Elle ne garde rien d'autre : ni ton code d'accès, ni ton agenda, ni tes lampes.
 - **Pas de synchronisation vers le Pi.** Ce que tu changes sur le Pixel du téléphone reste sur le téléphone : le Pi ne le voit pas. Et si tu retrouves ton Pi entre-temps, c'est lui qui compte : la fois suivante, le Pixel du téléphone reprend ce que ton Pi montrait.
 
@@ -190,6 +190,7 @@ Côté Pixel (dossier `pixel-app`) : `node tests/test_local.js` pour le Pixel du
 | `src/webBridge.ts` | Ce que les deux vues web partagent : leurs réglages, les messages de la page, les fonctions natives branchées. |
 | `src/plugs.ts` | Les fonctions natives des deux pages : l'écran allumé, Pixel de poche, les notifications pour le Pixel du téléphone, l'image du Pi. |
 | `src/poche.ts` | Pixel de poche : l'écran en paysage, l'accéléromètre et la batterie pour la page, le plein écran. |
+| `src/back.ts` | Le bouton retour : ce qui est au-dessus le prend. |
 | `src/localStore.ts` | Ce que l'appli garde pour le Pixel du téléphone. |
 | `src/theme.ts` | Les couleurs de Pixel. |
 | `modules/pixel-native/` | Le module Kotlin : l'écran de partage (`ShareActivity`), l'écouteur de notifications (`NotificationRelay`), leurs réglages ; `app.plugin.js` les déclare dans le manifeste Android. |
@@ -204,4 +205,8 @@ Côté Pixel (dossier `pixel-app`) : `node tests/test_local.js` pour le Pixel du
 
 **Seulement la page attendue.** L'appli n'écoute que les messages de la page qu'elle a ouverte : la même adresse que ton Pi (ou le fichier du Pixel du téléphone). Si un lien mène la vue web ailleurs, cette page ne peut ni se faire passer pour Pixel, ni écrire l'image du Pi.
 
-**La carte de partage, sans Pi.** Son bouton **Relier à mon Pixel** ouvre l'appli par son propre écran (une intention adressée à l'appli elle-même, `pixel://relier`, lue par `Linking` de React Native) : aucune autre appli n'est sollicitée, et l'appli ne déclare aucun schéma d'adresse.
+**La carte de partage, sans Pi.** Son bouton **Relier à mon Pixel** ouvre l'appli par son propre écran (une intention adressée à l'appli elle-même, `pixel://relier`, lue par `Linking` de React Native) : aucune autre appli n'est sollicitée, et l'appli ne déclare aucun schéma d'adresse. L'intention porte son heure (`?at=…`) et l'appli ne la suit qu'une fois : quand Android recrée l'appli depuis les applis récentes, il lui redonne sa première intention, et l'écran du QR code ne revient donc pas à chaque démarrage.
+
+**Le bouton retour.** Une seule règle pour toute l'appli (`src/back.ts`) : c'est ce qui est au-dessus qui le prend, l'écran du QR code, puis les notifications, puis le menu, puis la page. React Native, lui, donne le bouton au dernier arrivé : sans cette règle, une page qui change sous le menu (le Pi qui ne répond plus, ou qui revient) lui volerait le bouton.
+
+**Les fonctions natives et le chargement.** Sous Android, `react-native-webview` 14.0.1 signale le début d'un chargement (`onLoadStart`) à chaque changement de l'historique, même dans la même page : `history.replaceState` (la page du Pi retire `?t=` de son adresse) aussi, et parfois après ses premiers messages. Les fonctions natives ne repartent donc de zéro que pour un nouveau document, ou une nouvelle vue web.
