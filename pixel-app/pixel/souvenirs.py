@@ -180,7 +180,7 @@ def clean_entry(e):
 def clean_souvenirs(d):
     d = d if isinstance(d, dict) else {}
     out = {"v": 1, "anniv": None, "demande": 0, "rencontre": None, "rencontre_auto": True, "debut": 0,
-           "records": {"serie_max": 0, "record_chrono": 0, "trophees": [], "premier_repas": None, "premier_trophee": None, "vu": {}},
+           "records": {"serie_max": 0, "record_chrono": 0, "trophees": [], "premier_repas": None, "premier_trophee": None, "premier_ami": None, "vu": {}},
            "timeline": [], "fetes": {}}
     a = d.get("anniv")
     if isinstance(a, dict) and valid_day(a.get("jour"), a.get("mois")):
@@ -202,7 +202,7 @@ def clean_souvenirs(d):
             R[k] = v
     if isinstance(rec.get("trophees"), list):
         R["trophees"] = [x for x in rec["trophees"] if isinstance(x, str) and TYPE.match(x)][:50]
-    for k in ("premier_repas", "premier_trophee"):
+    for k in ("premier_repas", "premier_trophee", "premier_ami"):
         v = rec.get(k)
         if isinstance(v, dict) and isinstance(v.get("id"), str) and TYPE.match(v["id"]):
             R[k] = {"id": v["id"], "label": clean_text(v.get("label"), 40), "t": _num(v.get("t"), 0)}
@@ -539,6 +539,8 @@ class Souvenirs:
         pins = sum(1 for e in self.d["timeline"] if e["epingle"])
         e = self._add(typ, txt, t=tt, epingle=epingle is True and pins < PINNED_MAX)
         self._event("ajoute", type=typ, texte=e["texte"], souvenir=e["id"])
+        if typ == "ami" and not self.d["records"]["premier_ami"]:      # a friend's first visit (the « amis » feature): a record of its own
+            self.d["records"]["premier_ami"] = {"id": "ami", "label": clean_text(txt, 40), "t": e["t"]}
         self.save()
         return e
 
@@ -684,7 +686,8 @@ class Souvenirs:
             "demander_anniv": not a and not D["demande"] and _ms(self.clock) - D["debut"] >= ANNIV_AFTER_S * 1000,
             "records": {"serie_max": R["serie_max"], "record_chrono": R["record_chrono"], "trophees": len(R["trophees"]),
                         "premier_repas": dict(R["premier_repas"]) if R["premier_repas"] else None,
-                        "premier_trophee": dict(R["premier_trophee"]) if R["premier_trophee"] else None},
+                        "premier_trophee": dict(R["premier_trophee"]) if R["premier_trophee"] else None,
+                        "premier_ami": dict(R["premier_ami"]) if R["premier_ami"] else None},
             "timeline": [dict(e) for e in D["timeline"]], "ev": self.ev}
 
     def hpublic(self):

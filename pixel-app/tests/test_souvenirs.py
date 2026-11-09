@@ -232,6 +232,8 @@ def file_checks():
     e2 = S.ajoute("ami", "une autre", t=at(2040, 1, 1) * 1000)
     check("…a time in the future: now instead", e2 and abs(e2["t"] - c.t * 1000) < 1)
     check("…what others see: ev 'ajoute'", S.ev["kind"] == "ajoute" and S.ev["texte"] == "une autre")
+    check("…a friend's first visit (type « ami »): a record of its own, kept once", S.d["records"]["premier_ami"]["label"].startswith("Bip est venu")
+          and S.public()["records"]["premier_ami"]["t"] == at(2026, 11, 9, 14) * 1000)
     for i in range(40):
         c.t += 3
         S.ajoute("ami", f"visite {i}")

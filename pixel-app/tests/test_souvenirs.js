@@ -286,6 +286,18 @@ print(json.dumps([json.dumps(x, separators=(",", ":")) for x in [fete(D(2027, 2,
   check('…its photo, kept in the page', await until(() => lab.evaluate(() => PixelHub.S.album.photos.some(p => p.raison === 'anniversaire' && /^blob:/.test(p.src))), 8000));
   await lab.evaluate(() => { Screens.persona.stop(); [...document.querySelectorAll('#souvenirs button')].find(b => /Il demande maintenant/.test(b.textContent)).click(); });
   check('…« Il demande maintenant »: the mood question on its screen', await until(() => lab.evaluate(() => PixelSouvenirs.view() === 'humeur'), 3000));
+  const poses = await lab.evaluate(async () => {           // his character of the day colours his scenes: a farceur makes a face for the photo
+    const out = {};
+    for (const [name, f] of [['farceur', 92], ['serieux', 10], ['pixel', 50]]) {
+      PixelHub.dispatch('caractere.set', { traits: { farceur: f } }); await new Promise(r => setTimeout(r, 300));
+      Screens.persona.stop(); Screens.persona.play('album-pose'); await new Promise(r => setTimeout(r, 1900));
+      out[name] = Screens.persona.state.say; Screens.persona.stop();
+    }
+    PixelHub.dispatch('caractere.reset'); return out;
+  });
+  check('…his character colours them: a farceur pulls a face for the photo, a serious one stands straight, at 50 « Cheese ! »',
+    ['Attends… une grimace !', 'Bleuh ! Clic !', 'Tadaa, ma tête de clown !'].includes(poses.farceur) && ['Je me tiens bien droit.', 'Bien sage pour la photo.', 'Je souris poliment.'].includes(poses.serieux)
+    && ['Cheese !', 'Ouistiti !', 'Souriez !'].includes(poses.pixel), JSON.stringify(poses));
   check('…no page or console error in the lab', lErr.length === 0, lErr.slice(0, 3).join(' | '));
   await lc.close();
 

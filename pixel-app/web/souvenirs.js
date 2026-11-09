@@ -71,14 +71,14 @@ function trim(tl) {                                    // TIMELINE_MAX at most: 
 const order = tl => tl.sort((a, b) => b.t - a.t || b.id - a.id);
 function cleanSouvenirs(d) {                          // the shape of souvenirs.json, every value checked
   d = d && typeof d === 'object' ? d : {};
-  const out = { v: 1, anniv: null, demande: 0, rencontre: null, rencontre_auto: true, debut: 0, records: { serie_max: 0, record_chrono: 0, trophees: [], premier_repas: null, premier_trophee: null, vu: {} }, timeline: [], fetes: {} };
+  const out = { v: 1, anniv: null, demande: 0, rencontre: null, rencontre_auto: true, debut: 0, records: { serie_max: 0, record_chrono: 0, trophees: [], premier_repas: null, premier_trophee: null, premier_ami: null, vu: {} }, timeline: [], fetes: {} };
   if (d.anniv && validDay(d.anniv.jour, d.anniv.mois)) out.anniv = { jour: d.anniv.jour, mois: d.anniv.mois };
   out.demande = Math.max(0, num(d.demande, 0)); out.debut = Math.max(0, num(d.debut, 0));
   const r = parseDay(d.rencontre); if (r && r >= D(2020, 1, 1) && dayNum(r) <= dayNum(new Date()) + 1) { out.rencontre = ymd(r); out.rencontre_auto = d.rencontre_auto !== false; }
   const rec = d.records && typeof d.records === 'object' ? d.records : {}, R = out.records;
   for (const k of ['serie_max', 'record_chrono']) if (isInt(rec[k]) && rec[k] >= 0 && rec[k] <= 1e6) R[k] = rec[k];
   if (Array.isArray(rec.trophees)) R.trophees = rec.trophees.filter(x => typeof x === 'string' && TYPE.test(x)).slice(0, 50);
-  for (const k of ['premier_repas', 'premier_trophee']) { const v = rec[k]; if (v && typeof v.id === 'string' && TYPE.test(v.id)) R[k] = { id: v.id, label: cleanText(v.label, 40), t: num(v.t, 0) }; }
+  for (const k of ['premier_repas', 'premier_trophee', 'premier_ami']) { const v = rec[k]; if (v && typeof v.id === 'string' && TYPE.test(v.id)) R[k] = { id: v.id, label: cleanText(v.label, 40), t: num(v.t, 0) }; }
   if (rec.vu && typeof rec.vu === 'object') for (const k of ['exos', 'nourrir']) if (rec.vu[k] === true) R.vu[k] = true;
   const seen = new Set();
   for (const e of Array.isArray(d.timeline) ? d.timeline : []) { const c = cleanEntry(e); if (c && !seen.has(c.id)) { seen.add(c.id); out.timeline.push(c); } }
@@ -190,7 +190,8 @@ function hub(api) {
     S.souvenirs = { fete: f.fete, aujourdhui: { mois: f.mois, ans: f.ans, jours: f.jours }, anniv: F.anniv ? { ...F.anniv } : null, anniv_dans: ansDans(),
       anniv_texte: F.anniv ? dateText(F.anniv.jour, F.anniv.mois) : '', rencontre: F.rencontre, rencontre_auto: F.rencontre_auto, depuis: Math.max(0, dayNum(t) - dayNum(r)),
       demander_anniv: !F.anniv && !F.demande && now() - F.debut >= ANNIV_AFTER,
-      records: { serie_max: R.serie_max, record_chrono: R.record_chrono, trophees: R.trophees.length, premier_repas: R.premier_repas && { ...R.premier_repas }, premier_trophee: R.premier_trophee && { ...R.premier_trophee } },
+      records: { serie_max: R.serie_max, record_chrono: R.record_chrono, trophees: R.trophees.length, premier_repas: R.premier_repas && { ...R.premier_repas }, premier_trophee: R.premier_trophee && { ...R.premier_trophee },
+        premier_ami: R.premier_ami && { ...R.premier_ami } },
       timeline: F.timeline.map(e => ({ ...e })), ev,
       prive: { demande: F.demande, debut: F.debut, fetes: { ...F.fetes }, trophees: [...R.trophees], vu: { ...R.vu } } };   // what the server keeps in its file only
     S.humeur = { on: HF.on, heure: HF.heure, claude: HF.claude, aujourdhui: j ? { m: j.m, chips: [...j.chips], t: j.t } : null, hier: hier(), du: due(), question: question && { ...question },
@@ -290,7 +291,9 @@ function hub(api) {
       added = added.filter(x => n - x[0] >= 0 && n - x[0] < 3600e3); if ((added.length && n - added[added.length - 1][0] < 2000) || added.length >= 30) return;
       if (added.some(x => n - x[0] < 60000 && x[1] === type && x[2] === tx)) return;   // the same memory twice in a minute: once
       added.push([n, type, tx]); const tt = typeof t === 'number' && t >= T_MIN && t <= n + 864e5 ? t : null;
-      const e = add(type, tx, tt, epingle === true && F.timeline.filter(x => x.epingle).length < PINNED_MAX); event('ajoute', { type, texte: e.texte, souvenir: e.id }); publish(); keep();
+      const e = add(type, tx, tt, epingle === true && F.timeline.filter(x => x.epingle).length < PINNED_MAX); event('ajoute', { type, texte: e.texte, souvenir: e.id });
+      if (type === 'ami' && !F.records.premier_ami) F.records.premier_ami = { id: 'ami', label: cleanText(tx, 40), t: e.t };   // a friend's first visit (souvenirs.py)
+      publish(); keep();
     },
     'souvenirs.epingle': ({ id = null, on = null } = {}) => {
       const e = F.timeline.find(x => x.id === id); if (!e) return; const v = typeof on === 'boolean' ? on : !e.epingle;
@@ -389,6 +392,9 @@ const sc = (name, data) => (Sc && Sc.event ? Sc.event(name, data || {}, true) : 
 const play = id => { if (!PER) return false; if (L) { L.sleepy = false; L.local = null; L.pack = null; } return PER.play(id); };
 const son = n => { const s = window.PixelSon; if (s && s.on) try { s.play(n); } catch (e) { /* his voice never stops him */ } };
 function info() { const s = P && P.souvenirs; return s ? { ...(s.aujourdhui || {}) } : { mois: 0, ans: 0, jours: 0 }; }
+function trait(name) {                                 // his character of the day (persona.js has it from web/caractere.js), 50 without one
+  const v = PER && PER.traits ? PER.traits[name] : 50; return typeof v === 'number' && Number.isFinite(v) ? clamp(v, 0, 100) : 50;
+}
 if (Sc) {
   const set0 = Sc.setState, ss0 = Sc.setSend;
   let act = null;
@@ -448,11 +454,12 @@ function memories() {
   if (R.record_chrono >= 5) out.push({ texte: `${R.record_chrono} en une minute au défi chrono… quel record !`, icone: 'etoile' });
   if (R.premier_repas) { const PF = window.PixelFoods, f = PF && PF.BY[R.premier_repas.id]; out.push({ texte: `Mon tout premier repas avec toi : ${f ? f.nom : R.premier_repas.label} !`, icone: 'pizza' }); }
   if (R.premier_trophee) out.push({ texte: `Ton premier trophée : ${R.premier_trophee.label} !`, icone: 'etoile' });
+  if (R.premier_ami) out.push({ texte: `Tu te souviens de ma toute première visite ?`, icone: 'coeur' });
   if (s.depuis >= 2) out.push({ texte: `Ça fait ${s.depuis} jours qu’on se connaît !`, icone: 'coeur' });
   if (s.anniv && s.anniv_dans > 0 && s.anniv_dans <= 14) out.push({ texte: s.anniv_dans === 1 ? 'Ton anniversaire, c’est demain !' : `Plus que ${s.anniv_dans} dodos avant ton anniversaire !`, icone: 'coeur' });
   const n = P.album && P.album.photos ? P.album.photos.length : 0; if (n >= 3) out.push({ texte: `J’ai déjà ${n} photos dans mon album !`, icone: 'etoile' });
   for (const e of (s.timeline || []).filter(e => !['rencontre', 'record', 'chrono', 'repas', 'anniversaire'].includes(e.type)).slice(0, 8))
-    out.push({ texte: `Tu te souviens ? ${e.texte.replace(/[!.]$/, '')} !`.replace(/ ! !$/, ' !'), icone: ICON[e.type] || 'coeur' });
+    out.push({ texte: `Tu te souviens ? ${e.texte.replace(/[\s!?.…]+$/, '')} !`, icone: ICON[e.type] || 'coeur' });
   return out;
 }
 function memory() {
@@ -501,7 +508,8 @@ function initiative(force = false) {                   // force: Pixel Lab's but
     store.set('pixel.souvenirs.demande', '1'); go(); play('souvenir-question'); send('souvenirs.demande'); return;
   }
   let said = 0, last = 0; try { const m = JSON.parse(store.get('pixel.souvenirs.rappels')) || {}; if (m.jour === today()) said = m.n | 0; last = m.t || 0; } catch { /* none */ }
-  if (h >= 9 && h < 20 && said < 3 && t - last > 2 * 3600e3 && Math.random() < 1 / 90 && memories().length) {   // now and then, a memory
+  const bavard = (trait('bavard') - 50) / 25;          // a chatterbox remembers out loud more often (1 to 5 a day), a quiet one less; 3 at 50
+  if (h >= 9 && h < 20 && said < 3 + Math.round(bavard) && t - last > 2 * 3600e3 / 2 ** (bavard / 2) && Math.random() < 2 ** bavard / 90 && memories().length) {   // now and then, a memory
     store.set('pixel.souvenirs.rappels', JSON.stringify({ jour: today(), n: said + 1, t })); go(); sc('souvenir-rappel', memory());
   }
 }
@@ -534,7 +542,7 @@ function guard() {                                     // the food tray and its 
     N.souvGuard = true;
   }
   const X = window.PixelExos;                          // his offer « Une petite question ? » waits for ours, and for the party
-  if (X && !X.souvGuard && typeof X.canPropose === 'function') { const cp = X.canPropose; X.canPropose = c => !view() && !(P && P.humeur && (P.humeur.question || P.humeur.du)) && cp(c); X.souvGuard = true; }
+  if (X && !X.souvGuard && typeof X.canPropose === 'function') { const cp = X.canPropose; X.canPropose = c => !view() && !(P && P.humeur && P.humeur.question) && cp(c); X.souvGuard = true; }
 }
 function diapo() { const al = P && P.album; if (!al || !al.photos.length || exosOwns()) return; V.album = { i: 0, t: K ? K.now : 0, list: al.photos.slice(0, 30).map(p => p.id) }; V.anniv = null; V.chips = null; if (L) L.dirty = true; }
 const ad = {
@@ -827,7 +835,8 @@ function drawSouvenirs() {
   const dl = el('dl', 'souv-dl');
   const PF = window.PixelFoods, food = R.premier_repas ? ((PF && PF.BY[R.premier_repas.id]) || { label: R.premier_repas.label }).label : '';
   for (const [a, b] of [['Meilleure série aux exos', R.serie_max ? String(R.serie_max) : '—'], ['Record du défi chrono', R.record_chrono ? String(R.record_chrono) : '—'],
-    ['Premier repas', food ? `${food} (${short(R.premier_repas.t || Date.now())})` : '—'], ['Premier trophée', R.premier_trophee ? R.premier_trophee.label : '—'], ['Trophées', String(R.trophees || 0)]]) dl.append(el('dt', null, a), el('dd', null, b));
+    ['Premier repas', food ? `${food} (${short(R.premier_repas.t || Date.now())})` : '—'], ['Premier trophée', R.premier_trophee ? R.premier_trophee.label : '—'], ['Trophées', String(R.trophees || 0)],
+    ['Première visite', R.premier_ami ? short(R.premier_ami.t) : '—']]) dl.append(el('dt', null, a), el('dd', null, b));
   cd.append(dl, bt('Raconte-moi un souvenir', 'souv-btn', () => send('souvenirs.raconte')));
   out.push(cd);
   // the timeline
@@ -932,11 +941,12 @@ function drawAlbumPane() {
   out.push(grid, el('p', 'souv-note', `${al.max} photos au plus : les plus anciennes s’en vont, jamais tes préférées (★, ${al.fav_max} au plus).`));
   pane.replaceChildren(...out);
 }
-function openViewer(id) { viewer = { id }; if (pv) { pv.view.hidden = false; drawViewer(); } }
+function openViewer(id) { viewer = { id, key: '' }; if (pv) { pv.view.hidden = false; drawViewer(); } }
 function closeViewer() { viewer = null; if (pv) pv.view.hidden = true; }
 function drawViewer() {
   const al = P && P.album, list = (al && al.photos) || [], i = list.findIndex(p => p.id === viewer.id);
   if (i < 0) { closeViewer(); return; }
+  const key = JSON.stringify([viewer.id, list.map(x => x.id + x.fav)]); if (key === viewer.key) return; viewer.key = key;   // again only when it changes
   const p = list[i], v = pv.view, im = el('img', 'souv-big-img'); im.src = p.src; im.alt = `La photo du ${longDate(p.t)}`;
   const cap = el('p', 'souv-cap', `${longDate(p.t)} · ${RAISONS[p.raison] || 'Un souvenir'}`);
   const bar = el('div', 'souv-vbar');
@@ -953,7 +963,7 @@ function drawViewer() {
 if (typeof document !== 'undefined' && PANEL) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else setTimeout(build); }
 
 return {
-  rules, hub, command, memory, memoire: () => memory().texte, info, view, asleep, back,
+  rules, hub, command, memory, memoire: () => memory().texte, info, trait, view, asleep, back,
   get mirror() { return mirror; }, get home() { return HOME; },
   panel(open, which) { if (open === false) return panel(false); return panel(true, which === 'album' ? 'album' : which === 'carnet' ? 'carnet' : 'souvenirs'); },
   get isOpen() { return !!pv && !pv.root.hidden; }, get viewer() { return viewer ? viewer.id : null; },
