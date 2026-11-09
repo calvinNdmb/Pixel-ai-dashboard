@@ -187,3 +187,14 @@ body.kiosk .recess{padding:0;border-radius:0;background:#000;box-shadow:none}
 body.kiosk .screen{width:min(100vw,calc(100vh * 5 / 3));border-radius:0}
 body.kiosk .screen canvas#crt{touch-action:none}
 @media (hover:none){body.kiosk{cursor:none}}
+
+/* ---------- Pixel de poche (../poche.js, poche-lab.js): the monitor becomes a phone held sideways ----------
+   The canvas keeps Pixel's 5:3; the phone is 20:9, so its sides take the theme's background (--poche-bg, set by poche.js). */
+.lab.poche .monitor{position:relative;width:min(100%,920px,max(360px,calc((100vh - 250px) * 2.22)));aspect-ratio:20/9;min-height:0;overflow:hidden;padding:1.2% 2.8%;border-radius:7%/15.5%;
+  background:linear-gradient(180deg,#34363b,#16171a);box-shadow:inset 0 0 0 2px #45484e,inset 0 0 0 5px #101113,0 22px 30px -18px var(--shadow)}
+.lab.poche .monitor::before{content:"";position:absolute;left:1.1%;top:50%;width:1.2%;aspect-ratio:1;border-radius:50%;transform:translateY(-50%);background:#050506;box-shadow:inset 0 0 0 2px #2a2c30}
+.lab.poche .recess{height:100%;padding:0;border-radius:4.6%/10.5%;overflow:hidden;background:#000;box-shadow:none}
+.lab.poche .screen{height:100%;width:100%;aspect-ratio:auto;border-radius:0;display:grid;grid-template:100% / 100%;place-items:center;background:var(--poche-bg,#061009)}
+.lab.poche .screen canvas#crt{width:auto;height:100%;max-width:100%;aspect-ratio:5/3;touch-action:none}
+.lab.poche .mfoot{display:none}
+@media (max-width:860px){.lab.poche .monitor{width:100%;border-radius:6%/13%;padding:1.4% 3%}}

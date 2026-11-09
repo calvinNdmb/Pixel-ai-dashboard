@@ -12,7 +12,7 @@ let T, G, D, DK, B, AM, PK, WH;
 
 /* backing store: 1x on Pixel's own 800x480 screen, 2x on phones and computers */
 function fitCanvas() {
-  const w = cv.getBoundingClientRect().width, s = !w ? S : (window.devicePixelRatio || 1) * w / W <= 1.05 ? 1 : 2;
+  const w = cv.getBoundingClientRect().width, s = L.scale || (!w ? S : (window.devicePixelRatio || 1) * w / W <= 1.05 ? 1 : 2);   // L.scale: the Pixel de poche's own (poche.js)
   if (s !== S || cv.width !== W * s) { S = s; cv.width = W * S; cv.height = H * S; }
 }
 
@@ -128,7 +128,7 @@ function drawVisage() {
   if (T.top) T.top(clock()); else txt(clock(), W - 24, 16, 30, D, 'right', 'title');
   const md = mood(), pack = packMode(), anim = serverAnim(), ptr = L.ptr && !['endormi', 'reflechit'].includes(md) ? { x: clamp((L.ptr.x - 400) / 120, -1.6, 1.6), y: clamp((L.ptr.y - 230) / 110, -1, 1) } : null;
   const sleepIn = L.kiosk && P ? (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) : Infinity;
-  let pm = PV.id ? PV.m : null; if (pm && pack && T.faceFps) pm = snapPix(pm);
+  let pm = PV.id ? PV.m : L.lean || null; if (pm && pack && T.faceFps) pm = snapPix(pm);   // L.lean: the Pixel de poche leans as you tilt the phone (poche.js)
   const lmd = PV.id && PV.mood && (PV.group !== 'vie' || md === 'neutre') ? PV.mood : md;
   const a = LIFE.face.update(now, lmd, { look: PV.id ? null : ptr, idle: now - L.lastInput, sleepIn, calm: RM || pack || !!anim || !!PV.id });
   if (pack || (anim && T.packFace)) packDraw(PLAY.face, pack ? packWant() : anim, PBOX.x, PBOX.y, PBOX.w, PBOX.h, a, pm);
@@ -608,7 +608,7 @@ return {
       if (P.lights && p.lights && lit(P.lights.rooms) !== lit(p.lights.rooms) && anyOn(P.lights.rooms) && anyOn(p.lights.rooms)) ev('lights-change');
       const wk = w => w && w.now && w.now.kind;
       if (wk(P.weather) && wk(p.weather) && wk(P.weather) !== wk(p.weather)) ev('weather', { kind: wk(p.weather) });
-      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
+      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|poche\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
     }
     if (p.toast && p.toast.id !== L.lastToast) {
       L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now };

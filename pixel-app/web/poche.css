@@ -1,0 +1,25 @@
+/* Pixel de poche (poche.js): the phone held sideways shows Pixel alone, full screen, a pet in your pocket.
+   poche.js places the canvas itself (whole device pixels, never stretched); the sides take the theme's background
+   (--poche-bg). No scroll, no zoom, no text selection, no pull-to-refresh while he is there. */
+.poche-go{font:600 12px var(--f-ui);border:1px solid var(--ink);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;min-height:32px;cursor:pointer;margin-right:auto}
+.poche-go:focus-visible{outline:2px solid var(--g);outline-offset:3px}
+html.poche,body.poche{overflow:hidden;overscroll-behavior:none;height:100%}
+body.poche{position:fixed;inset:0;background:var(--poche-bg,#000);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+body.poche .modes,body.poche .kb,body.poche .mfoot,body.poche .cmd,body.poche .osk{display:none!important}
+body.poche .device{max-width:none;padding:0}
+body.poche .monitor{display:block!important;background:none;box-shadow:none;padding:0;border-radius:0}
+body.poche .recess{padding:0;background:none;box-shadow:none;border-radius:0}
+body.poche .screen{position:fixed;inset:0;z-index:10;aspect-ratio:auto;border-radius:0;background:var(--poche-bg,#000);touch-action:none}
+body.poche .screen canvas{position:absolute;touch-action:none;-webkit-tap-highlight-color:transparent}
+/* the two corner buttons: back to the remote, and the voyage; in the theme's colours, quiet until touched */
+.poche-hud{position:absolute;inset:0;z-index:3;pointer-events:none}
+.poche-hud button{position:absolute;top:max(10px,env(safe-area-inset-top));pointer-events:auto;min-width:48px;min-height:48px;padding:0 14px;border-radius:999px;
+  border:2px solid var(--k-fg);background:var(--k-bg);color:var(--k-fg);font:calc(24px*var(--k-size))/1 var(--k-font);opacity:.55;cursor:pointer;transition:opacity .2s}
+.poche-hud button:active,.poche-hud button:focus-visible,.poche-hud button:hover{opacity:1;outline:none}
+.poche-x{left:max(10px,env(safe-area-inset-left));font-size:30px!important;padding:0!important}
+.poche-voyage{right:max(10px,env(safe-area-inset-right))}
+/* on http, once: why he does not feel the phone (poche.js note()); a touch closes it */
+.poche-note{position:absolute;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);width:max-content;max-width:min(560px,86vw);margin:0;
+  padding:8px 14px;border-radius:12px;border:2px solid var(--c-line);background:var(--c-bg);color:var(--c-fg);font:18px/1.25 var(--c-font);text-align:center;
+  pointer-events:auto;cursor:pointer}
+.poche-note[hidden]{display:none}

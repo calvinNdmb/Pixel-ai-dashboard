@@ -30,6 +30,7 @@ from pixel.keys import FACES, NAV, THEMES
 from pixel.state import Hub
 from pixel.system import System, local_ip
 from pixel.weather import Weather
+from pixel import poche                  # Pixel de poche: the phone held sideways
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -165,6 +166,7 @@ def qr_rows(url):
 async def serve(args, cfg, datadir, token):
     hub = Hub(cfg, args.demo)
     core_actions(hub, datadir)
+    poche.setup(hub)                     # Pixel de poche: the two Pixels pass news, the voyage
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"
