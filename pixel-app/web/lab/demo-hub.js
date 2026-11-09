@@ -524,6 +524,7 @@ function command(raw) {
   if (SCREEN_WORDS[t]) return A['screen.show']({ screen: SCREEN_WORDS[t] });
   if (carCommand(raw)) return;                           // « sois grognon », « plus câlin »… (caractère, below), last before Claude as in commands.py
   if (NOUR && NOUR.command(raw)) return;                 // « mange une pomme », « à table ! » (Nourrir, below): after him, as in commands.py
+  if (lookCommand(raw)) return;                          // « mets ton chapeau », « yeux de chat » (Son look, above): after Nourrir, as in commands.py
   if (SOUV && SOUV.command(raw)) return;                 // « prends une photo », « je suis triste »… (souvenirs, below): last before Claude, as in commands.py
   A['chat.ask']({ text: raw });
 }
@@ -581,6 +582,64 @@ if (CAR) {
     Object.assign(S.caractere, CAR.saved(CAR.clean(v)));
     try { localStorage.setItem('pixel_lab_caractere', JSON.stringify(CAR.saved(S.caractere))); } catch {}
   });
+}
+
+/* ---------- « Son look » (pixel/look.py; its rules come from ../look.js): his eyes, colours, what he wears ----------
+   S.look is his truth, changed in place (Pixel sans Pi keeps it as it is); "porte", what he wears now, follows the clock, the
+   weather, his sleep (habitudes.dort when the habits are there, else his quiet hours) and his birthday (souvenirs.fete), as
+   look.py's tick does. The undo list stays in this page. Lab-only: lab.look { date, dort, fete } pretends another day (an ISO
+   date and time, null: today), his sleep or a birthday (null: the real ones). */
+const LOOK = window.PixelLook, lookSim = { off: 0, dort: null, fete: null };
+function lookCommand(raw) {                              // look.py command(): true when it was one of his
+  const r = LOOK && S.look ? LOOK.command(String(raw || '').slice(0, 2000), S.look) : null;
+  if (!r) return false;
+  if (r.toast) { toast(r.toast, r.ms || 8000); return true; }
+  A[r.action](r.args || {}); return true;
+}
+if (LOOK) {
+  let kept = null, hist = []; try { kept = JSON.parse(localStorage.getItem('pixel_lab_look')); } catch {}   // the lab remembers him, like look.json
+  S.look = { ...LOOK.clean(kept || {}), porte: {}, change: null, avant: 0 };
+  const now = () => new Date(Date.now() + lookSim.off), ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const ctx = () => { const c = LOOK.context(S, now()); if (lookSim.dort !== null) c.dort = lookSim.dort; if (lookSim.fete) c.fete = lookSim.fete; return c; };
+  const refresh = () => { const p = LOOK.resolve(S.look, ctx()); if (JSON.stringify(p) === JSON.stringify(S.look.porte)) return false; S.look.porte = p; return true; };
+  const keep = () => { try { localStorage.setItem('pixel_lab_look', JSON.stringify(LOOK.clean(S.look))); } catch {} };
+  const commit = (n, ch, undo = true) => {
+    if (!ch) return;
+    if (undo) hist = [...hist, JSON.parse(JSON.stringify(LOOK.clean(S.look)))].slice(-LOOK.HISTORY);
+    for (const k of LOOK.SAVED) S.look[k] = n[k];
+    S.look.change = { t0: Date.now(), ...ch }; S.look.avant = hist.length; refresh(); S.anim = null; S.screen = 'visage'; keep();
+  };
+  const clip = (a = {}) => {                             // look.py setup clip(): only what look.set reads, short
+    const o = {};
+    for (const k of ['yeux', 'couleur_yeux', 'couleur_joues', 'tenue']) if (typeof a[k] === 'string' && a[k].length <= 32) o[k] = a[k];
+    for (const k of ['mono', 'saisons', 'nuit', 'normal']) if (typeof a[k] === 'boolean') o[k] = a[k];
+    for (const k of ['porte', 'enleve']) { const v = a[k]; if (typeof v === 'string' && v.length <= 32) o[k] = v; else if (Array.isArray(v)) o[k] = v.slice(0, 8).filter(x => typeof x === 'string' && x.length <= 32); }
+    return o;
+  };
+  const set = a => commit(...LOOK.apply(S.look, clip(a), ymd(now())));
+  Object.assign(A, {
+    'look.set': (a = {}) => set(a),
+    'look.porte': ({ item = null } = {}) => set({ porte: item }),
+    'look.enleve': ({ item = null, slot = null } = {}) => set({ enleve: item ?? slot ?? 'tout' }),
+    'look.tenue': ({ tenue = null } = {}) => set({ tenue }),
+    'look.reset': () => set({ normal: true }),
+    'look.avant': () => { if (!hist.length) return; const prev = hist.pop(); commit(LOOK.clean(prev), { quoi: 'avant' }, false); },
+    'lab.look': ({ date, dort, fete } = {}) => {
+      if (date !== undefined) { const t = date ? new Date(date).getTime() : NaN; lookSim.off = Number.isFinite(t) ? t - Date.now() : 0; }
+      if (dort !== undefined) lookSim.dort = typeof dort === 'boolean' ? dort : null;
+      if (fete !== undefined) lookSim.fete = ['anniversaire', 'rencontre'].includes(fete) ? fete : null;
+      refresh();
+    },
+  });
+  /* Pixel sans Pi (../local.js): what comes back (the phone's copy, his Pi's snapshot) is cleaned first, as look.py cleans
+     look.json; its change stays as it is (no replay), and what he wears follows this phone's clock */
+  restorable('look', v => {
+    if (!v || typeof v !== 'object') return;
+    const c = LOOK.clean(v); for (const k of LOOK.SAVED) S.look[k] = c[k];
+    refresh(); keep();
+  });
+  refresh();
+  setInterval(() => { if (refresh()) mark(); }, 3000);   // the clock, the weather, his sleep: what he wears follows (look.py tick)
 }
 
 /* ---------- background jobs: timer tick (0.25 s), system graphs (1 s) ---------- */

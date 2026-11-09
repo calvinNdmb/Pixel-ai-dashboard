@@ -152,7 +152,7 @@ Ils ne passent pas quand quelque chose d'autre a besoin de son visage : une hume
 - 10 minutes avant un rendez-vous de ton agenda, une petite horloge sonne à côté de lui : « Hé ! Dans 10 min… Réunion d'équipe ! ». Peu après la fin, il demande : « Ça s'est bien passé ? » ;
 - quand le Pi dépasse 70 °C, il a chaud : il transpire, et de l'air chaud monte autour de sa tête. Il le redit toutes les 15 minutes tant que le Pi ne refroidit pas ;
 - quand le Wi-Fi tombe : « Hé, le Wi-Fi est parti ! ». Quand il revient : « Ouf, je capte à nouveau ! » ;
-- tout le mois de décembre, il porte un bonnet de Noël.
+- en hiver, il met un bonnet et une écharpe, et du 20 au 26 décembre son bonnet de Père Noël (voir « Son look »).
 
 **Pour en voir un :**
 - tape `fais le poisson`, `fais la sieste`, `joue la toupie`, `fais l'économiseur d'écran`… ;
@@ -235,6 +235,7 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 | `fais le poisson`, `fais la sieste`, `joue la toupie`… | un de ses moments de vie (voir « Sa personnalité ») |
 | `scènes` | affiche ses moments de vie |
 | `visage vivant`, `visage pack` | change de visage |
+| `mets ton chapeau`, `enlève tout`, `yeux de chat`, `joues roses`, `look normal` | change son look (voir « Son look ») |
 | `caste À table !`, `caste https://youtu.be/…` | affiche un texte ou un lien sur l'écran (voir « Caster sur Pixel ») |
 | `stop`, `stop cast` | arrête ce qui est casté |
 | `code tv` | montre le code TV de l'appli YouTube (si le cast YouTube est activé) |
@@ -498,6 +499,55 @@ Pixel te pose de petits exercices, du CP au collège : additions, soustractions,
 Dans Pixel Lab, le panneau **Exos de maths** lance chaque mode et chaque type, répond juste ou faux à ta place, et lui fait proposer une question.
 <!-- fin des exos de maths -->
 
+<!-- son look -->
+## Son look
+
+Tu peux changer la forme de ses yeux, leur couleur, ses joues, et ce qu'il porte. Il garde son look partout : sur l'écran du Pi, sur ton téléphone, dans le Pixel de poche et sans Pi.
+
+**Pour le changer**, sur ton téléphone, touche **Son look** sous les touches (après **Exos**). Dans l'appli Android, le menu l'ouvre aussi. En haut, Pixel en direct, dans le thème du moment. Une touche suffit : il met son nouveau look et se regarde dans un petit miroir (« Ça me va ? »).
+- **Yeux :** ronds (comme avant), carrés, en amande, étoiles, cœurs, yeux de chat (la pupille fendue), lunettes rondes.
+- **Couleurs :** neuf couleurs pour ses yeux et pour ses joues (bleu, turquoise, vert, jaune, orange, rouge, rose, violet, marron), celle du thème, et l'arc-en-ciel pour ses yeux (il bouge doucement).
+- **Accessoires**, un par place. Sur la tête : chapeau haut-de-forme, casquette, couronne, antennes, bonnet, chapeau de fête, chapeau de sorcière, citrouille, bonnet de Père Noël, bonnet de nuit. Sur les yeux : lunettes de soleil. Sur le visage : moustache. Au cou : nœud papillon, écharpe, pyjama. Sur les oreilles : casque audio. **Rien** vide une place. Et des tenues toutes prêtes : pour l'hiver, pour l'été, Halloween, Noël, la fête, très chic, le roi, musique, pour dormir.
+- **Saisons :** les tenues de saison et le pyjama la nuit (voir plus bas).
+- **Remettre comme avant** annule le dernier changement (huit fois de suite au plus). **Look de tous les jours** (touche deux fois) le remet comme au premier jour.
+
+**Dans chaque thème, à sa façon :** des pixels qui brillent en Rétro, des points d'écran de console en LCD, des tubes de lumière en Néon, des crayons de couleur en Croquis, l'encre du Manga, des formes douces en Moderne. Avec le visage du pack comme avec le visage vivant. Il cligne des yeux, regarde partout et joue toutes ses humeurs ; ses yeux d'humeur passent avant (les cœurs quand il est amoureux, les étoiles quand il est excité, les lunettes noires quand il est fier). Ce qu'il porte bouge avec lui, et ne cache jamais ses yeux, sa bouche ni la ligne d'infos.
+
+**Les couleurs en Rétro et en LCD :** Rétro devient un écran à phosphore de couleur, tes couleurs brillent comme sur un vieil écran. LCD devient une console de poche en couleur, aux couleurs un peu plus sombres. Le réglage **Écran tout vert** (en Rétro et en LCD seulement) garde les verts de l'écran : ses couleurs et ses habits deviennent des verts plus ou moins clairs.
+
+**Les tenues de saison** viennent toutes seules (réglage **Tenues de saison**, allumé au départ) :
+- en hiver (de décembre à février) : un bonnet et une écharpe ;
+- en juillet et en août, ou un jour de grand soleil à 25 °C ou plus : des lunettes de soleil, de 9 h à 20 h ;
+- pour Halloween (du 24 au 31 octobre) : un chapeau de sorcière ou une citrouille, un jour sur deux ;
+- pour Noël (du 20 au 26 décembre) : le bonnet de Père Noël, et aussi pendant ses scènes de neige ;
+- le Nouvel An (31 décembre et 1er janvier), son anniversaire et le jour de votre rencontre (quand Pixel les connaît) : un chapeau de fête.
+
+Quand une tenue arrive, il la montre : la neige pour le bonnet, des chauves-souris à Halloween, des confettis pour la fête, le soleil pour les lunettes.
+
+**Ce que tu choisis passe avant.** La saison habille seulement les places vides : s'il porte son chapeau haut-de-forme, il le garde à Noël, avec l'écharpe de l'hiver. Si tu lui enlèves son bonnet d'hiver (`enlève ton bonnet`), il reste sans bonnet jusqu'au lendemain. Pas de lunettes de soleil par-dessus ses lunettes.
+
+**La nuit** (réglage **Pyjama la nuit**, allumé au départ) : quand il dort, il met son bonnet de nuit et son pyjama (« C'est l'heure du pyjama ! »), et les enlève le matin (« Debout ! »). Ses lunettes de soleil et son casque restent sur la table de nuit, sa moustache reste. Il dort quand Pixel connaît ses habitudes de sommeil et qu'elles le disent ; sinon, pendant ses heures calmes (son caractère : de 23 h à 6 h au départ). Un chapeau mis la nuit attend le matin : « Je le mettrai demain ! ».
+
+**En tapant :** `mets ton chapeau`, `enlève ton chapeau`, `enlève tout`, `yeux de chat`, `yeux en cœur`, `yeux bleus`, `joues roses`, `arc-en-ciel`, `mets tes lunettes`, `look normal`, `remets comme avant`, `habille-toi pour l'hiver` (ou pour l'été, Halloween, Noël, la fête, dormir). `look ?` dit comment il est. Une phrase qui ne change rien (`mets ton chapeau` quand il l'a déjà) ou une autre phrase (`j'aime ton chapeau`) part à Claude, comme avant. Ces mots marchent aussi sans Pi et dans Pixel Lab.
+
+**Avec Claude :** il sait comment il est quand il lit l'état de Pixel, et il peut changer son look : « mets ta couronne », « fais-toi des yeux de chat verts ».
+
+**Partout pareil :** le Pi garde son look au redémarrage (fichier `look.json` dans le dossier de données ; un fichier abîmé redonne le look de tous les jours). L'écran du Pi, ton téléphone, le Pixel de poche et son jumeau portent le même. Sans Pi, le téléphone garde le sien, en partant de celui du Pi ; relié au Pi, il reprend celui du Pi. Pour les autres pages : `window.PixelLook.get()` (son look et ce qu'il porte), `with(look, fn)` (dessiner avec un autre look) et `clean(look)`.
+
+**Rapide :** sans look, son dessin coûte exactement pareil qu'avant. Ce qu'il porte est dessiné une fois par thème et par taille, puis recopié. Avec une tenue complète (yeux de chat arc-en-ciel, joues roses, chapeau, nœud, casque, moustache), une image coûte de 0,05 à 1,4 ms de plus sur un ordinateur, selon le thème. Pas encore mesuré sur le vrai Pi 4.
+
+Dans Pixel Lab, le panneau **Son look** fait la même chose ; il fait aussi semblant d'être un autre jour (Halloween, Noël, le Nouvel An, l'hiver, l'été, son anniversaire) ou la nuit, et passe en revue tous les yeux et tous les accessoires.
+
+**Ses fichiers :** `pixel/look.py` (les règles, les actions, les commandes, l'outil de Claude, `look.json`), `web/look.js` et `web/look.css` (les mêmes règles, le dessin dans les 6 thèmes, le panneau du téléphone), `web/scenes/look.js` (ses réactions), `web/lab/look-lab.js` (le panneau de Pixel Lab). Le pack de 52 animations a deux petits crochets (`pack52/pixel52.js`, `pack52/pixel52-themes.js`) : sans look, ils ne font rien.
+
+Pour relancer ses tests :
+
+```
+python3 tests/test_look.py        # son serveur de démo sur le port 8406 (LOOK_PY_PORT=… pour un autre)
+node tests/test_look.js           # port 8405 (LOOK_PORT=… pour un autre) ; il faut Playwright ; --shots DOSSIER pour les captures
+```
+<!-- fin de son look -->
+
 <!-- souvenirs -->
 ## Ses souvenirs, l'album et le carnet d'humeur
 
@@ -537,6 +587,7 @@ Pixel se souvient de toi. Il retient ton anniversaire et le jour de votre rencon
 
 **Ses fichiers :** `pixel/souvenirs.py` (ses souvenirs et le carnet, gardés dans `souvenirs.json` et `humeur.json` ; un fichier abîmé ne bloque jamais le démarrage), `pixel/album.py` (les photos, `POST /api/album` et `GET /album/…`), `web/scenes/souvenirs.js` (ses scènes), `web/souvenirs.js` et `web/souvenirs.css` (son écran, le panneau du téléphone, les mêmes règles pour Pixel Lab et sans Pi), `web/album.js` (la prise des photos), `web/lab/souvenirs-lab.js` (le panneau de Pixel Lab).
 <!-- fin des souvenirs -->
+
 <!-- amis de Pixel -->
 ## Les amis de Pixel
 
@@ -705,6 +756,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Caractère** (`test_caractere.py`, `test_caractere.js`) : les 15 caractères, les valeurs bornées et nettoyées (même 1e400 ou Infinity), le fichier gardé (même abîmé : le serveur démarre toujours), les commandes (et les phrases qui partent toujours à Claude, comme « parle-moi » ou « tu t'appelles vraiment Pixel »), l'outil et la consigne de Claude, la conversation gardée avec l'abonnement, les mêmes règles dans Pixel Lab, des noms de scènes qui ne prennent pas ceux des autres paquets. À 50 partout, exactement les mêmes scènes et les mêmes phrases, pour le même tirage au sort, que sans caractère dans l'état du serveur et que sans `caractere.js` du tout (et qu'avant la fonction, git 36422fd, la branche principale juste avant son arrivée : comparaison notée, qui compte avec `CARACTERE_STRICT=1`). Sur des centaines d'essais : un Pixel grognon s'énerve et boude plus (et plus longtemps), un câlin devient plus vite amoureux, un indépendant repousse les câlins, un bavard parle plus et un taiseux bien moins, un énergique vit plus souvent et plus vite, un blasé laisse passer des notifications ; mais quel que soit son caractère, ce que tu fais pour lui a toujours sa réponse, et « Il parle » éteint garde les rappels. Aussi : les heures calmes, son nom et ton surnom dans ses phrases (le même nom sur le Pi et sur les écrans, accents et signes des voyelles gardés), sa réaction à chaque changement, le panneau du téléphone (qui s'efface devant le Pixel de poche), l'écran du Pi et le panneau de Pixel Lab.
 - **Exos de maths** (`test_exos.py`, `test_exos.js`) : chaque type d'exo à chaque niveau (9 000 exercices) a sa bonne réponse parmi 4 choix différents, vérifiée en refaisant le calcul ; les erreurs classiques sont dans les choix ; la même graine donne le même exo. Le jeu, sur une fausse horloge : l'indice et le deuxième essai, la correction, une série, une table, le défi chrono, les niveaux qui montent, descendent ou restent fixes, l'objectif du jour, les trophées, l'exo oublié qui se range, le fichier `exos.json`. La réponse n'arrive jamais aux écrans avant que tu aies répondu. Un double appui, un écran en retard ou la même erreur deux fois ne coûtent jamais le deuxième essai ni ne répondent à la question suivante ; sa fête n'est pas coupée ; un `exos.json` abîmé ou d'une drôle de forme n'empêche pas Pixel de démarrer, et un réglage hors limites (1e999) n'y efface ni les scores ni les trophées ; une horloge qui recule ne fige ni le défi chrono ni la correction ; une réponse, une seule bannière (l'objectif et les trophées ensemble) ; chaque correction explique. Les commandes (un nombre seul ne va à l'exo que s'il y en a un d'ouvert, et jamais à Claude pendant la correction ; `4 025` ; `encore` et `une autre` seulement pendant ou juste après un exo) et l'outil de Claude. Dans Chromium : l'écran du Pi dans les 6 thèmes (un double appui sur une réponse fausse, puis la bonne, et ses réactions), chaque réponse touchée jusqu'à son bord droit, le clavier, l'indice en touchant Pixel, son petit rappel, une série rapide où chaque réponse a sa scène, le bilan d'une série, les images par seconde, aucun moment de vie pendant un exo, sa proposition et le bouton **Oui !** ; le panneau du téléphone (réponses, double appui, pavé et sa touche **−**, le chrono arrêté quand le panneau se ferme, réglages, scores) et la barre de commande ; dans Pixel Lab, les mêmes règles.
 - **Les trois ensemble** (`test_perso.py`, `test_perso.js`) : les commandes de chacun vont au bon endroit (un nombre seul à l'exo ouvert seulement, les repas et le caractère pendant un exo), les trois outils de Claude côte à côte, sa consigne avec son caractère, l'état de Pixel avec son ventre et les exos du jour, jamais la réponse d'un exo ouvert ; gourmand, grognon et farceur (et l'humeur du jour) changent son ventre et ses repas, studieux ses questions et sa fête ; à 50, chaque scène des trois et du Pixel de poche pèse comme avant. Dans Chromium : sur l'écran du Pi, qui passe devant qui (le menu rapide, même par-dessus un vrai cast, le cast, un exo, sa question, le plateau ; sous un cast, l'exo attend, ni le doigt ni le clavier n'y répondent, il revient tel quel, et « Tu réfléchis ? » ne compte pas le temps passé dessous), un changement de caractère pendant un exo, en Rétro, LCD et Néon ; le Pixel de poche ; les trois boutons du téléphone et leurs panneaux ; dans Pixel Lab, les trois panneaux et les mêmes commandes que le serveur (une même liste de phrases d'exos, passée au serveur et à Pixel Lab, donne partout la même chose).
+- **Son look** (`test_look.py`, `test_look.js`) : le catalogue, les valeurs nettoyées (une liste à la place d'un mot, un accessoire à la mauvaise place), chaque changement et ce qu'il montre, les saisons avec une fausse horloge (Halloween, Noël, le Nouvel An, l'hiver, l'été, un jour de grand soleil, son anniversaire), ce que tu choisis qui passe avant, la nuit (ses habitudes de sommeil simulées, ou ses heures calmes), `look.json` (même abîmé, ou une bombe JSON : le serveur démarre), « Remettre comme avant », 64 phrases tapées (et celles qui partent à Claude), l'outil de Claude, les mêmes règles dans `web/look.js`, cas par cas. Dans Chromium : chaque forme d'yeux et chaque accessoire dans les 6 thèmes, avec les deux visages, dessinés, qui suivent son visage (déplacé, qui saute, qui bouge dans le pack), jamais sur ses yeux ni sur la ligne d'infos ; les couleurs (phosphore en Rétro, console en LCD, tout vert, l'arc-en-ciel qui bouge) ; les saisons par date et le pyjama ; le panneau du téléphone à 390 × 844 (pas de défilement de côté, cibles de 56 px, l'écran du Pi qui change tout de suite), le menu de l'appli et son bouton retour, le Pixel de poche, Pixel Lab (les mêmes commandes que le Pi, pas à pas) et Pixel sans Pi.
 - **Souvenirs, album et carnet** (`test_souvenirs.py`, `test_souvenirs.js`) : sur une horloge fixe, l'anniversaire (un 29 février, les années bissextiles ou pas), le prochain par-dessus le passage à la nouvelle année, les mois et les années de votre rencontre (un 31 janvier, un 29 février, de décembre à janvier), 100 jours ; les fichiers gardés au redémarrage, abîmés ou modifiés à la main (le serveur démarre toujours), le jour de votre rencontre lu sur le plus vieux fichier ; 200 souvenirs au plus (les épinglés restent) ; `souvenirs.ajoute` vérifié et limité ; ses records lus chez les exos et les repas ; quand il peut demander comment tu vas (son heure, jamais la nuit, ses heures calmes, quand il dort, deux fois par jour au plus), privé par défaut (ni la consigne, ni l'état, ni l'outil de Claude) ; les commandes et l'outil de Claude ; l'album : les octets vérifiés (JPEG, WebP fixe ; PNG, animation, image géante, faux type refusés), les limites de taille et de nombre (les ★ restent), l'accès (le code, ou la page de Pixel elle-même ; un autre appareil sans code, une page d'un autre site, un cadre « sandbox », un proxy : refusés), aucun chemin hors de l'album, un `album.json` abîmé reconstruit. Dans Chromium, avec l'écran du Pi et un téléphone : sa question quand tu es là, sur les deux, la réponse et son câlin ; la fête et sa photo (800 × 480, WebP, sans ligne d'infos ni bandeau) ; la photo prise sur le Pi qui arrive sur le téléphone, ★, la vue en grand, Enregistrer, Supprimer ; pas de photo pendant un cast ; le diaporama ; le panneau dans les 6 thèmes ; les mêmes commandes et les mêmes dates au serveur et dans Pixel Lab ; sans Pi, l'album sur le téléphone (IndexedDB), jamais dans l'état copié.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
@@ -741,6 +793,8 @@ python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EX
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_perso.py          # les trois ensemble, sans serveur
 node tests/test_perso.js             # les trois ensemble : port 8192 (PERSO_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+python3 tests/test_look.py           # son look : son serveur de démo sur le port 8406 (LOOK_PY_PORT=… pour un autre)
+node tests/test_look.js              # son look : port 8405 (LOOK_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_souvenirs.py      # souvenirs, album, carnet : son serveur de démo sur le port 8442 (SOUVENIRS_PY_PORT=… pour un autre)
 node tests/test_souvenirs.js         # port 8443 (SOUVENIRS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 ```
@@ -764,6 +818,7 @@ Pas encore testé avec le vrai matériel :
 | `pixel/caractere.py`, `web/caractere.js` | son caractère : les caractères tout prêts, les traits, son nom et ton surnom ; le panneau **Caractère** du téléphone (`caractere.css`) ; ses réactions dans `scenes/caractere.js` |
 | `pixel/nourrir.py`, `web/nourrir.js` | le nourrir : son ventre, ses goûts, ses repas ; l'assiette et le plateau du Pi, le panneau **Nourrir** du téléphone (`nourrir.css`) ; le menu, ses dessins et ses scènes dans `scenes/nourrir.js` |
 | `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
+| `pixel/look.py`, `web/look.js` | son look : ses yeux, ses couleurs, ses accessoires, les tenues de saison et le pyjama ; le dessin dans les 6 thèmes et le panneau **Son look** du téléphone (`look.css`) ; ses réactions dans `scenes/look.js` |
 | `pixel/souvenirs.py`, `pixel/album.py`, `web/souvenirs.js`, `web/album.js` | ses souvenirs, le carnet d'humeur et l'album photo : le serveur, son écran, le panneau **Souvenirs** du téléphone (`souvenirs.css`) ; ses scènes dans `scenes/souvenirs.js` |
 | `pixel/amis.py`, `pixel/relais.py`, `web/amis.js` | les amis de Pixel : les codes d'ami, les amitiés et les visites ; le relais ntfy et la boîte chiffrée ; l'ami en visite sur l'écran du Pi et le panneau **Ses amis** du téléphone (`amis.css`) ; les scènes à deux, les autocollants dans `scenes/amis.js` ; le labo dans `lab/amis-lab.js` |
 | `web/reglages.html` | la page **Agendas** du téléphone |

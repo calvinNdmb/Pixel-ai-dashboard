@@ -56,6 +56,7 @@ function send(action, args = {}) { if (ws && ws.readyState === 1) ws.send(JSON.s
 Screens.setSend(send);
 const POCHE = window.PixelPoche ? window.PixelPoche.app({ send, kiosk }) : null;   // poche.js: the phone sideways becomes a second Pixel
 if (window.PixelCaractere) window.PixelCaractere.app({ send, kiosk });            // caractere.js: the « Caractère » panel (his snapshot: screens.js)
+if (window.PixelLook) window.PixelLook.app({ send, kiosk });                      // look.js: the « Son look » panel (his snapshot: screens.js)
 
 function show(screen) {
   if (!NAV.includes(screen)) return;
@@ -103,17 +104,19 @@ const PANELS = { caractere: () => window.PixelCaractere && PixelCaractere.open()
   exos: () => window.PixelExos && PixelExos.panel(true),
   amis: () => window.PixelAmis && PixelAmis.panel && PixelAmis.panel(true) };   // amis.js: « Ses amis » (Pi only for now: without one it says so)
 Object.assign(PANELS, { souvenirs: () => window.PixelSouvenirs && PixelSouvenirs.panel(true, 'souvenirs'), album: () => window.PixelSouvenirs && PixelSouvenirs.panel(true, 'album') });   // souvenirs.js: one sheet, two doors
+PANELS.look = () => window.PixelLook && PixelLook.open();                       // « Son look » (look.js)
 window.PixelPanel = id => {
   if (kiosk || !Object.hasOwn(PANELS, id) || document.body.classList.contains('poche')) return false;   // Pixel de poche: the whole phone is his face
   if (document.body.dataset.mode === 'pixel') setMode('both');
   PANELS[id](); return true;
 };
-if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, souvenirs: window.PixelSouvenirs, album: window.PixelSouvenirs, amis: !LOCAL && window.PixelAmis && window.PixelAmis.panel })[id]) });   // amis: through his Pi only
+if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, souvenirs: window.PixelSouvenirs, album: window.PixelSouvenirs, amis: !LOCAL && window.PixelAmis && window.PixelAmis.panel, look: window.PixelLook })[id]) });   // amis: through his Pi only
 /* the phone app's back button closes an open panel first (PixelSheet.close(): true when one was), the topmost first; the page
    tells the app whether one is shown ({sheet}), so that the button knows (pixel-mobile src/plugs.ts) */
 const SHEETS = [['#exos', () => PixelExos.panel(false)], ['#nour', () => PixelNourrir.panel(false)], ['.car-sheet', () => PixelCaractere.close()],
   ['#amis', () => PixelAmis.panel(false)]];
 SHEETS.push(['#souv', () => PixelSouvenirs.back()]);   // souvenirs.js: its full screen photo first, then the sheet
+SHEETS.push(['.look-sheet', () => PixelLook.close()]);                           // « Son look » (look.js)
 const openSheets = () => SHEETS.filter(([q]) => { const e = document.querySelector(q); return !!e && !e.hidden && e.getClientRects().length > 0; });
 let sheetTold = null;                                 // what the app was last told
 const tellSheet = () => { const now = openSheets().length > 0; if (now !== sheetTold) { sheetTold = now; toApp({ sheet: now }); } };

@@ -1,6 +1,9 @@
 /* Vendored from the user's own animation pack "Pixel OS — 3 thèmes, 52 animations" (version 2.1.0, src/pixel.js).
    Changes for Pixel OS: the globals are renamed so they do not clash with ours (window.Pixel is window.Pixel52, and it calls window.Pixel52Themes);
-   nothing else is modified. Loaded by index.html and the lab before themes.js. */
+   and frame(id, seconds, look) takes an optional third argument for « Son look » (web/look.js, through themes.js): look.eye
+   may draw an eye its own way (true) or leave it to the pack, look.cheek recolours his cheeks, look.under and look.over draw
+   what he wears in the frame's own pixels. Without it (draw(), create(), every caller of before), nothing changes.
+   Loaded by index.html and the lab before themes.js. */
 /* Pixel — 52 animations, including 18 idles. Canvas 2D, no dependency. */
 (function (scope) {
   'use strict';
@@ -74,7 +77,7 @@
   const note=['00111','00101','00101','00100','11100','11100'];
   const bulb=['0011100','0111110','1100011','1100011','0111110','0011100','0011100','0000000','0011100'];
   const check=['0000001','0000011','1000110','1101100','0111000','0010000'];
-  function frame(id, seconds=0) {
+  function frame(id, seconds=0, look=null) {
     const animation=index[id];
     if (!animation) throw new RangeError('Unknown Pixel animation: '+id);
     if (!Number.isFinite(seconds)) throw new TypeError('Time must be finite');
@@ -160,8 +163,10 @@
       case 'idle-luciole':{const a=envelope(p,.1,.2,.73,.88);ex=3*wave(p-.16)*a;ey=-1.5*a;tilt=.025*wave(p)*a;break;}
       case 'idle-impatient':{const a=envelope(p,.22,.35,.65,.78);ex=-1.5*a;mouth=a>.7?'flat':'smile';mouthW=a>.7?3:4;oy=.25*wave(p);break;}
     }
+    const K=look&&{dot,rect,line,ellipse,sprite,pose:()=>({ox,oy,tilt})};   // « Son look »: what its hooks draw with, and how the head moves
     function drawEye(x,kind){
       x+=ex;const y=eyesY+ey;
+      if(look&&look.eye&&look.eye(x,y,kind,rx,ry,lid,color,p,K))return;
       if(kind==='heart'){const s=1+(Math.max(0,wave(p,2))>.78?.15:0);sprite(heart,x-4*s,y-3*s,3,1,true);return;}
       if(kind==='star'){sprite(star,x-3,y-3,4,1,true);return;}
       if(kind==='happy'){line(x-4,y+1,x-2,y-2,color,2);line(x-2,y-2,x+2,y-2,color,2);line(x+2,y-2,x+4,y+1,color,2);return;}
@@ -175,7 +180,9 @@
         if(kind==='sad')line(x-4,y-5+(x<48?1:-1),x+4,y-5+(x<48?-1:1),color);
       } else {ellipse(x,y,rx,h,color);if(lid>.65)rect(x-2,y-h+1,2,1,2);}
     }
+    if(look&&look.under)look.under(K);
     drawEye(32,eyeL);drawEye(64,eyeR);
+    if(look&&look.cheek)blushColor=look.cheek(blushColor);
     if(blush){rect(18,35,5,id==='timide'?2:1,blushColor);rect(74,35,5,id==='timide'?2:1,blushColor);}
     function smile(frown=false){const y=mouthY;line(48-mouthW,y+(frown?2:-2),48-mouthW+1,y+(frown?0:0),color,1);line(48-mouthW+1,y,48+mouthW-1,y,color,1);line(48+mouthW-1,y,48+mouthW,y+(frown?2:-2),color,1);}
     if(mouth==='smile')smile();
@@ -226,6 +233,7 @@
       case 'idle-luciole':if(p>.1&&p<.87){const q=(p-.1)/.77;const x=12+72*q,y=13+4*wave(q);dot(x,y,2,false);dot(x-1,y+1,6,false);dot(x+1,y-1,6,false);}break;
       case 'idle-impatient':{const a=envelope(p,.22,.35,.65,.78);if(a>.1)for(let i=0;i<3;i++)rect(70+i*3,45-Math.round(Math.max(0,wave(p*5+i*.15))*a),2,2,1,false);break;}
     }
+    if(look&&look.over)look.over(K);
     if(id==='bug'&&p>.38&&p<.56){const copy=buf.slice();const displacement=Math.round(wave(p,14)*5);for(let y=19;y<27;y++)for(let x=0;x<W;x++){const sx=x+displacement;buf[y*W+x]=sx>=0&&sx<W?copy[y*W+sx]:0;}for(let n=0;n<8;n++)dot(15+n*9,30+(n%3),n%2?5:3,false);}
     return buf;
   }

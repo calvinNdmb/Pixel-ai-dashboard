@@ -946,6 +946,7 @@ return {
       if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|caractere\.|nourrir\.|exos\.|poche\.|cast\.|yt\.|ytcast\.|ecran\.|airplay\.|amis\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
     }
     if (PER && window.PixelCaractere) window.PixelCaractere.screen(PER, P, p);   // his character (caractere.js): his traits, and how he takes a change
+    if (window.PixelLook) window.PixelLook.screen(PER, P, p, { visage: L.scr === 'visage' && L.boot < 0 && !CA.id });   // his look (look.js): what he wears, his reactions
     if (p.toast && p.toast.id !== L.lastToast) {
       L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now };
       const busy = p.mood && p.mood.name !== 'neutre' && (!p.mood.until || p.server_now < p.mood.until);

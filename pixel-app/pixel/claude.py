@@ -12,6 +12,7 @@ from .keys import MOODS, NAV, THEMES
 from . import exos                    # start_exercise: a little math exercise on Pixel's screen
 from . import souvenirs               # souvenirs: your birthday, a photo for his album, your mood (only if you allow it)
 from . import amis                    # pixel_friends: his friends' Pixels (the list, a visit, a coucou)
+from . import look                    # set_look: his eyes, colours and what he wears (pixel/look.py)
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (
@@ -58,6 +59,7 @@ TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (
 TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
 TOOLS.append(souvenirs.TOOL)                # pixel/souvenirs.py: souvenirs (birthday, photo, mood: the mood only if allowed)
 TOOLS.append(amis.TOOL)                     # pixel/amis.py: pixel_friends (no free text, no new friend: the list, a visit, a coucou)
+TOOLS.append(look.TOOL)                     # pixel/look.py: set_look
 
 # ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
 TOOLS.append(tool(
@@ -110,6 +112,8 @@ def check(name, a):
         return souvenirs.check_tool(a)
     if name == amis.TOOL["name"]:
         return amis.check_tool(a)
+    if name == look.TOOL["name"]:
+        return look.check_tool(a)
     ok = {
         "get_status": True,
         "set_lights": isinstance(a.get("room"), str) and isinstance(a.get("on", True), bool)
@@ -187,6 +191,8 @@ class Claude:
                                                "un indice si on te le demande." if c and c.get("etat") == "question" else "")
         if getattr(h, "souvenirs", None) is not None:      # pixel/souvenirs.py: the mood journal only if the person allowed it
             out["souvenirs"] = h.souvenirs.status()
+        if getattr(h, "look", None) is not None:   # his look (pixel/look.py): what he looks like and wears now
+            out["look"] = h.look.status()
         return out
 
     def _timer_left(self):
@@ -242,6 +248,8 @@ class Claude:
             return await souvenirs.run_tool(h, a)
         if name == amis.TOOL["name"]:
             return await amis.run_tool(h, a)
+        if name == look.TOOL["name"]:
+            return await look.run_tool(h, a)
         return "outil inconnu"
 
     # ---- conversation ----
