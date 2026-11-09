@@ -296,6 +296,16 @@ const EVENTS = {
   'exo-serie': 'Exos : une belle série, ou la fin d’une série',   // data.n: right in a row; or data.fin, bons, total, chrono
   'exo-objectif': 'Exos : l’objectif du jour est atteint',
   'exo-attente': 'Exos : tu réfléchis depuis un moment',
+  // his memories, his album, your mood journal (web/souvenirs.js, web/album.js, web/scenes/souvenirs.js; pixel/souvenirs.py, pixel/album.py)
+  'souvenir-fete': 'Souvenirs : ton anniversaire, ou un an depuis votre rencontre',   // data.fete: 'anniversaire' | 'rencontre', data.ans
+  'souvenir-mois': 'Souvenirs : des mois, ou 100 jours, depuis votre rencontre',      // data.mois, or data.jours
+  'souvenir-rappel': 'Souvenirs : il se souvient de quelque chose',                    // data.texte, data.icone
+  'souvenir-demande': 'Souvenirs : il demande la date de ton anniversaire',
+  'souvenir-anniv': 'Souvenirs : il note ton anniversaire',                           // data.texte (« le 12 mars »), jour, mois
+  'album-photo': 'Album : il prend la pose pour une photo',
+  'humeur-question': 'Carnet d’humeur : il te demande comment tu vas',
+  'humeur-note': 'Carnet d’humeur : tu lui dis comment tu vas',                        // data.m: super, bien, bof, triste, colere; data.chips
+  'humeur-rappel': 'Carnet d’humeur : il repense à hier',                              // data.texte
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the

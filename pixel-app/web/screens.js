@@ -145,7 +145,7 @@ function drawVisage() {
   if (w && w.now) parts.push(temp(w.now.t));
   if (e) parts.push(`${hm(e.start)} ${e.title}`);
   const tick = parts.join('   ·   ');
-  txt(fit(T.upper ? tick.toUpperCase() : tick, 760, 24), 400, 440, 24, D, 'center');
+  if (!L.shot) txt(fit(T.upper ? tick.toUpperCase() : tick, 760, 24), 400, 440, 24, D, 'center');   // L.shot: not in an album photo (web/album.js)
   hit(0, 0, W, H, pt => {
     if (md === 'endormi') { send('mood.set', { name: 'neutre' }); L.sleepy = false; L.local = { name: 'surpris', until: now + 900 }; L.pack = { id: 'reveil', until: now + 5000 }; if (PER) PER.play('reveille'); return; }
     if (L.petted) { L.petted = false; return; }
@@ -452,7 +452,7 @@ function drawBoot() {
   if (e > BOOT_MS) { L.boot = -1; L.local = { name: 'content', until: now + 1500 }; if (pack) L.pack = { id: 'reveil', until: now + 4000 }; }
 }
 function drawBanner() {
-  const b = L.banner; if (!b) return; const e = now - b.t; if (e > b.ms + 440) { L.banner = null; return; }
+  const b = L.banner; if (!b || L.shot) return; const e = now - b.t; if (e > b.ms + 440) { L.banner = null; return; }   // L.shot: no banner in an album photo
   const big = b.msg.length > 180, fs = big ? 21 : 26, lh = fs + 2, ls = wrap(b.msg, 680, fs).slice(0, big ? 12 : 4), h = 24 + ls.length * lh;
   const k = e < 220 ? e / 220 : e > b.ms + 220 ? (b.ms + 440 - e) / 220 : 1, y = -h - 8 + k * (h + 16);
   box(50, y, 700, h, AM, B); ls.forEach((l, i) => txt(l, 400, y + 12 + i * lh, fs, AM, 'center'));
@@ -914,6 +914,7 @@ function frame(t) {
     else { const ad = addonOn(); if (!ad || !ad.instead()) (DRAW[L.scr] || drawVisage)(dt); if (ad) addonDraw(ad, dt); }
   }
   if (P && L.boot < 0 && !cast && window.PixelNourrir) window.PixelNourrir.over(NOUR);   // Nourrir: his food tray (web/nourrir.js), never over a cast
+  if (P && L.boot < 0 && !cast && window.PixelAlbum && window.PixelAlbum.over) { X.save(); try { window.PixelAlbum.over(KIT); } catch (e) { /* never stops him */ } X.restore(); }   // the album's flash (web/album.js), never over a cast
   if (P && L.menu && L.boot < 0) drawMenu();
   drawBanner();
   if (T.fg && !cast) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }     // the CRT effects (Rétro), the LCD's glass: never over a cast

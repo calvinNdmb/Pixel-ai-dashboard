@@ -354,17 +354,17 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   check('…closed a moment ago: nothing changes', (await back(61, 1000)) === 61);
   /* the app's menu opens his panels here (PixelMenu.tsx, plugs.ts openPanel): the page says which it has */
   const offered = (await S(page, () => window.__rn)).filter(m => Array.isArray(m.panels)).pop();
-  check('the page tells the app its panels: Caractère, Nourrir, Exos', !!offered && offered.panels.join() === 'caractere,nourrir,exos', JSON.stringify(offered));
+  check('the page tells the app its panels: Caractère, Nourrir, Exos, Souvenirs, Album', !!offered && offered.panels.join() === 'caractere,nourrir,exos,souvenirs,album', JSON.stringify(offered));
   await page.click('#modes button[data-mode="pixel"]'); await page.waitForTimeout(200);
   const opened = {};
-  for (const [id, sel] of [['nourrir', '#nour'], ['exos', '#exos'], ['caractere', '.car-sheet']]) {
+  for (const [id, sel] of [['nourrir', '#nour'], ['exos', '#exos'], ['caractere', '.car-sheet'], ['souvenirs', '#souv'], ['album', '#souv']]) {
     await page.evaluate(i => window.PixelPanel(i), id); await page.waitForTimeout(400);
     opened[id] = await page.evaluate(s => { const e = document.querySelector(s); return !!e && !e.hidden && e.getBoundingClientRect().height > 50 && document.body.dataset.mode === 'both'; }, sel);
     await shot(page, 'app-menu-' + id);
-    await page.evaluate(() => { PixelNourrir.panel(false); PixelExos.panel(false); PixelCaractere.close(false); });
+    await page.evaluate(() => { PixelNourrir.panel(false); PixelExos.panel(false); PixelCaractere.close(false); if (window.PixelSouvenirs) PixelSouvenirs.panel(false); });
     await page.click('#modes button[data-mode="pixel"]'); await page.waitForTimeout(200);
   }
-  check('…in Pixel mode, the menu\'s « Le nourrir », « Exos de maths », « Son caractère » bring the keys back and open their panel', Object.values(opened).every(Boolean), JSON.stringify(opened));
+  check('…in Pixel mode, the menu\'s « Le nourrir », « Exos de maths », « Son caractère », « Souvenirs », « Album » bring the keys back and open their panel', Object.values(opened).every(Boolean), JSON.stringify(opened));
   check('…an unknown one: nothing', await S(page, () => window.PixelPanel('lampes') === false && document.body.dataset.mode === 'pixel'));
   await page.click('#modes button[data-mode="both"]');
   /* the app's back button (plugs.ts closeSheet): the page says whether a panel is open ({sheet}); PixelSheet.close() */

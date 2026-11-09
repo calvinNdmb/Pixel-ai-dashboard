@@ -524,6 +524,7 @@ function command(raw) {
   if (SCREEN_WORDS[t]) return A['screen.show']({ screen: SCREEN_WORDS[t] });
   if (carCommand(raw)) return;                           // « sois grognon », « plus câlin »… (caractère, below), last before Claude as in commands.py
   if (NOUR && NOUR.command(raw)) return;                 // « mange une pomme », « à table ! » (Nourrir, below): after him, as in commands.py
+  if (SOUV && SOUV.command(raw)) return;                 // « prends une photo », « je suis triste »… (souvenirs, below): last before Claude, as in commands.py
   A['chat.ask']({ text: raw });
 }
 
@@ -1047,6 +1048,11 @@ restorable('exos', (v, at) => {
 });
 exPub();
 /* ---------- end of the math exercises ---------- */
+
+/* ---------- souvenirs, l'album, le carnet d'humeur (pixel/souvenirs.py, pixel/album.py): ../souvenirs.js has their rules and its
+   hub(): the same actions and snapshots. Pixel Lab keeps them in this browser and its photos in memory; Pixel sans Pi keeps
+   S.souvenirs and S.humeur through local.js (restorable), its photos on the phone (../album.js), never in S. ---------- */
+const SOUV = window.PixelSouvenirs && window.PixelSouvenirs.hub ? window.PixelSouvenirs.hub({ S, A, mark, toast, mood, restorable, local: LOCAL }) : null;
 
 return {
   NAV, NAMES, THEMES, ALLT, MOODS, KINDS, ANIMS, AGROUPS, FACES, PSCENES, S, norm, row3, snapshot, findScene,
