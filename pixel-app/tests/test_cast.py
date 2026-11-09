@@ -98,17 +98,23 @@ def pieces():
             self.remote, self.query, self.headers, self.cookies, self.host = remote, query or {}, headers or {}, cookies or {}, host
             self.transport = Sock(port)
     T = "le-code"
-    yes = [Req("127.0.0.1", host="localhost:8080"), Req("::1"), Req("127.0.0.1", headers={"Origin": "http://localhost:8080"}, host="localhost:8080"),
+    ts, fwd = "pixel.tail1.ts.net", {"X-Forwarded-For": "100.101.102.103"}       # tailscale serve: from 127.0.0.1, for another device
+    yes = [Req("127.0.0.1", host="localhost:8080"), Req("::1", host="[::1]:8080"), Req("127.0.0.1", headers={"Origin": "http://localhost:8080"}, host="localhost:8080"),
+           Req("127.0.0.1", headers={"Origin": "http://127.0.0.1:8080"}, host="127.0.0.1:8080"),
            Req("127.0.0.1", headers={"Origin": "http://127.0.0.1:8104"}, host="127.0.0.1:8104", port=8104), Req("::1", headers={"Origin": "http://[::1]:8080"}, host="[::1]:8080"),
            Req("192.168.1.9", query={"t": T}), Req("192.168.1.9", headers={"X-Pixel-Token": T}), Req("192.168.1.9", cookies={"pixel_t": T}),
-           Req("127.0.0.1", headers={"Origin": "https://www.youtube-nocookie.com"}, query={"t": T})]
+           Req("127.0.0.1", headers={"Origin": "https://www.youtube-nocookie.com"}, query={"t": T}),
+           Req("127.0.0.1", headers={**fwd, "Origin": "https://" + ts}, host=ts, cookies={"pixel_t": T})]
     no = [Req("192.168.1.9"), Req("192.168.1.9", query={"t": "faux"}), Req("192.168.1.9", headers={"X-Pixel-Token": "le-cod"}),
           Req("127.0.0.1", headers={"Origin": "https://www.youtube-nocookie.com"}, host="localhost:8080"), Req("127.0.0.1", headers={"Origin": "https://evil.example"}),
-          Req("127.0.0.1", headers={"Origin": "null"}, host="localhost:8080"), Req("127.0.0.1", headers={"Origin": "http://evil:8080"}, host="evil:8080"),
-          Req("127.0.0.1", headers={"Origin": "http://localhost:9999"}, host="localhost:9999")]
+          Req("127.0.0.1", headers={"Origin": "null"}, host="localhost:8080"), Req("::1", headers={"Origin": "null"}, host="[::1]:8080"), Req("127.0.0.1", headers={"Origin": "http://evil:8080"}, host="evil:8080"),
+          Req("127.0.0.1", headers=fwd, host=ts), Req("127.0.0.1", headers={**fwd, "Origin": "https://" + ts}, host=ts), Req("127.0.0.1", host=ts), Req("127.0.0.1", headers={"Origin": "http://localhost:9999"}, host="localhost:9999"),
+          Req("127.0.0.1", headers=fwd, host="localhost:8080"), Req("127.0.0.1", headers={"Forwarded": "for=100.101.102.103"}, host="localhost:8080"),
+          Req("127.0.0.1", headers={"X-Forwarded-Host": ts}, host="localhost:8080"), Req("127.0.0.1", headers={"Tailscale-User-Login": "a@b.c"}, host="localhost:8080"),
+          Req("127.0.0.1"), Req("127.0.0.1", host="[::1")]
     check("access: the Pi from Pixel's page, or the code (?t=, header, cookie)", all(cast.has_access(r, T) for r in yes), str([r.__dict__ for r in yes if not cast.has_access(r, T)]))
-    check("access: no code, a wrong code, another site's page on the Pi (a video player), an opaque one (Origin: null: a sandboxed frame), "
-          "another name for the Pi (DNS rebinding), another port: refused", not any(cast.has_access(r, T) for r in no),
+    check("access: no code, a wrong code, another site's page on the Pi (a video player, a frame of it: Origin null), a proxy on the Pi "
+          "(tailscale serve), another name for the Pi (DNS rebinding), another port: refused", not any(cast.has_access(r, T) for r in no),
           str([r.__dict__ for r in no if cast.has_access(r, T)]))
     example = (APP / "config.example.toml").read_text()
     check("config.example.toml: the [cast] settings", "[cast]" in example and "max_mb" in example and "seconds" in example)
@@ -315,18 +321,20 @@ async def main(datadir):
             check("/share from another site's page on the Pi: no access", st == 303 and loc == "/?cast=acces", f"{st} {loc}")
             st, body, _ = await up(PNG, "a.png", headers={"Origin": "https://www.youtube-nocookie.com"})
             check("/api/cast from a video player shown on the Pi: 403", st == 403, str(st))
-            try:
-                async with http.ws_connect(f"{base}/ws", headers={"Origin": "https://www.youtube-nocookie.com"}):
-                    check("the WebSocket from another site's page on the Pi is refused", False)
-            except aiohttp.WSServerHandshakeError as e:
-                check("the WebSocket from another site's page on the Pi is refused (403)", e.status == 403, str(e.status))
-            for why, hd in (("a sandboxed frame, Origin: null", {"Origin": "null"}),
+            for why, hd in (("another site's page on the Pi", {"Origin": "https://www.youtube-nocookie.com"}),
+                            ("a frame of it (Origin null)", {"Origin": "null"}),
+                            ("tailscale serve (a proxy on the Pi)", {"Host": "pixel.tail1.ts.net", "X-Forwarded-For": "100.101.102.103"}),
+                            ("tailscale serve, a browser", {"Host": "pixel.tail1.ts.net", "Origin": "https://pixel.tail1.ts.net", "X-Forwarded-For": "100.101.102.103"}),
                             ("a DNS rebinding page, its Origin its own Host", {"Origin": f"http://evil:{PORT}", "Host": f"evil:{PORT}"})):
                 try:
                     async with http.ws_connect(f"{base}/ws", headers=hd):
-                        check(f"the WebSocket from {why}, on the Pi, is refused", False)
+                        check(f"the WebSocket from {why} is refused", False)
                 except aiohttp.WSServerHandshakeError as e:
-                    check(f"the WebSocket from {why}, on the Pi, is refused (403)", e.status == 403, str(e.status))
+                    check(f"the WebSocket from {why} is refused (403)", e.status == 403, str(e.status))
+            st, body, _ = await up(PNG, "a.png", headers={"Origin": "null"})
+            check("/api/cast from a frame with Origin null on the Pi: 403", st == 403, str(st))
+            st, body, _ = await up(PNG, "a.png", headers={"Host": "pixel.tail1.ts.net", "X-Forwarded-For": "100.101.102.103"})
+            check("/api/cast through tailscale serve without the code: 403", st == 403, str(st))
             async with http.ws_connect(f"{base}/ws", headers={"Origin": base}) as w2:
                 m = await w2.receive(timeout=2)
                 check("the WebSocket from Pixel's own page on the Pi still works", json.loads(m.data)["type"] == "state")

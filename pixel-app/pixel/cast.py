@@ -29,6 +29,7 @@ from . import youtube
 
 log = logging.getLogger("pixel")
 LOCAL = {"127.0.0.1", "::1"}
+PROXIED = ("X-Forwarded-For", "X-Forwarded-Host", "Forwarded", "X-Real-IP")    # a request a proxy on the Pi passes on
 MB = 1024 * 1024
 # the ISO media (MP4) brands of phone and camera videos ("qt  ": an iPhone's .mov), not the still pictures in the same box (HEIC, AVIF)
 MP4 = {b"isom", b"iso2", b"iso4", b"iso5", b"iso6", b"mp41", b"mp42", b"avc1", b"M4V ", b"M4VH", b"M4VP", b"dash", b"mmp4", b"MSNV",
@@ -67,19 +68,32 @@ def sniff(head):
 
 
 def local_page(request):
-    """The Pi itself, from Pixel's own page (http://localhost:PORT, deploy/kiosk.sh): not a page of another site shown on the
-    screen (a video player), nor one with no origin of its own (Origin: null: a sandboxed frame, a file), nor another name
-    for the Pi (a DNS rebinding page: its Host is its own name too). The port is the one the request came in on."""
+    """The Pi itself, from Pixel's own page: from 127.0.0.1 or ::1, addressed to localhost, with no Origin or Pixel's own on
+    the port the request came in on (http://localhost:PORT, deploy/kiosk.sh). A page of another site shown on the screen (a
+    video player) is not Pixel, nor a frame it makes (sandboxed, data:, srcdoc: Origin "null"), nor another name for the Pi
+    (a DNS rebinding page: its Host is its own name too). A proxy on the Pi (tailscale serve) passes on other devices'
+    requests from 127.0.0.1 too, under its own name and with its headers: those need the code."""
     if request.remote not in LOCAL:
         return False
-    origin = request.headers.get("Origin")
-    if not origin:
-        return True
+    h = request.headers
+    if any(k in h for k in PROXIED) or any(k.lower().startswith("tailscale-") for k in h):
+        return False
+    host = (request.host or "").lower()
+    try:
+        if urlsplit("//" + host).hostname not in ("localhost", "127.0.0.1", "::1"):
+            return False
+        origin = h.get("Origin")
+        if not origin:
+            return True
+        if urlsplit(origin).netloc.lower() != host:
+            return False
+    except ValueError:
+        return False
     sock = request.transport.get_extra_info("sockname") if request.transport else None
     if not sock:
         return False
     port = "" if sock[1] == 80 else f":{sock[1]}"
-    return origin.lower() in {f"http://{h}{port}" for h in ("localhost", "127.0.0.1", "[::1]")}
+    return origin.lower() in {f"http://{n}{port}" for n in ("localhost", "127.0.0.1", "[::1]")}
 
 
 def has_access(request, token):

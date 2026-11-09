@@ -463,10 +463,13 @@ function drawBanner() {
    [cast] seconds), videos at their end (Pixel's screen tells the server: cast.end), at once on a touch (cast.stop).
    In Rétro the picture takes the green phosphor of the tube, under the CRT effects of themes.js (LCD: its greens),
    unless "couleurs d'origine" (cast.raw). A little Pixel peeks in from the corner and reacts.
-   A video plays in a hidden <video>, drawn every frame (60 im/s: wantFps); a GIF is decoded frame by frame (ImageDecoder:
-   a canvas only ever draws the first frame of a GIF); YouTube and Vimeo play in their own player over the canvas, on
-   Pixel's screen only (a phone shows a card). The sound plays on Pixel's screen only (kiosk.sh lets it start alone). */
-const CA = { id: null, kind: '', t: 0, img: null, vid: null, gif: null, frame: null, ifr: null, yt: null, err: '', ended: false, peek: 0 };
+   A video plays in a hidden <video>, drawn at each of its new frames (requestVideoFrameCallback); a GIF is decoded frame by
+   frame (ImageDecoder: a canvas only ever draws the first frame of a GIF); a photo is drawn from a copy at the screen's size.
+   YouTube plays in its IFrame API player (web/ytplayer.js), driven from the phone; Vimeo (and YouTube without ytplayer.js)
+   in its own player over the canvas, sandboxed (no popup, no leaving Pixel); on Pixel's screen only (a phone shows a card);
+   their errors and their silence end the cast. The sound plays on Pixel's screen only (kiosk.sh lets it start alone). */
+const CA = { id: null, kind: '', t: 0, img: null, bmp: null, vid: null, vfc: false, gif: null, frame: null, ifr: null, ifrYt: false, yt: null,
+  heard: false, wait: 0, hello: 0, err: '', ended: false, peek: 0 };
 const PEEK = PackPlayer(), PEEKLIFE = PixelLife();
 const EMB = { x: 16, y: 58, w: 584, h: 328 };          // where YouTube and Vimeo play (16:9), Pixel beside them
 const caps = s => T.upper ? s.toUpperCase() : s;
@@ -478,11 +481,8 @@ function castLoad(c) {                // a new cast: its picture, its animation,
   if (L.kiosk) { L.sleepy = false; L.lastInput = now; }       // something happened: he is awake, his nap counts from now
   if (PER) PER.event('cast', { kind: c.kind, title: c.title || '' }, { visage: false });   // his reaction waits for his face screen
   fast(1500);
-  if ((c.kind === 'image' || c.kind === 'gif') && typeof Image === 'function') {   // a GIF shows its first frame until it is decoded
-    const im = CA.img = new Image(), id = c.id;
-    im.decoding = 'async'; im.referrerPolicy = 'no-referrer'; im.onload = () => { L.dirty = true; }; im.onerror = () => castFail(id, 'image'); im.src = c.src;
-  }
-  if (c.kind === 'gif') castGif(c);
+  if (c.kind === 'image' || (c.kind === 'gif' && !gifDecodes())) castImage(c);   // a GIF: decoded (one download), or its first frame
+  if (c.kind === 'gif' && gifDecodes()) castGif(c);
   else if (c.kind === 'video') castVideo(c);
   else if (c.kind === 'link' && c.embed && L.kiosk) {
     const host = cv.parentElement;    // YouTube: its IFrame API, driven from the phone and the YouTube app (web/ytplayer.js)
@@ -491,26 +491,47 @@ function castLoad(c) {                // a new cast: its picture, its animation,
     else castFrame(c);
   }
 }
+const gifDecodes = () => typeof ImageDecoder === 'function' && typeof fetch === 'function';
+function castImage(c) {               // a picture: decoded once at the size it shows (a phone's 12 to 50 Mpx would be resampled every frame)
+  if (typeof Image !== 'function') return;
+  const im = CA.img = new Image(), id = c.id;
+  im.decoding = 'async'; im.referrerPolicy = 'no-referrer'; im.onerror = () => castFail(id, 'image');
+  im.onload = () => {
+    L.dirty = true; const w = im.naturalWidth, h = im.naturalHeight, k = Math.min(W / w, H / h) * S;
+    if (typeof createImageBitmap !== 'function' || CA.img !== im || !w || !h) return;
+    createImageBitmap(im, { resizeWidth: Math.max(1, Math.round(w * k)), resizeHeight: Math.max(1, Math.round(h * k)), resizeQuality: 'high' }).then(b => {
+      if (CA.img !== im) { b.close(); return; }
+      CA.bmp = [b, w, h]; CA.img = null; L.dirty = true;              // drawn at its own place, the size it was made for
+    }, () => { /* the full picture, then */ });
+  };
+  im.src = c.src;
+}
 async function castGif(c) {
   const id = c.id;
-  if (typeof ImageDecoder !== 'function' || typeof fetch !== 'function') return;
   try {
-    const r = await fetch(c.src, { referrerPolicy: 'no-referrer' }); if (!r.ok || CA.id !== id) return;
+    const r = await fetch(c.src, { referrerPolicy: 'no-referrer' }); if (!r.ok) throw new Error(r.status); if (CA.id !== id) return;
     const type = (r.headers.get('content-type') || '').split(';')[0] || (/\.webp(\?|$)/i.test(c.src) ? 'image/webp' : 'image/gif');
     const dec = new ImageDecoder({ data: await r.arrayBuffer(), type }); await dec.tracks.ready;
     if (CA.id !== id) { dec.close(); return; }
-    CA.gif = { dec, n: dec.tracks.selectedTrack ? dec.tracks.selectedTrack.frameCount : 1, i: 0, busy: false, next: 0 };
-    gifNext();
-  } catch (e) { /* a link to a site that does not allow it (CORS), or a broken file: its first frame only */ }
+    const n = dec.tracks.selectedTrack ? dec.tracks.selectedTrack.frameCount : 1;
+    if (n <= 1) {                     // a still GIF: its one frame, decoded once, and the decoder goes
+      const f = (await dec.decode({ frameIndex: 0 }).finally(() => dec.close())).image;
+      if (CA.id !== id) { f.close(); return; }
+      CA.frame = f; L.dirty = true; return;
+    }
+    CA.gif = { dec, n, i: 0, busy: false };
+    gifNext(CA.gif);
+  } catch (e) { if (CA.id === id && !CA.frame && !CA.gif) castImage(c); }   // a site that does not allow it (CORS), a broken file: its first frame
 }
-function gifNext() {                  // the next frame; the one on screen stays for its own delay
-  const g = CA.gif; if (!g || g.busy) return; g.busy = true;
+function gifNext(g) {                 // the next frame, decoded when the one on screen has had its own delay
+  if (!g || CA.gif !== g || g.busy) return; g.busy = true;
   g.dec.decode({ frameIndex: g.i }).then(r => {
     if (CA.gif !== g) { r.image.close(); return; }
     if (CA.frame) CA.frame.close();
     const d = (r.image.duration || 0) / 1000;                // µs -> ms; 10 ms or less means 100 ms, as in the browsers
-    CA.frame = r.image; g.next = now + (d > 10 ? d : 100); g.i = (g.i + 1) % Math.max(1, g.n); g.busy = false; L.dirty = true;
-  }, () => { g.busy = false; if (g.i) g.i = 0; else CA.gif = null; });
+    CA.frame = r.image; g.i = (g.i + 1) % g.n; g.busy = false; L.dirty = true;
+    setTimeout(() => gifNext(g), d > 10 ? d : 100);
+  }, () => { g.busy = false; if (g.i) { g.i = 0; setTimeout(() => gifNext(g), 100); } else CA.gif = null; });
 }
 function castVideo(c) {
   const v = document.createElement('video'); if (!v || typeof v.play !== 'function') return;
@@ -518,6 +539,10 @@ function castVideo(c) {
   v.playsInline = true; v.preload = 'auto'; v.muted = !L.kiosk || !!(SON() && SON().on && SON().volume === 0);   // sound on Pixel only
   v.onended = () => { if (CA.id === id && !CA.ended) { CA.ended = true; if (L.kiosk) send('cast.end', { id }); } };
   v.onerror = () => castFail(id, 'video');
+  if (typeof v.requestVideoFrameCallback === 'function') {   // drawn when it has a new frame (24, 30 im/s...), not 60 times a second
+    const next = () => { if (CA.vid !== v) return; L.dirty = true; v.requestVideoFrameCallback(next); };
+    CA.vfc = true; v.requestVideoFrameCallback(next);
+  }
   v.onloadedmetadata = () => { const t = (srv() - c.t0) / 1000; if (!L.kiosk && t > 1 && t < v.duration - 1) v.currentTime = t; };   // a phone joins in where Pixel is
   v.src = c.src;
   const go = () => v.play().catch(() => { if (!v.muted && CA.vid === v) { v.muted = true; go(); } });   // no sound allowed: without sound, rather than not at all
@@ -526,30 +551,38 @@ function castVideo(c) {
 function castFrame(c) {               // YouTube or Vimeo: their player, over the canvas (the scanlines of the page go over it)
   const host = cv.parentElement; if (!host || typeof host.append !== 'function') return;
   const f = document.createElement('iframe'), yt = /youtube/.test(c.embed);
-  // as web/ytplayer.js: no window, no leaving Pixel's page from a tap on the player's links (the kiosk has no tabs, no back)
-  f.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-presentation allow-storage-access-by-user-activation');
+  f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');   // its links can neither open a window nor take Pixel's place
   f.src = c.embed + (yt ? '&origin=' + encodeURIComponent(location.origin) : '');
   f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.referrerPolicy = 'strict-origin-when-cross-origin'; f.title = c.title || 'Vidéo';
   f.style.cssText = `position:absolute;z-index:1;border:0;background:#000;left:${EMB.x / 8}%;top:${EMB.y / 4.8}%;width:${EMB.w / 8}%;height:${EMB.h / 4.8}%`;
-  f.addEventListener('load', () => {  // ask the player to say when the video ends (the postMessage APIs of YouTube and Vimeo)
-    const say = m => { try { f.contentWindow.postMessage(JSON.stringify(m), '*'); } catch (e) { /* gone */ } };
-    if (yt) { say({ event: 'listening', id: 1 }); say({ event: 'command', func: 'addEventListener', args: ['onStateChange'], id: 1 }); } else say({ method: 'addEventListener', value: 'ended' });
-  });
-  host.append(f); CA.ifr = f;
+  f.addEventListener('load', () => { if (CA.ifr === f) { CA.wait = now + 15000; playerHello(); } });
+  host.append(f); Object.assign(CA, { ifr: f, ifrYt: yt, heard: false, wait: now + 30000, hello: 0 });   // silent for too long: it does not play
+}
+function playerHello() {              // ask the player to say how it goes: its end, its errors (the postMessage APIs of YouTube and Vimeo)
+  const f = CA.ifr; CA.hello = now;
+  const say = m => { try { f.contentWindow.postMessage(JSON.stringify(m), '*'); } catch (e) { /* gone */ } };
+  if (CA.ifrYt) { say({ event: 'listening', id: 1, channel: 'widget' }); for (const ev of ['onStateChange', 'onError']) say({ event: 'command', func: 'addEventListener', args: [ev], id: 1, channel: 'widget' }); }
+  else { say({ method: 'ping' }); for (const ev of ['ended', 'error']) say({ method: 'addEventListener', value: ev }); }   // Vimeo answers a ping
+}
+function playerOver(error) {          // the video is over, or it cannot play here (embedding refused, private, removed): the server hears it
+  if (CA.ended) return; CA.ended = true; if (error) { CA.err = error; L.dirty = true; }
+  if (L.kiosk) send('cast.end', error ? { id: CA.id, error } : { id: CA.id });
 }
 addEventListener('message', e => {
   if (!CA.ifr || e.source !== CA.ifr.contentWindow) return;
   let d = e.data; try { if (typeof d === 'string') d = JSON.parse(d); } catch (err) { return; }
-  const over = d && (d.event === 'ended' || (d.event === 'onStateChange' && d.info === 0) || (d.event === 'infoDelivery' && d.info && d.info.playerState === 0));
-  if (over && !CA.ended) { CA.ended = true; if (L.kiosk) send('cast.end', { id: CA.id }); }
+  if (!d || typeof d !== 'object') return;
+  if (!CA.heard) { CA.heard = true; playerHello(); }   // it answers (YouTube's handshake, Vimeo's 'ready'): now it surely hears what we ask
+  if (d.event === 'onError' || d.event === 'error') playerOver('video');
+  else if (d.event === 'ended' || (d.event === 'onStateChange' && d.info === 0) || (d.event === 'infoDelivery' && d.info && d.info.playerState === 0)) playerOver();
 });
 function castDrop() {                 // the cast is over: its video, its decoder and its player go
   const v = CA.vid; if (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { /* already gone */ } }
-  try { if (CA.gif) CA.gif.dec.close(); if (CA.frame) CA.frame.close(); } catch (e) { /* already closed */ }
+  try { if (CA.gif) CA.gif.dec.close(); if (CA.frame) CA.frame.close(); if (CA.bmp) CA.bmp[0].close(); } catch (e) { /* already closed */ }
   if (CA.ifr) CA.ifr.remove();
   if (CA.yt) CA.yt.drop();
   if (CA.id && L.kiosk) L.lastInput = now;
-  Object.assign(CA, { id: null, kind: '', img: null, vid: null, gif: null, frame: null, ifr: null, yt: null, err: '', peek: 0 });
+  Object.assign(CA, { id: null, kind: '', img: null, bmp: null, vid: null, vfc: false, gif: null, frame: null, ifr: null, ifrYt: false, yt: null, heard: false, wait: 0, err: '', peek: 0 });
 }
 function castSync() {                 // every frame: what is cast now (null: nothing, or Pixel is starting up)
   const c = L.boot >= 0 ? null : castLive();
@@ -559,6 +592,7 @@ function castSync() {                 // every frame: what is cast now (null: no
 }
 function castSrc() {                  // what to draw, and its size: the GIF's frame, the video's, the picture
   if (CA.frame) return [CA.frame, CA.frame.displayWidth, CA.frame.displayHeight];
+  if (CA.bmp) return CA.bmp;
   if (CA.vid && CA.vid.readyState >= 2 && CA.vid.videoWidth) return [CA.vid, CA.vid.videoWidth, CA.vid.videoHeight];
   if (CA.img && CA.img.complete && CA.img.naturalWidth) return [CA.img, CA.img.naturalWidth, CA.img.naturalHeight];
   return null;
@@ -573,7 +607,6 @@ function castTint(c, r) {             // Rétro: the picture in the tube's green
 }
 function castMedia(c) {               // a photo, a GIF or a video: as big as it fits, centred
   X.shadowBlur = 0; X.fillStyle = B; X.fillRect(0, 0, W, H);
-  if (CA.gif && now >= CA.gif.next) gifNext();
   const s = castSrc();
   if (!s) { glow(); txt(CA.err ? caps("Impossible de l'afficher") : caps('Chargement') + '.'.repeat(1 + Math.floor(now / 400) % 3), 400, 214, 36, CA.err ? AM : D, 'center'); return; }
   const [src, w, h] = s, k = Math.min(W / w, H / h), r = { w: w * k, h: h * k };
@@ -616,6 +649,10 @@ function castPlayer(c) {              // Pixel's screen, YouTube or Vimeo: a TV 
   hit(612, 48, W - 612, H - 48, () => send('cast.stop'));                  // the column beside the player stops it
   if (CA.yt) return castYtBar();                                           // (YouTube hides under the quick menu by itself)
   const vis = L.menu ? 'hidden' : 'visible'; if (CA.ifr.style.visibility !== vis) CA.ifr.style.visibility = vis;   // under the quick menu
+  if (!CA.heard && !CA.ended) {       // the player has not said a word yet: ask again; still nothing after 15 s, it does not play
+    if (CA.hello && now - CA.hello > 1000) playerHello();
+    if (now > CA.wait) playerOver('video');
+  }
 }
 const mmss = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600); return (h ? h + ':' + pad(s / 60 % 60) : Math.floor(s / 60)) + ':' + pad(s % 60); };
 function castYtBar() {                // YouTube on Pixel's screen: how far it is, and a key to pause it (the phone has the rest)
@@ -745,7 +782,11 @@ function wantFps() {
   const r = realNow();
   if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (PV.id && L.scr === 'visage') || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
   if (CA.yt && !CA.yt.err && now - CA.t > 1500) return 10;                // YouTube plays in its own frame: the canvas around it rests
-  if (CA.id) return CA.vid || CA.gif || now - CA.t < 1500 ? 60 : Math.min(T.faceFps || 30, 30);   // a cast: a video or a GIF at full speed
+  if (CA.id) {                        // a cast: a new frame of a video or a GIF is drawn when it comes (L.dirty); the little Pixel beside it
+    if (CA.ifr) return 10;            // YouTube, Vimeo: their player shows the video, the Pi decodes it
+    if (now - CA.t < 1500 || (CA.vid && !CA.vfc && !CA.ended && !CA.err)) return 60;   // without requestVideoFrameCallback: every frame
+    return CA.vid || CA.gif ? 15 : Math.min(T.faceFps || 30, 30);
+  }
   const calm = T.calmFps || 10;                       // still screens: the clock, a blinking cursor
   switch (L.scr) {
     case 'visage': {
@@ -849,7 +890,7 @@ return {
   },
   get menuOpen() { return !!L.menu; },
   get buddy() { return { x: BUD.x, act: BUD.act, dir: BUD.dir }; },
-  get cast() { return { id: CA.id, kind: CA.kind, ready: !!castSrc(), err: CA.err, frame: CA.gif ? CA.gif.i : -1, video: !!CA.vid, playing: !!(CA.vid && !CA.vid.paused), player: !!(CA.ifr || (CA.yt && !CA.yt.err)), yt: CA.yt ? CA.yt.info() : null, peek: CA.peek }; },   // tests, lab   // the little Pixel of the Minuteur screen (tests, lab)
+  get cast() { return { id: CA.id, kind: CA.kind, ready: !!castSrc(), err: CA.err, frame: CA.gif ? CA.gif.i : -1, bitmap: !!CA.bmp, video: !!CA.vid, playing: !!(CA.vid && !CA.vid.paused), player: !!(CA.ifr || (CA.yt && !CA.yt.err)), yt: CA.yt ? CA.yt.info() : null, peek: CA.peek }; },   // tests, lab   // the little Pixel of the Minuteur screen (tests, lab)
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };
