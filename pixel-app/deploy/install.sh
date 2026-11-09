@@ -14,6 +14,11 @@ echo "2/5 Environnement Python"
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
+# Les amis de Pixel (docs/AMIS.md) : tout ce qui passe par Internet est chiffré avec « cryptography » (requirements.txt).
+# Vérifié ici, et une roue toute faite sinon ; sans lui, les amis restent éteints et tout le reste marche.
+.venv/bin/python -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM' 2>/dev/null \
+  || .venv/bin/pip install --prefer-binary 'cryptography>=41' \
+  || echo "   (cryptography ne s'installe pas : les amis de Pixel resteront éteints, le reste marche)"
 [ -f config.toml ] || cp config.example.toml config.toml
 # Facultatif : Pixel dans le bouton Caster de l'appli YouTube (docs/CAST.md, YouTube), seulement si on le demande :
 #   PIXEL_YTCAST=1 sh deploy/install.sh     puis  enabled = true  dans [ytcast] de config.toml

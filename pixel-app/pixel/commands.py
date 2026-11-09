@@ -7,6 +7,7 @@ import unicodedata
 
 from . import anims, caractere, nourrir, scenes
 from . import exos                    # math exercises: « exo », « table de 7 », a number while one is open
+from . import amis                    # his friends: « va voir Bip », « dis coucou à Bip », « mes amis », « ajoute l'ami … »
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -156,6 +157,8 @@ async def run(hub, text):
     if await caractere.command(hub, t, raw):              # « sois grognon », « plus câlin », « appelle-toi Bip »… (pixel/caractere.py)
         return
     if await nourrir.command(hub, t):                       # « mange une pomme », « tu as faim ? », « à table ! » (pixel/nourrir.py)
+        return
+    if await amis.command(hub, raw, t):                     # « va voir Bip », « dis coucou à Bip », « mes amis » (pixel/amis.py)
         return
 
     await hub.dispatch("chat.ask", {"text": raw})

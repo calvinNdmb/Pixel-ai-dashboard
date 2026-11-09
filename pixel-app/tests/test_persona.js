@@ -117,6 +117,7 @@ const sulking = cur(); PER.pet(); PER.pet();
 check('two cuddles end a sulk', sulking === 'boude' && cur() === 'pardon', `${sulking} -> ${cur()}`);
 
 // ---- zones through the screen ----
+at('2026-11-08T14:30:00');   // in the day: the scenes above move the fake clock hours on (each pack more), and at night a tap often only yawns
 fresh(); run(3000); const zoneHits = {};
 for (const [name, u, v] of [['oeil', 34, 23], ['bouche', 48, 38], ['tete', 48, 8], ['cote', 14, 30]]) {
   let got = 0; for (let i = 0; i < 6; i++) { fresh(); run(1500); const p = P2(u, v); tapAt(p.x, p.y); if (PER.pools.zones[name].includes(cur())) got++; }

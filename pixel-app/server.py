@@ -40,6 +40,7 @@ from pixel import telephone              # the Android app: the phone's notifica
 from pixel import caractere              # his character: traits, presets, his name and yours
 from pixel import nourrir                # Nourrir: his belly, his tastes, his meals
 from pixel import exos                   # little math exercises (and riddles)
+from pixel import amis                   # les amis de Pixel: visits from house to house, through a relay (docs/AMIS.md)
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -179,6 +180,7 @@ async def serve(args, cfg, datadir, token):
     caractere.setup(hub, datadir)        # his character, saved in caractere.json
     nourrir.setup(hub, datadir)          # Nourrir: feeding Pixel (data_dir/nourrir.json)
     exos.setup(hub, datadir)             # math exercises: the exos.* actions, data_dir/exos.json
+    amis.setup(hub, datadir)             # his friends: the amis.* actions, data_dir/amis.json, the relay once there is a friend
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"

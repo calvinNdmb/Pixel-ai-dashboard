@@ -6,3 +6,4 @@ icalendar>=5.0
 recurring-ical-events>=2.0
 streamdeck>=0.9.5
 pillow>=10.0
+cryptography>=41           # les amis de Pixel (pixel/amis.py): AES-GCM, X25519, HKDF, scrypt
