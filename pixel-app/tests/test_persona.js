@@ -32,7 +32,8 @@ const sb = {
 const sounds = [];                                  // his voice (son.js), as screens.js calls it
 sb.PixelSon = { on: true, volume: 0.6, scene: id => sounds.push('scene:' + id), say: t => sounds.push('say:' + t), play: n => sounds.push('play:' + n), setVolume() {} };
 sb.window = sb; vm.createContext(sb);
-for (const f of ['pack52/pixel52.js', 'pack52/pixel52-themes.js', 'themes.js', 'persona.js', 'screens.js']) vm.runInContext(fs.readFileSync(path.join(WEB, f), 'utf8'), sb, { filename: f });
+const PACKS = fs.readdirSync(path.join(WEB, 'scenes')).filter(f => f.endsWith('.js')).sort().map(f => 'scenes/' + f);   // the scene packs
+for (const f of ['pack52/pixel52.js', 'pack52/pixel52-themes.js', 'themes.js', 'persona.js', ...PACKS, 'screens.js']) vm.runInContext(fs.readFileSync(path.join(WEB, f), 'utf8'), sb, { filename: f });
 const Screens = vm.runInContext('Screens', sb), L = Screens.local, PER = Screens.persona;
 check('screens.js has a personality', !!PER && typeof PER.tap === 'function');
 
@@ -56,10 +57,11 @@ const tapAt = (x, y) => { if (!Screens.input()) Screens.hit(x, y); tick(16); };
 const fresh = () => { PER.reset(); L.sleepy = false; L.lastInput = clock; tick(16); };
 
 // ---- the list matches pixel/scenes.py ----
-const py = fs.readFileSync(path.join(__dirname, '..', 'pixel', 'scenes.py'), 'utf8');
-const pyList = [...py.matchAll(/\("([a-z-]+)", "([^"]+)", "([a-z]+)"\)/g)].map(m => m.slice(1, 4).join('|'));
-const jsList = PER.scenes.map(s => [s.id, s.label, s.group].join('|'));
-check(`persona.js and pixel/scenes.py list the same ${jsList.length} scenes (id, label, group)`, JSON.stringify(pyList) === JSON.stringify(jsList),
+const { execFileSync } = require('child_process');   // pixel/scenes.py reads the scenes from the JS files: the same list?
+const pyList = JSON.parse(execFileSync('python3', ['-c', 'import json,sys; sys.path.insert(0, "."); from pixel import scenes; print(json.dumps(scenes.SCENES))'],
+  { cwd: path.join(__dirname, '..') }).toString()).map(x => x.join('|')).sort();
+const jsList = PER.scenes.map(s => [s.id, s.label, s.group].join('|')).sort();
+check(`persona.js + scene packs and pixel/scenes.py list the same ${jsList.length} scenes (id, label, group)`, JSON.stringify(pyList) === JSON.stringify(jsList),
   jsList.filter(x => !pyList.includes(x)).concat(pyList.filter(x => !jsList.includes(x))).slice(0, 4).join(' / '));
 check('at least 20 moments of life and 30 reactions', PER.scenes.filter(s => s.group === 'vie').length >= 20 && PER.scenes.filter(s => s.group !== 'vie').length >= 30);
 
@@ -251,6 +253,20 @@ const sp = { location: { search: '' }, AudioContext: FakeAC, addEventListener() 
 sp.window = sp; vm.createContext(sp); vm.runInContext(fs.readFileSync(path.join(WEB, 'son.js'), 'utf8'), sp, { filename: 'son.js' });
 made.length = 0; vm.runInContext('PixelSon', sp).scene('poisson');
 check('no sound on a phone (only the Pi’s own screen plays it)', made.length === 0 && !vm.runInContext('PixelSon', sp).on);
+
+// ---- scene packs and events ----
+const EV = PER.events.map(e => e.id), groups = ['tap', 'fache', 'calin', 'retour', 'vie', 'evt'];
+const badOn = PER.scenes.filter(s => (s.on || []).some(e => !EV.includes(e)));
+check('every scene\'s "on" names a known event', badOn.length === 0, badOn.map(s => s.id).join());
+check('every scene is in a known group', PER.scenes.every(s => groups.includes(s.group)), PER.scenes.filter(s => !groups.includes(s.group)).map(s => s.id).join());
+check('scene ids are unique', new Set(PER.scenes.map(s => s.id)).size === PER.scenes.length);
+for (const e of PER.events.filter(e => e.scenes.length)) {
+  fresh(); L.scr = 'visage'; tick(16);
+  const id = Screens.event(e.id, { msg: 'Nouveau message de Léa', name: 'lights.set', kind: 'pluie' });
+  check(`event ${e.id}: a scene answers it (${e.scenes.length} can)`, !!id && e.scenes.includes(id), String(id));
+}
+fresh(); L.scr = 'meteo'; const later = PER.events.find(e => e.scenes.length);
+if (later) { Screens.event(later.id, { msg: 'x', name: 'lights.set', kind: 'pluie' }); const none = cur(); L.scr = 'visage'; run(300); check('an event on another screen waits, and plays when you come back to his face', !none && !!cur(), `${none} ${cur()}`); }
 
 console.log(`\n${fails} failure(s)`);
 process.exit(fails ? 1 : 0);

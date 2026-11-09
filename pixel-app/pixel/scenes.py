@@ -4,74 +4,30 @@ The scenes themselves (motion, props, lines) live in web/persona.js; each screen
 says "play this one now" (action scene.play, snapshot "scene"). Same ids and labels as persona.js:
 tests/test_persona.js checks that the two lists match.
 """
+import re
+from pathlib import Path
+
 from . import anims
 
-# id, French label, group: tap (a touch), fache (pestered), calin (petting), retour (you come back), vie (alone), evt (lights, hours)
-SCENES = [
-    ("coucou", "Coucou", "tap"),
-    ("content", "Content", "tap"),
-    ("chatouilles", "Chatouilles", "tap"),
-    ("oeil", "Le doigt dans l’œil", "tap"),
-    ("bonk", "Bonk sur la tête", "tap"),
-    ("pousse", "Poussé", "tap"),
-    ("ou", "Où ça ?", "tap"),
-    ("saut", "Youpi", "tap"),
-    ("pirouette", "Pirouette", "tap"),
-    ("timide", "Timide", "tap"),
-    ("bisou", "Bisou", "tap"),
-    ("idee", "Une idée… non", "tap"),
-    ("amour", "Je t’aime bien", "tap"),
-    ("nuit-tap", "Il est tard", "tap"),
-    ("he", "Hé !", "fache"),
-    ("impatient", "Pfff", "fache"),
-    ("esquive", "Esquive", "fache"),
-    ("colere", "En colère", "fache"),
-    ("panique", "Au secours", "fache"),
-    ("boude", "Il boude", "fache"),
-    ("pardon", "Il pardonne", "fache"),
-    ("caresse", "Câlin", "calin"),
-    ("ronron", "Il s’endort sous les câlins", "calin"),
-    ("calme", "Ça va mieux", "calin"),
-    ("retour", "Te revoilà", "retour"),
-    ("manque", "Tu m’as manqué", "retour"),
-    ("bonjour", "Bonjour", "retour"),
-    ("bonsoir", "Bonsoir", "retour"),
-    ("reveille", "Je dormais pas", "retour"),
-    ("joyeux-noel", "Joyeux Noël", "retour"),
-    ("bonne-annee", "Bonne année", "retour"),
-    ("poisson", "Le poisson", "vie"),
-    ("balade", "La balade", "vie"),
-    ("cache", "Coucou caché", "vie"),
-    ("dvd", "L’économiseur d’écran", "vie"),
-    ("toupie", "La toupie", "vie"),
-    ("mouche", "La mouche", "vie"),
-    ("hoquet", "Le hoquet", "vie"),
-    ("atchoum", "L’éternuement", "vie"),
-    ("sifflote", "Il sifflote", "vie"),
-    ("danse", "La danse en cachette", "vie"),
-    ("vitre", "Toc toc", "vie"),
-    ("ennui", "L’ennui", "vie"),
-    ("sieste", "La sieste", "vie"),
-    ("etirement", "Le grand étirement", "vie"),
-    ("reverie", "La rêverie", "vie"),
-    ("zen", "La méditation", "vie"),
-    ("joie", "La joie", "vie"),
-    ("gym", "La gym", "vie"),
-    ("psst", "Psst", "vie"),
-    ("pluie", "Sous la pluie", "vie"),
-    ("soleil", "Bronzette", "vie"),
-    ("faim", "La faim", "vie"),
-    ("nuit", "Bâillements de nuit", "vie"),
-    ("neige", "La neige", "vie"),
-    ("noir", "Dans le noir", "evt"),
-    ("lumiere", "La lumière revient", "evt"),
-    ("heure", "Le coucou de l’heure", "evt"),
-    ("rdv", "Le rendez-vous", "evt"),
-    ("rdv-fin", "Ça s’est bien passé ?", "evt"),
-    ("chaud", "Il a chaud", "evt"),
-    ("wifi", "Plus de Wi-Fi", "evt"),
-    ("wifi-ok", "Le Wi-Fi revient", "evt"),
-]
+# id, French label, group (tap, fache, calin, retour, vie, evt): read from web/persona.js and the scene packs web/scenes/*.js,
+# where every scene starts with S('id', 'Label', 'group', ...). tests/test_persona.js checks this against the running list.
+WEB = Path(__file__).resolve().parent.parent / "web"
+_S = re.compile(r"""\bS\(\s*'([a-z0-9-]+)'\s*,\s*'((?:[^'\\]|\\.)*)'\s*,\s*'([a-z]+)'""")
+
+
+def _read():
+    out, seen = [], set()
+    for f in [WEB / "persona.js", *sorted((WEB / "scenes").glob("*.js"))]:
+        text = re.sub(r"/\*.*?\*/", "", f.read_text(encoding="utf-8"), flags=re.S)       # not the examples in the comments
+        text = re.sub(r"(?m)^\s*//.*$", "", text)
+        for i, label, group in _S.findall(text):
+            if i not in seen:
+                seen.add(i)
+                out.append((i, label.replace("\\'", "'"), group))
+    return out
+
+
+SCENES = _read()
 BY_ID = {i: (label, group) for i, label, group in SCENES}
 IDS = [i for i, _, _ in SCENES]
 LIFE = [i for i, _, g in SCENES if g == "vie"]

@@ -8,7 +8,13 @@
    Nothing here talks to the server: each screen has its own Pixel. Wall-clock time (Date.now) measures how long you
    were away (kept in localStorage, so a night or a restart counts); the frame clock (H.now) runs the scenes.
    A scene: { id, label, group, dur, anim: [[ms, pack id], ...], mood, say: [[ms, ms, lines]], move(e, p, o), props(D, e, p, o) }.
-   Groups: 'tap' (a touch), 'fache' (pestered), 'calin' (petting), 'retour' (you come back), 'vie' (alone), 'evt' (lights, hours). */
+   Groups: 'tap' (a touch), 'fache' (pestered), 'calin' (petting), 'retour' (you come back), 'vie' (alone), 'evt' (lights, hours).
+   Scene packs (web/scenes/*.js, loaded before screens.js) add more: (window.PixelScenePacks ||= []).push(kit => { kit.S(...) }).
+   Two optional fields plug a scene in:
+     on: ['notif', ...]   it can answer these events (persona.event(name, data); EVENTS below lists them), weight w,
+                          when(data) to filter (data.msg, data.name, data.kind...)
+     pool: ['calm', ...]  it joins a touch pool: calm, love, annoyed, angry, pet, or zone:oeil / zone:tete / zone:bouche /
+                          zone:cote / zone:ailleurs (where the finger lands) */
 window.PixelPersona = H => {
 const TAU = Math.PI * 2, W = 800, HT = 480;
 const rnd = H.rnd || Math.random, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -254,14 +260,35 @@ S('wifi', 'Plus de Wi-Fi', 'evt', { dur: 5600, anim: [[0, 'surpris'], [1800, 'co
 S('wifi-ok', 'Le Wi-Fi revient', 'evt', { dur: 3000, anim: [[0, 'etoiles']], mood: 'excite', say: [[150, 2800, L('Ah, le Wi-Fi est revenu !', 'Ouf, je capte à nouveau !')]],
   move: e => ({ y: -20 * bump(seg(e, 0, 600)) }), props: (D, e) => D.antenna(e, true, seg(e, 0, 300) * (1 - seg(e, 2600, 3000))) });
 
+/* ---------- scene packs and events ---------- */
+/* what happens around him, for the scenes' "on": screens.js (and app.js) call persona.event(name, data) */
+const EVENTS = {
+  notif: 'Une notification',            // data.msg: the banner's text
+  'codex-start': 'Codex se met au travail', 'codex-ok': 'Codex a réussi', 'codex-fail': 'Codex a échoué',
+  'timer-start': 'Le minuteur démarre', 'timer-done': 'Le minuteur sonne',
+  'lights-change': 'Les lumières changent',
+  weather: 'La météo change',           // data.kind: soleil, nuage, pluie, neige, orage
+  typing: 'Tu écris au clavier',
+  action: 'Une touche du Stream Deck ou une action du téléphone',   // data.name: the action (lights.set, timer.start...)
+};
+const KIT = { S, L, pick, sm, out, inn, seg, bump, tri, jumps, clamp, rnd, TAU, W, HT, A, EVENTS, H, xmasLine };
+for (const pack of (typeof window !== 'undefined' && window.PixelScenePacks) || []) {
+  const n = SC.length;
+  try { pack(KIT); } catch (e) { SC.splice(n).forEach(x => { if (BY[x.id] === x) delete BY[x.id]; }); if (typeof console !== 'undefined') console.warn('Pixel: a scene pack failed', e); }
+}
 const LIFE = SC.filter(s => s.group === 'vie');
-const TAP = { calm: ['coucou', 'content', 'saut', 'pirouette', 'timide', 'bisou', 'idee'], zone: { bouche: 'chatouilles', oeil: 'oeil', tete: 'bonk', cote: 'pousse', ailleurs: 'ou' },
-  love: ['amour', 'bisou', 'timide'], annoyed: ['he', 'he', 'impatient', 'esquive'], angry: ['colere', 'colere', 'panique', 'esquive'] };
+const TAP = { calm: ['coucou', 'content', 'saut', 'pirouette', 'timide', 'bisou', 'idee'], zones: { bouche: ['chatouilles'], oeil: ['oeil'], tete: ['bonk'], cote: ['pousse'], ailleurs: ['ou'] },
+  love: ['amour', 'bisou', 'timide'], annoyed: ['he', 'he', 'impatient', 'esquive'], angry: ['colere', 'colere', 'panique', 'esquive'], pet: ['caresse', 'caresse'] };
+for (const sc of SC) for (const pl of [].concat(sc.pool || [])) {
+  if (pl.startsWith('zone:')) (TAP.zones[pl.slice(5)] ||= []).push(sc.id); else if (TAP[pl]) TAP[pl].push(sc.id);
+}
+const ON = {};                                          // event -> the scenes that can answer it
+for (const sc of SC) for (const ev of [].concat(sc.on || [])) (ON[ev] ||= []).push(sc);
 const MOOD = id => (BY[id] && BY[id].mood) || 'neutre';
 
 /* ---------- state ---------- */
 const st = { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], life: true, every: [45000, 150000], lights: null, darkAt: 0, hour: -1, seen: 0,
-  told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '' };   // told: the agenda events he already spoke about
+  told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '', evAt: {}, evLast: '', pending: null };   // told: the agenda events he already spoke about
 try { const s = JSON.parse(localStorage.getItem('pixel.persona') || '{}'); st.seen = Number(s.seen) || 0; } catch { st.seen = 0; }
 let savedAt = 0;
 function seen(now) { st.seen = Date.now(); if (now - savedAt > 20000) { savedAt = now; try { localStorage.setItem('pixel.persona', JSON.stringify({ seen: st.seen })); } catch {} } }
@@ -322,9 +349,10 @@ function tap(p, box, ctx = {}) {
   if (st.annoy >= 5.5) return start(pick(TAP.angry));
   if (st.annoy >= 3) return start(pick(TAP.annoyed));
   if (quick) return start('pirouette');
-  if (zone !== 'visage' && TAP.zone[zone] && rnd() < 0.85) {
-    const side = zone === 'oeil' ? (q.u < 50 ? -1 : 1) : (q.u < 48 ? -1 : 1);
-    return start(TAP.zone[zone], { side, tx: p.x - (box.x + box.w / 2), ty: p.y - (box.y + box.h / 2) });
+  if (zone !== 'visage' && TAP.zones[zone] && TAP.zones[zone].length && rnd() < 0.85) {
+    const side = zone === 'oeil' ? (q.u < 50 ? -1 : 1) : (q.u < 48 ? -1 : 1), zs = TAP.zones[zone];
+    let id = pick(zs); for (let i = 0; i < 4 && zs.length > 1 && id === st.last; i++) id = pick(zs);
+    st.last = id; return start(id, { side, tx: p.x - (box.x + box.w / 2), ty: p.y - (box.y + box.h / 2) });
   }
   const pool = st.love > 2 ? TAP.love : TAP.calm, last = cur ? cur.sc.id : st.last;
   let id = pick(pool); for (let i = 0; i < 4 && id === last; i++) id = pick(pool);
@@ -335,7 +363,25 @@ function pet() {
   seen(H.now());
   if (st.cur && st.cur.sc.sulk) { if (st.annoy < 4) return start('pardon'); st.cur.extra = { t: el(), line: pick(['…bon, encore un peu.', 'Hmpf… continue.']) }; return true; }
   if (wasAnnoyed) return start('calme');
-  return start(st.love > 5 && rnd() < 0.6 ? 'ronron' : 'caresse');
+  if (st.love > 5 && rnd() < 0.6) return start('ronron');
+  let id = pick(TAP.pet); for (let i = 0; i < 4 && TAP.pet.length > 1 && id === st.last; i++) id = pick(TAP.pet);
+  st.last = id; return start(id);
+}
+/* something happened around him (EVENTS): a scene that answers it plays, if he is free and on his face screen.
+   ctx.visage false: kept for 30 s, played when you come back to his face. Same event: not again within 4 s. */
+function event(name, data = {}, ctx = {}) {
+  const now = H.now(), list = (ON[name] || []).filter(sc => !sc.when || sc.when(data));
+  if (!list.length) return '';
+  if (!ctx.force && st.evAt[name] && now - st.evAt[name] < 4000) return '';     // force: the lab's buttons
+  if (ctx.visage === false) { st.pending = { name, data, until: now + 30000 }; return ''; }
+  const cur = st.cur;
+  if (!ctx.force && cur && (cur.forced || cur.sc.sulk || ['tap', 'fache', 'calin', 'retour'].includes(cur.sc.group)) && !list.some(sc => sc.urgent)) return '';
+  const pool = list.filter(sc => sc.id !== st.evLast) .length ? list.filter(sc => sc.id !== st.evLast) : list;
+  const tot = pool.reduce((a, sc) => a + (sc.w || 1), 0); let r = rnd() * tot, pickd = pool[pool.length - 1];
+  for (const sc of pool) { r -= sc.w || 1; if (r < 0) { pickd = sc; break; } }
+  st.evAt[name] = now; st.evLast = pickd.id; st.pending = null;
+  start(pickd.id, { data: { ...data, event: name } });
+  return pickd.id;
 }
 /* any input. info: { wake: true if it woke him up from his nap }. Returns the scene played, or '' */
 function input(info = {}) {
@@ -358,6 +404,8 @@ function input(info = {}) {
           night, rm: reduced motion } */
 function update(dt, ctx = {}) {
   const now = H.now();
+  if (st.pending && ctx.visage && now < st.pending.until && (!st.cur || st.cur.sc.group === 'vie')) { const pd = st.pending; st.pending = null; event(pd.name, pd.data, { visage: true }); }
+  if (st.pending && now >= st.pending.until) st.pending = null;
   st.annoy *= Math.exp(-dt / 16000); st.love *= Math.exp(-dt / 120000);
   // the lights go off, or come back
   if (ctx.lightsOn !== undefined && ctx.lightsOn !== null) {
@@ -615,7 +663,8 @@ return {
   setEvery(min, max) { st.every = [min, max]; st.nextLife = Math.min(st.nextLife, H.now() + min); },
   away(ms) { st.seen = Date.now() - ms; },        // the lab: pretend you were away
   reset() { Object.assign(st, { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], lights: null, darkAt: 0,
-    told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '' }); },   // tests
+    told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '', evAt: {}, evLast: '', pending: null }); },   // tests
   tap, pet, input, update, current, drawOver, decor, play: id => start(id, { forced: true }), stop, busy, project, unproject, zoneOf,
+  event, events: Object.entries(EVENTS).map(([id, label]) => ({ id, label, scenes: (ON[id] || []).map(x => x.id) })),
 };
 };

@@ -103,6 +103,7 @@ input.addEventListener('keydown', e => {
   else if (e.key === 'Escape') { input.value = ''; input.blur(); oskLocal = false; render(); }
 });
 input.addEventListener('focus', () => { Screens.input(); render(); });
+input.addEventListener('input', () => Screens.event && Screens.event('typing'));   // he sees you typing
 input.addEventListener('blur', () => setTimeout(render, 50));
 if (kiosk) input.addEventListener('pointerdown', () => { oskLocal = true; render(); });
 document.addEventListener('keydown', e => {

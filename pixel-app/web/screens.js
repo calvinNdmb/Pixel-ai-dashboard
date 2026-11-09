@@ -598,10 +598,25 @@ return {
     for (const id of (p.settings && p.settings.themes) || IDS) loadFonts(THEMES[id]);   // the themes Pixel offers: ready before you pick one
     if (first) { L.lastToast = p.toast?.id || 0; L.lastBootAt = p.boot_at; if (L.kiosk) L.boot = now; first = false; }
     if (P && P.codex && P.codex.running && p.codex && !p.codex.running && p.codex.status !== 'arrêté') L.packEv = { id: /^terminé/.test(p.codex.status) ? 'succes' : 'erreur', until: now + 4000 };
+    if (PER && P) {                                   // what happened, for his personality (persona.js EVENTS)
+      const ev = (n, d) => PER.event(n, d || {}, { visage: L.scr === 'visage' && L.boot < 0 });
+      if (P.codex && p.codex && !P.codex.running && p.codex.running) ev('codex-start');
+      if (P.codex && p.codex && P.codex.running && !p.codex.running && p.codex.status !== 'arrêté') ev(/^terminé/.test(p.codex.status) ? 'codex-ok' : 'codex-fail');
+      if (P.timer && p.timer && !P.timer.running && p.timer.running) ev('timer-start');
+      if (P.timer && p.timer && (p.timer.done || 0) > (P.timer.done || 0)) ev('timer-done');
+      const lit = r => (r || []).map(x => (x.on ? x.bri : 0)).join(), anyOn = r => (r || []).some(x => x.on);
+      if (P.lights && p.lights && lit(P.lights.rooms) !== lit(p.lights.rooms) && anyOn(P.lights.rooms) && anyOn(p.lights.rooms)) ev('lights-change');
+      const wk = w => w && w.now && w.now.kind;
+      if (wk(P.weather) && wk(p.weather) && wk(P.weather) !== wk(p.weather)) ev('weather', { kind: wk(p.weather) });
+      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
+    }
     if (p.toast && p.toast.id !== L.lastToast) {
       L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now };
       const busy = p.mood && p.mood.name !== 'neutre' && (!p.mood.until || p.server_now < p.mood.until);
-      if (!busy && !(L.packEv && now < L.packEv.until) && !/^(THÈME|VISAGE) /.test(p.toast.msg)) L.packEv = { id: 'notification', until: now + 4000 };   // not for our own settings
+      if (!busy && !(L.packEv && now < L.packEv.until) && !/^(THÈME|VISAGE) /.test(p.toast.msg)) {   // not for our own settings
+        L.packEv = { id: 'notification', until: now + 4000 };
+        if (PER && P) PER.event('notif', { msg: p.toast.msg }, { visage: L.scr === 'visage' && L.boot < 0 });
+      }
     }
     if (P && P.screen === 'veille' && p.screen === 'visage') L.pack = { id: 'reveil', until: now + 5000 };
     if (p.anim && p.anim.t0 !== (P && P.anim && P.anim.t0)) { L.pack = null; L.local = null; if (PER && PER.busy()) PER.stop(); }   // a new animation asked for takes over at once
@@ -616,6 +631,7 @@ return {
     return false;
   },
   persona: PER,
+  event(name, data, force) { return PER ? PER.event(name, data || {}, { visage: L.scr === 'visage' && L.boot < 0, force: !!force }) : ''; },   // app.js: typing; the lab: force
   menu(open, view) {              // view 'phone': straight to the QR code page, sliding in from the right (swipe left on his face)
     if (open === !!L.menu && !view) return;
     L.menu = open ? { t: now, confirm: null, off: null, view: view || null, direct: !!view } : null; fast(300); L.dirty = true;

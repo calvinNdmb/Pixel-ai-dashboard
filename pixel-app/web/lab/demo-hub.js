@@ -367,6 +367,7 @@ return {
   dispatch(action, args = {}) {
     const f = A[action];
     if (!f) { console.warn('Pixel Lab: unknown action', action); return; }
+    if (!String(action).startsWith('lab.')) S.act = { name: action, t0: Date.now() };   // state.py: the last action
     try { f(args && typeof args === 'object' ? args : {}); } catch (e) { console.warn('Pixel Lab: action failed', action, e); toast('ERREUR : ' + action); }
     mark();
   },

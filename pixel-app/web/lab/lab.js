@@ -137,6 +137,19 @@ if (PER) {
     for (const s of list) { const b = chip(s.label, () => pickScene(s.id)); b.dataset.id = s.id; row.append(b); persoChips.push(b); }
     $('persoGroups').append(box);
   }
+  {                                                    // fire an event (persona.js EVENTS): the scenes that answer it
+    const SAMPLE = { notif: () => ({ msg: pick(['Nouveau message de Léa', 'Ton colis est arrivé', 'Rappel : appeler maman', 'Mail de Julien : la réunion est avancée']) }),
+      weather: () => ({ kind: pick(['soleil', 'pluie', 'neige', 'orage', 'nuage']) }), action: () => ({ name: pick(['lights.set', 'lights.scene', 'timer.start', 'sys.bright', 'codex.run']) }) };
+    const pick = a => a[Math.floor(Math.random() * a.length)], evs = PER.events.filter(e => e.scenes.length);
+    if (evs.length) {
+      const box = el('div', 'ev'), row = el('div', 'chips'); box.append(el('h3', null, 'Déclencher un événement'), row);
+      for (const e of evs) row.append(chip(`${e.label} (${e.scenes.length})`, () => {
+        touch(); if (P && P.screen !== 'visage') hub.dispatch('screen.show', { screen: 'visage' }); L.sleepy = false; PER.stop();
+        setTimeout(() => Screens.event(e.id, (SAMPLE[e.id] || (() => ({})))(), true), 60);
+      }));
+      $('persoEvents').append(box);
+    }
+  }
   if (saved.life === false) PER.setLife(false);
   if (saved.often) PER.setEvery(4000, 10000);
   $('lifeBtn').addEventListener('click', () => { touch(); const on = !PER.state.life; PER.setLife(on); remember('life', on); syncStatic(); });
@@ -215,6 +228,7 @@ input.addEventListener('keydown', e => {
   else if (e.key === 'Escape') { input.value = ''; input.blur(); }
 });
 input.addEventListener('focus', () => Screens.input());
+input.addEventListener('input', () => Screens.event && Screens.event('typing'));
 function swipe(d) { const n = hub.NAV.length, i = hub.NAV.indexOf(P ? P.screen : 'visage'); hub.dispatch('screen.show', { screen: hub.NAV[((i + d) % n + n) % n] }); }
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (!shotBox.hidden) shotBox.hidden = true; else if (!kmenu.hidden) closeMenu(); else if (TC.page) TC.close(); return; }

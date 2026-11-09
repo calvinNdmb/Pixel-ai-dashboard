@@ -60,6 +60,7 @@ class Hub:
         if not fn:
             log.warning("unknown action %s", name)
             return
+        self.s["act"] = {"name": name, "t0": time.time() * 1000}     # the screens see that something was done (Pixel reacts)
         try:
             await fn(**(args or {}))
         except TypeError as e:
