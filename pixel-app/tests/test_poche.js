@@ -164,7 +164,9 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
   await kiosk.evaluate(() => Screens.persona.stop());
   await longPress(phone, cdp); await phone.waitForTimeout(150);
   cur = await scene(phone);
-  check('a long press pets him (a cuddle, no tap)', ['caresse', 'ronron', 'calme', 'pardon'].includes(cur), cur);
+  const petted = await phone.evaluate(id => { const P = Screens.persona, s = P.scenes.find(x => x.id === id);   // any cuddle, packs included
+    return [...P.pools.pet, 'caresse', 'ronron', 'calme', 'pardon'].includes(id) || (!!s && s.group === 'calin'); }, cur);
+  check('a long press pets him (a cuddle, no tap)', petted, cur);
   await shot(phone, 'poche-pixel7-calin');
   const jealous = await until(async () => { const c = await scene(kiosk); return ['poche-jaloux', 'poche-envie'].includes(c) && c; }, 4000);
   check('…and the Pi\'s Pixel saw it: "Hé ! Tu caresses l\'autre ?!"', !!jealous, String(await scene(kiosk)));
