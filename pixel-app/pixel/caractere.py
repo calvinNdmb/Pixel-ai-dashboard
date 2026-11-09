@@ -11,9 +11,11 @@ Actions: caractere.set {preset?, traits?, nom?, surnom?, humeur_jour?, calme?, b
 clamped), caractere.ajuste {trait, d} (« plus câlin »), caractere.reset, caractere.essai. Saved in data_dir/caractere.json
 (a missing or broken file gives the defaults). The same presets and rules, in JavaScript: web/caractere.js (Pixel Lab).
 """
+import asyncio
 import datetime as dt
 import json
 import logging
+import math
 import os
 import random
 import re
@@ -61,6 +63,7 @@ ADJ = {"pixel": "comme d’habitude", "calin": "câlin", "independant": "indépe
        "paresseux": "paresseux", "curieux": "curieux", "blase": "blasé", "gourmand": "gourmand", "petit-appetit": "petit mangeur",
        "prof": "studieux", "cancre": "pas très scolaire", "reveur": "rêveur"}
 NOM, NOM_MAX, SURNOM_MAX = "Pixel", 16, 20
+NOTICE_AFTER = 3.6                           # s: a toast (notice) waits for the end of his reaction's line (web/scenes/caractere.js)
 DEFAULT = {"preset": "pixel", "traits": _t(), "nom": NOM, "surnom": "", "humeur_jour": False, "calme": {"de": 23, "a": 6},
            "boude": True, "parle": True}
 SAVED = tuple(DEFAULT)                       # what caractere.json keeps ("change" and "essai" are for the screens only)
@@ -71,8 +74,8 @@ def now_ms():
 
 
 def _int(v, lo, hi):
-    """An int in [lo, hi], or None (a bool is not a number here)."""
-    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:
+    """An int in [lo, hi], or None (a bool is not a number here, nor NaN or infinity: json reads 1e400 as inf)."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or (isinstance(v, float) and not math.isfinite(v)):
         return None
     return max(lo, min(hi, int(round(v))))
 
@@ -165,7 +168,11 @@ def apply(car, args, rnd=random):
         new["preset"], new["traits"] = p, (roll(rnd) if p == "surprise" else dict(PRESETS[p][2]))
         quoi.append("surprise" if p == "surprise" else "preset")
     elif isinstance(args.get("traits"), dict):
-        tr = clean({"traits": {**new["traits"], **args["traits"]}})["traits"]
+        tr = dict(new["traits"])                         # only the valid values move a trait: a bad one leaves it as it was
+        for t, v in args["traits"].items():
+            v = _int(v, 0, 100) if t in TRAITS else None
+            if v is not None:
+                tr[t] = v
         if tr != new["traits"]:
             new["traits"], new["preset"] = tr, matching(tr)
             quoi.append("traits")
@@ -182,7 +189,11 @@ def apply(car, args, rnd=random):
             quoi.append("reglage")
             extra = {"what": "humeur" if k == "humeur_jour" else k, "value": args[k]}
     if isinstance(args.get("calme"), dict):
-        q = clean({"calme": {**new["calme"], **args["calme"]}})["calme"]
+        q = dict(new["calme"])
+        for h in ("de", "a"):
+            v = _int(args["calme"].get(h), 0, 23)
+            if v is not None:
+                q[h] = v
         if q != new["calme"]:
             new["calme"] = q
             quoi.append("reglage")
@@ -235,6 +246,19 @@ def describe(car):
     return " ".join(out)
 
 
+def change_note(car):
+    """Told to Claude in the conversation when his character changed since it began (abonnement.py keeps the conversation)."""
+    note = describe(car)
+    return "[Ton caractère vient de changer. " + (note or "Tu retrouves ton caractère habituel, et tu t’appelles Pixel.") + "]"
+
+
+def notice(car, change):
+    """A toast for a change that the screens alone would not explain (the same in web/caractere.js), or ""."""
+    if change and change.get("what") == "parle" and change.get("value") is False and car.get("parle") is not True:
+        return f"{car.get('nom') or NOM} ne bavarde plus. Tape « tu peux parler » pour le réentendre."
+    return ""
+
+
 def tool_ok(a):
     """Claude's set_character input (claude.py check())."""
     if not isinstance(a, dict) or not a or set(a) - {"preset", "traits", "nom", "surnom"}:
@@ -265,16 +289,22 @@ TRAIT_WORDS = {"calin": ("calin", 1), "affectueux": ("calin", 1), "independant":
                "studieux": ("studieux", 1), "scolaire": ("studieux", 1)}
 NOT_NAMES = {"comment", "demain", "plus", "tard", "quand", "vite", "maintenant", "ce", "soir", "ici", "la", "tout", "rien", "si",
              "que", "qui", "comme", "pour", "dans", "avec", "un", "une", "des", "de", "du", "le", "les", "tu", "je", "il", "elle",
-             "me", "te", "moi", "toi", "encore", "pas", "ne", "jamais", "souvent", "stp", "svp", "taxi", "bientot", "apres"}
-_TOI = re.compile(r"^(?:appelle[- ]?toi|tu t['’]appelles?|tu t['’]appelleras|ton nom (?:est|sera|c['’]est)|je t['’]appelle|je vais t['’]appeler)\s+(.+?)\s*[!.]*$", re.I)
-_MOI = re.compile(r"^(?:appelle[- ]?moi|je m['’]appelle|mon (?:pr[ée]nom|nom|surnom) (?:est|c['’]est))\s+(.+?)\s*[!.]*$", re.I)
-_OUBLIE = re.compile(r"^(?:ne m['’]appelle plus (?:comme [çc]a|par mon (?:nom|pr[ée]nom|surnom))|oublie mon (?:surnom|pr[ée]nom|nom)|pas de surnom)\s*[!.]*$", re.I)
+             "me", "te", "moi", "toi", "encore", "pas", "ne", "jamais", "souvent", "stp", "svp", "taxi", "bientot", "apres",
+             "vraiment", "aussi", "bien", "toujours", "deja", "juste", "seulement", "enfin", "donc", "alors", "pareil", "mieux",
+             "ainsi", "presque", "quoi", "ou", "oui", "non", "merci", "bon", "bonjour", "salut", "coucou", "au", "aux", "en", "et",
+             "mais", "ca", "pourquoi", "combien", "sur", "par", "chez", "sans", "mon", "ma", "mes", "ton", "ta", "tes", "son", "sa",
+             "ses", "lui", "nous", "vous", "on", "y", "a", "tres", "trop", "peu", "beaucoup", "autrement", "parfois", "plutot"}
+# (the regexes run on the text as typed; ". ! …" at the end are dropped, a "?" makes it a question for Claude)
+_TOI = re.compile(r"^(?:appelle[- ]?toi|tu t['’]appelleras|tu vas t['’]appeler|ton nom (?:est|sera|c['’]est))\s+(.+?)\s*[!.…]*$", re.I)
+_TOI1 = re.compile(r"^(?:tu t['’]appelles?|je vais t['’]appeler)\s+(.+?)\s*[!.…]*$", re.I)     # sounds like chat: one word only
+_MOI = re.compile(r"^(?:appelle[- ]?moi|je m['’]appelle|mon (?:pr[ée]nom|nom|surnom) (?:est|c['’]est))\s+(.+?)\s*[!.…]*$", re.I)
+_OUBLIE = re.compile(r"^(?:ne m['’]appelle plus (?:comme [çc]a|par mon (?:nom|pr[ée]nom|surnom))|oublie mon (?:surnom|pr[ée]nom|nom)|pas de surnom)\s*[!.…]*$", re.I)
 
 
-def a_name(s, most):
-    """A name in a command: one or two words of letters, nothing that looks like a question or a sentence."""
+def a_name(s, most, words=2):
+    """A name in a command: one (or two) words of letters, nothing that looks like a question or a sentence."""
     s = s.strip()
-    if not s or "?" in s or len(s) > most or not re.fullmatch(r"[^\W\d_]+(?:[ '’-][^\W\d_]+)?", s):
+    if not s or "?" in s or len(s) > most or not re.fullmatch(r"[^\W\d_]+" + (r"(?:[ '’-][^\W\d_]+)?" if words > 1 else r"(?:[-][^\W\d_]+)?"), s):
         return None
     from .commands import norm
     if any(w in NOT_NAMES for w in re.split(r"[ '’-]", norm(s))):
@@ -286,10 +316,17 @@ def presets_text():
     return ", ".join(PRESETS[i][0] for i in PRESETS)
 
 
+def _news(hub, args):
+    """Would caractere.set change anything? A command that changes nothing is left to Claude (« tu peux parler » when he does)."""
+    car = hub.s.get("caractere")
+    return isinstance(car, dict) and apply(car, args, random.Random(0))[1] is not None
+
+
 async def command(hub, t, raw):
     """« sois grognon », « caractère câlin », « plus câlin », « appelle-toi Bip », « appelle-moi Max », « tais-toi »…
-    True when the text was one of them."""
+    True when the text was one of them (and changed something, or showed something)."""
     raw = raw.strip()
+    t = re.sub(r"\s*[.!…]+$", "", t)                   # « sois grognon. » as « sois grognon »
     m = re.match(r"^(?:sois|deviens)\s+(un peu\s+|tres\s+)?(?:une?\s+)?(plus\s+|moins\s+)?(.+?)\s*!*$", t)
     if m:
         more, word = m.group(2), m.group(3)
@@ -302,7 +339,7 @@ async def command(hub, t, raw):
             await hub.dispatch("caractere.set", {"preset": PRESET_WORDS[word]})
             return True
         return False
-    m = re.match(r"^(?:caractere|personnalite)(?:\s+(.+?))?\s*!*$", t)
+    m = re.match(r"^(?:caractere|personnalite)(?:\s+([^?]+?))?\s*\??$", t)   # « caractère ? »: the list
     if m:
         word = (m.group(1) or "").strip()
         if word in PRESET_WORDS:
@@ -324,24 +361,24 @@ async def command(hub, t, raw):
         trait, sign = TRAIT_WORDS[m.group(3)]
         await hub.dispatch("caractere.ajuste", {"trait": trait, "d": (10 if m.group(1) else 20) * sign * (1 if m.group(2) == "plus" else -1)})
         return True
+    args = None
     if _OUBLIE.match(raw):
-        await hub.dispatch("caractere.set", {"surnom": ""})
-        return True
-    for rx, key, most in ((_TOI, "nom", NOM_MAX), (_MOI, "surnom", SURNOM_MAX)):
-        m = rx.match(raw)
+        args = {"surnom": ""}
+    for rx, key, most, words in ((_TOI, "nom", NOM_MAX, 2), (_TOI1, "nom", NOM_MAX, 1), (_MOI, "surnom", SURNOM_MAX, 2)):
+        m = not args and rx.match(raw)
         if m:
-            name = a_name(m.group(1), most)
+            name = a_name(m.group(1), most, words)
             if not name:
                 return False
-            await hub.dispatch("caractere.set", {key: name})
-            return True
-    if t in ("tais-toi", "tais toi", "chut", "chut !"):
-        await hub.dispatch("caractere.set", {"parle": False})
-        return True
-    if t in ("tu peux parler", "tu peux reparler", "reparle", "parle-moi", "tu peux parler maintenant"):
-        await hub.dispatch("caractere.set", {"parle": True})
-        return True
-    return False
+            args = {key: name}
+    if t in ("tais-toi", "tais toi"):
+        args = {"parle": False}
+    if t in ("tu peux parler", "tu peux reparler", "reparle", "tu peux parler maintenant"):
+        args = {"parle": True}
+    if not args or not _news(hub, args):                 # nothing to change: Claude answers
+        return False
+    await hub.dispatch("caractere.set", args)
+    return True
 
 
 def setup(hub, datadir=None):
@@ -352,7 +389,7 @@ def setup(hub, datadir=None):
         saved = clean(json.loads(path.read_text(encoding="utf-8")))
     except FileNotFoundError:
         saved = clean({})
-    except (OSError, ValueError) as e:
+    except Exception as e:                               # unreadable, not JSON, absurd values...: never stop the server
         log.warning("caractere.json unreadable (%s): the Pixel of every day", e)
         saved = clean({})
     C = hub.s["caractere"] = {**saved, "change": None, "essai": 0}
@@ -380,7 +417,14 @@ def setup(hub, datadir=None):
         """Change his character: a preset (or "surprise"), some traits (0..100), his name, yours, his little settings."""
         args = {k: v for k, v in (("preset", preset), ("traits", traits), ("nom", nom), ("surnom", surnom), ("humeur_jour", humeur_jour),
                                   ("calme", calme), ("boude", boude), ("parle", parle)) if v is not None}
-        commit(*apply(C, args))
+        new, change = apply(C, args)
+        commit(new, change)
+        msg = notice(C, change)
+        if msg:                                      # after his own « Chut… je me tais. » (the banner would hide his bubble)
+            def tell():
+                if notice(C, change):                # still true: not « tu peux parler » in between
+                    hub.toast(msg, 7000)
+            asyncio.get_running_loop().call_later(NOTICE_AFTER, tell) if NOTICE_AFTER else tell()
 
     @hub.action("caractere.ajuste")
     async def ajuste(trait, d=20):

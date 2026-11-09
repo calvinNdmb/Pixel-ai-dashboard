@@ -1,10 +1,15 @@
 // Pixel's character on the screens:  node tests/test_caractere.js [--shots DIR]
+//   CARACTERE_PORT=8164 (the demo server), CARACTERE_STRICT=1 (the comparison with git d1451d5 counts, see below)
 // 1. In a VM, the real screens.js + persona.js + every scene pack + caractere.js (a stub canvas, seeded random, fake clocks):
-//    - at 50 everywhere the old Pixel, byte for byte: the same scenes and the same lines as persona.js and screens.js before the
-//      feature (git d1451d5), for the same random seed; every affinity exactly 1, every knob exactly its old value;
+//    - at 50 everywhere the Pixel of every day, byte for byte: the same scenes and lines, for the same random seed, as the same
+//      code with no "caractere" in the snapshot, and as the same code without caractere.js and its pack at all; every affinity
+//      exactly 1, every knob exactly its old value. Also compared with persona.js and screens.js before the feature (git d1451d5,
+//      with that commit's packs): a note only, unless CARACTERE_STRICT=1, since later features may change his default behaviour;
 //    - statistically, over many seeded trials: a grumpy Pixel gets angry and sulks more (and longer), a patient one less;
 //      a cuddly one answers cuddles warmly, an independent one shrugs them off; a chatterbox speaks more, a quiet one less, and
-//      « Il parle » off: not a bubble; a lively one lives more often (and faster), a lazy one less; a blasé one lets events go by;
+//      « Il parle » off: no chit-chat, but reminders and news still show; a lively one lives more often (and faster), a lazy one
+//      less; a blasé one lets the world's news go by, but whatever you do to him or for him (the timer, his twin, feeding him,
+//      an exercise...) always gets an answer, whatever his character;
 //      the quiet hours, « Il peut bouder » off, his name and your nickname in his lines, the mood of the day;
 //    - his reaction to each change (event 'caractere'), « Essayer » (a scene typical of him), the scenes only a character brings.
 // 2. In Chromium (Playwright), a demo server (port 8164, a temporary data folder, every theme on): the phone's « Caractère » panel
@@ -88,10 +93,13 @@ function scenario(W) {                                // taps, cuddles, a long t
   W.fresh(); W.PER.away(3 * 3600e3); W.Screens.input(); W.run(2600); rec('missed');
   return log;
 }
+const STRICT = process.env.CARACTERE_STRICT === '1';
 let oldFiles = null;
 try {
-  const git = f => execFileSync('git', ['show', `d1451d5:pixel-app/web/${f}`], { cwd: APP, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
-  oldFiles = { persona: git('persona.js'), screens: git('screens.js') };
+  const git = (...a) => execFileSync('git', a, { cwd: APP, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  const packs = git('ls-tree', '--name-only', 'd1451d5', 'web/scenes/').split('\n').filter(f => f.endsWith('.js')).sort();
+  oldFiles = { persona: git('show', 'd1451d5:pixel-app/web/persona.js'), screens: git('show', 'd1451d5:pixel-app/web/screens.js'),
+    packs: packs.map(f => [f + ' (d1451d5)', git('show', `d1451d5:pixel-app/${f}`)]) };
 } catch { oldFiles = null; }
 {
   const W1 = NEW();
@@ -101,17 +109,28 @@ try {
     ids.filter(id => !id.startsWith('caractere-') || !gated.includes(id)).every(id => W1.PER.affinity(id) === 1) && gated.length >= 10 && gated.every(id => id.startsWith('caractere-')),
     ids.filter(id => W1.PER.affinity(id) !== 1 && W1.PER.affinity(id) !== 0).slice(0, 4).join());
   check('at 50 everywhere: every knob is exactly its old value', Object.values(ck.k).every(v => v === 1 || v === 0) && ck.k.sulk === 0 && ck.k.deaf === 0 && !ck.on && ck.parle && ck.boude && !ck.jour);
-  const packsFor = (keepOwn) => PACKS.filter(f => keepOwn || (f !== OWN_PACK && !/caractere\s*:\s*true/.test(read(f)))).map(f => [f, read(f)]);
-  if (oldFiles) {
-    const OLD = world([...base, ['persona.js (d1451d5)', oldFiles.persona], ...packsFor(false), ['screens.js (d1451d5)', oldFiles.screens]], 11);
-    const NOW = world([...base, ['persona.js', read('persona.js')], ...packsFor(false), ...[[OWN_PACK, read(OWN_PACK)]], ['caractere.js', read('caractere.js')], ['screens.js', read('screens.js')]], 11);
-    NOW.set({ caractere: car({ preset: 'pixel' }) });
-    const a = scenario(OLD), b = scenario(NOW), diff = a.findIndex((x, i) => x !== b[i]);
-    check(`at 50 everywhere: the very same ${a.length} moments and lines as the Pixel before his character (git d1451d5), same seed`,
-      a.length === b.length && diff < 0 && OLD.errs.length === 0 && NOW.errs.length === 0, diff >= 0 ? `${a[diff]}  !=  ${b[diff]}` : OLD.errs.concat(NOW.errs).slice(0, 2).join(' | '));
-    check('…and none of the scenes only a character brings', !b.some(x => /caractere-/.test(x)), b.filter(x => /caractere-/.test(x)).slice(0, 3).join());
-    const NOTRAITS = world([...base, ['persona.js', read('persona.js')], ...packsFor(false), ...[[OWN_PACK, read(OWN_PACK)]], ['caractere.js', read('caractere.js')], ['screens.js', read('screens.js')]], 11);
-    check('…and the same without any "caractere" in the snapshot (an old server)', JSON.stringify(scenario(NOTRAITS)) === JSON.stringify(a));
+  const others = PACKS.filter(f => f !== OWN_PACK).map(f => [f, read(f)]);
+  const nowWorld = (withCar, seed = 11) => world([...base, ['persona.js', read('persona.js')], ...others, ...(withCar ? [[OWN_PACK, read(OWN_PACK)], ['caractere.js', read('caractere.js')]] : []), ['screens.js', read('screens.js')]], seed);
+  const AT50 = nowWorld(true); AT50.set({ caractere: car({ preset: 'pixel' }) });
+  const a50 = scenario(AT50), bare = scenario(nowWorld(true)), none = nowWorld(false), aNone = scenario(none), diff = (x, y) => x.findIndex((v, i) => v !== y[i]);
+  check(`at 50 everywhere: the very same ${a50.length} moments and lines as with no "caractere" in the snapshot (an old server), same seed`,
+    a50.length === bare.length && diff(a50, bare) < 0 && AT50.errs.length === 0, diff(a50, bare) >= 0 ? `${a50[diff(a50, bare)]}  !=  ${bare[diff(a50, bare)]}` : AT50.errs.slice(0, 2).join(' | '));
+  check('…and as without caractere.js and its scene pack at all', a50.length === aNone.length && diff(a50, aNone) < 0 && none.errs.length === 0,
+    diff(a50, aNone) >= 0 ? `${a50[diff(a50, aNone)]}  !=  ${aNone[diff(a50, aNone)]}` : none.errs.slice(0, 2).join(' | '));
+  check('…and none of the scenes only a character brings', !a50.some(x => /caractere-/.test(x)), a50.filter(x => /caractere-/.test(x)).slice(0, 3).join());
+  if (oldFiles) {                                   // the Pixel before his character: d1451d5's persona.js, screens.js and packs
+    let a = null, b = null, errs = [];
+    try {
+      const OLD = world([...base, ['persona.js (d1451d5)', oldFiles.persona], ...oldFiles.packs, ['screens.js (d1451d5)', oldFiles.screens]], 11);
+      const NOW = world([...base, ['persona.js', read('persona.js')], ...oldFiles.packs, [OWN_PACK, read(OWN_PACK)], ['caractere.js', read('caractere.js')], ['screens.js', read('screens.js')]], 11);
+      NOW.set({ caractere: car({ preset: 'pixel' }) });
+      a = scenario(OLD); b = scenario(NOW); errs = OLD.errs.concat(NOW.errs);
+    } catch (e) { errs.push(String(e && e.message || e)); }
+    const same = a && b && a.length === b.length && diff(a, b) < 0 && !errs.length;
+    const what = `at 50 everywhere: the same ${a ? a.length : '?'} moments and lines as the Pixel before his character (git d1451d5 and its packs)`;
+    const why = !a || !b ? errs.slice(0, 2).join(' | ') : diff(a, b) >= 0 ? `${a[diff(a, b)]}  !=  ${b[diff(a, b)]}` : errs.slice(0, 2).join(' | ');
+    if (STRICT || same) check(what, same, why);
+    else console.log(`NOTE ${what}: differs (${why}). Expected if a later feature changed his default behaviour; CARACTERE_STRICT=1 makes it count.`);
   } else console.log('SKIP the comparison with git d1451d5 (git or that commit is not here)');
 }
 
@@ -173,7 +192,14 @@ function bubbles(traits, o = {}) {                  // how many lines he says th
 {
   const quiet = bubbles({ bavard: 5 }), mid = bubbles({}), chatty = bubbles({ bavard: 95 }), mute = bubbles({}, { parle: false });
   check(`a chatterbox says more (${chatty} lines), a quiet one much less (${quiet}), than the usual Pixel (${mid})`, chatty > mid * 1.05 && quiet < mid * 0.5, `${quiet} ${mid} ${chatty}`);
-  check('« Il parle » off: not a single bubble', mute === 0, String(mute));
+  check('« Il parle » off: not a single bubble of chit-chat', mute === 0, String(mute));
+  const heard = [];
+  W.said.length = 0; W.fresh(); W.PER.event('caractere', { kind: 'reglage', quoi: 'reglage', what: 'parle', value: false }, { visage: true, force: true }); W.run(1500, 100); heard.push(W.PER.state.say);
+  W.fresh(); W.PER.play('rdv'); W.run(3200, 100); heard.push(W.PER.state.say);
+  W.fresh(); W.Screens.event('notif', { msg: 'Un colis' }); W.run(2600, 100); const nsay = W.PER.state.say; heard.push(nsay);
+  check(`…but he still says what you need: « ${heard[0]} », the reminder « ${heard[1]} », the news « ${heard[2]} »`,
+    heard[0] === 'Chut… je me tais.' && /Dentiste|rendez-vous/.test(heard[1]) && !!nsay && W.said.length >= 3, JSON.stringify(heard));
+  setT({});
 }
 function lives(traits, minutes = 24) {               // left alone: how many moments of life?
   setT(traits); W.fresh(); W.PER.setEvery(45000, 150000); W.L.lastInput = W.clock() - 200000; let n = 0, last = '';
@@ -186,7 +212,7 @@ function lives(traits, minutes = 24) {               // left alone: how many mom
   check(`a lively Pixel lives his life more often (${pile} moments in 24 min) than the usual one (${mid}), a lazy one less (${lazy})`, pile > mid && mid > lazy, `${lazy} ${mid} ${pile}`);
   setT({ energique: 8 }); W.fresh(); W.PER.setEvery(1000, 2000); W.L.lastInput = W.clock() - 200000; const lifeSeen = new Set();
   for (let i = 0; i < 2400; i++) { W.tick(250); W.L.lastInput = Math.min(W.L.lastInput, W.clock() - 100000); if (W.cur()) lifeSeen.add(W.cur()); }
-  check('…and a lazy one sometimes just lies down (« La flemme »)', lifeSeen.has('caractere-flemme'), [...lifeSeen].join());
+  check('…and a lazy one sometimes just lies down (« Trop la flemme »)', lifeSeen.has('caractere-flemme'), [...lifeSeen].join());
   setT({ energique: 95 }); W.fresh(); W.PER.setEvery(1000, 2000); W.L.lastInput = W.clock() - 200000; let t0 = 0, id = '', took = 0;
   for (let i = 0; i < 4000 && !took; i++) { W.tick(50); W.L.lastInput = Math.min(W.L.lastInput, W.clock() - 100000); const c = W.cur(); if (c && !id && W.group(c) === 'vie') { id = c; t0 = W.clock(); } else if (id && c !== id) took = W.clock() - t0; }
   const dur = (W.PER.scenes.find(s => s.id === id) || {}).dur;
@@ -202,6 +228,28 @@ function reacts(traits, n = 30) {                   // the world's events: how m
   const blase = reacts({ curieux: 5 }), mid = reacts({}), cur = reacts({ curieux: 95 });
   check(`a blasé Pixel lets the world go by: he answers ${Math.round(blase * 100)} % of the notifications, the usual one ${Math.round(mid * 100)} %, a curious one ${Math.round(cur * 100)} %`,
     mid === 1 && cur === 1 && blase < 0.6 && blase > 0.15, `${blase} ${mid} ${cur}`);
+}
+{                                                   // what you do to him or for him: always answered, whatever his character
+  const STANDIN = `(window.PixelScenePacks ||= []).push(({ S, L }) => {   // stand-ins for the feeding and exercises packs
+    S('nourrir-test-miam', 'Test miam', 'evt', { dur: 3000, on: ['nourrir-mange'], anim: [[0, 'content']], mood: 'content', say: [[100, 2000, L('Miam !')]] });
+    S('exo-test-bravo', 'Test bravo', 'evt', { dur: 3000, on: ['exo-juste'], anim: [[0, 'fier']], mood: 'fier', say: [[100, 2000, L('Bravo !')]] });
+  });`;
+  const U = world([...base, ['persona.js', read('persona.js')], ...PACKS.map(f => [f, read(f)]), ['stand-in packs', STANDIN], ['caractere.js', read('caractere.js')], ['screens.js', read('screens.js')]], 5);
+  const USER = [['timer-done', {}], ['timer-start', {}], ['jumeau-tape', { ici: 'pi' }], ['jumeau-caresse', { ici: 'pi' }], ['poche-allume', {}], ['nourrir-mange', {}], ['exo-juste', {}]];
+  const live = USER.filter(([e, d]) => { U.fresh(); return U.PER.event(e, d, { visage: true }); });
+  const chars = [...U.CAR.PRESETS.filter(p => p.traits).map(p => [p.name, p.traits]), ...[1, 2, 3, 4, 5, 6].map(i => [`Surprise ${i}`, U.CAR.roll(() => ((i * 7919 + 13) % 1000) / 1000)]),
+    ['curieux 0', { curieux: 0 }], ['curieux 0, énergique 0, grognon 100', { curieux: 0, energique: 0, grognon: 100 }]];
+  const missed = [];
+  for (const [name, traits] of chars) {
+    U.PER.setTraits(car({ traits }));
+    for (const [e, d] of live) for (let r = 0; r < 4; r++) {
+      U.fresh(); const first = U.PER.event(e, d, { visage: true }); U.run(5000, 250); const again = U.PER.event(e, d, { visage: true });   // and again 5 s later
+      if (!first || !again) missed.push(`${name}: ${e}${first ? ' (the second)' : ''}`);
+      U.PER.stop();
+    }
+  }
+  check(`what you do to him (${live.map(x => x[0]).join(', ')}) gets an answer every time, for all ${chars.length} characters, the second one 5 s later too`,
+    live.length === USER.length && missed.length === 0 && U.errs.length === 0, `${live.length}/${USER.length} ` + missed.slice(0, 4).join(' | ') + U.errs.slice(0, 1).join());
 }
 {
   const nightLife = (calme, at) => { setT({}, { calme }); W.fresh(); W.PER.setEvery(1000, 2000); W.at(at); W.L.lastInput = W.clock() - 200000; const out = [];
@@ -304,7 +352,8 @@ const until = async (fn, ms = 6000, step = 100) => { const end = Date.now() + ms
     check('…the phone\'s own Pixel too, and the panel says so', pp[0] === 92 && pp[1] === 'true' && pp[2] === 'Grognon', JSON.stringify(pp));
     await phone.$eval('.car-trait input[data-k="calin"]', r => { r.value = '80'; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
     await until(() => st.caractere.traits.calin === 80);
-    check('a slider: that trait moves, « Sur mesure »', st.caractere.traits.calin === 80 && st.caractere.preset === 'perso' && await phone.evaluate(() => document.querySelector('.car-now-name').textContent === 'Sur mesure'));
+    const sur = await until(() => phone.evaluate(() => document.querySelector('.car-now-name').textContent === 'Sur mesure' && document.querySelector('.car-now-desc').textContent));   // the phone's own snapshot may come a bit later
+    check(`a slider: that trait moves, « Sur mesure » (« ${sur} »)`, st.caractere.traits.calin === 80 && st.caractere.preset === 'perso' && /^Un caractère à toi, plutôt/.test(sur || ''), String(sur));
     await phone.fill('.car-field input[data-k="nom"]', 'Bip'); await phone.press('.car-field input[data-k="nom"]', 'Enter');
     await until(() => st.caractere.nom === 'Bip');
     const typed = await phone.evaluate(() => [document.activeElement && document.activeElement.id, document.getElementById('cmd').value, document.querySelector('.car-title').textContent]);
@@ -331,10 +380,14 @@ const until = async (fn, ms = 6000, step = 100) => { const end = Date.now() + ms
     check('Escape closes the panel', await phone.evaluate(() => document.querySelector('.car-sheet').hidden && !document.body.classList.contains('car-open')));
     // the Pixel de poche: the phone sideways, the same traits
     act('caractere.set', { preset: 'paresseux' }); await until(() => st.caractere.preset === 'paresseux');
+    await phone.tap('.car-go'); await wait(300);                 // the sheet open when the phone turns sideways: Pixel de poche comes
     await phone.setViewportSize({ width: 844, height: 390 }); await wait(300);
-    await phone.evaluate(() => window.PixelPoche && PixelPoche.enter('fixe')); await wait(500);
-    const poche = await phone.evaluate(() => [window.PixelPoche && PixelPoche.on, Screens.persona.traits.energique]);
+    await phone.evaluate(() => window.PixelPoche && !PixelPoche.on && PixelPoche.enter('fixe')); await wait(500);
+    const poche = await phone.evaluate(() => [window.PixelPoche && PixelPoche.on, Screens.persona.traits.energique, document.querySelector('.car-sheet').hidden,
+      document.body.classList.contains('car-open'), (() => { const r = document.querySelector('.screen').getBoundingClientRect(), e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!e && !e.closest('.car-sheet'); })()]);
+    if (SHOTS) await phone.screenshot({ path: path.join(SHOTS, 'poche-apres-panneau.png') });
     check('the Pixel de poche has the same character', poche[0] === true && poche[1] === 8, JSON.stringify(poche));
+    check('…and the « Caractère » sheet goes away when he comes (nothing over him)', poche[2] === true && poche[3] === false && poche[4] === true, JSON.stringify(poche));
     await phone.evaluate(() => PixelPoche.leave()); await phone.setViewportSize({ width: 390, height: 844 });
     // his reactions, in several themes, for the eyes
     if (SHOTS) for (const [th, id, ms] of [['retro', 'caractere-grognon', 4600], ['lcd', 'caractere-prof', 3000], ['manga', 'caractere-farceur', 4200], ['neon', 'caractere-calin', 1500], ['croquis', 'caractere-nom', 2500], ['moderne', 'caractere-surprise', 1300], ['retro', 'caractere-lecon', 3600], ['lcd', 'caractere-zen', 2500]]) {
@@ -345,6 +398,14 @@ const until = async (fn, ms = 6000, step = 100) => { const end = Date.now() + ms
     if (SHOTS) for (const th of ['lcd', 'manga', 'neon']) { act('theme.set', { name: th }); await wait(500); await phone.tap('.car-go'); await wait(300); await phone.screenshot({ path: path.join(SHOTS, `panneau-${th}.png`) }); await phone.tap('.car-x'); }
     act('caractere.reset');
     check('the phone and the Pi: no error', perr.length === 0 && kerr.length === 0, perr.concat(kerr).slice(0, 3).join(' | '));
+    // a short window (a phone on its side without Pixel de poche, a small browser window): the sheet still scrolls
+    const sctx = await browser.newContext({ viewport: { width: 844, height: 390 } }), short = await sctx.newPage(), serr = errors(short);
+    await short.goto(`${BASE}/?mode=both`); await wait(1000); await short.click('.car-go'); await wait(300);
+    const land = await short.evaluate(() => { const b = document.querySelector('.car-box'), a = document.querySelector('.car-actions'), t = document.querySelector('.car-top');
+      return [b.scrollHeight > b.clientHeight + 200, getComputedStyle(a).position, Math.round(t.getBoundingClientRect().height)]; });
+    if (SHOTS) await short.screenshot({ path: path.join(SHOTS, 'panneau-paysage.png') });
+    check(`a short window: the sheet scrolls, the buttons are not stuck over it, a slim header (${land[2]} px)`, land[0] && land[1] === 'static' && land[2] <= 72 && serr.length === 0, JSON.stringify(land) + serr.join());
+    await sctx.close();
     // Pixel Lab: its « Caractère » panel and the fake server
     const lctx = await browser.newContext({ viewport: { width: 1280, height: 860 } }), lab = await lctx.newPage(), lerr = errors(lab);
     await lab.goto(`${BASE}/app/lab/index.html?themes=all`); await wait(1500);
@@ -358,6 +419,11 @@ const until = async (fn, ms = 6000, step = 100) => { const end = Date.now() + ms
     await lab.fill('#cmd', 'appelle-toi Bip'); await lab.press('#cmd', 'Enter'); await wait(300);
     const lk = await lab.evaluate(() => [PixelHub.S.caractere.preset, PixelHub.S.caractere.nom, document.querySelector('#caractere .car-field input[data-k="nom"]').value]);
     check('…and the typed commands work there too (« sois grognon », « appelle-toi Bip »)', lk[0] === 'grognon' && lk[1] === 'Bip' && lk[2] === 'Bip', JSON.stringify(lk));
+    await lab.fill('#cmd', 'aide'); await lab.press('#cmd', 'Enter'); await wait(200);
+    const help = await lab.evaluate(() => PixelHub.S.toast && PixelHub.S.toast.msg);
+    await lab.fill('#cmd', 'parle-moi'); await lab.press('#cmd', 'Enter'); await wait(300);
+    const chat = await lab.evaluate(() => [PixelHub.S.screen, PixelHub.S.caractere.parle, (PixelHub.S.chat.messages.find(m => m.role === 'user' && m.text === 'parle-moi') || {}).text]);
+    check('…« aide » names « caractère câlin », and « parle-moi » goes to Claude, as on the server', /caractère câlin/.test(help || '') && chat[0] === 'claude' && chat[1] === true && chat[2] === 'parle-moi', JSON.stringify([help, chat]));
     await lab.evaluate(() => PixelHub.dispatch('caractere.reset'));
     check('Pixel Lab: no error', lerr.length === 0, lerr.slice(0, 3).join(' | '));
   } catch (e) { check('the browser part ran to the end', false, e.stack.split('\n').slice(0, 3).join(' ')); }

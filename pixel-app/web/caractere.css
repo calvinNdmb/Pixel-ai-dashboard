@@ -74,3 +74,6 @@ body[data-theme="manga"] .car-box,body[data-theme="croquis"] .car-box{--car-k:.9
 body[data-theme="moderne"] .car-box,body[data-theme="neon"] .car-box{--car-k:.88}
 body[data-theme="lcd"] .car-box{--car-k:.9}
 @media (max-width:360px){.car-presets,.car-names{grid-template-columns:1fr}}
+/* a phone on its side: less sticky chrome, more room to scroll; Pixel de poche (poche.js) hides the sheet */
+@media (max-height:500px){.car-top{padding:6px 10px 6px 16px}.car-actions{position:static;margin-top:4px}}
+body.poche .car-sheet{display:none}

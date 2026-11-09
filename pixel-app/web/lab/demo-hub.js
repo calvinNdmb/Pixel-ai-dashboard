@@ -305,7 +305,7 @@ Object.assign(A, {
 });
 
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
-const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · sinon : Claude";
+const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caractère câlin · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
 ALLT.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });   // every theme: a disabled one gets the "not on" message
@@ -365,11 +365,18 @@ function command(raw) {
     A['screen.show']({ screen: 'visage' }); return A['anim.play']({ id });
   }
   if (SCREEN_WORDS[t]) return A['screen.show']({ screen: SCREEN_WORDS[t] });
+  if (carCommand(raw)) return;                           // « sois grognon », « plus câlin »… (caractère, below), last before Claude as in commands.py
   A['chat.ask']({ text: raw });
 }
 
 /* ---------- caractère (pixel/caractere.py; its rules come from ../caractere.js): presets, traits, his name and yours ---------- */
 const CAR = window.PixelCaractere;
+function carCommand(raw) {                               // caractere.py command(): true when it was one of his
+  const r = CAR && S.caractere ? CAR.command(String(raw || '').slice(0, 2000), S.caractere) : null;
+  if (!r) return false;
+  if (r.toast) { toast(r.toast, r.ms || 8000); if (r.mood) mood(r.mood, 2500); return true; }
+  A[r.action](r.args || {}); return true;
+}
 if (CAR) {
   let kept = null; try { kept = JSON.parse(localStorage.getItem('pixel_lab_caractere')); } catch {}   // the lab remembers him, like caractere.json
   S.caractere = { ...CAR.clean(kept || {}), change: null, essai: 0 };
@@ -377,6 +384,7 @@ if (CAR) {
     if (!ch) return;
     Object.assign(S.caractere, CAR.saved(n)); S.caractere.change = { t0: Date.now(), ...ch }; S.anim = null; S.screen = 'visage';
     try { localStorage.setItem('pixel_lab_caractere', JSON.stringify(CAR.saved(S.caractere))); } catch {}
+    if (CAR.notice(S.caractere, ch)) setTimeout(() => { if (CAR.notice(S.caractere, ch)) toast(CAR.notice(S.caractere, ch), 7000); }, CAR.NOTICE_AFTER);
   };
   Object.assign(A, {
     'caractere.set': (a = {}) => commit(...CAR.apply(S.caractere, a)),
@@ -384,13 +392,6 @@ if (CAR) {
     'caractere.reset': () => commit(CAR.clean({}), { quoi: 'reset', kind: 'pixel', adj: CAR.ADJ.pixel }),
     'caractere.essai': () => { S.caractere.essai = Date.now(); S.anim = null; S.screen = 'visage'; },
   });
-  const cmd0 = A.cmd;                                    // commands.py hands « sois grognon », « plus câlin »… to caractere.py
-  A.cmd = ({ text }) => {
-    const r = CAR.command(String(text || '').slice(0, 2000), S.caractere);
-    if (!r) return cmd0({ text });
-    if (r.toast) { toast(r.toast, r.ms || 8000); if (r.mood) mood(r.mood, 2500); return; }
-    A[r.action](r.args || {});
-  };
 }
 
 /* ---------- background jobs: timer tick (0.25 s), system graphs (1 s) ---------- */

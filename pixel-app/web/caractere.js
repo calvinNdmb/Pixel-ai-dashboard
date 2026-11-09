@@ -86,13 +86,19 @@ function today(car, d = new Date()) {
 function apply(car, a = {}, rnd = Math.random) {       // caractere.set: [new, change] (change null: nothing moved)
   const n = copy(car), quoi = []; let extra = {};
   if (typeof a.preset === 'string' && PRESET[a.preset]) { n.preset = a.preset; n.traits = a.preset === 'surprise' ? roll(rnd) : { ...PRESET[a.preset].traits }; quoi.push(a.preset === 'surprise' ? 'surprise' : 'preset'); }
-  else if (a.traits && typeof a.traits === 'object') { const t = clean({ traits: { ...n.traits, ...a.traits } }).traits; if (!same(t, n.traits)) { n.traits = t; n.preset = matching(t); quoi.push('traits'); } }
+  else if (a.traits && typeof a.traits === 'object') {   // only the valid values move a trait: a bad one leaves it as it was
+    const t = { ...n.traits }; for (const k in a.traits) { const v = TRAITS.includes(k) ? int(a.traits[k], 0, 100) : null; if (v !== null) t[k] = v; }
+    if (!same(t, n.traits)) { n.traits = t; n.preset = matching(t); quoi.push('traits'); }
+  }
   for (const [k, most] of [['nom', NOM_MAX], ['surnom', SURNOM_MAX]]) {
     let v = cleanName(a[k], most); if (v === null) continue; v = v || (k === 'nom' ? NOM : '');
     if (v !== n[k]) { n[k] = v; quoi.push(k); }
   }
   for (const k of ['humeur_jour', 'boude', 'parle']) if (typeof a[k] === 'boolean' && a[k] !== n[k]) { n[k] = a[k]; quoi.push('reglage'); extra = { what: k === 'humeur_jour' ? 'humeur' : k, value: a[k] }; }
-  if (a.calme && typeof a.calme === 'object') { const q = clean({ calme: { ...n.calme, ...a.calme } }).calme; if (q.de !== n.calme.de || q.a !== n.calme.a) { n.calme = q; quoi.push('reglage'); extra = { what: 'calme', value: q }; } }
+  if (a.calme && typeof a.calme === 'object') {
+    const q = { ...n.calme }; for (const h of ['de', 'a']) { const v = int(a.calme[h], 0, 23); if (v !== null) q[h] = v; }
+    if (q.de !== n.calme.de || q.a !== n.calme.a) { n.calme = q; quoi.push('reglage'); extra = { what: 'calme', value: q }; }
+  }
   if (!quoi.length) return [n, null];
   const first = ['surprise', 'preset', 'traits', 'nom', 'surnom', 'reglage'].find(q => quoi.includes(q));
   const k = first === 'preset' ? (ADJ[n.preset] ? n.preset : kind(n.traits)) : first === 'surprise' ? 'surprise' : first === 'traits' ? kind(n.traits, car.traits) : first;
@@ -104,6 +110,9 @@ function ajuste(car, trait, d) {                       // caractere.ajuste: « p
   return [n, { ...(ch || { quoi: 'traits', adj: ADJ[kind(n.traits)] || '' }), kind: KINDS[trait + (step > 0 ? '+' : '-')] }];
 }
 const saved = c => Object.fromEntries(SAVED.map(k => [k, copy(c[k])]));
+/* a toast for a change the screens alone would not explain (caractere.py notice) */
+const notice = (car, ch) => (ch && ch.what === 'parle' && ch.value === false && !(car && car.parle === true) ? `${(car && car.nom) || NOM} ne bavarde plus. Tape « tu peux parler » pour le réentendre.` : '');
+const NOTICE_AFTER = 3600;                             // ms: after his reaction's line (the banner would hide his bubble)
 /* typed commands (caractere.py command): { action, args } | { toast, mood } | null */
 const PRESET_WORDS = { pixel: 'pixel', normal: 'pixel', equilibre: 'pixel', 'toi-meme': 'pixel', 'toi meme': 'pixel', "comme d'habitude": 'pixel', 'par defaut': 'pixel',
   calin: 'calin', affectueux: 'calin', tendre: 'calin', grognon: 'grognon', ronchon: 'grognon', raleur: 'grognon', bougon: 'grognon', susceptible: 'grognon',
@@ -117,19 +126,23 @@ const TRAIT_WORDS = { calin: ['calin', 1], affectueux: ['calin', 1], independant
   gourmand: ['gourmand', 1], studieux: ['studieux', 1], scolaire: ['studieux', 1] };
 const NOT_NAMES = new Set(['comment', 'demain', 'plus', 'tard', 'quand', 'vite', 'maintenant', 'ce', 'soir', 'ici', 'la', 'tout', 'rien', 'si', 'que', 'qui', 'comme', 'pour',
   'dans', 'avec', 'un', 'une', 'des', 'de', 'du', 'le', 'les', 'tu', 'je', 'il', 'elle', 'me', 'te', 'moi', 'toi', 'encore', 'pas', 'ne', 'jamais', 'souvent', 'stp', 'svp',
-  'taxi', 'bientot', 'apres']);
-const TOI = /^(?:appelle[- ]?toi|tu t['’]appelles?|tu t['’]appelleras|ton nom (?:est|sera|c['’]est)|je t['’]appelle|je vais t['’]appeler)\s+(.+?)\s*[!.]*$/i;
-const MOI = /^(?:appelle[- ]?moi|je m['’]appelle|mon (?:pr[ée]nom|nom|surnom) (?:est|c['’]est))\s+(.+?)\s*[!.]*$/i;
-const OUBLIE = /^(?:ne m['’]appelle plus (?:comme [çc]a|par mon (?:nom|pr[ée]nom|surnom))|oublie mon (?:surnom|pr[ée]nom|nom)|pas de surnom)\s*[!.]*$/i;
-function aName(s, most) {
+  'taxi', 'bientot', 'apres', 'vraiment', 'aussi', 'bien', 'toujours', 'deja', 'juste', 'seulement', 'enfin', 'donc', 'alors', 'pareil', 'mieux',
+  'ainsi', 'presque', 'quoi', 'ou', 'oui', 'non', 'merci', 'bon', 'bonjour', 'salut', 'coucou', 'au', 'aux', 'en', 'et', 'mais', 'ca', 'pourquoi', 'combien',
+  'sur', 'par', 'chez', 'sans', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses', 'lui', 'nous', 'vous', 'on', 'y', 'a', 'tres', 'trop', 'peu',
+  'beaucoup', 'autrement', 'parfois', 'plutot']);
+const TOI = /^(?:appelle[- ]?toi|tu t['’]appelleras|tu vas t['’]appeler|ton nom (?:est|sera|c['’]est))\s+(.+?)\s*[!.…]*$/i;
+const TOI1 = /^(?:tu t['’]appelles?|je vais t['’]appeler)\s+(.+?)\s*[!.…]*$/i;      // sounds like chat: one word only
+const MOI = /^(?:appelle[- ]?moi|je m['’]appelle|mon (?:pr[ée]nom|nom|surnom) (?:est|c['’]est))\s+(.+?)\s*[!.…]*$/i;
+const OUBLIE = /^(?:ne m['’]appelle plus (?:comme [çc]a|par mon (?:nom|pr[ée]nom|surnom))|oublie mon (?:surnom|pr[ée]nom|nom)|pas de surnom)\s*[!.…]*$/i;
+function aName(s, most, words = 2) {
   s = s.trim();
-  if (!s || s.includes('?') || s.length > most || !/^\p{L}+(?:[ '’-]\p{L}+)?$/u.test(s)) return null;
+  if (!s || s.includes('?') || s.length > most || !(words > 1 ? /^\p{L}+(?:[ '’-]\p{L}+)?$/u : /^\p{L}+(?:-\p{L}+)?$/u).test(s)) return null;
   if (norm(s).split(/[ '’-]/).some(w => NOT_NAMES.has(w))) return null;
   return s[0].toUpperCase() + s.slice(1);
 }
 const presetsText = () => PRESETS.map(p => p.name).join(', ');
-function command(raw, car = DEFAULT) {
-  raw = String(raw).trim(); const t = norm(raw); let m;
+function command(raw, car = DEFAULT) {                // a command that changes nothing (« tu peux parler » when he does) is left to Claude
+  raw = String(raw).trim(); const t = norm(raw).replace(/\s*[.!…]+$/, ''); let m;
   const step = (un, more, sign) => (un ? 10 : 20) * sign * (more === 'plus' ? 1 : -1);
   if ((m = t.match(/^(?:sois|deviens)\s+(un peu\s+|tres\s+)?(?:une?\s+)?(plus\s+|moins\s+)?(.+?)\s*!*$/))) {
     const [, how, more, word] = m;
@@ -137,7 +150,7 @@ function command(raw, car = DEFAULT) {
     if (!more && PRESET_WORDS[word]) return { action: 'caractere.set', args: { preset: PRESET_WORDS[word] } };
     return null;
   }
-  if ((m = t.match(/^(?:caractere|personnalite)(?:\s+(.+?))?\s*!*$/))) {
+  if ((m = t.match(/^(?:caractere|personnalite)(?:\s+([^?]+?))?\s*\??$/))) {   // « caractère ? »: the list
     const word = (m[1] || '').trim();
     if (PRESET_WORDS[word]) return { action: 'caractere.set', args: { preset: PRESET_WORDS[word] } };
     if (['reset', 'reinitialise', 'reinitialiser', 'par defaut', 'normal'].includes(word)) return { action: 'caractere.reset', args: {} };
@@ -146,13 +159,15 @@ function command(raw, car = DEFAULT) {
     return { toast: `Je ne connais pas ce caractère. Les caractères : ${presetsText()}.`, ms: 8000, mood: 'confus' };
   }
   if ((m = t.match(/^(un peu\s+)?(plus|moins)\s+(.+?)\s*!*$/)) && TRAIT_WORDS[m[3]]) { const [trait, sign] = TRAIT_WORDS[m[3]]; return { action: 'caractere.ajuste', args: { trait, d: step(m[1], m[2], sign) } }; }
-  if (OUBLIE.test(raw)) return { action: 'caractere.set', args: { surnom: '' } };
-  for (const [rx, key, most] of [[TOI, 'nom', NOM_MAX], [MOI, 'surnom', SURNOM_MAX]]) {
-    if ((m = raw.match(rx))) { const name = aName(m[1], most); return name ? { action: 'caractere.set', args: { [key]: name } } : null; }
+  let args = null;
+  if (OUBLIE.test(raw)) args = { surnom: '' };
+  for (const [rx, key, most, words] of [[TOI, 'nom', NOM_MAX, 2], [TOI1, 'nom', NOM_MAX, 1], [MOI, 'surnom', SURNOM_MAX, 2]]) {
+    if (!args && (m = raw.match(rx))) { const name = aName(m[1], most, words); if (!name) return null; args = { [key]: name }; }
   }
-  if (['tais-toi', 'tais toi', 'chut', 'chut !'].includes(t)) return { action: 'caractere.set', args: { parle: false } };
-  if (['tu peux parler', 'tu peux reparler', 'reparle', 'parle-moi', 'tu peux parler maintenant'].includes(t)) return { action: 'caractere.set', args: { parle: true } };
-  return null;
+  if (['tais-toi', 'tais toi'].includes(t)) args = { parle: false };
+  if (['tu peux parler', 'tu peux reparler', 'reparle', 'tu peux parler maintenant'].includes(t)) args = { parle: true };
+  if (!args || !apply(clean(car), args, () => 0.5)[1]) return null;   // nothing to change: Claude answers
+  return { action: 'caractere.set', args };
 }
 
 /* ---------- every screen: the snapshot -> persona.js ---------- */
@@ -183,6 +198,11 @@ function todayNote(car) {                              // « Aujourd'hui, il est
   if (!moved.length) return 'Aujourd’hui, il est comme d’habitude.';
   const words = moved.map(([k, v]) => `un peu ${v > 0 ? 'plus' : 'moins'} ${ENDS[k][1].toLowerCase()}`);
   return `Aujourd’hui, il est ${words.join(' et ')}.`;
+}
+function surMesure(car) {                              // « Sur mesure »: what his own mix leans to
+  const k = kind(car.traits);
+  if (k === 'pixel') return `Un caractère à toi, presque le ${car.nom || NOM} de tous les jours.`;
+  return `Un caractère à toi, plutôt ${({ cancre: 'peu scolaire' })[k] || ADJ[k] || 'équilibré'}.`;
 }
 function build(root, o = {}) {
   const send = o.send || (() => {});
@@ -220,7 +240,7 @@ function build(root, o = {}) {
   }
   const opts = el('div', 'car-opts'), sw = {};
   for (const [k, label, help] of [['humeur_jour', 'Humeur du jour', 'Ses traits bougent un peu chaque jour.'], ['boude', 'Il peut bouder', 'Trop embêté, il part bouder dans un coin.'],
-    ['parle', 'Il parle', 'Ses petites bulles sur l’écran.']]) {
+    ['parle', 'Il parle', 'Ses petites bulles. Sinon, juste les rappels et les nouvelles.']]) {
     const b = btn('car-sw'); b.setAttribute('role', 'switch'); b.setAttribute('aria-checked', 'false'); b.dataset.k = k;
     b.append(el('span', 'car-sw-t', label), el('small', null, help), el('i', 'car-knob'));
     b.addEventListener('click', () => send('caractere.set', { [k]: b.getAttribute('aria-checked') !== 'true' }));
@@ -253,7 +273,7 @@ function build(root, o = {}) {
     car = clean(c);
     const p = PRESET[car.preset];
     nowName.textContent = p ? p.name : 'Sur mesure';
-    nowDesc.textContent = p ? p.desc : `Un caractère à toi : plutôt ${ADJ[kind(car.traits)] || 'équilibré'}.`;
+    nowDesc.textContent = p ? p.desc : surMesure(car);
     pb.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === car.preset)));
     for (const k of TRAITS) {
       const { r, out } = sliders[k], v = car.traits[k];
@@ -273,12 +293,12 @@ function build(root, o = {}) {
 /* ---------- the phone: the « Caractère » button and its sheet ---------- */
 let sheet = null, ui = null, opener = null, lastSnap = null;
 function open() {
-  if (!sheet) return;
+  if (!sheet || document.body.classList.contains('poche')) return;
   sheet.hidden = false; document.body.classList.add('car-open'); sheet.firstChild.scrollTop = 0;
   if (lastSnap) ui.render(lastSnap);
   const x = sheet.querySelector('.car-x'); if (x) x.focus();
 }
-function close() { if (!sheet || sheet.hidden) return; sheet.hidden = true; document.body.classList.remove('car-open'); if (opener) opener.focus(); }
+function close(refocus = true) { if (!sheet || sheet.hidden) return; sheet.hidden = true; document.body.classList.remove('car-open'); if (opener && refocus) opener.focus(); }
 function app(o = {}) {
   if (o.kiosk || typeof document === 'undefined') return api;
   const send = o.send || (() => {});
@@ -290,6 +310,8 @@ function app(o = {}) {
   x.addEventListener('click', close);
   sheet.addEventListener('click', e => { if (e.target === sheet) close(); });
   sheet.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') close(); });   // typing a name is not a command (app.js)
+  if (typeof MutationObserver === 'function')           // Pixel de poche (poche.js) takes the whole phone: the sheet goes away
+    new MutationObserver(() => { if (document.body.classList.contains('poche')) close(false); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   opener = btn('follow car-go', 'Caractère'); opener.title = 'Son caractère, son nom, ses habitudes';
   opener.addEventListener('click', open);
   const where = document.querySelector('.kfoot a[href$="reglages.html"]') || document.querySelector('.kfoot .follow');
@@ -299,7 +321,7 @@ function app(o = {}) {
 function state(p) { if (p && p.caractere) { lastSnap = p.caractere; if (ui && sheet && !sheet.hidden) ui.render(p.caractere); } }
 
 const api = {
-  TRAITS, ENDS, PRESETS, PRESET, KINDS, ADJ, DEFAULT, NOM, clean, cleanName, apply, ajuste, kind, roll, drift, today, saved, command, matching, todayNote,
+  TRAITS, ENDS, PRESETS, PRESET, KINDS, ADJ, DEFAULT, NOM, clean, cleanName, apply, ajuste, kind, roll, drift, today, saved, command, matching, todayNote, notice, NOTICE_AFTER, surMesure,
   screen, build, app, state, open, close, get isOpen() { return !!sheet && !sheet.hidden; },
 };
 return api;

@@ -1,12 +1,15 @@
 """Pixel's character, the server's side (pixel/caractere.py): presets, clamping, saving, the typed commands, Claude's tool and note.
 
     python3 tests/test_caractere.py        # the rules, then a demo server on port 8163 (temporary data folder), started twice
+    CARACTERE_PY_PORT=8167 python3 tests/test_caractere.py     # another port for the demo server
 
 The same rules in JavaScript (web/caractere.js, for Pixel Lab) are compared with node. What he does with his character on the
 screens (persona.js: weights, sulks, cuddles, bubbles; the « Caractère » panel) is tested in a browser by tests/test_caractere.js.
 """
 import asyncio
+import importlib.machinery
 import json
+import os
 import random
 import re
 import socket
@@ -14,17 +17,18 @@ import subprocess
 import sys
 import tempfile
 import time
+import types
 from pathlib import Path
 
 import aiohttp
 
 APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP))
-from pixel import caractere as C, commands, scenes  # noqa: E402
+from pixel import anims, caractere as C, commands, scenes  # noqa: E402
 from pixel.claude import SYSTEM, TOOLS, Claude, check, system_for, system_text  # noqa: E402
 from pixel.state import Hub  # noqa: E402
 
-PORT = 8163
+PORT = int(os.environ.get("CARACTERE_PY_PORT") or 8163)
 fails = []
 
 
@@ -49,10 +53,32 @@ out.kind = [K.kind({ ...K.DEFAULT.traits, grognon: 90 }), K.kind({ ...K.DEFAULT.
   K.kind({ ...K.DEFAULT.traits, calin: 70, grognon: 80 }, { ...K.DEFAULT.traits, grognon: 80 })];
 out.clean = K.clean({ traits: { calin: 150, grognon: -4, bavard: 'x', foo: 3 }, nom: '  Bip<script> ', surnom: 'Max!!', calme: { de: 30, a: -2 }, boude: 'non', parle: false });
 out.cmd = ['sois grognon', 'caractère câlin', 'plus câlin', 'un peu moins bavard', 'appelle-toi Bip', 'appelle-moi max', 'je m’appelle comment ?',
-  'sois gentil et allume la lumière', 'tais-toi', 'caractère', 'caractère de cochon', 'deviens une pile électrique', 'oublie mon surnom'].map(t => K.command(t));
+  'sois gentil et allume la lumière', 'tais-toi', 'caractère', 'caractère de cochon', 'deviens une pile électrique', 'oublie mon surnom'].map(t => K.command(t, { ...K.DEFAULT, surnom: 'Lou' }));
+const said = JSON.parse(process.argv[2]);
+out.phrases = said.map(([t, st]) => { const r = K.command(t, K.clean({ ...K.DEFAULT, ...st })); return !r ? 'claude' : r.toast ? (r.mood ? 'inconnu' : 'toast') : r.args; });
+const g = K.apply(K.clean({}), { preset: 'grognon' })[0];
+out.merge = [K.apply(g, { traits: { grognon: 'x', calin: 80 } })[0].traits, K.apply(g, { traits: { grognon: null, bavard: NaN, curieux: Infinity } })[1],
+  K.apply(K.apply(g, { calme: { de: 21 } })[0], { calme: { de: 'x', a: null } })[1]];
+out.notice = [K.notice({ nom: 'Bip' }, { what: 'parle', value: false }), K.notice({ nom: 'Bip' }, { what: 'parle', value: true }), K.notice({ nom: 'Bip' }, null)];
+out.sur = [K.surMesure(K.clean({ traits: { calin: 55 } })), K.surMesure(K.clean({ traits: { studieux: 20 } })), K.surMesure(K.clean({ traits: { calin: 85 } }))];
 console.log(JSON.stringify(out));
 """
-    return json.loads(subprocess.check_output(["node", "-e", code, str(APP / "web" / "caractere.js")], text=True))
+    return json.loads(subprocess.check_output(["node", "-e", code, str(APP / "web" / "caractere.js"),
+                                               json.dumps([[t, st] for t, st, _ in PHRASES], ensure_ascii=False)], text=True))
+
+
+# what the review found, typed: (text, his state, what must happen: the caractere.set arguments, "claude", or "toast" (the list))
+PHRASES = [
+    ("parle-moi", {}, "claude"), ("chut", {}, "claude"),
+    ("tu peux parler", {}, "claude"), ("tu peux parler", {"parle": False}, {"parle": True}),     # he already speaks: Claude answers
+    ("tais-toi", {}, {"parle": False}), ("tais-toi", {"parle": False}, "claude"),
+    ("oublie mon surnom", {}, "claude"), ("oublie mon surnom", {"surnom": "Max"}, {"surnom": ""}),
+    ("Tu t'appelles vraiment Pixel", {}, "claude"), ("tu t’appelles aussi Bip", {}, "claude"), ("je t'appelle maman", {}, "claude"),
+    ("je t'appelle ce soir", {}, "claude"), ("tu t'appelles Bip", {}, {"nom": "Bip"}), ("appelle-toi Petit Bip", {}, {"nom": "Petit Bip"}),
+    ("appelle-toi Pixel", {}, "claude"), ("appelle-toi Bip.", {}, {"nom": "Bip"}), ("je m'appelle vraiment Max", {}, "claude"),
+    ("appelle-moi Max…", {}, {"surnom": "Max"}), ("sois grognon.", {}, {"preset": "grognon"}), ("caractère câlin !", {}, {"preset": "calin"}),
+    ("caractère ?", {}, "toast"), ("Caractère.", {}, "toast"), ("caractère pirate", {}, "inconnu"),
+]
 
 
 def rules():
@@ -83,6 +109,10 @@ def rules():
        c["nom"] == "Bipscript" and c["surnom"] == "Max" and c["calme"] == {"de": 23, "a": 0} and c["boude"] is True and c["parle"] is False
        and c["preset"] == "pixel", json.dumps(c, ensure_ascii=False))
     ok("an empty or too long name: Pixel, or cut at 16", C.clean({"nom": "   "})["nom"] == "Pixel" and C.clean({"nom": "Abcdefghijklmnopqrstu"})["nom"] == "Abcdefghijklmnop")
+    c = C.clean(json.loads('{"traits": {"calin": 1e400, "grognon": -1e400, "bavard": NaN, "farceur": Infinity, "curieux": 70}, "calme": {"de": -Infinity}}'))
+    ok("infinite numbers (1e400, Infinity, NaN, as json reads them): ignored, no OverflowError",
+       c["traits"]["calin"] == 50 and c["traits"]["grognon"] == 50 and c["traits"]["bavard"] == 50 and c["traits"]["farceur"] == 50
+       and c["traits"]["curieux"] == 70 and c["calme"]["de"] == 23 and C.clean({"traits": {"calin": 10 ** 400}})["traits"]["calin"] == 100, str(c))
 
     # apply: what caractere.set does
     base = C.clean({})
@@ -117,6 +147,16 @@ def rules():
     ok("quiet hours: merged, clamped", n["calme"] == {"de": 21, "a": 6} and ch["what"] == "calme")
     n, ch = C.apply(base, {"preset": "calin", "nom": "Bip"})
     ok("a preset and a name at once: he shows the preset, the name is kept", n["nom"] == "Bip" and ch["kind"] == "calin")
+    g = C.apply(base, {"preset": "grognon"})[0]
+    n, ch = C.apply(g, {"traits": {"grognon": "x", "calin": 80}})
+    ok("a bad value for one trait leaves it as it was (not 50); the good one moves", n["traits"]["grognon"] == 92 and n["traits"]["calin"] == 80 and ch["kind"] == "calin", str(n["traits"]))
+    n, ch = C.apply(g, {"traits": {"grognon": None, "bavard": float("nan"), "curieux": float("inf")}})
+    ok("…only bad values: no change, no reaction", ch is None and n == g)
+    q = C.apply(g, {"calme": {"de": 21}})[0]
+    n, ch = C.apply(q, {"calme": {"de": "x", "a": None}})
+    ok("…the same for the quiet hours", ch is None and n["calme"] == {"de": 21, "a": 6})
+    ok("« tais-toi »: a toast says how to hear him again", "tu peux parler" in C.notice({"nom": "Bip"}, {"what": "parle", "value": False})
+       and C.notice({"nom": "Bip"}, {"what": "parle", "value": True}) == "" and C.notice({}, None) == "")
 
     # kinds, the mood of the day
     t50 = dict(C.DEFAULT["traits"])
@@ -140,6 +180,10 @@ def rules():
     ok("Claude has a set_character tool, with every preset and trait",
        tool and tool["input_schema"]["properties"]["preset"]["enum"] == list(C.PRESETS) and set(tool["input_schema"]["properties"]["traits"]["properties"]) == set(C.TRAITS)
        and tool.get("eager_input_streaming") and check("set_character", {"preset": "zen"}) is None and check("set_character", {"preset": "x"}))
+    words = lambda own: {k for i, label, _ in scenes.SCENES if i.startswith("caractere-") == own  # noqa: E731
+                         for w in (i, i.replace("-", " "), label) for k in (anims.key(w), scenes._bare(anims.key(w)))}
+    ok("his scenes' labels name no other pack's scene (scenes.py keeps the first, and his pack comes first)", not (words(True) & words(False)), str(words(True) & words(False)))
+    ok("…so « fais c'est noté » plays taf-act-agenda again (travail.js)", scenes.find("c'est noté") == "taf-act-agenda", scenes.find("c'est noté"))
     ok("Claude's play_scene does not offer his reactions to a change (they need a reason)",
        not [i for i in next(t for t in TOOLS if t["name"] == "play_scene")["input_schema"]["properties"]["scene"]["enum"] if scenes.BY_ID[i][1] == "evt" and i.startswith("caractere-")])
 
@@ -152,6 +196,12 @@ def rules():
        J["KINDS"] == {f"{t}{'+' if s > 0 else '-'}": k for (t, s), k in C.KINDS.items()} and J["ADJ"] == C.ADJ and J["DEFAULT"] == C.DEFAULT)
     ok("web/caractere.js: the same mood of the day (the screens and Claude agree)",
        J["drift"] == [[C.drift(d, t) for t in C.TRAITS] for d in ("2026-11-09", "2026-12-25", "2027-01-01")])
+    ok("web/caractere.js: the same merge of bad values (left as they were), the same toast",
+       J["merge"][0] == C.apply(C.apply(C.clean({}), {"preset": "grognon"})[0], {"traits": {"grognon": "x", "calin": 80}})[0]["traits"]
+       and J["merge"][1] is None and J["merge"][2] is None
+       and J["notice"] == [C.notice({"nom": "Bip"}, {"what": "parle", "value": False}), "", ""], json.dumps(J["notice"], ensure_ascii=False))
+    ok(f"« Sur mesure » in plain French: {' / '.join(J['sur'])}", J["sur"] == ["Un caractère à toi, presque le Pixel de tous les jours.",
+                                                                         "Un caractère à toi, plutôt peu scolaire.", "Un caractère à toi, plutôt câlin."])
     ok("web/caractere.js: the same kinds and cleaning", J["kind"] == [C.kind({**t50, "grognon": 90}), C.kind({**t50, "bavard": 10}), C.kind(t50),
                                                                     C.kind({**t50, "calin": 70, "grognon": 80}, {**t50, "grognon": 80})]
        and J["clean"] == C.clean({"traits": {"calin": 150, "grognon": -4, "bavard": "x", "foo": 3}, "nom": "  Bip<script> ", "surnom": "Max!!",
@@ -182,6 +232,7 @@ class Rec:
 
 
 def commands_and_saving(J):
+    C.NOTICE_AFTER = 0                               # the toast at once here (its delay: notice_later())
     tmp = Path(tempfile.mkdtemp())
     R = Rec(tmp)
     s = R.hub.s["caractere"]
@@ -215,6 +266,29 @@ def commands_and_saving(J):
     ok("« oublie mon surnom »", s["surnom"] == "")
     calls = R.cmd("caractère")
     ok("« caractère »: the list of presets on the screen", R.hub.s["toast"] and "Grognon" in R.hub.s["toast"]["msg"] and not calls)
+    real = R.hub.actions["caractere.set"]
+
+    async def spy(**a):
+        R.calls.append(("caractere.set", a))
+        await real(**a)
+    R.hub.actions["caractere.set"] = spy
+    for text, state, want in PHRASES:
+        run(R.hub.dispatch("caractere.reset"))
+        s.update(state)
+        R.hub.s["toast"] = None
+        calls = R.cmd(text)
+        toast = (R.hub.s["toast"] or {}).get("msg", "")
+        got = ("claude" if calls == [("chat.ask", {"text": text})] else calls[0][1] if len(calls) == 1 and calls[0][0] == "caractere.set"
+               else ("inconnu" if "Je ne connais pas" in toast else "toast") if not calls and "Les caractères" in toast else calls)
+        ok(f"« {text} »{' (' + json.dumps(state, ensure_ascii=False) + ')' if state else ''}: {want if isinstance(want, str) else 'caractere.set ' + json.dumps(want, ensure_ascii=False)}",
+           got == want, str(got))
+    ok("the lab (web/caractere.js) answers them the same", J["phrases"] == [w for _, _, w in PHRASES],
+       str([(t, j) for (t, _, w), j in zip(PHRASES, J["phrases"]) if j != w]))
+    run(R.hub.dispatch("caractere.reset"))
+    R.cmd("tais-toi")
+    ok("« tais-toi »: the toast says how to hear him again", "tu peux parler" in (R.hub.s["toast"] or {}).get("msg", ""), str(R.hub.s["toast"]))
+    R.hub.actions["caractere.set"] = real
+    run(R.hub.dispatch("caractere.reset"))
     for text in ("sois gentil et allume la lumière", "je m'appelle comment ?", "appelle-moi demain", "appelle-moi quand tu peux", "caractère de cochon",
                  "plus de lumière", "tu t'appelles comment ?", "sois sympa"):
         ok(f"« {text} » goes to Claude", R.cmd(text) == [("chat.ask", {"text": text})], str(R.calls))
@@ -225,6 +299,9 @@ def commands_and_saving(J):
         ("caractere.set", {"preset": "grognon"}), ("caractere.set", {"preset": "calin"}), ("caractere.ajuste", {"trait": "calin", "d": 20}),
         ("caractere.ajuste", {"trait": "bavard", "d": -10}), ("caractere.set", {"nom": "Bip"}), ("caractere.set", {"surnom": "Max"}), None, None,
         ("caractere.set", {"parle": False}), (None, None), None, ("caractere.set", {"preset": "pile"}), ("caractere.set", {"surnom": ""})], json.dumps(J["cmd"], ensure_ascii=False))
+    run(R.hub.dispatch("caractere.set", {"traits": {"calin": float("inf"), "bavard": float("nan")}}))
+    ok("caractere.set with Infinity or NaN through the hub: no change, no error", s["traits"]["calin"] == 50 and s["traits"]["bavard"] == 50
+       and "ERREUR" not in (R.hub.s["toast"] or {}).get("msg", ""), str(R.hub.s["toast"]))
 
     # saving
     saved = json.loads((tmp / "caractere.json").read_text())
@@ -238,6 +315,14 @@ def commands_and_saving(J):
     r = Rec(tmp).hub.s["caractere"]
     ok("a file with bad fields: only those get their defaults", r["traits"]["calin"] == 100 and r["traits"]["grognon"] == 50 and r["nom"] == "Pixel"
        and r["parle"] is True and r["calme"] == {"de": 22, "a": 6})
+    for bad in ('{"traits": {"calin": 1e400, "grognon": Infinity, "bavard": 80}}', "[" * 200000):
+        (tmp / "caractere.json").write_text(bad)
+        try:
+            r, err = Rec(tmp).hub.s["caractere"], ""
+        except Exception as e:                       # before the fix: OverflowError, RecursionError, and the server did not start
+            r, err = None, repr(e)[:80]
+        ok(f"a file with {'1e400 and Infinity' if bad.startswith('{') else 'a JSON bomb'}: the server still starts",
+           r is not None and r["traits"]["calin"] == 50 and r["traits"]["bavard"] == (80 if bad.startswith("{") else 50), err)
     run(R.hub.dispatch("caractere.reset"))
     ok("caractere.reset: everything back, his reaction « pixel »", {k: s[k] for k in C.SAVED} == C.DEFAULT and s["change"]["kind"] == "pixel")
     t0 = time.time() * 1000
@@ -258,6 +343,87 @@ def commands_and_saving(J):
        isinstance(sp, list) and sp[0] == {"type": "text", "text": SYSTEM} and "Farceur" in sp[1]["text"] and "Léa" in sp[1]["text"]
        and system_text(hub).startswith(SYSTEM + "\n"))
     ok("…and Claude knows nothing of it without the feature", system_for(Hub({}, demo=True)) == SYSTEM)
+
+
+def notice_later():
+    """« tais-toi »: the toast comes after his own « Chut… je me tais. », and not at all if he may speak again by then."""
+    async def go():
+        C.NOTICE_AFTER = 0.3
+        hub = Hub({}, demo=True)
+        C.setup(hub, tempfile.mkdtemp())
+        await hub.dispatch("caractere.set", {"parle": False})
+        now = hub.s["toast"]
+        await asyncio.sleep(0.45)
+        later = (hub.s["toast"] or {}).get("msg", "")
+        ok("« tais-toi »: the toast waits for the end of his own line", now is None and "tu peux parler" in later, f"{now} / {later}")
+        hub.s["toast"] = None
+        await hub.dispatch("caractere.set", {"parle": True})
+        await hub.dispatch("caractere.set", {"parle": False})
+        await hub.dispatch("caractere.set", {"parle": True})
+        await asyncio.sleep(0.45)
+        ok("…and does not come if he may speak again by then", hub.s["toast"] is None, str(hub.s["toast"]))
+    asyncio.new_event_loop().run_until_complete(go())
+    C.NOTICE_AFTER = 3.6
+
+
+def subscription():
+    """With the Claude subscription (abonnement.py, a fake Claude Agent SDK): a change of character keeps the conversation."""
+    clients = []
+    Said = type("AssistantMessage", (types.SimpleNamespace,), {})
+
+    class Client:
+        def __init__(self, options):
+            self.options, self.prompts, self.closed = options, [], False
+            clients.append(self)
+
+        async def connect(self):
+            pass
+
+        async def disconnect(self):
+            self.closed = True
+
+        async def query(self, prompt):
+            self.prompts.append(prompt)
+
+        async def receive_response(self):
+            yield Said(content=[types.SimpleNamespace(text="D'accord !")], error=None, message_id=f"m{len(self.prompts)}")
+
+    sdk = types.ModuleType("claude_agent_sdk")
+    sdk.__spec__ = importlib.machinery.ModuleSpec("claude_agent_sdk", None)
+    sdk.tool = lambda name, desc, schema: (lambda fn: types.SimpleNamespace(name=name, handler=fn))
+    sdk.create_sdk_mcp_server = lambda name, version="1.0.0", tools=None: {"type": "sdk", "name": name, "tools": tools}
+    sdk.ClaudeAgentOptions = lambda **kw: types.SimpleNamespace(**kw)
+    sdk.ClaudeSDKClient = Client
+    before = sys.modules.get("claude_agent_sdk")
+    sys.modules["claude_agent_sdk"] = sdk
+    try:
+        from pixel import abonnement
+        hub = Hub({}, demo=True)
+        C.setup(hub, tempfile.mkdtemp())
+        claude = Claude(hub, {})
+        claude.sub = abonnement.Abonnement(claude, {})
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(claude.send("coucou"))
+        loop.run_until_complete(hub.dispatch("caractere.set", {"preset": "grognon", "surnom": "Max"}))
+        loop.run_until_complete(claude.send("ça va ?"))
+        p = clients[0].prompts
+        ok("Claude subscription: a new character keeps the conversation (the same client, not closed)", len(clients) == 1 and not clients[0].closed, str(len(clients)))
+        ok("…and Claude hears it at the start of the next message", len(p) == 2 and p[1].startswith("[Ton caractère vient de changer.") and "Grognon" in p[1]
+           and "« Max »" in p[1] and p[1].endswith("\n\nça va ?"), p[-1][:160])
+        loop.run_until_complete(claude.send("et alors ?"))
+        ok("…only once", p[2] == "et alors ?", p[2][:80])
+        loop.run_until_complete(claude.run_tool("set_character", {"preset": "calin"}))        # the change Claude makes himself
+        loop.run_until_complete(claude.send("tu es comment ?"))
+        ok("…the change Claude made himself too: no new conversation", len(clients) == 1 and "Câlin" in p[3], p[3][:120])
+        loop.run_until_complete(hub.dispatch("caractere.reset"))
+        loop.run_until_complete(claude.send("et maintenant ?"))
+        ok("…and back to the Pixel of every day", len(clients) == 1 and "caractère habituel" in p[4], p[4][:120])
+        loop.close()
+    finally:
+        if before is None:
+            sys.modules.pop("claude_agent_sdk", None)
+        else:
+            sys.modules["claude_agent_sdk"] = before
 
 
 def start_server(port, datadir):
@@ -318,6 +484,8 @@ async def through_the_server(first):
 if __name__ == "__main__":
     J = rules()
     commands_and_saving(J)
+    notice_later()
+    subscription()
     with tempfile.TemporaryDirectory() as tmp:
         for first in (True, False):
             srv = start_server(PORT, tmp)

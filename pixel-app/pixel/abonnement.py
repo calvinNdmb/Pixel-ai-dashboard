@@ -111,7 +111,9 @@ class Abonnement:
     async def _ask(self, text):
         from .claude import system_text
         if self.client and getattr(self, "prompt", None) != system_text(self.hub):
-            await self.reset()                                          # his character changed: a client with the new prompt
+            from .caractere import change_note                          # his character changed: Claude hears it in the conversation,
+            text = change_note(self.hub.s.get("caractere")) + "\n\n" + text   # which goes on (the client keeps its first prompt)
+            self.prompt = system_text(self.hub)
         if not self.client:
             await self._connect()
         await self.client.query(text)

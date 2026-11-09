@@ -18,7 +18,7 @@ body.append(state);
 setInterval(() => {                                    // what the traits do right now (persona.js knobs)
   if (!per || !per.caractere) return;
   const k = per.caractere.k, f = v => '×' + (Math.round(v * 100) / 100).toString().replace('.', ',');
-  const t = `Agacement ${f(k.annoy)} · bouderie ${k.sulk ? (k.sulk > 0 ? '+' : '−') + Math.round(Math.abs(k.sulk) / 1000) + ' s' : '='} · câlins ${f(k.love)} · moments de vie ${f(1 / k.life)} · vitesse ${f(k.speed)}${k.deaf ? ` · ignore ${Math.round(k.deaf * 100)} % des événements` : ''}`;
+  const t = `Agacement ${f(k.annoy)} · bouderie ${k.sulk ? (k.sulk > 0 ? '+' : '−') + Math.round(Math.abs(k.sulk) / 1000) + ' s' : '='} · câlins ${f(k.love)} · moments de vie ${f(1 / k.life)} · vitesse ${f(k.speed)}${k.deaf ? ` · laisse passer ${Math.round(k.deaf * 100)} % des nouvelles du monde` : ''}`;
   if (state.textContent !== t) state.textContent = t;
 }, 500);
 if ($('hHelp')) {                                      // the commands to type
