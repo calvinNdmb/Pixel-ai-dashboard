@@ -36,5 +36,11 @@ theme = "retro"             # le thème au démarrage
 # Pour les retrouver tous : themes = ["retro", "moderne", "manga", "neon", "croquis", "lcd"]
 themes = ["retro"]
 
+[cast]
+# « Caster sur Pixel » depuis le téléphone (photo, GIF, vidéo, texte, lien) : voir docs/CAST.md.
+max_mb = 40                 # la taille maximale d'un fichier envoyé, en Mo
+seconds = 120               # combien de temps une photo, un GIF, un texte ou un lien reste affiché (0 : jusqu'à « Arrêter ») ; une vidéo va jusqu'au bout
+keep = 8                    # les derniers fichiers gardés dans le dossier de données (cast/), à réafficher depuis le téléphone
+
 # [security]
 # token = "..."             # code d'accès des téléphones ; créé tout seul sinon

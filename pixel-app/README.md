@@ -235,6 +235,8 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 | `fais le poisson`, `fais la sieste`, `joue la toupie`… | un de ses moments de vie (voir « Sa personnalité ») |
 | `scènes` | affiche ses moments de vie |
 | `visage vivant`, `visage pack` | change de visage |
+| `caste À table !`, `caste https://youtu.be/…` | affiche un texte ou un lien sur l'écran (voir « Caster sur Pixel ») |
+| `stop`, `stop cast` | arrête ce qui est casté |
 | `aide` | affiche la liste des commandes |
 | n'importe quoi d'autre | c'est envoyé à Claude, par exemple « baisse un peu les lumières, je regarde un film » |
 
@@ -259,6 +261,19 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 L'appli marche sur ton Wi-Fi, en IPv4 comme en IPv6 : un téléphone trouve souvent `pixel.local` par son adresse IPv6. Pixel ne répond qu'aux appareils de la maison, même si ta box laisse passer l'IPv6 depuis Internet. Sans le code d'accès, un autre appareil du réseau voit la page mais ne peut rien faire.
 
 ![Sur un téléphone](preview-phone.png)
+
+## Caster sur Pixel
+
+Depuis ton téléphone, montre quelque chose sur l'écran de Pixel. Ça s'affiche par-dessus l'écran ouvert, puis Pixel y revient tout seul.
+
+- **Dans l'appli :** ouvre **Caster sur Pixel**, sous le clavier. Choisis une photo, un GIF ou une vidéo, colle un lien (YouTube, Vimeo, une page, une image) ou écris un petit mot.
+- **Ce qui s'affiche :** une photo, un GIF ou un texte reste 2 minutes ; une vidéo va jusqu'au bout. Une page devient une carte avec un QR code pour l'ouvrir sur ton téléphone.
+- **Pour arrêter :** touche l'écran de Pixel, le bouton **Arrêter**, ou tape `stop`.
+- **Les derniers :** ils restent sous le panneau, touche-en un pour l'afficher encore.
+- **En Rétro :** l'image prend le vert du tube, avec ses lignes. **Couleurs d'origine** la laisse telle quelle. Un petit Pixel passe la tête dans le coin et réagit.
+- **Depuis une autre appli :** **Partager → Pixel** sur Android, si l'appli est installée depuis une adresse sécurisée. Sur iPhone, avec un Raccourci.
+
+Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec les autres façons de caster sur un Raspberry Pi (AirPlay, Google Cast, DLNA, Miracast, partage d'écran).
 
 ## Tes agendas (Google et Samsung)
 
@@ -358,6 +373,13 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Données réelles** (`test_real.py`) : la vraie météo d'Open-Meteo, un agenda iCal avec un événement sur la journée et un événement répété, et les 15 touches du Stream Deck dessinées dans chaque thème.
 - **Agendas** (`test_agenda.py`) : un agenda Google (heure de Paris, événement répété, vacances sur plusieurs jours, soirée après minuit, événement annulé), un fichier Samsung .vcs importé puis réimporté, un rendez-vous présent dans deux agendas affiché une seule fois, les erreurs (404, page web, pas d'internet), le fichier privé, et l'adresse secrète qui n'arrive jamais sur les écrans.
 - **Pixel Lab** : 140 vérifications dans Chromium, sur ordinateur, téléphone et en plein écran 800 × 480.
+- **Caster** (`test_cast.py`, `test_cast.js`) :
+  - les photos, GIF et vidéos sont reconnus à leurs premiers octets, jamais à leur nom : PNG, JPEG, GIF, WebP, MP4 (et le .mov de l'iPhone), WebM. Le HTML déguisé en .png, le HEIC, le Matroska et un fichier vide sont refusés.
+  - la limite de taille marche, même sans taille annoncée ; rien n'est gardé d'un envoi refusé ; un nom avec `../` donne un nom au hasard dans `cast/`. Seuls les 3 derniers fichiers restent.
+  - les liens sont classés par leur adresse seule : le serveur n'en ouvre aucun. YouTube et Vimeo, les images, les vidéos et les pages (carte avec un QR code) sont reconnus.
+  - la fin toute seule, l'arrêt, « encore », les couleurs, la fin d'une vidéo, un écran qui s'ouvre, les commandes `caste` et `stop`, et le partage Android (`/share`, puis retour à l'appli).
+  - l'accès : un appareil sans code est refusé, et une page d'un autre site affichée sur le Pi aussi (un lecteur vidéo) ; avec le code (`?t=`, en-tête, cookie), c'est bon.
+  - chaque sorte de cast se dessine dans les 6 thèmes, avec les deux visages, sous le menu. La vidéo tourne à 60 images par seconde, avec le son sur Pixel seulement. L'écran d'avant revient à la fin.
 - **Claude** (`test_claude_loop.py`) : la boucle a tourné face à un faux serveur d'API. Claude règle le salon, change de thème et d'humeur, et un thème inconnu est refusé.
 - **Claude avec l'abonnement** (`test_abonnement.py`) : face à un faux SDK Claude Agent. Le test vérifie :
   - le choix entre clé API et abonnement, et le démarrage seulement au premier message ;
@@ -391,6 +413,8 @@ python3 tests/test_agenda.py
 node tests/test_life.js
 node tests/test_pack.js
 node tests/test_persona.js
+python3 tests/test_cast.py           # son propre serveur de démo sur le port 8104
+node tests/test_cast.js
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -407,11 +431,12 @@ Pas encore testé avec le vrai matériel :
 | Fichier | Rôle |
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
-| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
+| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `cast` (caster sur l'écran), `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |
+| `docs/CAST.md` | caster sur Pixel : le mode d'emploi, et les autres façons de caster sur un Raspberry Pi |
 | `tests/` | les tests et les captures d'écran |
 | `tools/` | `build_lab_artifact.py` fait du labo une seule page HTML |
 | `deploy/` | installation sur le Pi : script, service systemd, ouverture en plein écran, règles d'accès |

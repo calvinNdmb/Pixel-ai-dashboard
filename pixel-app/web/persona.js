@@ -271,6 +271,7 @@ const EVENTS = {
   weather: 'La météo change',           // data.kind: soleil, nuage, pluie, neige, orage
   typing: 'Tu écris au clavier',
   action: 'Une touche du Stream Deck ou une action du téléphone',   // data.name: the action (lights.set, timer.start...)
+  cast: 'Quelque chose s’affiche en cast',   // data.kind: image, gif, video, text, link; data.title (screens.js, pixel/cast.py)
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the

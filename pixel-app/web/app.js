@@ -81,6 +81,7 @@ function render() {
   $('osk').hidden = !osk;
   $('cmdForm').style.bottom = osk ? $('osk').offsetHeight + 'px' : '';
   $('cmdForm').classList.toggle('hide', kiosk && !osk && !['claude', 'codex'].includes(L.scr) && document.activeElement !== $('cmd'));
+  castRender();
 }
 $('follow').setAttribute('aria-pressed', String(follow));
 $('follow').addEventListener('click', () => {
@@ -162,6 +163,71 @@ function key(v) {
   input.setRangeText(v, s, f, 'end');
   if (caps) { caps = false; buildOsk(); }
 }
+/* ---------- Caster sur Pixel (phone / computer): a photo, a video, a link or a text on his screen (pixel/cast.py) ----------
+   Files go to /api/cast (XMLHttpRequest, for the progress), with the access code; the server checks what they really are.
+   The share sheet of Android (manifest share_target) lands on /share, then back here with ?cast=ok or why it failed. */
+const CMSG = { ok: "C'est sur l'écran de Pixel !", acces: "Pas d'accès : ouvre l'appli une fois avec le QR code de Pixel.", 'trop-gros': 'Fichier trop gros.',
+  format: 'Format non pris en charge. Photos : JPEG, PNG, GIF, WebP. Vidéos : MP4, WebM.', vide: 'Rien à afficher.', lien: "Ce lien n'est pas une adresse web.",
+  erreur: "Pixel n'a pas pu l'afficher.", 'hors-ligne': 'Pixel ne répond pas. Ton téléphone est-il sur le même Wi-Fi ?' };
+const castMsg = t => setT($('castMsg'), t || '');
+let castKey = '';
+if (!kiosk) {
+  // the code in a cookie too: the pictures of the casts (/cast/...) and the share sheet carry it (SameSite=Strict: never another site)
+  if (token) document.cookie = `pixel_t=${encodeURIComponent(token)}; path=/; max-age=31536000; samesite=strict`;
+  if (token && 'serviceWorker' in navigator) navigator.serviceWorker.ready.then(r => r.active && r.active.postMessage({ token })).catch(() => {});   // sw.js: for the share sheet
+  if (qs.has('cast')) {                                     // back from the share sheet
+    $('cast').open = true; castMsg(CMSG[qs.get('cast')] || CMSG.erreur);
+    const u = new URL(location.href); u.searchParams.delete('cast'); history.replaceState(null, '', u.pathname + u.search);
+  } else if (store.get('pixel_cast') === '1') $('cast').open = true;
+  $('cast').addEventListener('toggle', () => store.set('pixel_cast', $('cast').open ? '1' : '0'));
+  $('castRaw').checked = store.get('pixel_cast_raw') === '1';
+  if ([...$('castSecs').options].some(o => o.value === store.get('pixel_cast_secs'))) $('castSecs').value = store.get('pixel_cast_secs');
+  $('castRaw').addEventListener('change', () => { store.set('pixel_cast_raw', $('castRaw').checked ? '1' : '0'); if (P && P.cast) send('cast.colors', { raw: $('castRaw').checked }); });
+  $('castSecs').addEventListener('change', () => store.set('pixel_cast_secs', $('castSecs').value));
+  $('castPick').addEventListener('click', () => $('castFile').click());
+  $('castStop').addEventListener('click', () => send('cast.stop'));
+  $('castFile').addEventListener('change', () => { const f = $('castFile').files[0]; $('castFile').value = ''; if (f) castFile(f); });
+  $('castLinkForm').addEventListener('submit', e => { e.preventDefault(); let url = $('castLink').value.trim(); if (url && !/^[a-z]+:/i.test(url)) url = 'https://' + url;   // youtu.be/… without https://
+    if (url) castSend({ url, raw: $('castRaw').checked, seconds: $('castSecs').value }).then(ok => { if (ok) $('castLink').value = ''; }); });
+  $('castTextForm').addEventListener('submit', e => { e.preventDefault(); const text = $('castText').value.trim(); if (text) castSend({ text, seconds: $('castSecs').value }).then(ok => { if (ok) $('castText').value = ''; }); });
+}
+function castSend(body) {                                   // a file (FormData) or {text} / {url}; resolves true when it shows
+  const file = body instanceof FormData;
+  return new Promise(done => {
+    const x = new XMLHttpRequest(); x.open('POST', '/api/cast');
+    if (token) x.setRequestHeader('X-Pixel-Token', token);
+    if (!file) x.setRequestHeader('Content-Type', 'application/json');
+    if (file) x.upload.onprogress = e => { if (e.lengthComputable) castMsg(`Envoi… ${Math.round(e.loaded / e.total * 100)} %`); };
+    x.onload = () => { let r = {}; try { r = JSON.parse(x.responseText); } catch { /* not JSON */ } castMsg(r.ok ? CMSG.ok : r.error || `Erreur ${x.status}.`); done(!!r.ok); };
+    x.onerror = () => { castMsg(CMSG['hors-ligne']); done(false); };
+    castMsg(file ? 'Envoi…' : ''); x.send(file ? body : JSON.stringify(body));
+  });
+}
+function castFile(f) {
+  const max = (P && P.settings.cast && P.settings.cast.max_mb) || 40;
+  if (f.size > max * 1048576) return castMsg(`Fichier trop gros : ${String(max).replace('.', ',')} Mo au plus.`);
+  const fd = new FormData(); fd.append('raw', $('castRaw').checked ? '1' : ''); fd.append('seconds', $('castSecs').value); fd.append('file', f, f.name);
+  castSend(fd);
+}
+const castLabel = c => c.kind === 'text' ? '« ' + c.text + ' »' : c.kind === 'link' ? c.title || c.site : c.title || c.kind;
+function castRender() {                                     // what is on his screen, the stop button, the last ones to show again
+  if (kiosk || !P) return;
+  const c = P.cast && (!P.cast.until || P.server_now < P.cast.until) ? P.cast : null;
+  setT($('castNow'), c ? "À l'écran : " + castLabel(c) : "Rien à l'écran pour le moment.");
+  $('castStop').disabled = !c;
+  const list = P.cast_recent || [], key = list.map(e => e.id).join() + '|' + (c ? c.src || c.url || c.text : '');
+  if (key === castKey) return; castKey = key;
+  $('castRecent').replaceChildren(...list.map(e => {
+    const b = document.createElement('button'); b.type = 'button'; b.title = 'Afficher encore : ' + castLabel(e);
+    const cur = c && (c.src || c.url || 't:' + c.text) === (e.src || e.url || 't:' + e.text); b.classList.toggle('cur', !!cur);
+    if ((e.kind === 'image' || e.kind === 'gif') && /^\/cast\//.test(e.src || '')) b.style.backgroundImage = `url("${e.src}")`;
+    else b.textContent = e.kind === 'video' ? '▶' : e.kind === 'text' ? '« ' + e.text.slice(0, 24) + ' »' : (e.site || 'lien');
+    const s = document.createElement('span'); s.textContent = e.kind === 'text' ? 'Texte' : e.title || e.kind; b.append(s);
+    b.addEventListener('click', () => send('cast.again', { id: e.id, raw: $('castRaw').checked }));
+    return b;
+  }));
+}
+
 buildOsk();
 connect();
 Screens.start();
