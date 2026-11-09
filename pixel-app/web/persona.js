@@ -272,7 +272,14 @@ const EVENTS = {
   typing: 'Tu écris au clavier',
   action: 'Une touche du Stream Deck ou une action du téléphone',   // data.name: the action (lights.set, timer.start...)
 };
-const KIT = { S, L, pick, sm, out, inn, seg, bump, tri, jumps, clamp, rnd, TAU, W, HT, A, EVENTS, H, xmasLine };
+/* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
+   D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the
+   screen, following his moves), at(name) (a point of A), col (fg, hi, dim, acc, pink, bg: the theme's colours), lw(w) (a line width that
+   stays visible in the pixel themes), heart / star / drop / ring (x, y, size, colour), glyph(text, x, y, size, colour) (always sharp),
+   pix (true in Rétro and LCD: g is then a small canvas, blown up without smoothing). A prop draws only; it never moves him. */
+const PROPS = {};
+const prop = (name, fn) => { PROPS[name] = fn; };
+const KIT = { S, L, pick, sm, out, inn, seg, bump, tri, jumps, clamp, rnd, TAU, W, HT, A, EVENTS, H, xmasLine, prop };
 for (const pack of (typeof window !== 'undefined' && window.PixelScenePacks) || []) {
   const n = SC.length;
   try { pack(KIT); } catch (e) { SC.splice(n).forEach(x => { if (BY[x.id] === x) delete BY[x.id]; }); if (typeof console !== 'undefined') console.warn('Pixel: a scene pack failed', e); }
@@ -554,7 +561,7 @@ function drawKit(g, box, m, c, U, T, pix, k = 1, crisp = []) {
     const al = g.globalAlpha, draw = q => { q.globalAlpha = al; q.fillStyle = fill; q.font = T.font(Math.round(size), 'title'); q.textAlign = 'center'; q.textBaseline = 'middle'; q.fillText(s, x, y); };
     if (pix) crisp.push(draw); else draw(g);
   };
-  return {
+  const D = {
     at,
     hearts(e, n = 1) {                              // hearts rising from his head
       const o = at('top');
@@ -656,6 +663,9 @@ function drawKit(g, box, m, c, U, T, pix, k = 1, crisp = []) {
       });
     },
   };
+  Object.assign(D, { g, U, P: (u, v) => project(box, m, u, v), col, lw, heart, star, drop, ring, glyph, pix, k });
+  for (const n in PROPS) if (!(n in D)) D[n] = (...a) => { try { PROPS[n](D, ...a); } catch (err) { /* a pack's prop must never stop him */ } };
+  return D;
 }
 
 return {
