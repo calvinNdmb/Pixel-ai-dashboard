@@ -7,9 +7,9 @@
    - what matters survives a restart: his theme, settings, lasting mood, timer, city, and every other part of his state that
      is not the Pi's: his character, his belly, tastes and meals, his exercises' scores (a new feature's S[key] comes along
      by itself; one whose truth is in a closure says how to take it back: restorable() in demo-hub.js, which gets the time
-     the copy was made, saved_at: his belly counts the time the app was closed as nourrir.py counts the Pi down). It is kept in localStorage and sent to the app ({local_save}, window.ReactNativeWebView),
-     which hands it back before the page starts (window.PIXEL_LOCAL_STATE: its copy, and the last snapshot of his Pi, so that
-     he is the same Pixel). The newest wins (what you last did here, or his Pi's snapshot); nothing goes back to the Pi;
+     the copy was made, saved_at: his belly counts the time the app was closed as nourrir.py counts the Pi down).
+     It is kept in localStorage and sent to the app ({local_save}, window.ReactNativeWebView), which hands it back before
+     the page starts (window.PIXEL_LOCAL_STATE: its copy, and the last snapshot of his Pi, so that he is the same Pixel). The newest wins (what you last did here, or his Pi's snapshot); nothing goes back to the Pi;
    - the phone's notifications, when you switched them on in the app: PixelLocal.notif() shows them as his Pi would.
    Every action demo-hub.js has works here with no extra wiring, but those named in PI below: they need the Pi.
    Without window.PIXEL_LOCAL this file does nothing. */
