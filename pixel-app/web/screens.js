@@ -41,8 +41,9 @@ function mood() {
   if (P && P.sys && P.sys.temp > 80) return 'malade';
   return 'neutre';
 }
-const THEMES = PixelThemes({ X, RM, get now() { return now; }, get S() { return S; }, get crt() { return !(P && P.view && P.view.crt_off); }, get scr() { return L.boot >= 0 ? 'boot' : L.scr; },
-  blinkP: () => (now - L.blink.t) / 180, txt, wrap, fit });
+const TH = { X, RM, get now() { return now; }, get S() { return S; }, get crt() { return !(P && P.view && P.view.crt_off); }, get scr() { return L.boot >= 0 ? 'boot' : L.scr; },
+  blinkP: () => (now - L.blink.t) / 180, txt, wrap, fit, packPose: null };       // packPose: themes.js says where the pack's head is, each time it draws a pack face
+const THEMES = PixelThemes(TH);
 const IDS = Object.keys(THEMES);
 /* Pixel's personality (persona.js): reactions to touch, moods that last, moments of life when nobody looks */
 const SON = () => window.PixelSon;                    // his voice (son.js), on the Pi's own screen only
@@ -122,6 +123,10 @@ function packDraw(player, want, x, y, w, h, a, m) {   // a: life state for the t
   return st;
 }
 const PBOX = { x: 64, y: 50, w: 672, h: 378 };       // 16:9 between the header and the bottom line (7 screen pixels per pack pixel)
+/* the living face of each theme has its eyes and mouth elsewhere than the pack's (eyes at rows 23.5 and columns 33 and 63, mouth
+   at row 37, the top of the head at row 12): ku widens what he wears around the middle, v says where those three rows are */
+const VFIT = { retro: { ku: 1.22, v: [[12, 11], [23.5, 18.9], [37, 35]] }, moderne: { ku: 1.3, v: [[12, 9.5], [23.5, 19.6], [37, 35.7]] }, manga: { ku: 1.31, v: [[12, 8.5], [23.5, 19.7], [37, 35.5]] },
+  neon: { ku: 1.3, v: [[12, 11.5], [23.5, 20.9], [37, 35.7]] }, croquis: { ku: 1.3, v: [[12, 11.5], [23.5, 20.9], [37, 35.7]] }, lcd: { ku: 0.57, v: [[12, 13.6], [23.5, 22.6], [37, 32.3]] } };
 
 /* ---------- Visage ---------- */
 function drawVisage() {
@@ -131,14 +136,18 @@ function drawVisage() {
   let pm = PV.id ? PV.m : L.lean || null; if (pm && pack && T.faceFps) pm = snapPix(pm);   // L.lean: the Pixel de poche leans as you tilt the phone (poche.js)
   const lmd = PV.id && PV.mood && (PV.group !== 'vie' || md === 'neutre') ? PV.mood : md;
   const a = LIFE.face.update(now, lmd, { look: PV.id ? null : ptr, idle: now - L.lastInput, sleepIn, calm: RM || pack || !!anim || !!PV.id });
-  if (pack || (anim && T.packFace)) packDraw(PLAY.face, pack ? packWant() : anim, PBOX.x, PBOX.y, PBOX.w, PBOX.h, a, pm);
-  else {
+  let head = null;                                    // where his head is in the face's grid, for what he wears (persona.js decor)
+  if (pack || (anim && T.packFace)) {
+    TH.packPose = null; packDraw(PLAY.face, pack ? packWant() : anim, PBOX.x, PBOX.y, PBOX.w, PBOX.h, a, pm);
+    const q = TH.packPose; head = { dx: q ? q.dx : 0, dy: (q ? q.dy : 0) - a.hop * 16 / 7, rot: q ? q.rot : 0 };
+  } else {
+    head = { dx: 0, dy: -a.hop * 16 / 7, rot: a.tilt, pu: 48, pv: 47, fit: VFIT[T.id] || VFIT.moderne };
     const nap = (a.mood === 'endormi' ? a.k : 0) + (a.from === 'endormi' ? 1 - a.k : 0);
     X.save(); moveFace(pm, PBOX.x, PBOX.y, PBOX.w, PBOX.h);
     X.globalAlpha = 1 - (1 - (T.sleepA ?? 0.6)) * clamp(nap, 0, 1);
     face(400, 236, 16, a.mood, a.lx, a.ly, a); X.globalAlpha = 1; X.restore();
   }
-  if (PER && PER.decor) { X.shadowBlur = 0; PER.decor(PBOX, pm || PV.m); glow(); }   // what he wears (his Santa hat in December)
+  if (PER && PER.decor) { X.shadowBlur = 0; PER.decor(PBOX, pm || PV.m, RM ? (head.fit ? { fit: head.fit } : null) : head); glow(); }   // what he wears (his Santa hat in December, the accessories of his shop)
   if (PER && PV.id) { X.shadowBlur = 0; PER.drawOver(PBOX, pm || PV.m); glow(); }
   const parts = [], r = P.lights.rooms[0], w = P.weather, e = nextEvent();
   if (r) parts.push(`${r.name} ${r.on ? r.bri + ' %' : 'éteint'}`);
@@ -914,6 +923,7 @@ function frame(t) {
     else { const ad = addonOn(); if (!ad || !ad.instead()) (DRAW[L.scr] || drawVisage)(dt); if (ad) addonDraw(ad, dt); }
   }
   if (P && L.boot < 0 && !cast && window.PixelNourrir) window.PixelNourrir.over(NOUR);   // Nourrir: his food tray (web/nourrir.js), never over a cast
+  if (P && L.boot < 0 && !cast && window.PixelBoutique) window.PixelBoutique.over(NOUR);   // his shop (web/boutique.js): its bag, its tray, the coins he wins
   if (P && L.menu && L.boot < 0) drawMenu();
   drawBanner();
   if (T.fg && !cast) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }     // the CRT effects (Rétro), the LCD's glass: never over a cast

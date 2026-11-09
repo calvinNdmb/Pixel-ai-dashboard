@@ -1,7 +1,10 @@
 /* Vendored from the user's own animation pack "Pixel OS — 3 thèmes, 52 animations" (version 2.1.0, src/pixel.js).
    Changes for Pixel OS: the globals are renamed so they do not clash with ours (window.Pixel is window.Pixel52, and it calls window.Pixel52Themes);
-   nothing else is modified. Loaded by index.html and the lab before themes.js. */
-/* Pixel — 52 animations, including 18 idles. Canvas 2D, no dependency. */
+   and 23 animations were added at the user's request, after the pack's 52 (the list's last 23 lines, and the cases after
+   "added in Pixel OS" below): meals, exercises, the timer, music and video, the weather, four emotions, three idles.
+   frame() also says where the head is (buf.pose), for what he wears. Nothing else is modified.
+   Loaded by index.html and the lab before themes.js. */
+/* Pixel — 52 animations, including 18 idles (75 and 21 with Pixel OS's). Canvas 2D, no dependency. */
 (function (scope) {
   'use strict';
   const W = 96, H = 54, TAU = Math.PI * 2;
@@ -58,7 +61,30 @@
     ['idle-etire','Petit étirement','Idle',10,'Il s’étire lentement avant de retrouver sa pose.'],
     ['idle-gratouille','Gratouille','Idle',10,'Une petite démangeaison sur la joue.'],
     ['idle-luciole','La luciole','Idle',12,'Une luciole passe ; Pixel la suit des yeux.'],
-    ['idle-impatient','Tapotement','Idle',10,'En attendant, il tapote doucement du bout des doigts.']
+    ['idle-impatient','Tapotement','Idle',10,'En attendant, il tapote doucement du bout des doigts.'],
+    ['mange','Miam','Activités',4,'Il mâche de bon cœur, des miettes plein l’écran.'],
+    ['beurk','Beurk','Émotions',3,'Il tire la langue et secoue la tête : pas bon !'],
+    ['repu','Repu','Activités',5,'Le ventre plein, il souffle et se tapote le ventre.'],
+    ['petit-creux','Petit creux','Activités',4,'Son ventre gargouille ; il regarde vers le bas.'],
+    ['compte','Compte sur ses doigts','Activités',5,'Un, deux, trois… il lève les doigts un à un.'],
+    ['concentre','Concentré','Activités',5,'Les yeux plissés, la langue tirée, le crayon qui gratte.'],
+    ['en-feu','En feu !','Activités',4,'Une série gagnante : des flammes et des étoiles dans les yeux.'],
+    ['casque','Casque sur les oreilles','Activités',4,'Il hoche la tête en rythme sous son casque.'],
+    ['popcorn','Pop-corn','Activités',5,'Les yeux grands ouverts devant le film, le pop-corn saute.'],
+    ['compte-a-rebours','Compte à rebours','Système',5,'Il fixe l’aiguille qui tourne, de plus en plus tendu.'],
+    ['ding','Ding !','Système',3,'La cloche sonne : il sursaute, c’est fini !'],
+    ['pause-cafe','Pause café','Repos',5,'Une tasse fumante et un long moment de détente.'],
+    ['jaloux','Jaloux','Émotions',4,'Un regard en coin et une petite moue.'],
+    ['gene','Gêné','Émotions',4,'Un sourire crispé, une goutte de sueur, il regarde ailleurs.'],
+    ['soulage','Soulagé','Émotions',4,'Ouf ! Il ferme les yeux et souffle un grand coup.'],
+    ['trepigne','Impatient','Émotions',3,'Il trépigne sur place, un œil sur sa montre.'],
+    ['froid','Frissonne','Météo',4,'Il grelotte, les dents qui claquent, sous les flocons.'],
+    ['chaud','Trop chaud','Météo',5,'Il fond un peu et tire la langue sous le soleil.'],
+    ['vent','Coup de vent','Météo',4,'Une bourrasque le pousse de côté, une feuille s’envole.'],
+    ['orage','Orage','Météo',4,'Un éclair : il sursaute, puis guette le suivant.'],
+    ['idle-fredonne','Il fredonne','Idle',9,'Un petit air lui trotte dans la tête.'],
+    ['idle-heure','Un œil sur l’heure','Idle',9,'Il jette un coup d’œil à la pendule.'],
+    ['idle-bulle','La bulle','Idle',11,'Une bulle de savon monte ; il la regarde éclater.']
   ].map(([id,label,group,duration,description])=>({id,label,group,duration,description}));
   const frequentIdles=new Set(['content','idle-respire','idle-cligne','idle-regard','idle-incline','idle-sourit','idle-haut','idle-bas']);
   animations.forEach(a=>{if(a.group==='Idle')a.idleWeight=frequentIdles.has(a.id)?3:1;});
@@ -74,6 +100,10 @@
   const note=['00111','00101','00101','00100','11100','11100'];
   const bulb=['0011100','0111110','1100011','1100011','0111110','0011100','0011100','0000000','0011100'];
   const check=['0000001','0000011','1000110','1101100','0111000','0010000'];
+  const flame=['00100','00100','01110','01110','11111','11111','01110'];
+  const bell=['0001000','0011100','0111110','0111110','0111110','1111111','0001000'];
+  const flake=['10101','01110','11111','01110','10101'];
+  const bolt=['00011','00110','01100','11111','00110','01100','11000','10000'];
   function frame(id, seconds=0) {
     const animation=index[id];
     if (!animation) throw new RangeError('Unknown Pixel animation: '+id);
@@ -159,6 +189,30 @@
       case 'idle-gratouille':{const a=envelope(p,.25,.36,.63,.75);tilt=-.04*a;ex=1.5*a;eyeR=a>.85?'half':'open';break;}
       case 'idle-luciole':{const a=envelope(p,.1,.2,.73,.88);ex=3*wave(p-.16)*a;ey=-1.5*a;tilt=.025*wave(p)*a;break;}
       case 'idle-impatient':{const a=envelope(p,.22,.35,.65,.78);ex=-1.5*a;mouth=a>.7?'flat':'smile';mouthW=a>.7?3:4;oy=.25*wave(p);break;}
+      // ---- added in Pixel OS ----
+      case 'mange':mouth='talk';mouthW=3;mouthH=1+Math.abs(wave(p,6))*2;oy=.8*Math.abs(wave(p,6));if(p>.7)eyeL=eyeR='happy';break;
+      case 'beurk':eyeL=eyeR=action>.3?'closed':'half';mouth='flat';mouthW=4;ox=1.5*wave(p,6)*action;blush=false;break;
+      case 'repu':eyeL=eyeR=action>.5?'closed':'half';mouthW=5;oy=1+.8*wave(p);break;
+      case 'petit-creux':ey=2*action;mouth='crooked';oy=.5*wave(p,2);blush=false;break;
+      case 'compte':ex=-1.5*action;ey=-2*action;mouth='flat';mouthW=1;tilt=-.04*action;break;
+      case 'concentre':eyeL=eyeR='half';ey=2;ex=1.5*wave(p,2);mouth='flat';mouthW=2;break;
+      case 'en-feu':eyeL=eyeR='star';mouth='laugh';oy=-1.5*Math.abs(wave(p,3));break;
+      case 'casque':eyeL=eyeR='happy';tilt=.08*wave(p,2);oy=-1.2*Math.abs(wave(p,4));break;
+      case 'popcorn':rx=5;ry=6.3;ey=1;mouth='o';mouthW=2;mouthH=1+Math.round(Math.abs(wave(p,5)));break;
+      case 'compte-a-rebours':ex=3;ey=-2;ox=.7*wave(p,12)*p;mouth=p>.7?'grit':'flat';mouthW=3;blush=false;break;
+      case 'ding':rx=4.4+action;ry=5.7+1.2*action;mouth=action>.3?'o':'smile';mouthH=2+action;oy=-3*Math.abs(wave(p,3))*action;break;
+      case 'pause-cafe':eyeL=eyeR=action>.4?'closed':'half';mouthW=4;oy=1+.6*wave(p);break;
+      case 'jaloux':eyeL=eyeR='half';ex=4*action;mouth='frown';mouthW=2;tilt=-.05*action;blushColor=4;break;
+      case 'gene':ex=-3*action;ey=action;mouth=action>.3?'grit':'smile';tilt=.05*action;break;
+      case 'soulage':{const a=envelope(p,.2,.32,.62,.8);eyeL=eyeR=p>.78?'happy':a>.5?'closed':'open';mouth=p<.62?'o':'smile';if(p<.62){mouthW=2;mouthH=1+2*a;}oy=2*a;if(p<.2){rx=5;ry=6.2;}break;}
+      case 'trepigne':eyeL=eyeR='half';oy=-2*Math.abs(wave(p,6));ex=2;ey=1.5*action;mouth='flat';mouthW=3;break;
+      case 'froid':eyeL=eyeR='half';color=5;ox=.8*wave(p,14);mouth='grit';blush=false;break;
+      case 'chaud':eyeL=eyeR='half';oy=2*action;ry=5.7-action;mouth='o';mouthW=3;mouthH=1+Math.abs(wave(p,4))*2;break;
+      case 'vent':{const a=envelope(p,.15,.35,.6,.85);ox=5*a+.6*wave(p,10)*a;tilt=.12*a;eyeL=eyeR=a>.4?'half':'open';mouth=a>.4?'flat':'smile';mouthW=a>.4?3:4;break;}
+      case 'orage':{const f=envelope(p,.18,.2,.26,.36),a=envelope(p,.2,.26,.42,.52);ey=-1.5;rx=4.4+f;ry=5.7+1.6*f;oy=-3*f;ox=1.2*wave(p,16)*a;mouth=p>.18&&p<.52?'o':'crooked';mouthH=2+f;if(p>.52)eyeL=eyeR='half';blush=p<.18;break;}
+      case 'idle-fredonne':{const a=envelope(p,.2,.35,.7,.85);if(a>.5){mouth='o';mouthW=2;mouthH=1+Math.round(Math.abs(wave(p,6)));}tilt=.04*wave(p,3)*a;oy=.3*wave(p);break;}
+      case 'idle-heure':{const a=envelope(p,.2,.32,.6,.72);ex=3*a;ey=-2.2*a;mouth=a>.8?'flat':'smile';mouthW=a>.8?3:4;oy=.3*wave(p);break;}
+      case 'idle-bulle':{const a=envelope(p,.1,.2,.68,.8),q=clamp((p-.1)/.6);ex=(-3+1.2*wave(q))*a;ey=(2.5-5*q)*a;if(p>.7&&p<.77)ry=6.3;oy=.3*wave(p);break;}
     }
     function drawEye(x,kind){
       x+=ex;const y=eyesY+ey;
@@ -225,8 +279,33 @@
       case 'idle-gratouille':{const a=envelope(p,.25,.36,.63,.75);if(a>.1){const x=80-a*4,y=42-a*9;line(79,43,x,y+4,1,1,false);sprite(['101','111','111','010'],x-1,y+Math.round(wave(p,10)*a),1);}}break;
       case 'idle-luciole':if(p>.1&&p<.87){const q=(p-.1)/.77;const x=12+72*q,y=13+4*wave(q);dot(x,y,2,false);dot(x-1,y+1,6,false);dot(x+1,y-1,6,false);}break;
       case 'idle-impatient':{const a=envelope(p,.22,.35,.65,.78);if(a>.1)for(let i=0;i<3;i++)rect(70+i*3,45-Math.round(Math.max(0,wave(p*5+i*.15))*a),2,2,1,false);break;}
+      // ---- added in Pixel OS ----
+      case 'mange':for(let i=0;i<4;i++){const q=(p*2+i/4)%1;dot(43+i*3+Math.round(wave(q+i)),41+q*9,i%2?4:2,false);}rect(17,34,7,3,3);rect(73,34,7,3,3);break;
+      case 'beurk':rect(46,mouthY+1,5,2+Math.round(action*2),3);for(let i=0;i<3;i++)for(let n=0;n<6;n++)dot(9+i*4+Math.round(wave(p*2+n*.18+i*.3)),13+n*2,7,false);break;
+      case 'repu':sprite(hand,45+Math.round(wave(p,4)*2),47,1,1,true);if(action>.5){const q=(p*2)%1;ring(60+q*14,36-q*5,1+q*3,6);}break;
+      case 'petit-creux':for(let i=0;i<3;i++)for(let n=0;n<9;n++)dot(40+n*2,45+i*3+Math.round(wave(p*3+n*.17+i*.2)),i===1?1:6,false);break;
+      case 'compte':{const n=Math.min(4,1+Math.floor(p*4.4));rect(76,23,8,6,1,false);rect(84,25,2,2,1,false);for(let i=0;i<n;i++)rect(76+i*2,i===n-1?16:17,1,i===n-1?7:6,i===n-1?2:1,false);break;}
+      case 'concentre':{eyebrow(32,true,true);eyebrow(64,false,true);rect(50,mouthY,2,2,3);const x=38+Math.round(10+10*wave(p,5));line(x,47,x+5,41,4,2,false);dot(x,48,2,false);for(let n=0;n<Math.floor(p*20);n++)dot(30+n*2,50+(n%2),6,false);break;}
+      case 'en-feu':for(let i=0;i<6;i++){const x=[4,14,24,67,77,87][i],h=Math.round(2*Math.abs(wave(p*3+i*.23)));sprite(flame,x,44-h,4);sprite(['010','111','111'],x+1,48-h,3);}break;
+      case 'casque':for(let a=Math.PI;a<=TAU;a+=.03){dot(48+Math.cos(a)*35,20+Math.sin(a)*16,1);dot(48+Math.cos(a)*35,21+Math.sin(a)*16,1);}rect(10,18,6,11,1);rect(11,20,4,7,6);rect(80,18,6,11,1);rect(81,20,4,7,6);sprite(note,3,8+Math.round(wave(p,2)),4);sprite(note,88,9-Math.round(wave(p,2)),3);break;
+      case 'popcorn':rect(40,45,17,9,3,false);for(let i=0;i<4;i++)rect(42+i*4,45,2,9,2,false);for(let i=0;i<5;i++){const q=(p*2+i/5)%1;ellipse(42+i*3.2+wave(q+i)*2,44-Math.sin(Math.PI*q)*11,1,1,i%2?4:2,false);}break;
+      case 'compte-a-rebours':{ring(81,15,7,1);const a=TAU*p*3-Math.PI/2;line(81,15,81+Math.cos(a)*4,15+Math.sin(a)*4,4,1,false);rect(80,6,3,2,1,false);if(p>.45){const q=(p*3)%1;ellipse(14,14+q*12,1,2,5,false);}break;}
+      case 'ding':{const w=Math.round(wave(p,6)*2*action);sprite(bell,76+w,10,4);dot(79+w*2,18,2,false);if(action>.4){line(72,9,70,7,4,1,false);line(87,9,89,7,4,1,false);line(71,14,68,14,4,1,false);line(88,14,91,14,4,1,false);}break;}
+      case 'pause-cafe':rect(70,41,10,8,1,false);rect(71,42,8,2,4,false);rect(71,44,8,4,0,false);rect(80,43,2,1,1,false);rect(82,44,1,3,1,false);rect(80,47,2,1,1,false);for(let i=0;i<2;i++){const q=(p+i*.5)%1;for(let n=0;n<4;n++)dot(73+i*4+Math.round(wave(q+n*.2,2)),39-q*9-n,q<.6?6:7,false);}break;
+      case 'jaloux':eyebrow(32,true,true);eyebrow(64,false,true);rect(72,34,7,3,4);for(let n=0;n<3;n++)dot(83+n*2,22+Math.round(wave(p*2+n*.2)),7,false);break;
+      case 'gene':{rect(17,33,7,3,3);rect(73,33,7,3,3);const q=(p*2)%1;ellipse(81,13+q*10,1,2,5,false);dot(81,11+q*10,5,false);break;}
+      case 'soulage':if(p>.25&&p<.72){const q=(p-.25)/.47;ring(56+q*20,38-q*6,1+q*4,q<.6?1:6);ring(60+q*24,40-q*3,q*3,6);}if(p<.2){rect(78,13,2,5,4,false);rect(78,20,2,2,4,false);}break;
+      case 'trepigne':{eyebrow(32,true,true);eyebrow(64,false,true);const s=Math.floor(p*12)%2;line(s?24:60,52,s?30:66,52,6,1,false);dot(s?22:68,51,6,false);ring(80,41,4,4);const a=TAU*p*2-Math.PI/2;line(80,41,80+Math.cos(a)*2,41+Math.sin(a)*2,1,1,false);rect(79,35,3,2,4,false);rect(79,46,3,2,4,false);break;}
+      case 'froid':for(let i=0;i<3;i++){const q=(p+i/3)%1;sprite(flake,[8,82,70][i]+Math.round(wave(q)*2),3+q*40,2);}line(13,20,11,22,5,1,false);line(13,26,11,28,5,1,false);line(83,20,85,22,5,1,false);line(83,26,85,28,5,1,false);break;
+      case 'chaud':{ellipse(82,11,4,4,4,false);for(let i=0;i<8;i++){const a=i*TAU/8+p*TAU/2;line(82+Math.cos(a)*6,11+Math.sin(a)*6,82+Math.cos(a)*8,11+Math.sin(a)*8,4,1,false);}rect(46,mouthY+2,5,3,3);for(let i=0;i<2;i++){const q=(p*2+i*.5)%1;ellipse(i?74:18,18+q*14,1,2,5,false);}for(let i=0;i<3;i++){const q=(p+i/3)%1;rect(40+i*8,46+q*6,1,2,6,false);}break;}
+      case 'vent':{for(let i=0;i<3;i++){const q=(p*2+i/3)%1,x=-14+q*118,y=[9,29,47][i];line(x,y,x+12,y,i===1?7:6,1,false);dot(x+13,y-1,6,false);}const x=6+p*84,y=16+8*wave(p,2);sprite(Math.floor(p*8)%2?['011','110','100']:['110','011','001'],x,y,4);break;}
+      case 'orage':{if(p>.18&&p<.36)sprite(bolt,78,3,Math.floor(p*40)%2?2:4,2);for(let i=0;i<6;i++){const q=(p*3+i/6)%1,x=[5,12,20,74,84,92][i]-q*4,y=q*52;line(x,y,x-1,y+3,5,1,false);}break;}
+      case 'idle-fredonne':{const a=envelope(p,.2,.35,.7,.85);if(a>.3){const q=((p-.2)*3)%1;sprite(note,76+Math.round(wave(q)*2),24-q*12,q<.7?1:6);}break;}
+      case 'idle-heure':{const a=envelope(p,.2,.32,.6,.72);if(a>.3){const c=a>.7?1:6;ring(84,9,4,c);line(84,9,84,6,c,1,false);line(84,9,86,10,c,1,false);}break;}
+      case 'idle-bulle':if(p>.1&&p<.7){const q=(p-.1)/.6,x=20+6*wave(q),y=50-q*40;ring(x,y,3,5);dot(x-1,y-2,2,false);}else if(p>=.7&&p<.76)sparkle(20,10,2+Math.round((p-.7)*40),5);break;
     }
     if(id==='bug'&&p>.38&&p<.56){const copy=buf.slice();const displacement=Math.round(wave(p,14)*5);for(let y=19;y<27;y++)for(let x=0;x<W;x++){const sx=x+displacement;buf[y*W+x]=sx>=0&&sx<W?copy[y*W+sx]:0;}for(let n=0;n<8;n++)dot(15+n*9,30+(n%3),n%2?5:3,false);}
+    buf.pose={dx:ox,dy:oy,rot:tilt};
     return buf;
   }
   function draw(canvas,id,time,options={}){

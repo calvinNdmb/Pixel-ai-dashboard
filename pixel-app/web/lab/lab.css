@@ -243,3 +243,8 @@ body.kiosk .screen canvas#crt{touch-action:none}
 .nour-lab-menu button.fav{box-shadow:inset 0 0 0 2px var(--amber)}
 .nour-lab-menu button:disabled{opacity:.4;cursor:default}
 .nour-lab-menu canvas{width:36px;height:36px;image-rendering:pixelated;image-rendering:crisp-edges}
+/* the Boutique panel (boutique-lab.js): the 24 accessories, drawn in the theme's colours on its background */
+.bout-lab-menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.bout-lab-menu button{min-width:48px;min-height:52px;display:grid;place-items:center;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--bl-bg,#061009);cursor:pointer}
+.bout-lab-menu button:hover{border-color:var(--accent)}
+.bout-lab-menu button.fav{box-shadow:inset 0 0 0 2px var(--amber)}

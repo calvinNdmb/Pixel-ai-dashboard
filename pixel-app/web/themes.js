@@ -1267,6 +1267,7 @@ function pkLayer(name) {                             // a 96x54 canvas and its p
 }
 function pkFrame(st) {                               // the pack's frame, mixed with the previous one during a change
   const P52 = window.Pixel52, a = P52.frame(st.id, st.time);
+  H.packPose = a.pose || null;                       // where the head is, for what he wears (screens.js, persona.js decor)
   if (!st.from || st.k >= 1) return a;
   const b = P52.frame(st.from.id, st.from.time), out = new Uint8Array(a.length);
   for (let j = 0; j < 54; j++) for (let i = 0; i < 96; i++) { const n = j * 96 + i; out[n] = bayer(i, j) < st.k ? a[n] : b[n]; }
@@ -1292,7 +1293,7 @@ function pkPixels(x, y, w, h, st, o) {
 function pkVector(x, y, w, h, st, theme, post) {
   const V = window.Pixel52Themes; if (!V) return;
   const c = pkCanvas('v' + Math.round(w) + 'x' + Math.round(h), w, h);
-  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from });
+  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from }); H.packPose = V.draw.pose || null;
   const ga = X.globalAlpha, op = X.globalCompositeOperation, b = X.shadowBlur; X.shadowBlur = 0;
   if (post === 'glow') {                             // cheap bloom: a small copy, blown up and added
     const sc = pkCanvas('vb' + Math.round(w) + 'x' + Math.round(h), w / 6, h / 6), g = sc.getContext('2d');

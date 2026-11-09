@@ -80,8 +80,9 @@ def static_checks():
     check("Claude can pick every mood", tools["set_mood"]["mood"]["enum"] == MOODS)
     pack = (web / "pack52" / "pixel52.js").read_text()
     engine_ids = re.findall(r"^    \['([a-z-]+)',", pack, re.M)
-    check("the pack: 52 animations, 18 idles, the same ids in animations.json and in the engine", len(anims.IDS) == 52 and engine_ids == anims.IDS
-          and sum(a["group"] == "Idle" for a in anims.ANIMS) == 18, f"{len(engine_ids)} {len(anims.IDS)}")
+    check("the pack: 75 animations (its 52, 23 added in Pixel OS), 21 idles, the same ids in animations.json and in the engine", len(anims.IDS) == 75
+          and engine_ids == anims.IDS and sum(a["group"] == "Idle" for a in anims.ANIMS) == 21, f"{len(engine_ids)} {len(anims.IDS)}")
+    check("every animation is in a group that « animations » lists", {a["group"] for a in anims.ANIMS} == set(anims.GROUPS))
     check("the pack's globals are renamed (Pixel52, Pixel52Themes)", "scope.Pixel52=api" in pack and "scope.PixelThemes" not in pack
           and "scope.Pixel52Themes=" in (web / "pack52" / "pixel52-themes.js").read_text())
     check("the app and the lab load the pack before themes.js", all(
@@ -315,7 +316,7 @@ async def main(args):
             await cmd("anim pirate")
             check("an unknown animation makes him confused and says so", state["mood"]["name"] == "confus" and "animation" in state["toast"]["msg"])
             await cmd("animations")
-            check("'animations' lists them", state["toast"]["msg"].startswith("Les 52 animations") and "Gratouille" in state["toast"]["msg"] and state["toast"]["ms"] == 15000)
+            check("'animations' lists them", state["toast"]["msg"].startswith("Les 75 animations") and "Pause café" in state["toast"]["msg"] and "Gratouille" in state["toast"]["msg"] and state["toast"]["ms"] == 15000)
 
             # ---- his personality: scenes asked for by a command ----
             await act("anim.play", id="danse")
@@ -351,7 +352,7 @@ async def main(args):
             for _ in range(len(anims.SHOW)):
                 k = state["keys"]["row3"]["visage"][3]
                 await act(k["action"], 0.15, **k["args"])
-            check("Anim + walks through the 34 that are not idles", state["anim"]["id"] == key[3]["args"]["id"])
+            check("Anim + walks through the 54 that are not idles", state["anim"]["id"] == key[3]["args"]["id"])
             for name in FACES:
                 await act("face.set", name=name)
                 check(f"face.set {name} is saved", state["view"]["face"] == name and json.loads((datadir / "ui.json").read_text()) == {"theme": "croquis", "face": name})

@@ -38,7 +38,7 @@ if (!MOODS.some(m => m.id === 'neutre')) MOODS.unshift({ id: 'neutre', name: 'Ne
 const MNAME = Object.fromEntries(MOODS.map(m => [m.id, m.name]));
 const ANIMS = (window.Pixel52 && Array.isArray(window.Pixel52.animations) ? window.Pixel52.animations : []).map(a => ({ id: a.id, label: a.label, group: a.group, duration: a.duration }));
 const ABY = Object.fromEntries(ANIMS.map(a => [a.id, a])), SHOW = ANIMS.filter(a => a.group !== 'Idle').map(a => a.id);
-const AGROUPS = ['Humeurs', 'Émotions', 'Activités', 'Système', 'Repos', 'Idle'];
+const AGROUPS = ['Humeurs', 'Émotions', 'Activités', 'Météo', 'Système', 'Repos', 'Idle'];
 const FACES = { pack: 'Pack 52', vivant: 'Vivant' };
 
 /* ---------- fake data (same as the server's --demo mode) ---------- */
@@ -458,7 +458,7 @@ Object.assign(A, {
 });
 
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
-const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · sinon : Claude";
+const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · achète le bonnet · exo · table de 7 · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
 ALLT.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });   // every theme: a disabled one gets the "not on" message
@@ -515,7 +515,7 @@ function command(raw) {
     return toast('Ses moments de vie : ' + PSCENES.filter(s => s.group === 'vie').map(s => s.label).join(', ') + '. Tape « fais le poisson », « fais la sieste »…', 15000);
   if ((m = t.match(/^(?:fais|fait|faire|joue)\s+(.+)$/)) && findScene(m[1])) return A['scene.play']({ id: findScene(m[1]) });
   if (['animations', 'les animations', 'liste des animations'].includes(t))
-    return toast('Les 52 animations. ' + AGROUPS.map(g => g + ' : ' + ANIMS.filter(a => a.group === g).map(a => a.label).join(', ')).join(' · ') + '. Tape « anim » et son nom.', 15000);
+    return toast(`Les ${ANIMS.length} animations. ` + AGROUPS.map(g => g + ' : ' + ANIMS.filter(a => a.group === g).map(a => a.label).join(', ')).join(' · ') + '. Tape « anim » et son nom.', 15000);
   if ((m = t.match(/^(?:anim|animation)\s+(.+)$/)) || BARE[t]) {
     const id = BARE[t] || ANIM_WORDS[akey(m[1])];
     if (!id) { mood('confus', 2500); return toast('Je ne connais pas cette animation. Tape « animations » pour la liste.', 5000); }
@@ -524,6 +524,7 @@ function command(raw) {
   if (SCREEN_WORDS[t]) return A['screen.show']({ screen: SCREEN_WORDS[t] });
   if (carCommand(raw)) return;                           // « sois grognon », « plus câlin »… (caractère, below), last before Claude as in commands.py
   if (NOUR && NOUR.command(raw)) return;                 // « mange une pomme », « à table ! » (Nourrir, below): after him, as in commands.py
+  if (BOUT && BOUT.command(raw)) return;                 // « achète le bonnet », « mets les lunettes », « cadeau » (his shop, below)
   A['chat.ask']({ text: raw });
 }
 
@@ -535,7 +536,7 @@ const LOCAL = !!window.PIXEL_LOCAL;
    that publish() copies into S[key]), it says how to take a kept value back, from anywhere in this file (hoisted):
      restorable('nourrir', (v, at) => { ...keep what is valid in v...; publish(); });   // at: when that copy was made (ms), or 0
    local.js calls it at start and whenever a newer copy comes (the app's, his Pi's), instead of writing S[key]. A restorer
-   may also clean what comes back when S[key] is its truth (caractère below). Here: caractere, nourrir, exos. */
+   may also clean what comes back when S[key] is its truth (caractère below). Here: caractere, nourrir, boutique, exos. */
 function restorable(key, fn) { if (typeof fn === 'function') (restorable.fns ||= {})[key] = fn; }
 const local = {
   A, mark, toast, mood, restorable,
@@ -585,7 +586,7 @@ if (CAR) {
 /* ---------- background jobs: timer tick (0.25 s), system graphs (1 s) ---------- */
 setInterval(() => {
   if (S.cast && ((S.cast.until && Date.now() >= S.cast.until) || Date.now() - S.cast.t0 > CAST_LIVE)) { S.cast = null; mark(); }   // cast.py tick()
-  if (T.running && tleft() <= 0) { Object.assign(T, { left: 0, running: false }); if (T.mode === 'TRAVAIL') T.done++; toast('MINUTEUR : TERMINÉ !', 5000); mood('surpris', 2500); }
+  if (T.running && tleft() <= 0) { Object.assign(T, { left: 0, running: false }); if (T.mode === 'TRAVAIL') { T.done++; if (BOUT) BOUT.gagner(Math.min(10, Math.floor(T.total / 300)), 'minuteur'); } toast('MINUTEUR : TERMINÉ !', 5000); mood('surpris', 2500); }
 }, 250);
 setInterval(() => {
   if (LOCAL) return;                // Pixel sans Pi: Système shows the phone's own measures (local.js)
@@ -660,7 +661,7 @@ const NOUR = (() => {
     const t = Date.now(); if (t >= N.last && t - N.last < GAP) return null;
     tick(t);
     const [r, eaten, run] = react(f, t);
-    if (eaten) { N.ventre = Math.min(100, N.ventre + f.valeur * (r === 'beurk' ? 0.7 : 1)); N.sucres = run; if (f.cat === 'sucre') N.sucreT = t; }
+    if (eaten) { N.ventre = Math.min(100, N.ventre + f.valeur * (r === 'beurk' ? 0.7 : 1)); N.sucres = run; if (f.cat === 'sucre') N.sucreT = t; if (BOUT) BOUT.gagner(r === 'prefere' ? 2 : 1, 'repas'); }   // a meal wins a coin (boutique.py)
     meal(id, r, r === 'eclate' || (['miam', 'aime', 'prefere', 'legume'].includes(r) && Math.random() < 0.04 + 0.26 * trait('farceur') / 100), choisi);
     return r;
   }
@@ -722,6 +723,135 @@ const NOUR = (() => {
   });
   publish();
   return { N, tick, publish, find, roll, command };
+})();
+
+/* ---------- La boutique (pixel/boutique.py): his coins, his accessories, what he wears. The catalogue is web/scenes/boutique.js's
+   (PixelWardrobe). Same rules as the server: coins for a right answer, a meal, a finished timer and the gift of the day; one
+   accessory per slot. Kept in this browser (pixel_lab_boutique), like the server's boutique.json.
+   lab.boutique { pieces, vide }: the lab's buttons (set his purse; empty his wardrobe). ---------- */
+const WR = window.PixelWardrobe;
+const BOUT = (() => {
+  if (!WR) return null;
+  const START = 20, GIFT = 5, MAX = 99999, RAISONS = ['exo', 'objectif', 'repas', 'minuteur', 'cadeau', 'labo'], QUOI = ['achat', 'porte', 'retire', 'cadeau'];
+  const SLOTS = WR.SLOTS.map(s => s[0]), IDS = WR.ITEMS.map(i => i.id), BY = WR.BY;
+  const day = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const coins = n => `${n} pièce${n > 1 ? 's' : ''}`;
+  const int = (v, d, lo = 0, hi = MAX) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.trunc(v))) : d);
+  const time = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+  const B = { pieces: START, total: 0, possede: [], porte: {}, cadeau: '', journal: [], gain: null, dernier: null, jour: day() };
+  const gainOf = g => { if (!g || typeof g !== 'object' || !RAISONS.includes(g.raison)) return null; const n = int(g.n, 0, 0, 1000), tt = time(g.t); return n > 0 && tt !== null ? { n, raison: g.raison, t: tt } : null; };
+  const lastOf = m => {
+    if (!m || typeof m !== 'object' || !QUOI.includes(m.quoi)) return null;
+    const tt = time(m.t); if (tt === null || (m.quoi !== 'cadeau' && !BY[m.objet] && m.objet !== '')) return null;
+    return { id: int(m.id, 0, 0, 1e9), quoi: m.quoi, objet: BY[m.objet] ? m.objet : '', n: int(m.n, 0, 0, 1000), t: tt };
+  };
+  function take(d) {                    // boutique.py _restore(): every value checked, one out of place takes its default
+    d = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
+    B.pieces = int(d.pieces, START); B.total = int(d.total, 0, 0, 1e9);
+    const own = new Set(Array.isArray(d.possede) ? d.possede.filter(x => typeof x === 'string') : []);
+    B.possede = IDS.filter(i => own.has(i));
+    const worn = d.porte && typeof d.porte === 'object' && !Array.isArray(d.porte) ? d.porte : {};
+    B.porte = {}; for (const s of SLOTS) if (typeof worn[s] === 'string' && B.possede.includes(worn[s]) && BY[worn[s]].slot === s) B.porte[s] = worn[s];
+    B.journal = (Array.isArray(d.journal) ? d.journal : []).map(gainOf).filter(Boolean).slice(0, 10);
+    const g = gainOf(d.gain); B.gain = g ? { id: int(d.gain.id, 0, 0, 1e9), ...g } : null;
+    B.dernier = lastOf(d.dernier);
+  }
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem('pixel_lab_boutique')) || {}; } catch { saved = {}; }
+  take(saved); B.cadeau = typeof saved.cadeau === 'string' && /^\d{4}-\d\d-\d\d$/.test(saved.cadeau) ? saved.cadeau : '';
+  const keep = () => { try { localStorage.setItem('pixel_lab_boutique', JSON.stringify({ pieces: B.pieces, total: B.total, possede: B.possede, porte: B.porte, cadeau: B.cadeau, journal: B.journal, gain: B.gain, dernier: B.dernier })); } catch {} };
+  function publish() {
+    S.boutique = { pieces: B.pieces, possede: [...B.possede], porte: { ...B.porte }, cadeau: B.cadeau !== day(), gain: B.gain && { ...B.gain }, dernier: B.dernier && { ...B.dernier },
+      journal: B.journal.map(j => ({ ...j })), total: B.total };
+  }
+  const done = () => { publish(); keep(); mark(); };
+  const show = () => { S.anim = null; S.screen = 'visage'; done(); };
+  const did = (quoi, objet = '', n = 0) => { B.dernier = { id: ((B.dernier && B.dernier.id) || 0) + 1, quoi, objet, n, t: Date.now() }; };
+  function gagner(n, raison) {          // boutique.py gagner()
+    n = int(n, 0, 0, 1000); if (n <= 0 || !RAISONS.includes(raison)) return 0;
+    n = Math.min(n, MAX - B.pieces); if (n <= 0) return 0;
+    const t = Date.now(); B.pieces += n; B.total += n;
+    B.gain = { id: ((B.gain && B.gain.id) || 0) + 1, n, raison, t }; B.journal = [{ n, raison, t }, ...B.journal].slice(0, 10);
+    done(); return n;
+  }
+  const le = it => {                    // « sa casquette » -> « la casquette »
+    for (const [a, b] of [['son ', 'le '], ['sa ', 'la '], ['ses ', 'les ']]) if (it.nom.startsWith(a)) { const rest = it.nom.slice(a.length); return b !== 'les ' && /^[aeiouy]/.test(norm(rest)) ? 'l’' + rest : b + rest; }
+    return it.nom;
+  };
+  function offrir() {
+    const d = day(); if (B.cadeau === d) { toast('Tu as déjà ouvert le cadeau d’aujourd’hui. Reviens demain !', 4000); return false; }
+    B.cadeau = B.jour = d; const n = gagner(GIFT, 'cadeau'); did('cadeau', '', n); show(); return true;
+  }
+  function porter(id) {
+    const it = BY[id]; if (!it) return false;
+    if (!B.possede.includes(id)) { toast(`Pixel n’a pas encore ${le(it)} : ${coins(it.prix)} à la boutique (tu en as ${B.pieces}).`, 5000); return false; }
+    if (B.porte[it.slot] !== id) { B.porte[it.slot] = id; did('porte', id); }
+    show(); return true;
+  }
+  function acheter(id) {
+    const it = BY[id]; if (!it) return null;
+    if (B.possede.includes(id)) { porter(id); return 'deja'; }
+    if (B.pieces < it.prix) { toast(`Il te manque ${coins(it.prix - B.pieces)} pour ${le(it)} (${coins(it.prix)}).`, 5000); return 'pauvre'; }
+    B.pieces -= it.prix; B.possede = IDS.filter(i => B.possede.includes(i) || i === id); B.porte[it.slot] = id; did('achat', id); show(); return 'ok';
+  }
+  function retirer(objet = null, slot = null) {
+    const it = objet != null ? BY[objet] : null;
+    const slots = objet != null ? (it && B.porte[it.slot] === it.id ? [it.slot] : []) : slot != null ? (Object.hasOwn(B.porte, slot) ? [slot] : []) : Object.keys(B.porte);
+    if (!slots.length) return false;
+    const last = B.porte[slots[slots.length - 1]]; for (const s of slots) delete B.porte[s];
+    did('retire', last); show(); return true;
+  }
+  const tenue = () => { const w = SLOTS.filter(s => B.porte[s]).map(s => BY[B.porte[s]].nom); return !w.length ? 'rien de spécial' : w.length === 1 ? w[0] : w.slice(0, -1).join(', ') + ' et ' + w[w.length - 1]; };
+  Object.assign(A, {
+    'boutique.acheter': ({ objet } = {}) => { acheter(String(objet)); },
+    'boutique.porter': ({ objet } = {}) => { porter(String(objet)); },
+    'boutique.retirer': ({ objet = null, slot = null } = {}) => { retirer(objet, slot); },
+    'boutique.cadeau': () => { offrir(); },
+    'lab.boutique': ({ pieces = null, vide = false, cadeau = false } = {}) => {
+      if (vide) { B.possede = []; B.porte = {}; B.dernier = null; }
+      if (cadeau) B.cadeau = '';
+      if (pieces != null && Number.isFinite(Number(pieces))) B.pieces = int(Number(pieces), B.pieces);
+      done();
+    },
+  });
+  /* the commands (pixel/boutique.py command()): command() asks them after his meals, just before Claude, as commands.py does */
+  const key = s => norm(s).replace(/’/g, "'").replace(/œ/g, 'oe').replace(/[^a-z0-9' -]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const ARTICLES = ['un ', 'une ', 'des ', 'du ', 'de la ', "de l'", 'le ', 'la ', 'les ', "l'", 'ce ', 'cette ', 'ces ', 'ton ', 'ta ', 'tes ', 'mon ', 'ma ', 'mes ', 'son ', 'sa ', 'ses '];
+  const bare = k => { for (const a of ARTICLES) if (k.startsWith(a)) return k.slice(a.length).trim(); return k; };
+  const WORDS = {};
+  for (const it of WR.ITEMS) for (const w of [it.id, it.id.replace(/-/g, ' '), it.label, it.nom]) { WORDS[bare(key(w))] ??= it.id; WORDS[key(w)] ??= it.id; }
+  for (const [w, id] of Object.entries({ chapeau: 'haut-de-forme', 'chapeau haut de forme': 'haut-de-forme', 'haut de forme': 'haut-de-forme', 'chapeau pointu': 'chapeau-fete', "chapeau d'anniversaire": 'chapeau-fete',
+    casquette: 'casquette', oreilles: 'oreilles-chat', 'chapeau de magicien': 'sorcier', 'chapeau de sorciere': 'sorcier', sorcier: 'sorcier', antenne: 'antenne-coeur', lunettes: 'lunettes', 'lunettes noires': 'soleil',
+    'lunettes de star': 'soleil', 'lunettes coeurs': 'lunettes-coeur', 'lunettes en coeur': 'lunettes-coeur', masque: 'masque', 'masque de super-heros': 'masque', 'masque de super heros': 'masque', 'lunettes 3 d': 'lunettes-3d',
+    'noeud papillon': 'noeud-pap', 'noeud pap': 'noeud-pap', noeud: 'noeud-pap', foulard: 'echarpe', etoile: 'etoile', sparadrap: 'pansement' })) if (BY[id]) WORDS[w] ??= id;
+  const find = text => { const k = bare(key(text).replace(/\s+(?:a|pour|de|sur)\s+(?:pixel|toi|lui)$/, '')); return WORDS[k] || WORDS[/[sx]$/.test(k) ? k.slice(0, -1) : k] || null; };
+  const SHOP = /^(?:(?:la|ma|ta|sa) )?(?:boutique|garde-robe|garde robe|penderie)(?: de pixel)?$/;
+  const PURSE = /^(?:(?:mes|tes|les|nos) (?:pieces|sous)|combien (?:de|j'ai de|on a de|ai-je de|tu as de) (?:pieces|sous)|j'ai combien de (?:pieces|sous))$/;
+  const GIFTRE = /^(?:(?:le |mon |ton |un )?cadeau(?: du jour)?|ouvre (?:le|ton|mon) cadeau)$/;
+  const BUY = /^(?:achete-lui|achete lui|achete-moi|achete|acheter|j'achete|je prends|je veux acheter)\s+(.+)$/;
+  const WEAR = /^(?:pixel[, ]+)?(?:mets-lui|mets lui|mets-toi|mets toi|remets|mets|met|porte|enfile|essaie)\s+(.+)$/;
+  const OFFRE = /^(?:pixel[, ]+)?(?:enleve-lui|enleve lui|enleve-toi|enleve|enlever|retire-lui|retire lui|retire|retirer|ote|range)\s+(.+)$/;
+  const ALL = ['tout', 'tous ses accessoires', 'tes accessoires', 'ses accessoires', 'tous tes accessoires', 'tes affaires', 'ses affaires'];
+  function command(raw) {
+    const t = norm(raw).replace(/’/g, "'").replace(/œ/g, 'oe').replace(/[\s!?.…]+$/, '').replace(/\s+(?:s'il te plait|s il te plait|stp|svp)$/, '').trim(); let m;
+    if (SHOP.test(t)) { toast(`La boutique : tu as ${coins(B.pieces)}. Pixel porte ${tenue()}. Ouvre « Boutique » sur ton téléphone, ou tape « achète le bonnet », « mets les lunettes », « enlève tout », « cadeau ».`, 12000); return true; }
+    if (PURSE.test(t)) { toast(`Tu as ${coins(B.pieces)}. Tu en gagnes avec les exos, ses repas, le minuteur et le cadeau du jour.`, 7000); return true; }
+    if (GIFTRE.test(t)) { offrir(); return true; }
+    if ((m = t.match(OFFRE)) && (ALL.includes(m[1]) || find(m[1]))) { if (!(ALL.includes(m[1]) ? retirer() : retirer(find(m[1])))) toast('Il ne le porte pas.', 3000); return true; }
+    if ((m = t.match(BUY)) && find(m[1])) { acheter(find(m[1])); return true; }
+    if ((m = t.match(WEAR)) && find(m[1])) { porter(find(m[1])); return true; }
+    return false;
+  }
+  setInterval(() => { const d = day(); if (d !== B.jour) { B.jour = d; publish(); mark(); } }, 60000);      // a new day: today's gift is there again
+  /* Pixel sans Pi (../local.js): his purse and wardrobe, kept on the phone or from his Pi (the snapshot "boutique"); in a
+     snapshot "cadeau" says whether the gift is still to open: opened, it was on the day of that copy (at) */
+  restorable('boutique', (v, at) => {
+    if (!v || typeof v !== 'object') return;
+    take(v); const when = Number.isFinite(at) && at > 946684800000 ? at : Date.now();
+    B.cadeau = v.cadeau === false ? day(when) : '';
+    keep(); publish();
+  });
+  publish();
+  return { B, gagner, acheter, porter, retirer, offrir, find, command, publish, tenue };
 })();
 
 /* ---------- the math exercises (pixel/exos.py): a smaller port for the lab ----------
@@ -874,7 +1004,8 @@ function exResolve(ok, value, first, passe = false) {
     if (ok) { EXS.justes++; EXS.justes_jour++; pt.ok++; }
     if (ok && first) { EXS.serie++; EXS.serie_max = Math.max(EXS.serie_max, EXS.serie); if ([5, 10, 15, 20, 30, 40, 50, 75, 100].includes(EXS.serie)) ev = ['serie', { n: EXS.serie }]; } else EXS.serie = 0;
     up = exAdapt(c.kind, ok, ok && first && !c.hint_on);
-    if (EXS.aujourdhui >= EXR.objectif && EXS.coupe_jour !== EXS.jour) { EXS.coupe_jour = EXS.jour; EXS.coupes++; ev = ['objectif', { objectif: EXR.objectif }]; says.push(`Objectif du jour atteint : ${EXR.objectif} exo${EXR.objectif > 1 ? 's' : ''} !`); }
+    if (ok && BOUT) BOUT.gagner(first ? 2 : 1, 'exo');                    // a right answer wins coins for his shop (exos.py on_coins)
+    if (EXS.aujourdhui >= EXR.objectif && EXS.coupe_jour !== EXS.jour) { EXS.coupe_jour = EXS.jour; EXS.coupes++; ev = ['objectif', { objectif: EXR.objectif }]; if (BOUT) BOUT.gagner(10, 'objectif'); says.push(`Objectif du jour atteint : ${EXR.objectif} exo${EXR.objectif > 1 ? 's' : ''} !`); }
   } else EXS.serie = 0;
   if (ok && r) r.bons++;
   Object.assign(c, { etat: 'resultat', ok: !!ok, valeur: value, passe, monte: up });

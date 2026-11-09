@@ -6,7 +6,7 @@ import logging
 import re
 
 from .commands import norm
-from . import anims, caractere, nourrir, scenes
+from . import anims, boutique, caractere, nourrir, scenes
 from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
 from . import exos                    # start_exercise: a little math exercise on Pixel's screen
@@ -53,6 +53,7 @@ TOOLS = [
     tool("run_codex", "Lance une tâche de programmation avec Codex dans le dossier de projet configuré.", {"task": {"type": "string"}}, ["task"]),
 ]
 TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (pixel/nourrir.py)
+TOOLS.append(boutique.TOOL)              # his wardrobe: he puts on or takes off an accessory he owns (pixel/boutique.py)
 TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
 
 # ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
@@ -102,6 +103,8 @@ def check(name, a):
         return "entrée invalide"
     if name == nourrir.TOOL["name"]:
         return nourrir.check_tool(a)
+    if name == boutique.TOOL["name"]:
+        return boutique.check_tool(a)
     ok = {
         "get_status": True,
         "set_lights": isinstance(a.get("room"), str) and isinstance(a.get("on", True), bool)
@@ -173,6 +176,8 @@ class Claude:
         if getattr(h, "nourrir", None) is not None:
             d = (h.s.get("nourrir") or {}).get("dernier") or {}
             out["ventre"] = h.nourrir.status() + (f", dernier repas : {nourrir.BY_ID[d['plat']]['nom']}" if d.get("plat") in nourrir.BY_ID else "")
+        if getattr(h, "boutique", None) is not None:
+            out["boutique"] = h.boutique.status()
         if getattr(h, "exos", None) is not None:
             c = h.exos.cur
             out["exos"] = h.exos.summary() + (f" Un exo est ouvert sur ton écran ({c.get('type')}) : « {c.get('q')} ». Ne donne pas la réponse ; "
@@ -216,6 +221,8 @@ class Claude:
             return "ok"
         if name == nourrir.TOOL["name"]:
             return await nourrir.run_tool(h, a)
+        if name == boutique.TOOL["name"]:
+            return await boutique.run_tool(h, a)
         if name == "run_codex":
             await h.dispatch("codex.run", {"task": a["task"]})
             return "tâche lancée : " + h.s["codex"]["status"]

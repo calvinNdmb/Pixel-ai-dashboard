@@ -1,6 +1,6 @@
 # Pixel : l'appli
 
-L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les menus sur l'écran de Pixel, et pilote les 15 touches du Stream Deck. La même appli s'ouvre aussi sur ton téléphone ou ton ordinateur, où tu peux taper au clavier. Elle a six thèmes : Rétro, Moderne, Manga, Néon, Croquis et LCD. Le visage de Pixel vient de ton pack de 52 animations ; l'ancien visage vivant reste au choix.
+L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les menus sur l'écran de Pixel, et pilote les 15 touches du Stream Deck. La même appli s'ouvre aussi sur ton téléphone ou ton ordinateur, où tu peux taper au clavier. Elle a six thèmes : Rétro, Moderne, Manga, Néon, Croquis et LCD. Le visage de Pixel vient de ton pack de 52 animations, plus 23 ajoutées depuis ; l'ancien visage vivant reste au choix. Avec les pièces gagnées ensemble, tu lui achètes des accessoires dans sa boutique.
 
 ![Les écrans de Pixel](preview.png)
 
@@ -8,7 +8,7 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 
 | Écran | Contenu |
 | --- | --- |
-| **Visage** | Pixel joue les 52 animations de ton pack : il respire, cligne des yeux, regarde autour de lui, change d'humeur, danse ou chante quand tu le demandes. Il s'endort après 10 minutes sans rien. |
+| **Visage** | Pixel joue ses 75 animations (les 52 de ton pack et 23 nouvelles) : il respire, cligne des yeux, regarde autour de lui, change d'humeur, danse ou chante quand tu le demandes. Il s'endort après 10 minutes sans rien. |
 | **Lumières** | Tes pièces Philips Hue : allumer, éteindre, régler la luminosité, lancer une scène. |
 | **Claude** | Tu écris, Claude répond à l'écran. Il peut aussi agir : régler les lampes, lancer le minuteur, lire la météo et l'agenda, changer d'écran ou de thème, lancer Codex. |
 | **Codex** | Lance une tâche de code et affiche son journal en direct. Une notification apparaît sur les autres écrans quand c'est fini. |
@@ -48,9 +48,30 @@ Tu peux aussi n'en garder que quelques-uns, par exemple `themes = ["retro", "lcd
 
 Le choix est gardé au redémarrage. Les touches du Stream Deck et de l'appli sur téléphone changent de couleurs et de police avec le thème.
 
-## Les 52 animations
+## Les animations : les 52 du pack et 23 nouvelles
 
-Le visage de Pixel vient de **ton pack** « Pixel OS — 3 thèmes, 52 animations » (version 2.1) : 34 expressions, activités et états, et 18 animations d'attente. Le pack est copié dans `web/pack52/`. Dans `pixel.js` et `pixel-themes.js`, seuls les noms de deux variables ont changé (`Pixel52` et `Pixel52Themes`), pour ne pas gêner ceux de Pixel OS. `animations.json` garde les 52 animations, sans les liens vers les GIF et les sprites, qui ne sont pas copiés. Les dessins et le moteur des animations sont les tiens.
+Le visage de Pixel vient de **ton pack** « Pixel OS — 3 thèmes, 52 animations » (version 2.1) : 34 expressions, activités et états, et 18 animations d'attente. Le pack est copié dans `web/pack52/`. Dans `pixel.js` et `pixel-themes.js`, les noms de deux variables ont changé (`Pixel52` et `Pixel52Themes`), pour ne pas gêner ceux de Pixel OS, et le moteur dit maintenant où est sa tête (pour ses accessoires). `animations.json` garde les animations, sans les liens vers les GIF et les sprites, qui ne sont pas copiés. Les dessins et le moteur des 52 animations sont les tiens.
+
+**23 animations ajoutées.** Elles sont écrites dans le moteur du pack, à la suite des 52 (repère « added in Pixel OS » dans `pixel52.js` et `pixel52-themes.js`), et dessinées dans les 6 thèmes comme les autres. Le pack compte donc maintenant 75 animations, dont 21 d'attente.
+
+| Pour | Nouvelles animations |
+| --- | --- |
+| Ses repas | Miam (il mâche), Beurk, Repu, Petit creux |
+| Les exos | Compte sur ses doigts, Concentré, En feu ! |
+| Le minuteur | Compte à rebours, Ding !, Pause café |
+| La musique et les vidéos | Casque sur les oreilles, Pop-corn |
+| La météo | Frissonne, Trop chaud, Coup de vent, Orage |
+| Ses émotions | Jaloux, Gêné, Soulagé, Impatient |
+| L'attente | Il fredonne, Un œil sur l'heure, La bulle |
+
+Où tu les vois :
+- **à table :** il mâche pour de vrai, fait « beurk » devant ce qu'il n'aime pas, souffle quand il est repu, et son ventre gargouille quand il a un creux ;
+- **pendant les exos :** concentré au deuxième essai, soulagé quand tu te rattrapes, en feu après une belle série, et il compte sur ses doigts quand tu réfléchis longtemps ;
+- **selon le temps :** il frissonne sous la neige, fond quand le Pi chauffe ou en plein été, sursaute à l'éclair ;
+- **dans onze nouveaux moments** (`web/scenes/moments.js`) : le casque sur les oreilles, la pause café, la séance de cinéma, l'heure tourne, brrr, trop chaud, la bourrasque, un éclair ; et quand tu le touches : tout gêné, il trépigne, un peu jaloux ;
+- **quand rien ne se passe :** il fredonne, jette un œil à l'heure ou regarde monter une bulle.
+
+Elles se jouent aussi à la demande, comme les autres : `anim pause café`, `anim en feu`, la touche **Anim +**, ou Claude.
 
 ![Le catalogue de ton pack, en Rétro](web/pack52/Catalogue_Pixel.png)
 
@@ -65,7 +86,7 @@ Le visage tient dans un cadre 16:9 entre le haut de l'écran et la ligne du bas.
 
 ![Douze animations dans les 6 thèmes](preview-pack52.png)
 
-**Quand rien ne se passe**, Pixel enchaîne les 18 animations d'attente, une boucle chacune. Il les tire au sort : les plus discrètes reviennent plus souvent, et jamais deux fois la même de suite. Avant de s'endormir, il pique du nez (Micro-sieste), puis il fait dodo et rêve.
+**Quand rien ne se passe**, Pixel enchaîne les 21 animations d'attente (les 18 du pack et 3 nouvelles), une boucle chacune. Il les tire au sort : les plus discrètes reviennent plus souvent, et jamais deux fois la même de suite. Avant de s'endormir, il pique du nez (Micro-sieste), puis il fait dodo et rêve.
 
 **Chaque humeur a son animation :**
 
@@ -230,11 +251,13 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 | `humeur content`, `humeur triste`, `humeur fâché`… | change l'humeur du visage |
 | `thème néon`, `thème croquis`, `thème lcd`, `thème rétro`… | change le style de l'écran |
 | `thème suivant`, `thème précédent` | passe au thème d'après, ou d'avant |
-| `anim danse`, `animation fou rire`, `danse`, `coucou`… | joue une des 52 animations |
+| `anim danse`, `animation fou rire`, `danse`, `coucou`… | joue une des 75 animations |
 | `animations` | affiche la liste des animations |
 | `fais le poisson`, `fais la sieste`, `joue la toupie`… | un de ses moments de vie (voir « Sa personnalité ») |
 | `scènes` | affiche ses moments de vie |
 | `visage vivant`, `visage pack` | change de visage |
+| `boutique`, `mes pièces`, `cadeau` | ses pièces et ce qu'il porte ; le cadeau du jour (voir « La boutique ») |
+| `achète le bonnet`, `mets les lunettes`, `enlève tout` | lui achète un accessoire, le lui met, range tout |
 | `caste À table !`, `caste https://youtu.be/…` | affiche un texte ou un lien sur l'écran (voir « Caster sur Pixel ») |
 | `stop`, `stop cast` | arrête ce qui est casté |
 | `code tv` | montre le code TV de l'appli YouTube (si le cast YouTube est activé) |
@@ -316,7 +339,7 @@ Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec le partage d'écran d
 
 ## Pixel sans Pi
 
-**L'appli Android n'a pas besoin du Pi.** Au premier lancement, Pixel vit sur le téléphone : son visage, ses 52 animations, sa personnalité et toutes ses scènes, ses humeurs, son caractère, ses repas, les exos de maths, les thèmes, l'horloge, le minuteur, la veille, les réglages et Pixel de poche. Sans réseau, et sans aucune fausse donnée : les écrans Lumières, Claude, Codex et Agenda disent « Relie Pixel à ton Pi pour ça », Système montre les mesures du téléphone, et la météo est la vraie (tape `météo Lyon`, Pixel la demande à Open-Meteo). Les six thèmes sont à lui, puisqu'aucun Pi ne les choisit. Son thème, ses réglages, son humeur, le minuteur, sa ville, son caractère, son ventre et ses goûts, ses scores d'exos sont gardés quand l'appli se ferme.
+**L'appli Android n'a pas besoin du Pi.** Au premier lancement, Pixel vit sur le téléphone : son visage, ses 75 animations, sa personnalité et toutes ses scènes, ses humeurs, son caractère, ses repas, sa boutique, les exos de maths, les thèmes, l'horloge, le minuteur, la veille, les réglages et Pixel de poche. Sans réseau, et sans aucune fausse donnée : les écrans Lumières, Claude, Codex et Agenda disent « Relie Pixel à ton Pi pour ça », Système montre les mesures du téléphone, et la météo est la vraie (tape `météo Lyon`, Pixel la demande à Open-Meteo). Les six thèmes sont à lui, puisqu'aucun Pi ne les choisit. Son thème, ses réglages, son humeur, le minuteur, sa ville, son caractère, son ventre et ses goûts, ses scores d'exos sont gardés quand l'appli se ferme.
 
 **Son caractère, le nourrir et les exos, sans Pi.** Tout marche comme sur le Pi : les panneaux **Caractère**, **Nourrir** et **Exos** sous les touches (ou dans le menu de l'appli), les commandes (`sois grognon`, `mange une pomme`, `exo`, `table de 7`…), l'assiette et le plateau du Pixel de poche quand tu tournes le téléphone. Seul Claude a besoin du Pi. Quand l'appli reste fermée un moment, son ventre compte le temps comme sur le Pi quand il est éteint : rien la nuit, et au pire un petit creux au retour, jamais une faim de loup. Relié à ton Pi, le Pixel du téléphone reprend son caractère, ses goûts, son ventre et tes progrès en exos (scores, trophées, niveaux, réglages). Un exo resté ouvert sur le Pi reste sur le Pi.
 
@@ -341,11 +364,12 @@ L'appli le refait elle-même avant chaque APK (`npm run bundle:web`, dans `pixel
 <!-- personnaliser -->
 ## Le personnaliser
 
-Trois façons de faire de Pixel *ton* Pixel, avec ou sans Pi. Sur ton téléphone, sous les touches : **Caractère**, **Nourrir** et **Exos**, côte à côte. Dans l'appli Android, le menu (bouton retour) les ouvre aussi. Sans Pi, ils vivent sur le téléphone (voir « Pixel sans Pi ») ; le Pi relié, le téléphone reprend les siens.
+Quatre façons de faire de Pixel *ton* Pixel, avec ou sans Pi. Sur ton téléphone, sous les touches : **Caractère**, **Nourrir**, **Boutique** et **Exos**, côte à côte. Dans l'appli Android, le menu (bouton retour) les ouvre aussi. Sans Pi, ils vivent sur le téléphone (voir « Pixel sans Pi ») ; le Pi relié, le téléphone reprend les siens.
 
 - **Son caractère** : câlin, grognon, farceur, gourmand, petit prof… ou huit curseurs. Tape `sois grognon`, `plus câlin`, `appelle-toi Bip`.
 - **Le nourrir** : son ventre se vide dans la journée, donne-lui un des 24 plats. Tape `mange une pomme`, `tu as faim ?`, `à table !`.
 - **Les exos de maths** : il te pose des questions, du CP au collège. Tape `exo`, `table de 7`, `défi chrono`, puis ta réponse (`42`).
+- **La boutique** : les exos, ses repas et le minuteur te font gagner des pièces ; achète-lui un chapeau, des lunettes, un nœud papillon… Tape `boutique`, `achète le bonnet`, `mets les lunettes`, `cadeau`.
 
 **Les trois marchent ensemble :**
 
@@ -359,11 +383,11 @@ Trois façons de faire de Pixel *ton* Pixel, avec ou sans Pi. Sur ton téléphon
 
 À 50 partout, rien ne change : c'est le Pixel de tous les jours.
 
-**Sur l'écran du Pi, une chose à la fois.** Du plus fort au moins fort : le menu rapide (il s'ouvre par-dessus tout, même par-dessus un cast), ce que tu envoies sur son écran (**Caster sur Pixel** : une photo, une vidéo, YouTube, un écran partagé), un exo ouvert, sa question « Une petite question ? », puis l'assiette et le plateau des repas. Ce qui passe derrière attend et revient après : l'assiette se range pendant un exo, il ne réclame pas à manger au milieu d'un exo, et il ne te pose pas de question quand le plateau est ouvert. Pendant un cast, rien de tout ça ne s'affiche ni ne répond au doigt : l'exo ouvert attend dessous, tel quel, et revient quand le cast se termine.
+**Sur l'écran du Pi, une chose à la fois.** Du plus fort au moins fort : le menu rapide (il s'ouvre par-dessus tout, même par-dessus un cast), ce que tu envoies sur son écran (**Caster sur Pixel** : une photo, une vidéo, YouTube, un écran partagé), un exo ouvert, sa question « Une petite question ? », puis l'assiette et le plateau des repas. Ce qui passe derrière attend et revient après : l'assiette se range pendant un exo, il ne réclame pas à manger au milieu d'un exo, et il ne te pose pas de question quand le plateau est ouvert. Pendant un cast, rien de tout ça ne s'affiche ni ne répond au doigt : l'exo ouvert attend dessous, tel quel, et revient quand le cast se termine. Le petit chapeau de la boutique, sur le bord gauche, suit la même règle : il attend derrière un cast, un exo ou le plateau des repas.
 
 **Les commandes ne se marchent pas dessus.** Un nombre seul (`42`) va à l'exo ouvert ; sans exo, il part à Claude, comme avant. Pendant un exo, `mange une pomme`, `tu as faim ?` ou `sois grognon` marchent toujours. Tape `aide` : la liste donne une commande de chacun.
 
-**Avec Claude :** il connaît son caractère, et il voit son ventre et tes exos du jour quand il lit l'état de Pixel. Il peut changer son caractère, le faire manger et lancer un exo. Si un exo est ouvert, il sait qu'il ne doit pas donner la réponse ; il peut te donner un indice.
+**Avec Claude :** il connaît son caractère, et il voit son ventre, tes exos du jour, tes pièces et sa garde-robe quand il lit l'état de Pixel. Il peut changer son caractère, le faire manger, lancer un exo et lui mettre un accessoire qu'il possède. Si un exo est ouvert, il sait qu'il ne doit pas donner la réponse ; il peut te donner un indice.
 <!-- fin de le personnaliser -->
 
 ## Son caractère
@@ -498,6 +522,61 @@ Pixel te pose de petits exercices, du CP au collège : additions, soustractions,
 Dans Pixel Lab, le panneau **Exos de maths** lance chaque mode et chaque type, répond juste ou faux à ta place, et lui fait proposer une question.
 <!-- fin des exos de maths -->
 
+## La boutique
+
+Pixel a une **boutique** et une **garde-robe**. Tu gagnes des **pièces** en faisant des choses avec lui, et tu les dépenses en accessoires qu'il porte sur son visage : chapeaux, lunettes, nœud papillon, moustache… C'est une garde-robe, pas un casino : rien ne s'achète avec du vrai argent, un accessoire acheté est à lui pour toujours, et on ne te reprend jamais de pièces.
+
+![Pixel et ses accessoires dans les 6 thèmes](preview-boutique.png)
+
+**Gagner des pièces.** Pixel commence avec 20 pièces. Ensuite :
+
+| Ce que tu fais | Pièces |
+| --- | --- |
+| Un exo de maths réussi | 2 (1 au deuxième essai) |
+| L'objectif d'exos du jour | 10 |
+| Un repas qu'il mange | 1 (2 pour son plat préféré) |
+| Un minuteur de travail terminé | 1 par tranche de 5 minutes, 10 au plus (25 minutes : 5) |
+| Le cadeau du jour | 5, une fois par jour |
+
+Quand tu en gagnes, « +2 » monte un instant en haut à gauche de son écran. Il n'y a pas de pièces à gagner en attendant : il faut faire quelque chose avec lui.
+
+**Les 24 accessoires.** Il en porte un par endroit : un sur la tête, une paire de lunettes, un autour du cou et un petit plus.
+
+| Endroit | Accessoires (prix en pièces) |
+| --- | --- |
+| Sur la tête | Chapeau de fête (10), Casquette (15), Bonnet (20), Oreilles de chat (35), Oreilles d'ours (35), Haut-de-forme (40), Antenne cœur (45), Chapeau de sorcier (60), Auréole (80), Couronne (120) |
+| Lunettes | Lunettes rondes (20), Lunettes 3D (25), Lunettes de soleil (30), Monocle (45), Lunettes cœur (50), Masque de héros (55) |
+| Autour du cou | Nœud papillon (15), Cravate (20), Écharpe (25), Médaille (50) |
+| Petits plus | Pansement (5), Fleur (10), Étoile sur la joue (15), Moustache (30) |
+
+Les oreilles de chat, les oreilles d'ours et l'antenne cœur sont celles du kit mignon à imprimer (`cute-kit/`). Tout le catalogue coûte 855 pièces.
+
+**Essayer, acheter, porter.** Touche un accessoire qu'il n'a pas : il l'**essaie** pendant 8 secondes, sur ton écran seulement. Touche-le encore : il est **acheté**, Pixel le met tout de suite et il est tout content (« Trop la classe ! »). S'il te manque des pièces, il l'essaie quand même, et l'appli te dit combien il en manque. Un accessoire à lui : une touche le met, une autre l'enlève. Un nouveau chapeau prend la place de l'ancien, qui retourne dans sa garde-robe.
+
+- **Sur ton téléphone :** le bouton **Boutique**, sous les touches, à côté de **Nourrir**. Le panneau montre tes pièces, le cadeau du jour, les accessoires par endroit, comment gagner des pièces et tes dernières pièces gagnées. Quand il y a la place, il s'arrête sous l'écran de Pixel : tu le vois essayer. Un point sur le bouton : le cadeau du jour t'attend.
+- **Sur l'écran du Pi et le Pixel de poche :** un petit chapeau sur le bord gauche, en bas, le jumeau de l'assiette des repas. Touche-le : le plateau des 24 accessoires monte. Il se range tout seul après 20 secondes, ou quand tu touches au-dessus.
+- **Au clavier :** `boutique`, `mes pièces`, `cadeau`, `achète le bonnet`, `mets les lunettes de soleil`, `enlève le bonnet`, `enlève tout`. Un accessoire doit être nommé : « mets la table » part toujours à Claude.
+- **Avec Claude :** il voit tes pièces et sa garde-robe. Il peut mettre ou enlever un accessoire que Pixel possède (« mets ton nœud papillon »). Il n'achète rien.
+
+**Sur son visage.** Les accessoires sont dessinés dans les 6 thèmes, en gros pixels en Rétro et en LCD, avec le visage du pack comme avec le visage vivant. Ils suivent sa tête : quand il danse, penche la tête ou part se promener, son chapeau vient avec lui. Les verres teintés laissent voir ses yeux. En décembre, son bonnet de Noël laisse la place au chapeau que tu lui as mis.
+
+**Sans Pi**, sa bourse et sa garde-robe vivent sur le téléphone ; le Pi relié, le téléphone reprend les siennes (voir « Pixel sans Pi »).
+
+Dans Pixel Lab, le panneau **Boutique** essaie et achète chaque accessoire, règle ses pièces, rouvre le cadeau, joue ses quatre réactions et ouvre le plateau du Pi.
+
+**Ses fichiers :** `pixel/boutique.py` (ses pièces, sa garde-robe et ce qu'il porte, gardés dans `boutique.json` ; un fichier abîmé ou modifié à la main ne bloque jamais le démarrage), `web/scenes/boutique.js` (le catalogue, les dessins et ses quatre réactions), `web/boutique.js` et `web/boutique.css` (le plateau du Pi, le panneau du téléphone, les pièces gagnées à l'écran), `web/lab/boutique-lab.js`. Pour ajouter un accessoire : une ligne `B('id', 'Nom', 'son nom', 'endroit', prix, [cadre], dessin)` dans `web/scenes/boutique.js` ; le serveur, le labo et le panneau du téléphone le prennent tout seuls (le plateau du Pi montre les 24 premiers).
+
+**À faire dans l'appli Android** (`pixel-mobile`, qui n'est pas dans ce dossier) : ajouter `scenes/boutique.js`, `scenes/moments.js`, `boutique.js` et `boutique.css` à son paquet, et « La boutique » à son menu. La page s'y prépare déjà : `PixelPanel('boutique')` ouvre le panneau, et le bouton retour le ferme. En attendant, la boutique marche dans le navigateur du téléphone et sur le Pi.
+
+**Vérifié** (`test_boutique.py`, `test_boutique.js`) : le catalogue lu depuis le pack (24 accessoires, 4 endroits) ; les pièces (le départ, chaque façon d'en gagner, le cadeau une fois par jour et de nouveau après minuit, jamais plus de 99 999) ; un repas refusé, une pause ou un minuteur de 3 minutes ne rapportent rien ; acheter (assez de pièces ou non), porter (un seul par endroit), enlever ; les commandes, et celles qui n'en sont pas (« mets la table », « achète du pain » partent à Claude, « donne-lui une pomme » reste un repas) ; l'outil de Claude (il n'achète jamais) ; `boutique.json` gardé après un redémarrage, et dix fichiers abîmés qui ne l'empêchent pas de démarrer. Dans le navigateur : les mêmes commandes donnent la même bourse et la même tenue sur le serveur et sur son miroir du labo ; chaque accessoire a son dessin dans les 6 thèmes ; sur l'écran du Pi, le petit chapeau, le plateau, l'essayage, l'achat, la réaction de Pixel, le plateau des repas et celui de la boutique jamais ouverts ensemble ; ses accessoires dessinés à chaque image dans les 6 thèmes avec les deux visages, et son chapeau qui suit sa tête quand il danse ; sur le téléphone, le panneau (essayer, acheter, mettre, enlever, pas assez de pièces), sans défilement horizontal et avec des boutons d'au moins 44 px dans les 6 thèmes.
+
+Pour relancer ses tests :
+
+```
+python3 tests/test_boutique.py       # son propre serveur de démo sur le port 8176 (BOUTIQUE_PY_PORT=… pour un autre)
+node tests/test_boutique.js          # port 8177 (BOUTIQUE_PORT=… pour un autre) ; il faut Playwright ; --shots DOSSIER pour les captures
+```
+
 ## Tes agendas (Google et Samsung)
 
 Sur ton téléphone, dans l'appli, touche **Agendas** (sous le clavier). La page te guide.
@@ -618,7 +697,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 
   Sur le vrai Pi, avec un vrai abonnement, le premier message a pris 8,5 s : démarrage du SDK, puis l'outil `play_scene` pour faire le poisson. Les messages suivants prennent environ 3 s. Claude Code occupe environ 200 Mo de mémoire.
 - **Visage vivant** (`test_life.js`) : clignements, regards, bâillements, étirements, réactions au toucher, et chaque thème dessine chaque humeur et chaque passage d'une humeur à l'autre sans erreur.
-- **Animations** (`test_pack.js`) : chaque thème dessine les 52 animations à plusieurs moments, avec les deux visages et les passages de l'une à l'autre. Les humeurs, l'attente tirée au sort, le toucher et les événements jouent les bonnes animations. `test_pixel.py` vérifie aussi `anim.play`, les commandes `anim …`, la touche *Anim +* et le choix du visage après un redémarrage.
+- **Animations** (`test_pack.js`) : chaque thème dessine les 75 animations à plusieurs moments, avec les deux visages et les passages de l'une à l'autre. Les humeurs, l'attente tirée au sort, le toucher et les événements jouent les bonnes animations. `test_pixel.py` vérifie aussi `anim.play`, les commandes `anim …`, la touche *Anim +* et le choix du visage après un redémarrage.
 - **Personnalité** (`test_persona.js`) : les 63 scènes se dessinent dans les 6 thèmes avec les deux visages, et Pixel finit chaque scène à sa place. Le test vérifie aussi :
   - le rappel 10 min avant un rendez-vous (une seule fois) et la question après ; le Pi trop chaud (pas en boucle) ; le Wi-Fi perdu puis retrouvé ;
   - la neige seulement en décembre, « Plus que 17 dodos avant Noël ! », le bonnet dans chaque thème, « Joyeux Noël » une fois par jour, « Bonne année » ;
@@ -639,6 +718,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Pixel sans Pi** (`test_local.js`, dans Chromium) : le fichier hors ligne de l'appli, ouvert en `file://` sans aucun accès au réseau, sur un téléphone en portrait puis en paysage. Aucune erreur, aucune requête, aucun WebSocket. Il vit et réagit au doigt ; aucune fausse donnée ; les écrans du Pi le disent et leurs touches restent éteintes, les commandes aussi ; Système montre le téléphone, et son Démarrage les pièces du téléphone ; les six thèmes ; le minuteur sonne. Après un rechargement, les réglages, l'humeur et le minuteur sont toujours là, et l'état d'une nouvelle fonction aussi, même gardé dans une variable à elle. Dans l'appli (simulée) : les messages vers l'appli, son état rendu par l'appli, l'image du Pi, la plus récente qui gagne, même quand elle arrive après la météo. La météo, avec et sans réseau, une faute de frappe, une ville tapée pendant que la météo d'une autre arrive. Une notification du téléphone passée par l'appli : le même bandeau que sur le Pi, et il réagit. Son caractère, ses repas et ses exos : repris de l'image du Pi (sa forme à lui), utilisés, gardés après un redémarrage ; son ventre après deux jours appli fermée (au pire un petit creux) ; le message `{panels}` et les panneaux ouverts depuis le menu de l'appli, même en mode Pixel ; le bouton retour qui ferme d'abord le panneau du dessus (`{sheet}`) ; un panneau touché ou un exo ouvert qui retiennent l'appli sur le téléphone ; une image du Pi pas plus récente que la copie du téléphone qui ne défait rien de ce qu'il a vécu ; rien du Pi à lui seul (`telephone`) gardé sur le téléphone. Le Pixel de poche, sans bouton de voyage, avec les sens de l'appli (secoué, il a le tournis), son assiette et son plateau.
 - **Caractère** (`test_caractere.py`, `test_caractere.js`) : les 15 caractères, les valeurs bornées et nettoyées (même 1e400 ou Infinity), le fichier gardé (même abîmé : le serveur démarre toujours), les commandes (et les phrases qui partent toujours à Claude, comme « parle-moi » ou « tu t'appelles vraiment Pixel »), l'outil et la consigne de Claude, la conversation gardée avec l'abonnement, les mêmes règles dans Pixel Lab, des noms de scènes qui ne prennent pas ceux des autres paquets. À 50 partout, exactement les mêmes scènes et les mêmes phrases, pour le même tirage au sort, que sans caractère dans l'état du serveur et que sans `caractere.js` du tout (et qu'avant la fonction, git 36422fd, la branche principale juste avant son arrivée : comparaison notée, qui compte avec `CARACTERE_STRICT=1`). Sur des centaines d'essais : un Pixel grognon s'énerve et boude plus (et plus longtemps), un câlin devient plus vite amoureux, un indépendant repousse les câlins, un bavard parle plus et un taiseux bien moins, un énergique vit plus souvent et plus vite, un blasé laisse passer des notifications ; mais quel que soit son caractère, ce que tu fais pour lui a toujours sa réponse, et « Il parle » éteint garde les rappels. Aussi : les heures calmes, son nom et ton surnom dans ses phrases (le même nom sur le Pi et sur les écrans, accents et signes des voyelles gardés), sa réaction à chaque changement, le panneau du téléphone (qui s'efface devant le Pixel de poche), l'écran du Pi et le panneau de Pixel Lab.
 - **Exos de maths** (`test_exos.py`, `test_exos.js`) : chaque type d'exo à chaque niveau (9 000 exercices) a sa bonne réponse parmi 4 choix différents, vérifiée en refaisant le calcul ; les erreurs classiques sont dans les choix ; la même graine donne le même exo. Le jeu, sur une fausse horloge : l'indice et le deuxième essai, la correction, une série, une table, le défi chrono, les niveaux qui montent, descendent ou restent fixes, l'objectif du jour, les trophées, l'exo oublié qui se range, le fichier `exos.json`. La réponse n'arrive jamais aux écrans avant que tu aies répondu. Un double appui, un écran en retard ou la même erreur deux fois ne coûtent jamais le deuxième essai ni ne répondent à la question suivante ; sa fête n'est pas coupée ; un `exos.json` abîmé ou d'une drôle de forme n'empêche pas Pixel de démarrer, et un réglage hors limites (1e999) n'y efface ni les scores ni les trophées ; une horloge qui recule ne fige ni le défi chrono ni la correction ; une réponse, une seule bannière (l'objectif et les trophées ensemble) ; chaque correction explique. Les commandes (un nombre seul ne va à l'exo que s'il y en a un d'ouvert, et jamais à Claude pendant la correction ; `4 025` ; `encore` et `une autre` seulement pendant ou juste après un exo) et l'outil de Claude. Dans Chromium : l'écran du Pi dans les 6 thèmes (un double appui sur une réponse fausse, puis la bonne, et ses réactions), chaque réponse touchée jusqu'à son bord droit, le clavier, l'indice en touchant Pixel, son petit rappel, une série rapide où chaque réponse a sa scène, le bilan d'une série, les images par seconde, aucun moment de vie pendant un exo, sa proposition et le bouton **Oui !** ; le panneau du téléphone (réponses, double appui, pavé et sa touche **−**, le chrono arrêté quand le panneau se ferme, réglages, scores) et la barre de commande ; dans Pixel Lab, les mêmes règles.
+- **Boutique** (`test_boutique.py`, `test_boutique.js`) : voir « La boutique » : les pièces, les achats, la garde-robe, les commandes, le fichier gardé, le plateau du Pi, le panneau du téléphone, et ses accessoires dessinés dans les 6 thèmes avec les deux visages.
 - **Les trois ensemble** (`test_perso.py`, `test_perso.js`) : les commandes de chacun vont au bon endroit (un nombre seul à l'exo ouvert seulement, les repas et le caractère pendant un exo), les trois outils de Claude côte à côte, sa consigne avec son caractère, l'état de Pixel avec son ventre et les exos du jour, jamais la réponse d'un exo ouvert ; gourmand, grognon et farceur (et l'humeur du jour) changent son ventre et ses repas, studieux ses questions et sa fête ; à 50, chaque scène des trois et du Pixel de poche pèse comme avant. Dans Chromium : sur l'écran du Pi, qui passe devant qui (le menu rapide, même par-dessus un vrai cast, le cast, un exo, sa question, le plateau ; sous un cast, l'exo attend, ni le doigt ni le clavier n'y répondent, il revient tel quel, et « Tu réfléchis ? » ne compte pas le temps passé dessous), un changement de caractère pendant un exo, en Rétro, LCD et Néon ; le Pixel de poche ; les trois boutons du téléphone et leurs panneaux ; dans Pixel Lab, les trois panneaux et les mêmes commandes que le serveur (une même liste de phrases d'exos, passée au serveur et à Pixel Lab, donne partout la même chose).
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
@@ -671,6 +751,8 @@ python3 tests/test_caractere.py      # son propre serveur de démo sur le port 8
 node tests/test_caractere.js         # il faut Playwright ; port 8164 (CARACTERE_PORT) ; --shots DOSSIER pour les captures
 python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PY_PORT=… pour un autre)
 node tests/test_nourrir.js           # port 8175 (NOURRIR_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+python3 tests/test_boutique.py       # son propre serveur de démo sur le port 8176 (BOUTIQUE_PY_PORT=… pour un autre)
+node tests/test_boutique.js          # port 8177 (BOUTIQUE_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_perso.py          # les trois ensemble, sans serveur
@@ -695,6 +777,8 @@ Pas encore testé avec le vrai matériel :
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `ecran.js` l'écran partagé, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`), `local.js` Pixel sans Pi (l'appli Android sans le Pi) |
 | `pixel/caractere.py`, `web/caractere.js` | son caractère : les caractères tout prêts, les traits, son nom et ton surnom ; le panneau **Caractère** du téléphone (`caractere.css`) ; ses réactions dans `scenes/caractere.js` |
 | `pixel/nourrir.py`, `web/nourrir.js` | le nourrir : son ventre, ses goûts, ses repas ; l'assiette et le plateau du Pi, le panneau **Nourrir** du téléphone (`nourrir.css`) ; le menu, ses dessins et ses scènes dans `scenes/nourrir.js` |
+| `pixel/boutique.py`, `web/boutique.js` | sa boutique : ses pièces, sa garde-robe, ce qu'il porte ; le petit chapeau et le plateau du Pi, le panneau **Boutique** du téléphone (`boutique.css`) ; le catalogue, les dessins des 24 accessoires et ses réactions dans `scenes/boutique.js` |
+| `web/scenes/moments.js` | onze moments pour les animations ajoutées au pack |
 | `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |

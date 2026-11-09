@@ -40,6 +40,7 @@ from pixel import telephone              # the Android app: the phone's notifica
 from pixel import caractere              # his character: traits, presets, his name and yours
 from pixel import nourrir                # Nourrir: his belly, his tastes, his meals
 from pixel import exos                   # little math exercises (and riddles)
+from pixel import boutique               # his shop: coins, accessories, what he wears
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -177,6 +178,7 @@ async def serve(args, cfg, datadir, token):
     core_actions(hub, datadir)
     poche.setup(hub)                     # Pixel de poche: the two Pixels pass news, the voyage
     caractere.setup(hub, datadir)        # his character, saved in caractere.json
+    boutique.setup(hub, datadir)         # his shop and wardrobe (data_dir/boutique.json); before what wins coins: meals, exercises
     nourrir.setup(hub, datadir)          # Nourrir: feeding Pixel (data_dir/nourrir.json)
     exos.setup(hub, datadir)             # math exercises: the exos.* actions, data_dir/exos.json
     port = args.port

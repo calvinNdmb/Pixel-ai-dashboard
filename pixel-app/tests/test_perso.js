@@ -215,8 +215,8 @@ async function phone(browser) {
   await p.evaluate(() => { const a = document.getElementById('apk'); if (a) a.hidden = false; });   // as when the Android app is there
   const order = await p.evaluate(() => [...document.querySelector('.kfoot > span').children].filter(e => !e.hidden).map(e => e.textContent.trim()));
   const i = n => order.indexOf(n);
-  check('under the keys: Caractère, Nourrir, Exos side by side, after Agendas, before the Android app', i('Agendas') >= 0 && i('Caractère') === i('Agendas') + 1
-    && i('Nourrir') === i('Caractère') + 1 && i('Exos') === i('Nourrir') + 1 && i('Appli Android') === i('Exos') + 1, order.join(' · '));
+  check('under the keys: Caractère, Nourrir, Boutique, Exos side by side, after Agendas, before the Android app', i('Agendas') >= 0 && i('Caractère') === i('Agendas') + 1
+    && i('Nourrir') === i('Caractère') + 1 && i('Boutique') === i('Nourrir') + 1 && i('Exos') === i('Boutique') + 1 && i('Appli Android') === i('Exos') + 1, order.join(' · '));
   await p.evaluate(() => { const a = document.getElementById('apk'); if (a) a.hidden = true; });
   check('…each once', ['Caractère', 'Nourrir', 'Exos'].every(n => order.filter(x => x === n).length === 1), order.join(' · '));
   await shot(p, 'phone-buttons');
@@ -248,7 +248,7 @@ async function lab(browser) {
   await until(() => l.evaluate(() => !!window.PixelLab && !!document.getElementById('hCaractere') && !!document.getElementById('hNourrir') && !!document.getElementById('hExos')), 10000);
   const order = await l.evaluate(() => [...document.querySelectorAll('#panel > section h2')].map(h => h.id));
   const at = order.indexOf('hPerso');
-  check('Pixel Lab: the panels side by side, Personnalité, Caractère, Nourrir, Exos de maths', at >= 0 && order.slice(at, at + 4).join() === 'hPerso,hCaractere,hNourrir,hExos', order.join(','));
+  check('Pixel Lab: the panels side by side, Personnalité, Caractère, Nourrir, Boutique, Exos de maths', at >= 0 && order.slice(at, at + 5).join() === 'hPerso,hCaractere,hNourrir,hBoutique,hExos', order.join(','));
   // the same commands as the server, in the same order
   const run = text => l.evaluate(t => {
     const H = PixelHub, S0 = JSON.parse(JSON.stringify({ c: H.S.caractere, n: H.S.nourrir && H.S.nourrir.dernier, e: H.S.exos && H.S.exos.cur, sc: H.S.scene }));

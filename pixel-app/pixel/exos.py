@@ -857,6 +857,7 @@ class Exos:
         self.seen = None            # the clock when last read (ms): a clock set back is seen there (ms())
         self.recent = []
         self.on_toast = None        # a trophy: hub.toast
+        self.on_coins = None        # coins won (n, reason): his shop (pixel/boutique.py)
         self._id = int(clock()) % 100000 * 100
         data = self._load()
         self.reglages = default_reglages()
@@ -1076,12 +1077,16 @@ class Exos:
             else:
                 st["serie"] = 0
             up = self._adapt(c["kind"], ok, clean)
+            if ok and self.on_coins:                    # a right answer wins coins for his shop (pixel/boutique.py)
+                self.on_coins(2 if first else 1, "exo")
             if st["aujourdhui"] >= self.reglages["objectif"] and st["coupe_jour"] != st["jour"]:
                 st["coupe_jour"] = st["jour"]
                 st["coupes"] += 1
                 events.insert(0, ("objectif", {"objectif": self.reglages["objectif"]}))
                 n = self.reglages["objectif"]
                 says.append(f"Objectif du jour atteint : {n} exo{'s' if n > 1 else ''} !")
+                if self.on_coins:
+                    self.on_coins(10, "objectif")
         else:
             st["serie"] = 0
         if ok and r:
@@ -1361,6 +1366,7 @@ def setup(hub, datadir=None):
         ex = Exos(None)
         ex.path = datadir / "exos.json"
     ex.on_toast = lambda msg: hub.toast(msg, 8000 if " · " in msg else 5000)     # two news of one answer: time to read both
+    ex.on_coins = lambda n, why: getattr(hub, "boutique", None) and hub.boutique.gagner(n, why)     # when Pixel has a shop
     hub.exos = ex
 
     def pub():

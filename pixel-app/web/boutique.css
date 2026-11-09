@@ -1,0 +1,55 @@
+/* La boutique (boutique.js): the « Boutique » button under the keys, and its panel on the phone, in the colours and fonts of the
+   current theme (the --k-* and --c-* of style.css). Like Nourrir's: a sheet from the bottom on a phone, a dialog on a computer;
+   when there is room, a sheet that stops just under Pixel's screen (.peek, --bout-top: boutique.js place()), so he is seen
+   trying things on. */
+.bout-go{font-family:var(--f-ui)}                      /* the look of its neighbours, « Agendas » and « Nourrir » (.follow) */
+.bout-go.gift::after{content:"";display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--k-act);vertical-align:middle}   /* today's gift is still to open */
+body.bout-on{overflow:hidden}
+body.poche .bout,body.poche .bout-go,body.kiosk .bout-go{display:none!important}
+.bout{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.55);padding-top:max(16px,env(safe-area-inset-top))}
+.bout-sheet{width:min(560px,100%);max-height:100%;overflow:auto;overscroll-behavior:contain;background:var(--k-bg);color:var(--c-fg);border:2px solid var(--c-line);border-bottom:0;
+  border-radius:18px 18px 0 0;padding:14px 16px max(18px,env(safe-area-inset-bottom));font:max(15px,calc(21px*var(--k-size)))/1.25 var(--c-font);display:flex;flex-direction:column;gap:14px}
+.bout-sheet>*{flex:none}
+@media (min-width:700px) and (min-height:600px){.bout{align-items:center;padding:24px}.bout-sheet{border-bottom:2px solid var(--c-line);border-radius:18px;max-height:min(860px,100%)}}
+.bout.peek{background:transparent;align-items:flex-end;padding:var(--bout-top,16px) 0 0}      /* no veil over Pixel: a touch on him closes it */
+.bout.peek .bout-sheet{border-bottom:0;border-radius:18px 18px 0 0;max-height:100%;box-shadow:0 -6px 22px rgba(0,0,0,.4)}
+.bout h2,.bout h3{margin:0;font-family:var(--k-font);font-weight:400;color:var(--k-fg);letter-spacing:.02em}
+.bout h2{font-size:calc(30px*var(--k-size))}
+.bout h3{font-size:calc(22px*var(--k-size));color:var(--c-dim);margin:0 0 6px}
+.bout-head{display:flex;align-items:center;gap:12px;position:sticky;top:-14px;background:var(--k-bg);padding:4px 0 6px;margin-top:-4px;z-index:1}
+.bout-head h2{flex:1;min-width:0}
+.bout button{font:inherit;color:var(--k-fg);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bout button:focus-visible{outline:2px solid var(--k-cur);outline-offset:2px}
+.bout-x{min-width:48px;min-height:48px;border:2px solid var(--c-line);border-radius:12px;background:transparent;font-size:30px!important;line-height:1;padding:0}
+/* his purse */
+.bout-purse{margin:0;display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:2px solid var(--c-line);border-radius:999px;white-space:nowrap}
+.bout-purse b{font-weight:400;font-family:var(--k-font);font-size:calc(22px*var(--k-size));color:var(--k-act)}
+.bout-coin{display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--k-act);box-shadow:inset 0 0 0 3px var(--k-act),inset 0 0 0 5px var(--k-bg);flex:none}
+.bout-msg{margin:0;min-height:1.25em;color:var(--k-act)}
+.bout-gift{min-height:52px;padding:8px 16px;border:2px solid var(--k-act);border-radius:12px;background:transparent;color:var(--k-act)!important;text-align:center}
+.bout-gift:disabled{border-style:dashed;border-color:var(--c-line);color:var(--c-dim)!important;cursor:default}
+/* the accessories */
+.bout-shop{display:flex;flex-direction:column;gap:12px}
+.bout-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.bout-item{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;min-height:128px;padding:8px 4px;border:2px solid var(--c-line);border-radius:12px;background:var(--k-bg)}
+.bout-item:active{transform:translateY(2px)}
+.bout-item.own{border-color:var(--k-fg)}
+.bout-item.worn{border-color:var(--k-act);box-shadow:inset 0 0 0 2px var(--k-act)}
+.bout-item.armed{border-color:var(--k-cur);border-style:dashed}
+.bout-item.poor:not(.armed) .bout-ic{opacity:.6}
+.bout-ic{width:60px;height:60px;flex:none}
+.bout-label{font-size:max(13px,calc(17px*var(--k-size)));line-height:1.1;text-align:center;overflow-wrap:anywhere;color:var(--c-fg)}
+.bout-tag{margin-top:auto;font-family:var(--k-font);font-size:max(13px,calc(18px*var(--k-size)));line-height:1.1;color:var(--k-fg)}
+.bout-item.worn .bout-tag,.bout-item.armed .bout-tag,.bout-tag.price{color:var(--k-act)}
+.bout-tag.price::before{content:"";display:inline-block;width:.7em;height:.7em;margin-right:.3em;border-radius:50%;background:var(--k-act);vertical-align:baseline}
+.bout-item.poor .bout-tag.price{color:var(--c-dim)}
+.bout-item.poor .bout-tag.price::before{background:var(--c-dim)}
+.bout-btn{align-self:flex-start;min-height:48px;padding:0 16px;border:2px solid var(--c-line);border-radius:12px;background:transparent}
+/* how to win coins, the last ones */
+.bout-how,.bout-journal{display:flex;flex-direction:column;gap:8px;border-top:2px solid var(--c-line);padding-top:12px}
+.bout ul,.bout ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.bout li{display:flex;align-items:baseline;gap:10px;font-size:.92em}
+.bout li span{flex:1;min-width:0}
+.bout li time{color:var(--c-dim);font-variant-numeric:tabular-nums}
+.bout li b{font-weight:400;font-family:var(--k-font);color:var(--k-act);white-space:nowrap}
+.bout li.bout-none{color:var(--c-dim)}

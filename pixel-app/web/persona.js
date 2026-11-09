@@ -1,7 +1,7 @@
 /* Pixel's personality: what he does when you touch him, when you come back, and when nobody looks.
    Loaded after themes.js, before screens.js. screens.js asks it, every frame on the Visage screen, what to play:
      const v = persona.update(dt, ctx)  ->  null, or { id, group, anim, mood, m, fast }
-       anim  one of the pack's 52 animations (the face of the "Pack 52" mode); mood: the same for the living face
+       anim  one of the pack's animations (the face of the "Pack 52" mode); mood: the same for the living face
        m     the whole face moves: { x, y } offset in px, s scale, r rotation (rad), f mirrored, sx / sy stretch
      persona.drawOver(box, m)   after the face: the props (hearts, tears, bubbles, a fly...) and the speech bubble
      persona.tap(p, box) / pet() / input(info) / play(id)   what happens to him
@@ -252,7 +252,7 @@ S('rdv-fin', 'Ça s’est bien passé ?', 'evt', { dur: 4400, anim: [[0, 'curieu
   say: [[300, 2300, o => `${o.title || 'Ton rendez-vous'} : terminé !`], [2400, 4200, L('Ça s’est bien passé ?', 'Alors, c’était bien ?', 'Raconte-moi !')]],
   move: e => ({ r: 0.06 * sm(seg(e, 0, 600)) * (1 - sm(seg(e, 3600, 4400))) }) });
 // the Pi itself: too hot (o: { temp }), the Wi-Fi gone, the Wi-Fi back
-S('chaud', 'Il a chaud', 'evt', { dur: 6400, anim: [[0, 'fatigue'], [3600, 'idee']], mood: 'baille',
+S('chaud', 'Il a chaud', 'evt', { dur: 6400, anim: [[0, 'chaud'], [3600, 'idee']], mood: 'baille',
   say: [[300, 3400, o => `Pfiou, ${o.temp || 70} °C… j’ai chaud !`], [3600, 6200, L('Un peu d’air, s’il te plaît !', 'On ouvre une fenêtre ?', 'Je fonds…')]],
   move: e => ({ y: 8 * sm(seg(e, 0, 800)) * (1 - sm(seg(e, 5600, 6400))), sy: 1 - 0.05 * Math.sin(e / 300) * (1 - seg(e, 5600, 6400)) }),
   props: (D, e) => { D.sweat(e); D.heat(e, seg(e, 0, 500) * (1 - seg(e, 5800, 6400))); } });
@@ -296,6 +296,11 @@ const EVENTS = {
   'exo-serie': 'Exos : une belle série, ou la fin d’une série',   // data.n: right in a row; or data.fin, bons, total, chrono
   'exo-objectif': 'Exos : l’objectif du jour est atteint',
   'exo-attente': 'Exos : tu réfléchis depuis un moment',
+  // his shop (web/boutique.js, pixel/boutique.py): data.objet, data.label, data.nom (« son bonnet »)
+  'boutique-achat': 'Boutique : un nouvel accessoire',
+  'boutique-porte': 'Boutique : il met un accessoire',
+  'boutique-retire': 'Boutique : il enlève un accessoire',
+  'boutique-cadeau': 'Boutique : le cadeau du jour',                 // data.n: the coins
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the
@@ -426,7 +431,17 @@ function busy() { return !!st.cur; }
 const el = () => (st.cur ? H.now() - st.cur.t0 : 0);
 
 /* where a point of the pack's face is on the screen, after the scene's motion (box: the face's 16:9 box) */
+function fitV(t, v) {                                // a living face has its eyes and mouth elsewhere: [[pack row, its row], ...], straight on between and beyond
+  if (v <= t[0][0]) return v + t[0][1] - t[0][0];
+  for (let i = 1; i < t.length; i++) if (v <= t[i][0]) return t[i - 1][1] + (v - t[i - 1][0]) * (t[i][1] - t[i - 1][1]) / (t[i][0] - t[i - 1][0]);
+  const z = t[t.length - 1]; return v + z[1] - z[0];
+}
 function project(box, m, u, v) {
+  if (m.head) {                                     // what he wears follows his head (decor): first the face's own layout, then its motion
+    const h = m.head;
+    if (h.fit) { u = 48 + (u - 48) * h.fit.ku; v = fitV(h.fit.v, v); }
+    const c = Math.cos(h.rot || 0), s = Math.sin(h.rot || 0), pu = h.pu ?? 48, pv = h.pv ?? 28, a = u - pu, b = v - pv; u = pu + a * c - b * s + (h.dx || 0); v = pv + a * s + b * c + (h.dy || 0);
+  }
   const cx = box.x + box.w / 2, cy = box.y + box.h / 2, px = box.x + u / 96 * box.w - cx, py = box.y + v / 54 * box.h - cy;
   const sx = m.s * (m.sx || 1) * (m.f ? -1 : 1), sy = m.s * (m.sy || 1), c = Math.cos(m.r), s = Math.sin(m.r);
   const qx = px * sx, qy = py * sy;
@@ -600,7 +615,10 @@ function current() {
   const mv = sc.move && !H.rm ? sc.move(e, p, cur.o) : null, m = { ...M0, ...(mv || {}) };
   const moodMap = { 'idle-impatient': 'confus', boudeur: 'fache', colere: 'fache', panique: 'surpris', triste: 'triste', amoureux: 'amoureux', bisou: 'amoureux', rire: 'content',
     etoiles: 'excite', salut: 'content', content: 'content', surpris: 'surpris', confus: 'confus', timide: 'amoureux', sommeil: 'endormi', 'idle-somnole': 'endormi', baille: 'baille',
-    reveil: 'surpris', fier: 'fier', chante: 'content', danse: 'excite', idee: 'excite', zen: 'content', curieux: 'ecoute', reflechit: 'reflechit', fatigue: 'baille', 'clin-oeil': 'clin' };
+    reveil: 'surpris', fier: 'fier', chante: 'content', danse: 'excite', idee: 'excite', zen: 'content', curieux: 'ecoute', reflechit: 'reflechit', fatigue: 'baille', 'clin-oeil': 'clin',
+    mange: 'content', beurk: 'malade', repu: 'content', 'petit-creux': 'triste', compte: 'reflechit', concentre: 'reflechit', 'en-feu': 'excite', casque: 'content', popcorn: 'excite',
+    'compte-a-rebours': 'surpris', ding: 'surpris', 'pause-cafe': 'content', jaloux: 'fache', gene: 'amoureux', soulage: 'content', trepigne: 'fache', froid: 'malade', chaud: 'baille',
+    vent: 'surpris', orage: 'surpris' };   // the second and third lines: the animations added in Pixel OS
   return { id: sc.id, group: sc.group, anim, mood: moodMap[anim] || MOOD(sc.id), m, fast: true, e };
 }
 
@@ -632,9 +650,17 @@ function paint(box, m, fn) {                         // fn(D): props drawn with 
   }
   for (const f of crisp) { X.save(); try { f(X); } finally { X.restore(); } }       // text and signs: always sharp
 }
-/* what he wears, drawn after his face, scene or not: his Santa hat all December, and in the Christmas scenes */
-const hatOn = () => new Date().getMonth() === 11 || (!!st.cur && ['neige', 'joyeux-noel'].includes(st.cur.sc.id));
-function decor(box, m) { if (hatOn()) paint(box, m, D => D.santa()); }
+/* what he wears, drawn after his face, scene or not: his Santa hat all December and in the Christmas scenes, and the
+   accessories of his shop (web/scenes/boutique.js PixelWardrobe; web/boutique.js says which: setWear). An accessory on his head
+   takes the Santa hat's place. head: where his head is in the face's grid ({dx, dy, rot, pu, pv}: the pack's own motion, a hop). */
+let WEAR = [];
+const WD = () => (typeof window !== 'undefined' && window.PixelWardrobe) || null;
+const wearing = slot => { const w = WD(); return !!w && WEAR.some(id => w.BY[id] && (!slot || w.BY[id].slot === slot)); };
+const hatOn = () => (new Date().getMonth() === 11 || (!!st.cur && ['neige', 'joyeux-noel'].includes(st.cur.sc.id))) && !wearing('tete');
+function decor(box, m, head) {
+  const santa = hatOn(), worn = wearing(); if (!santa && !worn) return;
+  paint(box, head ? { ...m, head } : m, D => { if (worn) WD().draw(D, WEAR); if (santa) D.santa(); });
+}
 function drawOver(box, m, opt) {                    // opt.noBubble: the caller shows the line itself (web/exos.js); returns the line of the moment
   const cur = st.cur; if (!cur) return '';
   const T = H.theme(), e = H.now() - cur.t0, sc = cur.sc, p = clamp(e / sc.dur, 0, 1);
@@ -801,7 +827,8 @@ function drawKit(g, box, m, c, U, T, pix, k = 1, crisp = []) {
 
 return {
   scenes: SC.map(s => ({ id: s.id, label: s.label, group: s.group, dur: s.dur })),
-  get state() { return { annoy: st.annoy, love: st.love, seen: st.seen, life: st.life, cur: st.cur ? st.cur.sc.id : '', next: st.nextLife, say: st.cur && st.cur.spoke || '', hat: hatOn() }; },
+  get state() { return { annoy: st.annoy, love: st.love, seen: st.seen, life: st.life, cur: st.cur ? st.cur.sc.id : '', next: st.nextLife, say: st.cur && st.cur.spoke || '', hat: hatOn(), wear: [...WEAR] }; },
+  setWear(ids) { WEAR = Array.isArray(ids) ? ids.filter(i => typeof i === 'string').slice(0, 8) : []; },   // the accessories he wears (web/boutique.js)
   setLife(on) { st.life = !!on; if (!on && st.cur && st.cur.sc.group === 'vie') st.cur = null; },
   setEvery(min, max) { st.every = [min, max]; st.nextLife = Math.min(st.nextLife, H.now() + min); },
   away(ms) { st.seen = Date.now() - ms; },        // the lab: pretend you were away

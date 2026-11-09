@@ -355,6 +355,9 @@ class Nourrir:
             self.sucres = run
             if f["cat"] == "sucre":
                 self.sucre_t = t
+            shop = getattr(self.hub, "boutique", None)          # a meal he eats wins a coin, his favourite two (pixel/boutique.py)
+            if shop:
+                shop.gagner(2 if r == "prefere" else 1, "repas")
         rot = r == "eclate" or (r in ("miam", "aime", "prefere", "legume") and self.rng.random() < 0.04 + 0.26 * trait(self.hub, "farceur") / 100)
         self.last_meal = t
         self.dernier = {"id": ((self.dernier or {}).get("id") or 0) + 1, "plat": f["id"], "t": t * 1000, "reaction": r, "rot": rot, "choisi": bool(choisi)}
