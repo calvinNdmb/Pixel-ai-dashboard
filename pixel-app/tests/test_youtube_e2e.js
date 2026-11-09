@@ -39,7 +39,10 @@ const STUB = `(() => {
   window.YT = { Player };
   setTimeout(() => window.onYouTubeIframeAPIReady && window.onYouTubeIframeAPIReady(), 20);
 })();`;
-const FRAME = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#202020;color:#fff;font:28px sans-serif;display:grid;place-items:center;height:100vh">Lecteur YouTube (simulé)</body>';
+// its links, as the real player's: the title and the logo open youtube.com in a new window (target=_blank), others the whole page
+const FRAME = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#202020;color:#fff;font:28px sans-serif;display:grid;place-items:center;height:100vh">Lecteur YouTube (simulé)'
+  + '<a id="out" href="https://www.youtube.com/watch?v=aqz-KE-bpKQ" target="_blank" style="position:absolute;right:16px;bottom:16px;color:#fff;font-size:16px">Regarder sur YouTube</a>'
+  + '<a id="top" href="https://www.youtube.com/" target="_top" style="position:absolute;left:16px;bottom:16px;color:#fff;font-size:16px">YouTube</a></body>';
 
 function waitPort() {
   return new Promise((ok, ko) => {
@@ -72,7 +75,8 @@ function waitPort() {
     });
     const kiosk = await ctx.newPage(); await kiosk.setViewportSize({ width: 800, height: 480 });
     const phone = await ctx.newPage(); await phone.setViewportSize({ width: 390, height: 844 });
-    for (const p of [kiosk, phone]) { p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|Failed to load resource/.test(m.text())) errs.push(m.text()); }); }
+    const SANDBOXED = /sandboxed|allow-popups|allow-top-navigation/;     // the browser saying it refused what the player's links asked
+    for (const p of [kiosk, phone]) { p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|Failed to load resource/.test(m.text()) && !SANDBOXED.test(m.text())) errs.push(m.text()); }); }
     await kiosk.goto(BASE + '/?kiosk=1');
     await phone.goto(BASE + '/?t=' + PHONE);
     await until(() => kiosk.evaluate(() => Screens.local.boot < 0), 12000);
@@ -100,6 +104,15 @@ function waitPort() {
       const g = c.getContext('2d'); g.drawImage(im, 0, 0); const d = g.getImageData(0, 0, c.width, c.height).data; let off = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 32) + Math.abs(d[i + 1] - 32) + Math.abs(d[i + 2] - 32) > 6) off++; return off; }, shot);
     check('... its pixels are the video\'s own: no scanline, no green over it', px === 0, `${px} pixels changed`);
     await kiosk.screenshot({ path: path.join(SHOTS, 'kiosk-player.png') });
+    // a tap on the player's own links (its title, its logo, an ad): no window over Pixel, Pixel's page stays (the kiosk has no tabs, no back)
+    const opened = []; ctx.on('page', p => opened.push(p.url()));
+    const player = kiosk.frameLocator('.yt-player iframe');
+    await player.locator('#out').click(); await sleep(600);
+    const popup = opened.length;
+    await player.locator('#top').click({ noWaitAfter: true }); await sleep(600);
+    const after = await kiosk.evaluate(() => { const f = document.querySelector('.yt-player iframe'); return { frame: !!f, sandbox: f && f.getAttribute('sandbox') }; }).catch(e => ({ frame: false, err: e.message }));
+    check("a tap on the player's links (« Regarder sur YouTube », target=_blank or _top): no new window, Pixel's page stays",
+      popup === 0 && opened.length === 0 && ctx.pages().length === 2 && kiosk.url() === BASE + '/?kiosk=1' && after.frame, JSON.stringify({ opened, url: kiosk.url(), ...after }));
     // the remote control
     await phone.click('.ytr-row .cbtn.big');
     check('the phone\'s Pause: Pixel\'s player pauses, and the phone shows it', await until(() => kiosk.evaluate(() => __yt.players[0].calls.includes('pause')))
@@ -134,8 +147,12 @@ function waitPort() {
     ctl({ type: 'seek', pos: 100 });
     check('the app seeks: Pixel\'s player does it', await until(() => kiosk.evaluate(() => __yt.players[2].calls.includes('seek 100'))));
     check('... and what it does goes back to the app', await until(() => got().some(m => m.type === 'state' && m.id === 'aqz-KE-bpKQ' && Math.round(m.pos) === 100)), JSON.stringify(got().slice(-3)));
-    ctl({ type: 'play', id: 'dQw4w9WgXcQ', pos: 0 });
-    check('the app\'s next video: loaded in the same player', await until(() => kiosk.evaluate(() => __yt.players.length === 3 && __yt.players[2].calls.includes('load dQw4w9WgXcQ 0'))));
+    const cid = await kiosk.evaluate(() => Screens.cast.id);
+    ctl({ type: 'stop' }); ctl({ type: 'play', id: 'dQw4w9WgXcQ', pos: 0 });   // another video picked in the app: yt-cast-receiver says stop, then play
+    const loaded = await until(() => kiosk.evaluate(() => __yt.players.length === 3 && __yt.players[2].calls.includes('load dQw4w9WgXcQ 0')));
+    await sleep(900);                                  // the stop held back (pixel/ytcast.py STOP_WAIT) does not come after it
+    const same = await kiosk.evaluate(id => ({ n: __yt.players.length, cast: Screens.cast.id === id, frame: !!document.querySelector('.yt-player iframe') }), cid);
+    check('the app\'s next video (stop, then play, as the app sends it): loaded in the same player, the same cast', loaded && same.n === 3 && same.cast && same.frame, JSON.stringify(same));
     await kiosk.screenshot({ path: path.join(SHOTS, 'kiosk-from-app.png') });
     await kiosk.mouse.click(700, 400);                 // the column beside the player: stop
     check('a touch on Pixel\'s column stops it, and the app hears it', await until(() => got().some(m => m.type === 'stopped')));

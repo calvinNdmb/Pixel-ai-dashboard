@@ -10,11 +10,13 @@ Pixel's player says, and the YouTube app's Cast button through a fake sidecar (t
 - the sidecar: started by the server, restarted when it crashes (the server goes on), ended with the server; its code in
   its environment only, nothing else of the server's environment; /ytcast only from the Pi itself, with its code, never
   from a browser page or with the phone's code; the YouTube app's video in Pixel's player, its orders, its next video,
-  its end, a stop on Pixel told back to it; the TV code on Pixel's screen until a phone pairs.
+  its end, another video picked in the app (stop, then play: the same cast), a stop on Pixel told back to it; the TV code
+  on Pixel's screen until a phone pairs; the real sidecar's DIAL server on IPv4 only (a stand-in for yt-cast-receiver).
 """
 import asyncio
 import json
 import os
+import select
 import signal
 import socket
 import subprocess
@@ -101,6 +103,52 @@ def pieces():
           and "PIXEL_YTCAST_PARENT" in side and "MISSING = 78" in side and "process.stdin.on('end'" in side)
     inst = (APP / "deploy" / "install.sh").read_text()
     check("install.sh: the sidecar only when asked (PIXEL_YTCAST=1), npm ci --omit=dev", 'PIXEL_YTCAST:-0' in inst and "npm ci --omit=dev" in inst)
+
+
+FAKE_YTCR = """import http from 'http'; import net from 'net'; import { EventEmitter } from 'events';
+const nl = net.Server.prototype.listen;   // what the DIAL server's listen() really gets: its address
+net.Server.prototype.listen = function (...a) { console.log('LISTEN ' + JSON.stringify(a.filter(x => typeof x !== 'function'))); return nl.apply(this, a); };
+export class Player extends EventEmitter {} export class DataStore {} export class DefaultLogger {} export const Constants = { PLAYER_STATUSES: {} };
+export default class YouTubeCastReceiver extends EventEmitter {   // as yt-cast-receiver 2.1.0's DialServer: listen(port), no address
+  constructor(player, o) { super(); this.port = o.dial.port; }
+  getConnectedSenders() { return []; } getPairingCodeRequestService() { return Object.assign(new EventEmitter(), { start() {}, stop() {} }); }
+  start() { return new Promise((ok, ko) => { this.s = http.createServer((q, r) => r.end('dial')); this.s.listen(this.port, ok).on('error', ko); }); }
+  async stop() { if (this.s) this.s.close(); }
+}
+"""
+
+
+def sidecar_dial():
+    """The real sidecar (index.js) with a stand-in for yt-cast-receiver: its DIAL server answers on IPv4 only, never on the
+    Pi's public IPv6 address (where anyone could pair a phone with Pixel)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        mod = Path(tmp) / "node_modules" / "yt-cast-receiver"
+        mod.mkdir(parents=True)
+        (mod / "package.json").write_text('{"name": "yt-cast-receiver", "type": "module", "exports": "./index.js"}')
+        (mod / "index.js").write_text(FAKE_YTCR)
+        (Path(tmp) / "index.js").write_text((APP / "sidecar" / "ytcast" / "index.js").read_text())
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        env = {**os.environ, "PIXEL_YTCAST_TOKEN": "x", "PIXEL_YTCAST_PORT": str(port), "PIXEL_YTCAST_DATA": tmp, "PIXEL_YTCAST_URL": "ws://127.0.0.1:9/ytcast"}
+        p = subprocess.Popen(["node", str(Path(tmp) / "index.js")], cwd=tmp, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out, end = b"", time.time() + 10
+        try:
+            while "Prêt".encode() not in out and time.time() < end and p.poll() is None:
+                if select.select([p.stdout], [], [], 0.2)[0]:
+                    out += os.read(p.stdout.fileno(), 4096)
+            try:
+                with socket.create_connection(("127.0.0.1", port), 2) as c:
+                    c.sendall(b"GET / HTTP/1.0\r\n\r\n")
+                    answer = c.recv(1024)
+            except OSError:
+                answer = b""
+        finally:
+            p.terminate()
+            p.wait(5)
+        text = out.decode("utf-8", "replace")
+        check("the sidecar's DIAL server: IPv4 only (0.0.0.0), not the Pi's public IPv6 address; the house's Wi-Fi reaches it",
+              f'LISTEN [{port},"0.0.0.0"]' in text and answer.endswith(b"dial"), text[-400:])
 
 
 def lines(f):
@@ -253,6 +301,14 @@ async def main(datadir):
             await until(lambda: state["cast"] and state["cast"]["yt"]["id"] == "dQw4w9WgXcQ")
             c = state["cast"]
             check("the app's next video: in the same cast, the player loads it (v)", c["id"] == aid and c["ytp"]["v"] == 2 and c["ytp"]["st"] is None and c["title"] == "Vidéo YouTube", str(c.get("ytp")))
+            # another video picked in the app while one plays (or next, previous): yt-cast-receiver says stop, then play
+            tell({"type": "stop"})
+            tell({"type": "play", "id": "aqz-KE-bpKQ", "pos": 5})
+            await until(lambda: state["cast"] and state["cast"]["yt"]["id"] == "aqz-KE-bpKQ")
+            await pump(ytcast.STOP_WAIT + 0.7)
+            c = state["cast"] or {}
+            check("another video picked in the app (stop, then play): still the same cast, the same player (v)", c.get("id") == aid and c["ytp"]["v"] == 3
+                  and c["yt"]["start"] == 5 and "stopped" not in got_types(), str(c.get("ytp")))
             await act("yt.ended", id=aid)
             await pump(0.5)
             check("its end, and the app has nothing next: still on for a few seconds", state["cast"] is not None)
@@ -333,6 +389,7 @@ def gone(pid, seconds=5):
 
 if __name__ == "__main__":
     pieces()
+    sidecar_dial()
     with tempfile.TemporaryDirectory() as tmp:
         yt = f'[ytcast]\nenabled = true\ncommand = ["{sys.executable}", "tests/fake_ytcast.py"]\n'
         srv = start_server(PORT, tmp, yt)

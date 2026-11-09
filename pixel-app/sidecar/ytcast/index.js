@@ -6,6 +6,7 @@
    The server starts it, restarts it if it stops, and it ends with the server (its stdin closes). By hand, to try it:
      PIXEL_YTCAST_TOKEN=$(cat ~/.config/pixel/ytcast/token) node index.js */
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,11 @@ const { default: YouTubeCastReceiver, Player, Constants, DataStore, DefaultLogge
 const ST = Constants.PLAYER_STATUSES;
 const DATA = env.PIXEL_YTCAST_DATA || path.join(os.homedir(), '.config', 'pixel', 'ytcast');
 const URL_ = env.PIXEL_YTCAST_URL || 'ws://127.0.0.1:8080/ytcast', NAME = env.PIXEL_YTCAST_NAME || 'Pixel', PORT = Number(env.PIXEL_YTCAST_PORT) || 3000;
+// The DIAL server (yt-cast-receiver: http.createServer(...).listen(port), with no address) would answer on every address, the
+// Pi's public IPv6 one too, where anyone could pair a phone with Pixel. IPv4 only: SSDP gives the phones an IPv4 address, and
+// the box's NAT keeps it in the house (as server.py's home_only does for Pixel's own server).
+const listen = http.Server.prototype.listen;
+http.Server.prototype.listen = function (p, ...r) { return p === PORT && typeof r[0] !== 'string' ? listen.call(this, p, '0.0.0.0', ...r) : listen.call(this, p, ...r); };
 let TOKEN = env.PIXEL_YTCAST_TOKEN || '';
 if (!TOKEN) try { TOKEN = fs.readFileSync(path.join(DATA, 'token'), 'utf8').trim(); } catch { say(`Pas de code : PIXEL_YTCAST_TOKEN, ou ${path.join(DATA, 'token')} (créé par le serveur de Pixel).`); process.exit(2); }
 
@@ -65,7 +71,7 @@ class PixelPlayer extends Player {
   }
   async doPause() { return this.quiet || link.send({ type: 'pause' }); }
   async doResume() { return this.quiet || link.send({ type: 'resume' }); }
-  async doStop() { if (!this.quiet) link.send({ type: 'stop' }); return true; }
+  async doStop() { if (!this.quiet) link.send({ type: 'stop' }); return true; }   // before each new video too: the server waits for its play
   async doSeek(pos) { Object.assign(this.st, { pos, at: Date.now() }); return link.send({ type: 'seek', pos }); }
   async doSetVolume(v) { Object.assign(this.st, { vol: v.level, muted: v.muted }); return link.send({ type: 'volume', level: v.level, muted: v.muted }); }
   async doGetVolume() { return { level: this.st.vol ?? 100, muted: !!this.st.muted }; }

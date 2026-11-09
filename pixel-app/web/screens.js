@@ -526,6 +526,8 @@ function castVideo(c) {
 function castFrame(c) {               // YouTube or Vimeo: their player, over the canvas (the scanlines of the page go over it)
   const host = cv.parentElement; if (!host || typeof host.append !== 'function') return;
   const f = document.createElement('iframe'), yt = /youtube/.test(c.embed);
+  // as web/ytplayer.js: no window, no leaving Pixel's page from a tap on the player's links (the kiosk has no tabs, no back)
+  f.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-presentation allow-storage-access-by-user-activation');
   f.src = c.embed + (yt ? '&origin=' + encodeURIComponent(location.origin) : '');
   f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.referrerPolicy = 'strict-origin-when-cross-origin'; f.title = c.title || 'Vidéo';
   f.style.cssText = `position:absolute;z-index:1;border:0;background:#000;left:${EMB.x / 8}%;top:${EMB.y / 4.8}%;width:${EMB.w / 8}%;height:${EMB.h / 4.8}%`;

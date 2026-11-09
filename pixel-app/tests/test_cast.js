@@ -149,6 +149,9 @@ const KINDS = {
   frames.length = 0; L.kiosk = true; c = KINDS.youtube(); set({ cast: c }); tick();
   const f = frames[0];
   check('YouTube on Pixel: their player over the canvas, the embed address, autoplay allowed', f && f.tag === 'iframe' && f.src.startsWith(c.embed) && /origin=/.test(f.src) && /autoplay/.test(f.allow) && Screens.cast.player);
+  const sbx = String(f.attrs.sandbox || '').split(/\s+/);
+  check('... sandboxed: its scripts and origin, no window, no leaving Pixel\'s page from a tap on its links', sbx.includes('allow-scripts') && sbx.includes('allow-same-origin')
+    && !sbx.some(x => /popups|top-navigation/.test(x)), String(f.attrs.sandbox));
   sent.length = 0; Screens.hit(100, 200); const fromPlayer = sent.length; Screens.hit(700, 400);
   check("a touch on the player is the player's; the column beside it stops it", fromPlayer === 0 && sent.some(([a]) => a === 'cast.stop'), JSON.stringify(sent));
   L.inputAt = clock; Screens.menu(true); tick(16); check('the player hides under the quick menu', f.style.visibility === 'hidden'); Screens.menu(false); tick(16);

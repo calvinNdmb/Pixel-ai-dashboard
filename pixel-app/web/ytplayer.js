@@ -10,6 +10,9 @@ window.PixelYT = (() => {
 const ID = /^[A-Za-z0-9_-]{11}$/, LIST = /^[A-Za-z0-9_-]{2,64}$/, PRIVATE = ['WL', 'LL'];
 const HOSTS = ['youtube.com', 'music.youtube.com', 'youtube-nocookie.com', 'youtu.be'];
 const C = { apiMs: 15000, readyMs: 20000, nextMs: 3000, reportMs: 5000 };     // how long to wait (the tests make it shorter)
+// the player's frame keeps its origin and its scripts (the IFrame API's postMessage), but opens no window and never leaves
+// Pixel's page: in the kiosk (no tabs, no back), a tap on its title, its logo or an ad would cover Pixel until a reboot
+const SANDBOX = 'allow-same-origin allow-scripts allow-forms allow-presentation allow-storage-access-by-user-activation';
 
 /* ---------- the links (pixel/youtube.py) ---------- */
 function startS(v) {                    // t=, start=: 90, 90s, 1m30s, 1h2m3s, 1:30 -> seconds
@@ -82,11 +85,12 @@ function create(host, c, o = {}) {
   const startAt = yt => st0 && st0.vid === yt.id && st0.pos > 2 && !st0.err ? Math.floor(st0.pos + (st0.state === 1 ? Math.max(0, (Date.now() - (st0.at || Date.now())) / 1000) : 0)) : yt.start || 0;
   const call = (f, ...a) => { try { return ctl.p && typeof ctl.p[f] === 'function' ? ctl.p[f](...a) : undefined; } catch (e) { return undefined; } };
 
-  function frame(yt) {                  // the iframe, its address, its referrer policy and permissions before it loads
+  function frame(yt) {                  // the iframe, its address, its sandbox, referrer policy and permissions before it loads
     if (ctl.frame) ctl.frame.remove();
     const f = document.createElement('iframe'), list = ctl.src === 'appli' ? '' : yt.list;   // the YouTube app plays its own list
     let src = embedUrl({ id: ID.test(yt.id || '') ? yt.id : '', list: LIST.test(list || '') ? list : '', start: Math.max(0, Math.floor(Number(startAt(yt)) || 0)) }) + '&origin=' + encodeURIComponent(location.origin);
     if (ctl.www) src = src.replace('https://www.youtube-nocookie.com/', 'https://www.youtube.com/');
+    f.setAttribute('sandbox', SANDBOX);
     f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin'); f.referrerPolicy = 'strict-origin-when-cross-origin';
     f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen'); f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
     f.title = c.title || 'Vidéo YouTube'; f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0';

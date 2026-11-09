@@ -111,6 +111,9 @@ const sends = a => sent.filter(([x]) => x === a);
     && f.src.endsWith('&origin=' + encodeURIComponent('http://localhost:8080')), f.src);
   check('... with the referrer policy (no error 153) and the permissions (autoplay, fullscreen), before it loads',
     f.attrs.referrerpolicy === 'strict-origin-when-cross-origin' && /autoplay/.test(f.attrs.allow) && /fullscreen/.test(f.attrs.allow) && /encrypted-media/.test(f.attrs.allow));
+  const sbx = String(f.attrs.sandbox || '').split(/\s+/);
+  check('... sandboxed before it loads: its origin and scripts (the IFrame API), no window, no leaving Pixel\'s page (the kiosk has no tabs)',
+    ['allow-same-origin', 'allow-scripts'].every(x => sbx.includes(x)) && !sbx.some(x => /popups|top-navigation/.test(x)), String(f.attrs.sandbox));
   check('over the page\'s scanlines (z-index 3 > 2), under its command bar (before it)', /z-index:3/.test(b.style.cssText) && host.children.indexOf(b) < host.children.indexOf(cmdBar)
     && /left:2%;top:12.08\d*%;width:73%;height:68.33\d*%/.test(b.style.cssText), b.style.cssText);
   check('ready: it says so to the server', sends('yt.report').some(([, g]) => g.id === c.id && g.vid === 'aqz-KE-bpKQ' && g.title === 'Big Buck Bunny' && g.dur === 300));

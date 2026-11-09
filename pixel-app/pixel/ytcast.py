@@ -14,6 +14,7 @@ The sidecar says (JSON, one message each):
     pairing {code}                         the "Link with TV code" code (it changes every 5 minutes), or {code: null, error}
     sender {event: connect, disconnect; name; count}
     play {id, pos, list}                   a video from the YouTube app; pause, resume, seek {pos}, volume {level, muted}, stop
+                                           (a stop waits STOP_WAIT: another video picked in the app comes as stop, then play)
 The server says:
     welcome {v}
     state {id, state, pos, dur, vol, muted}   what Pixel's player does (state: YouTube's -1, 0, 1, 2, 3, 5)
@@ -41,6 +42,7 @@ HERE = Path(__file__).resolve().parent.parent
 SCRIPT = HERE / "sidecar" / "ytcast" / "index.js"
 MISSING = 78                    # the sidecar's exit code when Node.js is too old or "npm ci" was not run (EX_CONFIG)
 NEXT_WAIT = 6                   # seconds the YouTube app has, after a video, to send the next one
+STOP_WAIT = 0.5                 # seconds a stop from the app waits for a play: yt-cast-receiver stops before each new video
 
 
 def _flag(v):
@@ -72,6 +74,7 @@ class YtCast:
         self.token = str(cfg.get("token") or "") or secrets.token_urlsafe(24)
         self.link = self.proc = None
         self.app_id = None                              # the cast that came from the YouTube app, to tell it when it stops
+        self.stop_later = None                          # the app's stop, held back STOP_WAIT for the play that may follow it
         hub.s["ytcast"] = {"on": self.on, "status": "démarrage…" if self.on else "éteint", "ok": False, "code": None, "code_at": 0,
                            "senders": [], "name": self.name}
         player.app = self if self.on else None
@@ -238,6 +241,7 @@ class YtCast:
         elif t == "play":
             vid, lst = str(m.get("id") or ""), str(m.get("list") or "")
             if ID.fullmatch(vid):
+                self._hold()                            # its next video: in the same cast, the same player
                 c = self.player.from_app(vid, _num(m.get("pos"), 0, 86400, 0), lst if LIST.fullmatch(lst) else "")
                 self.app_id = c["id"]
         elif t in ("pause", "resume", "seek", "volume", "stop"):
@@ -245,8 +249,7 @@ class YtCast:
             if not c or c["id"] != self.app_id:         # Pixel shows something else now
                 return
             if t == "stop":
-                self.app_id = None
-                self.cast.stop()
+                self._hold(asyncio.get_running_loop().call_later(STOP_WAIT, self._stop))
             elif t == "seek":
                 p = _num(m.get("pos"), 0, 86400)
                 if p is not None:
@@ -259,6 +262,19 @@ class YtCast:
                     self.player.order("mute", on=bool(m.get("muted")))
             else:
                 self.player.order("pause" if t == "pause" else "play")
+
+    def _hold(self, h=None):
+        if self.stop_later:
+            self.stop_later.cancel()
+        self.stop_later = h
+
+    def _stop(self):
+        """The app's stop, when no video came after it: its cast ends (and is not told back to it)."""
+        self.stop_later = None
+        c = self.player.current()
+        if c and c["id"] == self.app_id:
+            self.app_id = None
+            self.cast.stop()
 
     # ---- what Pixel's player does, for the YouTube app ----
     def state(self, c):

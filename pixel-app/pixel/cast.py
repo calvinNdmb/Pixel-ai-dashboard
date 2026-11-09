@@ -67,11 +67,19 @@ def sniff(head):
 
 
 def local_page(request):
-    """The Pi itself, from Pixel's own page: a page of another site shown on the screen (a video player) is not Pixel."""
+    """The Pi itself, from Pixel's own page (http://localhost:PORT, deploy/kiosk.sh): not a page of another site shown on the
+    screen (a video player), nor one with no origin of its own (Origin: null: a sandboxed frame, a file), nor another name
+    for the Pi (a DNS rebinding page: its Host is its own name too). The port is the one the request came in on."""
     if request.remote not in LOCAL:
         return False
     origin = request.headers.get("Origin")
-    return not origin or origin == "null" or urlsplit(origin).netloc.lower() == (request.host or "").lower()
+    if not origin:
+        return True
+    sock = request.transport.get_extra_info("sockname") if request.transport else None
+    if not sock:
+        return False
+    port = "" if sock[1] == 80 else f":{sock[1]}"
+    return origin.lower() in {f"http://{h}{port}" for h in ("localhost", "127.0.0.1", "[::1]")}
 
 
 def has_access(request, token):

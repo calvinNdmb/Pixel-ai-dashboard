@@ -86,17 +86,29 @@ def pieces():
     check("clean_url: http and https only, no password, no spaces", all(cast.clean_url(u) is None for u in bad) and cast.clean_url(" https://ex.org/a ") == "https://ex.org/a")
     check("first_url: the link in a shared text", cast.first_url("Regarde ça : https://youtu.be/aqz-KE-bpKQ.") == "https://youtu.be/aqz-KE-bpKQ")
 
+    class Sock:                                     # the server's end of the connection: the port the request came in on
+        def __init__(self, port):
+            self.port = port
+
+        def get_extra_info(self, k):
+            return ("127.0.0.1", self.port) if k == "sockname" else None
+
     class Req:
-        def __init__(self, remote, query=None, headers=None, cookies=None, host="pixel.local:8080"):
+        def __init__(self, remote, query=None, headers=None, cookies=None, host="pixel.local:8080", port=8080):
             self.remote, self.query, self.headers, self.cookies, self.host = remote, query or {}, headers or {}, cookies or {}, host
+            self.transport = Sock(port)
     T = "le-code"
     yes = [Req("127.0.0.1", host="localhost:8080"), Req("::1"), Req("127.0.0.1", headers={"Origin": "http://localhost:8080"}, host="localhost:8080"),
+           Req("127.0.0.1", headers={"Origin": "http://127.0.0.1:8104"}, host="127.0.0.1:8104", port=8104), Req("::1", headers={"Origin": "http://[::1]:8080"}, host="[::1]:8080"),
            Req("192.168.1.9", query={"t": T}), Req("192.168.1.9", headers={"X-Pixel-Token": T}), Req("192.168.1.9", cookies={"pixel_t": T}),
            Req("127.0.0.1", headers={"Origin": "https://www.youtube-nocookie.com"}, query={"t": T})]
     no = [Req("192.168.1.9"), Req("192.168.1.9", query={"t": "faux"}), Req("192.168.1.9", headers={"X-Pixel-Token": "le-cod"}),
-          Req("127.0.0.1", headers={"Origin": "https://www.youtube-nocookie.com"}, host="localhost:8080"), Req("127.0.0.1", headers={"Origin": "https://evil.example"})]
+          Req("127.0.0.1", headers={"Origin": "https://www.youtube-nocookie.com"}, host="localhost:8080"), Req("127.0.0.1", headers={"Origin": "https://evil.example"}),
+          Req("127.0.0.1", headers={"Origin": "null"}, host="localhost:8080"), Req("127.0.0.1", headers={"Origin": "http://evil:8080"}, host="evil:8080"),
+          Req("127.0.0.1", headers={"Origin": "http://localhost:9999"}, host="localhost:9999")]
     check("access: the Pi from Pixel's page, or the code (?t=, header, cookie)", all(cast.has_access(r, T) for r in yes), str([r.__dict__ for r in yes if not cast.has_access(r, T)]))
-    check("access: no code, a wrong code, or another site's page on the Pi (a video player): refused", not any(cast.has_access(r, T) for r in no),
+    check("access: no code, a wrong code, another site's page on the Pi (a video player), an opaque one (Origin: null: a sandboxed frame), "
+          "another name for the Pi (DNS rebinding), another port: refused", not any(cast.has_access(r, T) for r in no),
           str([r.__dict__ for r in no if cast.has_access(r, T)]))
     example = (APP / "config.example.toml").read_text()
     check("config.example.toml: the [cast] settings", "[cast]" in example and "max_mb" in example and "seconds" in example)
@@ -308,6 +320,13 @@ async def main(datadir):
                     check("the WebSocket from another site's page on the Pi is refused", False)
             except aiohttp.WSServerHandshakeError as e:
                 check("the WebSocket from another site's page on the Pi is refused (403)", e.status == 403, str(e.status))
+            for why, hd in (("a sandboxed frame, Origin: null", {"Origin": "null"}),
+                            ("a DNS rebinding page, its Origin its own Host", {"Origin": f"http://evil:{PORT}", "Host": f"evil:{PORT}"})):
+                try:
+                    async with http.ws_connect(f"{base}/ws", headers=hd):
+                        check(f"the WebSocket from {why}, on the Pi, is refused", False)
+                except aiohttp.WSServerHandshakeError as e:
+                    check(f"the WebSocket from {why}, on the Pi, is refused (403)", e.status == 403, str(e.status))
             async with http.ws_connect(f"{base}/ws", headers={"Origin": base}) as w2:
                 m = await w2.receive(timeout=2)
                 check("the WebSocket from Pixel's own page on the Pi still works", json.loads(m.data)["type"] == "state")
