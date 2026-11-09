@@ -253,6 +253,8 @@ Le plat arrive par la droite, il ouvre la bouche, croque en trois bouchées et f
 
 Un repas toutes les 6 secondes au plus : le temps de mâcher.
 
+**Au doigt, sur l'écran du Pi :** les glissés marchent maintenant au doigt, et plus seulement à la souris. Avant, le navigateur du Pi gardait le geste pour lui : glisser vers le bas pour le menu rapide ne marchait pas toujours. Le plateau de Pixel en a besoin (glisser vers le haut), et le menu rapide en profite.
+
 **Les réglages** (sur le téléphone, dans le panneau) : **Repas activés** active ou coupe tout. Coupé, son ventre ne bouge plus, il ne réclame rien (même pas à midi) et ne mange pas. **Vitesse** : lente, normale ou rapide.
 
 Dans Pixel Lab, le panneau **Nourrir** donne chaque plat, joue chaque réaction, règle son ventre (repu, ça va, petit creux, très faim) et ouvre le plateau du Pi.
