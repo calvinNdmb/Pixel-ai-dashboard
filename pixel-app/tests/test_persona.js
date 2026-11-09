@@ -200,7 +200,8 @@ check('the Wi-Fi drops: "le Wi-Fi est parti !"; it comes back: "il est revenu !"
 { const { wifi, ...sys0 } = S.sys; set({ sys: sys0 }); } PER.stop();
 
 // ---- Christmas, New Year ----
-const dec = life({ at: '2026-12-10T15:10:00' }, 30);
+let dec = life({ at: '2026-12-10T15:10:00' }, 30);
+for (let i = 0; i < 5 && !dec.includes('neige'); i++) dec = dec.concat(life({ at: '2026-12-10T15:10:00' }, 30));   // one weighted draw among ~80 moments: a batch may miss it (every new pack moves the seed's draws)
 check('in December he can watch the snow fall', dec.includes('neige'), dec.join());
 check('no snow in November', !day.includes('neige'), day.join());
 at('2026-12-08T10:00:00'); fresh(); PER.play('neige'); run(3200);

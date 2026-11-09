@@ -215,8 +215,9 @@ async function phone(browser) {
   await p.evaluate(() => { const a = document.getElementById('apk'); if (a) a.hidden = false; });   // as when the Android app is there
   const order = await p.evaluate(() => [...document.querySelector('.kfoot > span').children].filter(e => !e.hidden).map(e => e.textContent.trim()));
   const i = n => order.indexOf(n);
-  check('under the keys: Caractère, Nourrir, Exos side by side, after Agendas, before the Android app', i('Agendas') >= 0 && i('Caractère') === i('Agendas') + 1
-    && i('Nourrir') === i('Caractère') + 1 && i('Exos') === i('Nourrir') + 1 && i('Appli Android') === i('Exos') + 1, order.join(' · '));
+  check('under the keys: Caractère, Nourrir, Exos side by side, after Agendas (then Souvenirs and Album), before the Android app', i('Agendas') >= 0 && i('Caractère') === i('Agendas') + 1
+    && i('Nourrir') === i('Caractère') + 1 && i('Exos') === i('Nourrir') + 1 && i('Souvenirs') === i('Exos') + 1 && i('Album') === i('Souvenirs') + 1
+    && i('Appli Android') === i('Album') + 1, order.join(' · '));
   await p.evaluate(() => { const a = document.getElementById('apk'); if (a) a.hidden = true; });
   check('…each once', ['Caractère', 'Nourrir', 'Exos'].every(n => order.filter(x => x === n).length === 1), order.join(' · '));
   await shot(p, 'phone-buttons');
@@ -304,7 +305,8 @@ async function lab(browser) {
       return outcome(c0, S.exos.cur, t0, (S.toast || {}).id, S.screen, mixed);
     }, [ph, MIXED.includes(ph), outcome.toString()]).catch(e => 'error: ' + e.message);
   }
-  const differ = PHRASES.filter(p => onServer[p] !== inLab[p]).map(p => `${p}: ${onServer[p]} / lab ${inLab[p]}`);
+  const took = (p, o) => (/\d/.test(p) && (o === 'hint' || o === 'answer') ? 'answered' : o);   // « = 4 »: right or wrong depends on the addition drawn (4 at times)
+  const differ = PHRASES.filter(p => took(p, onServer[p]) !== took(p, inLab[p])).map(p => `${p}: ${onServer[p]} / lab ${inLab[p]}`);
   check(`…an exercise open, the same ${PHRASES.length} phrases have the same outcome on the server and in the lab (stop, hint, scores, a table, a series…)`,
     differ.length === 0 && onServer.termine === 'stop' && onServer['aide-moi'] === 'hint' && onServer['révisons la table de 7'] === 'new:table/7'
     && onServer['calcul mental'] === 'new:exo/mental' && onServer['10 questions'] === 'new:serie/10' && onServer.pizza === 'claude', differ.join(' | ') || JSON.stringify(onServer));

@@ -40,6 +40,7 @@ from pixel import telephone              # the Android app: the phone's notifica
 from pixel import caractere              # his character: traits, presets, his name and yours
 from pixel import nourrir                # Nourrir: his belly, his tastes, his meals
 from pixel import exos                   # little math exercises (and riddles)
+from pixel import souvenirs, album       # his memories and your mood journal; his photo album (/api/album, /album/NAME)
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -179,6 +180,7 @@ async def serve(args, cfg, datadir, token):
     caractere.setup(hub, datadir)        # his character, saved in caractere.json
     nourrir.setup(hub, datadir)          # Nourrir: feeding Pixel (data_dir/nourrir.json)
     exos.setup(hub, datadir)             # math exercises: the exos.* actions, data_dir/exos.json
+    souvenirs.setup(hub, datadir)        # souvenirs.* and humeur.*: data_dir/souvenirs.json, humeur.json (after exos and nourrir: he reads them)
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"
@@ -263,6 +265,7 @@ async def serve(args, cfg, datadir, token):
     app.router.add_get("/ytcast", ytcast.ws)               # the YouTube sidecar only (pixel/ytcast.py): the Pi itself, its own code
     ecran.routes(app.router)                               # /ecran: « Partager mon écran », its signalling, Android's screen
     telephone.setup(hub, app, token)       # POST /api/notif: the phone's notifications, a toast for his scenes
+    album.setup(hub, app, datadir, token)  # POST /api/album (his own screen's photos), GET /album/NAME: same access rules
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
         app.router.add_get(path, lab)
     app.router.add_static("/app/", HERE / "web")

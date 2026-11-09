@@ -46,7 +46,7 @@ let keptAt = 0;
 function keep(p, now) {
   if (kiosk || (!now && Date.now() - keptAt < 20000)) return;
   keptAt = Date.now();
-  store.set('pixel_snap', JSON.stringify({ ...p, chat: p.chat && { ...p.chat, messages: [] }, codex: p.codex && { ...p.codex, lines: [] }, kept_at: keptAt }));
+  store.set('pixel_snap', JSON.stringify({ ...p, chat: p.chat && { ...p.chat, messages: [] }, codex: p.codex && { ...p.codex, lines: [] }, humeur: undefined, kept_at: keptAt }));   // humeur: the mood journal stays on the Pi (pixel/souvenirs.py)
 }
 function kept() {
   try { const s = JSON.parse(store.get('pixel_snap')); if (!s || !s.view || !s.keys) return null; s.server_now += Date.now() - s.kept_at; return s; } catch { return null; }   // his clock goes on
@@ -101,15 +101,17 @@ if (!kiosk) {
    live with them. The page says once which ones it has ({panels}): an older Pi's page says nothing, the menu then has none. */
 const PANELS = { caractere: () => window.PixelCaractere && PixelCaractere.open(), nourrir: () => window.PixelNourrir && PixelNourrir.panel(true),
   exos: () => window.PixelExos && PixelExos.panel(true) };
+Object.assign(PANELS, { souvenirs: () => window.PixelSouvenirs && PixelSouvenirs.panel(true, 'souvenirs'), album: () => window.PixelSouvenirs && PixelSouvenirs.panel(true, 'album') });   // souvenirs.js: one sheet, two doors
 window.PixelPanel = id => {
   if (kiosk || !Object.hasOwn(PANELS, id) || document.body.classList.contains('poche')) return false;   // Pixel de poche: the whole phone is his face
   if (document.body.dataset.mode === 'pixel') setMode('both');
   PANELS[id](); return true;
 };
-if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos })[id]) });
+if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, souvenirs: window.PixelSouvenirs, album: window.PixelSouvenirs })[id]) });
 /* the phone app's back button closes an open panel first (PixelSheet.close(): true when one was), the topmost first; the page
    tells the app whether one is shown ({sheet}), so that the button knows (pixel-mobile src/plugs.ts) */
 const SHEETS = [['#exos', () => PixelExos.panel(false)], ['#nour', () => PixelNourrir.panel(false)], ['.car-sheet', () => PixelCaractere.close()]];
+SHEETS.push(['#souv', () => PixelSouvenirs.back()]);   // souvenirs.js: its full screen photo first, then the sheet
 const openSheets = () => SHEETS.filter(([q]) => { const e = document.querySelector(q); return !!e && !e.hidden && e.getClientRects().length > 0; });
 let sheetTold = null;                                 // what the app was last told
 const tellSheet = () => { const now = openSheets().length > 0; if (now !== sheetTold) { sheetTold = now; toApp({ sheet: now }); } };
