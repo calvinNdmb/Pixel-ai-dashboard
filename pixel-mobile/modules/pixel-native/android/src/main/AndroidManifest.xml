@@ -1,0 +1,3 @@
+<!-- The share screen, the notification listener and the <queries> go into the app's own manifest: see app.plugin.js -->
+<manifest>
+</manifest>

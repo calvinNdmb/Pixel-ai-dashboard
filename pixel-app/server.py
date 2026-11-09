@@ -36,6 +36,7 @@ from pixel.weather import Weather
 from pixel import poche                  # Pixel de poche: the phone held sideways
 from pixel.youtube import Player as YtPlayer
 from pixel.ytcast import YtCast
+from pixel import telephone              # the Android app: the phone's notifications
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -255,6 +256,7 @@ async def serve(args, cfg, datadir, token):
     app.router.add_get("/cast/{name}", cast.file)
     app.router.add_get("/ytcast", ytcast.ws)               # the YouTube sidecar only (pixel/ytcast.py): the Pi itself, its own code
     ecran.routes(app.router)                               # /ecran: « Partager mon écran », its signalling, Android's screen
+    telephone.setup(hub, app, token)       # POST /api/notif: the phone's notifications, a toast for his scenes
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
         app.router.add_get(path, lab)
     app.router.add_static("/app/", HERE / "web")
