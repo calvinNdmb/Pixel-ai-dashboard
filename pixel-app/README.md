@@ -237,6 +237,7 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 | `visage vivant`, `visage pack` | change de visage |
 | `caste À table !`, `caste https://youtu.be/…` | affiche un texte ou un lien sur l'écran (voir « Caster sur Pixel ») |
 | `stop`, `stop cast` | arrête ce qui est casté |
+| `code tv` | montre le code TV de l'appli YouTube (si le cast YouTube est activé) |
 | `aide` | affiche la liste des commandes |
 | n'importe quoi d'autre | c'est envoyé à Claude, par exemple « baisse un peu les lumières, je regarde un film » |
 
@@ -272,6 +273,7 @@ Depuis ton téléphone, montre quelque chose sur l'écran de Pixel. Ça s'affich
 - **Les derniers :** ils restent sous le panneau, touche-en un pour l'afficher encore.
 - **En Rétro :** l'image prend le vert du tube, avec ses lignes. **Couleurs d'origine** la laisse telle quelle. Un petit Pixel passe la tête dans le coin et réagit.
 - **Depuis une autre appli :** **Partager → Pixel** sur Android, si l'appli est installée depuis une adresse sécurisée. Sur iPhone, avec un Raccourci.
+- **YouTube :** la vidéo joue dans le lecteur de YouTube, sans effet rétro dessus. Le téléphone devient sa télécommande : pause, ±10 s, le son, la barre de lecture. Si YouTube refuse la vidéo, Pixel dit pourquoi et montre un QR code. En option, Pixel apparaît dans le **bouton Caster de l'appli YouTube** et accepte le **code TV** (`[ytcast]`, Node.js).
 
 Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec les autres façons de caster sur un Raspberry Pi (AirPlay, Google Cast, DLNA, Miracast, partage d'écran).
 
@@ -380,6 +382,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
   - la fin toute seule, l'arrêt, « encore », les couleurs, la fin d'une vidéo, un écran qui s'ouvre, les commandes `caste` et `stop`, et le partage Android (`/share`, puis retour à l'appli).
   - l'accès : un appareil sans code est refusé, et une page d'un autre site affichée sur le Pi aussi (un lecteur vidéo) ; avec le code (`?t=`, en-tête, cookie), c'est bon.
   - chaque sorte de cast se dessine dans les 6 thèmes, avec les deux visages, sous le menu. La vidéo tourne à 60 images par seconde, avec le son sur Pixel seulement. L'écran d'avant revient à la fin.
+- **YouTube** (`test_youtube.py`, `test_youtube.js`, `test_youtube_e2e.js`, `test_youtube_lab.js`) : les liens (42 cas, les mêmes pour le serveur et l'écran), la télécommande du téléphone, la fin, les erreurs (150, 153, pas d'Internet), le module de l'appli YouTube remplacé par un faux (lancé, relancé après un plantage, arrêté avec le serveur, refusé sans son code ou depuis une page), et tout cela dans Chromium avec un faux lecteur YouTube, sans Internet.
 - **Claude** (`test_claude_loop.py`) : la boucle a tourné face à un faux serveur d'API. Claude règle le salon, change de thème et d'humeur, et un thème inconnu est refusé.
 - **Claude avec l'abonnement** (`test_abonnement.py`) : face à un faux SDK Claude Agent. Le test vérifie :
   - le choix entre clé API et abonnement, et le démarrage seulement au premier message ;
@@ -415,6 +418,10 @@ node tests/test_pack.js
 node tests/test_persona.js
 python3 tests/test_cast.py           # son propre serveur de démo sur le port 8104
 node tests/test_cast.js
+python3 tests/test_youtube.py        # ses serveurs de démo sur les ports 8164 et 8165, avec un faux module YouTube
+node tests/test_youtube.js
+node tests/test_youtube_e2e.js       # Playwright : un serveur de démo sur le port 8166, un faux lecteur YouTube
+node tests/test_youtube_lab.js       # Playwright : Pixel Lab sur le port 8163
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -431,11 +438,12 @@ Pas encore testé avec le vrai matériel :
 | Fichier | Rôle |
 | --- | --- |
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
-| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `cast` (caster sur l'écran), `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
+| `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `cast` (caster sur l'écran), `youtube` et `ytcast` (YouTube, et le bouton Caster de l'appli YouTube), `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
 | `web/pack52/` | ton pack de 52 animations : le moteur (`pixel52.js`), le dessin Moderne et Manga (`pixel52-themes.js`), la liste (`animations.json`) et le catalogue |
+| `sidecar/ytcast/` | facultatif : le petit programme Node qui met Pixel dans le bouton Caster de l'appli YouTube |
 | `docs/CAST.md` | caster sur Pixel : le mode d'emploi, et les autres façons de caster sur un Raspberry Pi |
 | `tests/` | les tests et les captures d'écran |
 | `tools/` | `build_lab_artifact.py` fait du labo une seule page HTML |
