@@ -51,6 +51,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && P &
 function send(action, args = {}) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action, args })); }
 Screens.setSend(send);
 const POCHE = window.PixelPoche ? window.PixelPoche.app({ send, kiosk }) : null;   // poche.js: the phone sideways becomes a second Pixel
+if (window.PixelCaractere) window.PixelCaractere.app({ send, kiosk });            // caractere.js: the « Caractère » panel (his snapshot: screens.js)
 
 function show(screen) {
   if (!NAV.includes(screen)) return;

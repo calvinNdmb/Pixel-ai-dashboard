@@ -56,7 +56,7 @@ class Abonnement:
 
     async def _connect(self):
         import claude_agent_sdk as sdk
-        from .claude import SYSTEM, check, tools_for
+        from .claude import check, system_text, tools_for
         run_tool = self.owner.run_tool
 
         def make(t):
@@ -73,7 +73,7 @@ class Abonnement:
 
         tools = [make(t) for t in tools_for(self.hub.s["settings"].get("themes") or list(THEMES))]
         opts = sdk.ClaudeAgentOptions(
-            system_prompt=SYSTEM, model=self.model, effort=self.effort, max_turns=8,
+            system_prompt=system_text(self.hub), model=self.model, effort=self.effort, max_turns=8,
             tools=[],                                                   # none of Claude Code's own tools
             mcp_servers={"pixel": sdk.create_sdk_mcp_server("pixel", tools=tools)},
             allowed_tools=[f"mcp__pixel__{t.name}" for t in tools],
@@ -83,7 +83,7 @@ class Abonnement:
         )
         client = sdk.ClaudeSDKClient(options=opts)
         await client.connect()
-        self.client = client
+        self.client, self.prompt = client, opts.system_prompt
 
     async def reset(self):
         """A new conversation next time: after « chat.clear », or after an error."""
@@ -109,6 +109,9 @@ class Abonnement:
             self._fail("Je n'arrive pas à joindre Claude. Réessaie dans un moment.")
 
     async def _ask(self, text):
+        from .claude import system_text
+        if self.client and getattr(self, "prompt", None) != system_text(self.hub):
+            await self.reset()                                          # his character changed: a client with the new prompt
         if not self.client:
             await self._connect()
         await self.client.query(text)

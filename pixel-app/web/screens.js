@@ -608,8 +608,9 @@ return {
       if (P.lights && p.lights && lit(P.lights.rooms) !== lit(p.lights.rooms) && anyOn(P.lights.rooms) && anyOn(p.lights.rooms)) ev('lights-change');
       const wk = w => w && w.now && w.now.kind;
       if (wk(P.weather) && wk(p.weather) && wk(P.weather) !== wk(p.weather)) ev('weather', { kind: wk(p.weather) });
-      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|poche\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
+      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|caractere\.|poche\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
     }
+    if (PER && window.PixelCaractere) window.PixelCaractere.screen(PER, P, p);   // his character (caractere.js): his traits, and how he takes a change
     if (p.toast && p.toast.id !== L.lastToast) {
       L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now };
       const busy = p.mood && p.mood.name !== 'neutre' && (!p.mood.until || p.server_now < p.mood.until);

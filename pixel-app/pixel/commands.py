@@ -5,7 +5,7 @@ Anything that is not a command goes to Claude.
 import re
 import unicodedata
 
-from . import anims, scenes
+from . import anims, caractere, scenes
 from .keys import MOODS, NAMES, NAV, THEMES
 
 # accent-free words for each theme ("thème néon" is normalised to "theme neon")
@@ -14,7 +14,7 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
-        "visage vivant · sinon : Claude")
+        "visage vivant · caractère câlin · sinon : Claude")
 # a few words that play an animation on their own
 BARE = {"danse": "danse", "chante": "chante", "coucou": "salut", "bisou": "bisou"}
 FACE_WORDS = {"pack": "pack", "pack 52": "pack", "52": "pack", "animations": "pack", "vivant": "vivant", "anime": "vivant"}
@@ -135,5 +135,8 @@ async def run(hub, text):
 
     if t in SCREEN_WORDS:
         return await hub.dispatch("screen.show", {"screen": SCREEN_WORDS[t]})
+
+    if await caractere.command(hub, t, raw):              # « sois grognon », « plus câlin », « appelle-toi Bip »… (pixel/caractere.py)
+        return
 
     await hub.dispatch("chat.ask", {"text": raw})

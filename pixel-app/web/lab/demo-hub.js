@@ -368,6 +368,31 @@ function command(raw) {
   A['chat.ask']({ text: raw });
 }
 
+/* ---------- caractère (pixel/caractere.py; its rules come from ../caractere.js): presets, traits, his name and yours ---------- */
+const CAR = window.PixelCaractere;
+if (CAR) {
+  let kept = null; try { kept = JSON.parse(localStorage.getItem('pixel_lab_caractere')); } catch {}   // the lab remembers him, like caractere.json
+  S.caractere = { ...CAR.clean(kept || {}), change: null, essai: 0 };
+  const commit = (n, ch) => {
+    if (!ch) return;
+    Object.assign(S.caractere, CAR.saved(n)); S.caractere.change = { t0: Date.now(), ...ch }; S.anim = null; S.screen = 'visage';
+    try { localStorage.setItem('pixel_lab_caractere', JSON.stringify(CAR.saved(S.caractere))); } catch {}
+  };
+  Object.assign(A, {
+    'caractere.set': (a = {}) => commit(...CAR.apply(S.caractere, a)),
+    'caractere.ajuste': ({ trait, d = 20 } = {}) => commit(...CAR.ajuste(S.caractere, trait, d)),
+    'caractere.reset': () => commit(CAR.clean({}), { quoi: 'reset', kind: 'pixel', adj: CAR.ADJ.pixel }),
+    'caractere.essai': () => { S.caractere.essai = Date.now(); S.anim = null; S.screen = 'visage'; },
+  });
+  const cmd0 = A.cmd;                                    // commands.py hands « sois grognon », « plus câlin »… to caractere.py
+  A.cmd = ({ text }) => {
+    const r = CAR.command(String(text || '').slice(0, 2000), S.caractere);
+    if (!r) return cmd0({ text });
+    if (r.toast) { toast(r.toast, r.ms || 8000); if (r.mood) mood(r.mood, 2500); return; }
+    A[r.action](r.args || {});
+  };
+}
+
 /* ---------- background jobs: timer tick (0.25 s), system graphs (1 s) ---------- */
 setInterval(() => {
   if (T.running && tleft() <= 0) { Object.assign(T, { left: 0, running: false }); if (T.mode === 'TRAVAIL') T.done++; toast('MINUTEUR : TERMINÉ !', 5000); mood('surpris', 2500); }
