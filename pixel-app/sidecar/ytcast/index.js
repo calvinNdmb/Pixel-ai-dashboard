@@ -37,10 +37,10 @@ const link = {
     ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', token: TOKEN, v: 1, name: NAME }));
     ws.onmessage = e => {
       let m; try { m = JSON.parse(String(e.data)); } catch { return; }
-      if (m.type !== 'welcome') return fromPixel(m);
+      if (m.type !== 'welcome') return fromPixel(m).catch(err => say('lecteur : ' + msg(err)));   // never an unhandled rejection: Node would stop
       this.up = true; say('Relié à Pixel.');
       for (const k of ['status', 'pairing']) if (last[k]) this.send(last[k]);
-      for (const s of receiver.getConnectedSenders()) this.send({ type: 'sender', event: 'connect', name: who(s), count: 1 });
+      try { for (const s of receiver.getConnectedSenders()) this.send({ type: 'sender', event: 'connect', name: who(s), count: 1 }); } catch { /* not started yet */ }
     };
     ws.onclose = e => {
       this.up = false; this.ws = null;
