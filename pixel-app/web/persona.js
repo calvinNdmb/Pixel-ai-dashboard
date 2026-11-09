@@ -9,6 +9,7 @@
    were away (kept in localStorage, so a night or a restart counts); the frame clock (H.now) runs the scenes.
    A scene: { id, label, group, dur, anim: [[ms, pack id], ...], mood, say: [[ms, ms, lines]], move(e, p, o), props(D, e, p, o) }.
    Groups: 'tap' (a touch), 'fache' (pestered), 'calin' (petting), 'retour' (you come back), 'vie' (alone), 'evt' (lights, hours).
+   A 'vie' scene may have when(c) (c: wet, sunny, day, night, xmas, meal, h, mn, wd, mo, dd, kind, date) and quiet: true (it may play at night).
    Scene packs (web/scenes/*.js, loaded before screens.js) add more: (window.PixelScenePacks ||= []).push(kit => { kit.S(...) }).
    Two optional fields plug a scene in:
      on: ['notif', ...]   it can answer these events (persona.event(name, data); EVENTS below lists them), weight w,
@@ -194,17 +195,17 @@ S('vitre', 'Toc toc', 'vie', { dur: 7600, w: 2, anim: [[0, 'curieux'], [4200, 's
   props: (D, e) => { if (e > 1400 && e < 4000) D.knock(e - 1400); } });
 S('ennui', 'L’ennui', 'vie', { dur: 8200, w: 2, anim: [[0, 'idle-impatient'], [5000, 'baille']], mood: 'baille', say: [[600, 3600, L('Je m’ennuiiie…', 'Il se passe rien…', 'Quelqu’un veut jouer ?')], [5200, 7800, L('Bon…', 'Pfff…')]],
   move: e => ({ y: 40 * sm(seg(e, 0, 5000)) * (1 - sm(seg(e, 7000, 8200))), r: -0.05 * sm(seg(e, 0, 5000)) * (1 - sm(seg(e, 7000, 8200))) }) });
-S('sieste', 'La sieste', 'vie', { dur: 12500, w: 2, anim: [[0, 'idle-somnole'], [2500, 'sommeil'], [10000, 'surpris'], [10700, 'timide']], mood: 'endormi',
+S('sieste', 'La sieste', 'vie', { quiet: true, dur: 12500, w: 2, anim: [[0, 'idle-somnole'], [2500, 'sommeil'], [10000, 'surpris'], [10700, 'timide']], mood: 'endormi',
   say: [[10100, 12200, L('Je dormais pas !', 'Hein ? Quoi ? J’étais là !', 'Je reposais mes yeux.')]], secret: L('Hein ?! Je dormais pas !', 'Quoi ? J’étais réveillé !'),
   move: e => (e < 10000 ? { y: 22 * sm(seg(e, 0, 3000)), r: 0.05 * Math.sin(e / 900) * seg(e, 2500, 3500) } : { y: 22 * (1 - out(seg(e, 10000, 10300))) - 40 * bump(seg(e, 10000, 10600)) }),
   props: (D, e) => { if (e > 2500 && e < 10000) D.zzz(e - 2500, 1); } });
-S('etirement', 'Le grand étirement', 'vie', { dur: 6200, w: 1, anim: [[0, 'idle-etire']], mood: 'neutre', say: [[700, 3600, L('Mmmmmh…', 'Aaah, ça fait du bien.')]],
+S('etirement', 'Le grand étirement', 'vie', { quiet: true, dur: 6200, w: 1, anim: [[0, 'idle-etire']], mood: 'neutre', say: [[700, 3600, L('Mmmmmh…', 'Aaah, ça fait du bien.')]],
   move: e => { const st = bump(seg(e, 300, 3400)), pk = -0.12 * bump(seg(e, 3400, 4200)); return { sy: 1 + 0.25 * st + pk, sx: 1 - 0.1 * st - pk * 0.6, y: -26 * st }; } });
-S('reverie', 'La rêverie', 'vie', { dur: 9200, w: 2, side: true, anim: [[0, 'idle-haut'], [6600, 'reflechit']], mood: 'reflechit', say: [[6800, 9000, L('…où j’en étais ?', 'Je rêvassais.', 'Mmh, des pizzas…')]],
+S('reverie', 'La rêverie', 'vie', { quiet: true, dur: 9200, w: 2, side: true, anim: [[0, 'idle-haut'], [6600, 'reflechit']], mood: 'reflechit', say: [[6800, 9000, L('…où j’en étais ?', 'Je rêvassais.', 'Mmh, des pizzas…')]],
   move: e => ({ y: -10 * Math.sin(e / 900), x: -20 * sm(seg(e, 0, 1000)) * (1 - sm(seg(e, 8000, 9200))) }),
   init: o => { o.icons = [pick(['pizza', 'poisson', 'etoile']), pick(['coeur', 'ampoule', 'pizza'])]; },
   props: (D, e, p, o) => { if (e > 600 && e < 6600) D.thought(o.icons[e < 3600 ? 0 : 1], seg(e, 600, 1200) * (1 - seg(e, 6000, 6600))); } });
-S('zen', 'La méditation', 'vie', { dur: 9200, w: 1, anim: [[0, 'zen']], mood: 'content', say: [[1500, 4500, L('Ommmm…', 'Je suis zen…', 'Respire…')]],
+S('zen', 'La méditation', 'vie', { quiet: true, dur: 9200, w: 1, anim: [[0, 'zen']], mood: 'content', say: [[1500, 4500, L('Ommmm…', 'Je suis zen…', 'Respire…')]],
   move: e => ({ y: -40 * sm(seg(e, 0, 2500)) * (1 - sm(seg(e, 7700, 9200))) + 6 * Math.sin(e / 600) }) });
 S('joie', 'La joie', 'vie', { dur: 5200, w: 1, anim: [[0, 'rire'], [2600, 'etoiles']], mood: 'excite', say: [[300, 2500, L('Youpi !', 'Quelle belle journée !', 'Je suis content !')]],
   move: e => ({ y: e < 4200 ? jumps(e, 520, 44) : 0, r: e < 4200 ? 0.06 * Math.sin(e / 260) : 0 }), props: (D, e) => { if (e > 2600) D.stars(e - 2600); } });
@@ -225,7 +226,7 @@ S('soleil', 'Bronzette', 'vie', { dur: 7600, w: 3, side: true, when: c => c.sunn
   props: (D, e) => D.sun(e, seg(e, 0, 800) * (1 - seg(e, 6800, 7600))) });
 S('faim', 'La faim', 'vie', { dur: 7400, w: 4, side: true, when: c => c.meal, anim: [[0, 'triste'], [4200, 'idee']], mood: 'triste', say: [[500, 3800, L('J’ai faim…', 'C’est l’heure de manger ?', 'Mon ventre gargouille…')], [4300, 7200, L('Une pizza ?', 'On mange quoi ?')]],
   props: (D, e) => { if (e < 7000) D.thought('pizza', seg(e, 0, 600) * (1 - seg(e, 6500, 7000))); } });
-S('nuit', 'Bâillements de nuit', 'vie', { dur: 7200, w: 6, when: c => c.night, anim: [[0, 'baille'], [3600, 'fatigue']], mood: 'baille', say: [[500, 3200, L('Il est tard…', 'Au lit, tout le monde…', 'Mmmh, dodo…')]],
+S('nuit', 'Bâillements de nuit', 'vie', { quiet: true, dur: 7200, w: 6, when: c => c.night, anim: [[0, 'baille'], [3600, 'fatigue']], mood: 'baille', say: [[500, 3200, L('Il est tard…', 'Au lit, tout le monde…', 'Mmmh, dodo…')]],
   move: e => ({ y: 16 * sm(seg(e, 0, 4000)) * (1 - sm(seg(e, 6400, 7200))) }), props: (D, e) => { if (e > 3000) D.zzz(e - 3000, 0.7); } });
 S('neige', 'La neige', 'vie', { dur: 9000, w: 4, side: true, when: c => c.xmas && !c.night, anim: [[0, 'curieux'], [2000, 'etoiles'], [6600, 'content']], mood: 'excite',
   say: [[400, 2000, L('Oh ! Il neige !', 'De la neige !', 'Regarde, il neige !')], [2300, 6400, () => xmasLine()], [6700, 8700, L('J’adore Noël !', 'Vivement les cadeaux !', 'Ho ho ho !')]],
@@ -447,8 +448,9 @@ function update(dt, ctx = {}) {
   if (st.cur && st.cur.sc.group === 'vie' && ctx.canLive === false && !st.cur.forced) st.cur = null;   // something else needs his face
   if (!st.cur && st.life && !ctx.rm && ctx.canLive && ctx.idle > Math.min(75000, st.every[0]) && now >= st.nextLife) {
     const c = { wet: /pluie|orage|neige/.test(ctx.weather || ''), sunny: ctx.weather === 'soleil', day: hr >= 9 && hr < 19, night: hr >= 23 || hr < 6, xmas: d.getMonth() === 11,
-      meal: (hr === 12 || (hr === 19 && d.getMinutes() >= 30) || (hr === 13 && d.getMinutes() < 30)) };
-    const ok = LIFE.filter(s => (!s.when || s.when(c)) && !st.hist.includes(s.id) && (!c.night || s.when || ['sieste', 'zen', 'reverie', 'etirement'].includes(s.id)));
+      meal: (hr === 12 || (hr === 19 && d.getMinutes() >= 30) || (hr === 13 && d.getMinutes() < 30)),
+      h: hr, mn: d.getMinutes(), wd: d.getDay(), mo: d.getMonth(), dd: d.getDate(), kind: ctx.weather || '', date: d };   // wd 0 = Sunday, mo 0 = January
+    const ok = LIFE.filter(s => (!s.when || s.when(c)) && !st.hist.includes(s.id) && (!c.night || s.quiet));      // at night only the quiet ones (quiet: true)
     const tot = ok.reduce((a, s) => a + s.w, 0); let r = rnd() * tot;
     for (const s of ok) { r -= s.w; if (r < 0) { start(s.id); break; } }
     if (!st.cur) st.nextLife = now + 5000;
@@ -665,6 +667,7 @@ return {
   reset() { Object.assign(st, { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], lights: null, darkAt: 0,
     told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '', evAt: {}, evLast: '', pending: null }); },   // tests
   tap, pet, input, update, current, drawOver, decor, play: id => start(id, { forced: true }), stop, busy, project, unproject, zoneOf,
+  pools: TAP, quiet: SC.filter(s => s.quiet).map(s => s.id),
   event, events: Object.entries(EVENTS).map(([id, label]) => ({ id, label, scenes: (ON[id] || []).map(x => x.id) })),
 };
 };

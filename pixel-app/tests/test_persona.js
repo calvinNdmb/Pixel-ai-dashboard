@@ -109,7 +109,7 @@ tapAt(400, 240);
 check('…and the next tap is a calm one again', group(cur()) === 'tap', cur());
 
 // ---- petting ----
-fresh(); PER.pet(); check('petting: a cuddle', ['caresse', 'ronron'].includes(cur()), cur());
+fresh(); PER.pet(); check('petting: a cuddle', [...PER.pools.pet, 'ronron'].includes(cur()), cur());
 fresh(); for (let i = 0; i < 4; i++) { tapAt(400, 240); run(250); } PER.pet();
 check('petting him when he is annoyed calms him down', cur() === 'calme', cur());
 fresh(); for (let i = 0; i < 11; i++) { tapAt(400, 240); run(250); }
@@ -119,7 +119,7 @@ check('two cuddles end a sulk', sulking === 'boude' && cur() === 'pardon', `${su
 // ---- zones through the screen ----
 fresh(); run(3000); const zoneHits = {};
 for (const [name, u, v] of [['oeil', 34, 23], ['bouche', 48, 38], ['tete', 48, 8], ['cote', 14, 30]]) {
-  let got = 0; for (let i = 0; i < 6; i++) { fresh(); run(1500); const p = P2(u, v); tapAt(p.x, p.y); if (cur() === { oeil: 'oeil', bouche: 'chatouilles', tete: 'bonk', cote: 'pousse' }[name]) got++; }
+  let got = 0; for (let i = 0; i < 6; i++) { fresh(); run(1500); const p = P2(u, v); tapAt(p.x, p.y); if (PER.pools.zones[name].includes(cur())) got++; }
   zoneHits[name] = got;
 }
 check('a tap on an eye, the mouth, the head, a side gets its own reaction (most of the time)', Object.values(zoneHits).every(n => n >= 3), JSON.stringify(zoneHits));
@@ -151,7 +151,7 @@ check('no rain scene when it does not rain, no meal scene outside meal times', !
 const wet = life({ state: { weather: { city: 'Paris', now: { t: 9, kind: 'pluie' }, days: [] } } }, 25);
 check('when it rains, he can be sad under his cloud', wet.includes('pluie'), wet.join());
 const night = life({ at: '2026-11-08T23:40:00' }, 20);
-check('at night only the quiet moments', night.length > 0 && night.every(id => ['nuit', 'sieste', 'zen', 'reverie', 'etirement'].includes(id)), night.join());
+check('at night only the quiet moments', night.length > 0 && night.every(id => PER.quiet.includes(id)), night.join());
 const busy = life({ state: { mood: { name: 'triste', until: 0 } } }, 5);
 check('no moment of life while he shows a mood', busy.length === 0, busy.join());
 fresh(); PER.setEvery(1000, 2000); L.scr = 'meteo'; L.lastInput = clock - 200000; run(8000, 250); const other = cur(); L.scr = 'visage'; PER.setEvery(45000, 150000);
