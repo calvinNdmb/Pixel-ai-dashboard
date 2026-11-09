@@ -52,11 +52,23 @@
       <form class="cast-form" id="castTextForm" autocomplete="off"><label class="sr" for="castText">Texte à afficher</label>
         <input id="castText" type="text" maxlength="280" enterkeyhint="send" placeholder="Écris un petit mot"><button type="submit" class="cbtn">Afficher</button></form>
       <div class="cast-opts">
-        <label class="ck"><input type="checkbox" id="castRaw"> Couleurs d'origine</label>
+        <label class="ck" hidden><input type="checkbox" id="castRaw"> Couleurs d'origine</label><!-- a cast is always in its own colours now -->
         <label class="ck">Durée <select id="castSecs"><option value="">2 min</option><option value="30">30 s</option><option value="600">10 min</option><option value="0">jusqu'à Arrêter</option></select></label>
       </div>
       <p class="cast-msg" id="castMsg" role="status" aria-live="polite"></p>
       <div class="cast-recent" id="castRecent" role="group" aria-label="Les derniers casts"></div>
+      <div class="ecran" id="ecranPanel" role="group" aria-labelledby="ecranTitle">
+        <p class="ecran-t" id="ecranTitle">Partager un écran</p>
+        <p><b>Un ordinateur</b> : ouvre <span class="mono" id="ecranPage">pixel.local:8080/ecran</span> dans Chrome, Edge ou Firefox, puis tape le code que Pixel affiche.</p>
+        <div class="cast-row"><button type="button" class="cbtn" id="ecranCode">Afficher un code</button><b class="ecran-code" id="ecranCodeNow" hidden></b>
+          <button type="button" class="cbtn big" id="ecranSelf" hidden>Partager l'écran de cet appareil</button></div>
+        <p><b>Android</b> : installe <b>ScreenStream</b> (F-Droid ou Play Store), choisis le mode <b>Local</b>, sans code PIN, et touche <b>Démarrer</b>. Puis :</p>
+        <div class="cast-row"><button type="button" class="cbtn big" id="ecranPhone">Afficher l'écran du téléphone</button></div>
+        <div class="cast-opts"><label class="ck">Port <input class="field" id="ecranPort" type="number" inputmode="numeric" min="1" max="65535" value="8080"></label>
+          <label class="ck">Adresse, si besoin <input class="field" id="ecranAddr" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="192.168.1.23:8080"></label></div>
+        <p><b>iPhone, iPad, Mac</b> : <span id="ecranAirplay">AirPlay</span></p>
+        <p class="cast-msg" id="ecranMsg" role="status" aria-live="polite"></p>
+      </div>
       <p class="cast-hint">Une photo, une vidéo jusqu'au bout, un texte ou un lien. Touche l'écran de Pixel pour arrêter. Depuis une autre appli : <b>Partager → Pixel</b> (appli installée, voir docs/CAST.md).</p>
     </div>
   </details>
@@ -73,6 +85,7 @@
 <script src="app/scenes/poche.js"></script>
 <script src="app/son.js"></script>
 <script src="app/ytplayer.js"></script>
+<script src="app/ecran.js"></script>
 <script src="app/screens.js"></script>
 <script src="app/poche.js"></script>
 <script src="app/ytremote.js"></script>

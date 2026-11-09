@@ -50,5 +50,17 @@ name = "Pixel"              # son nom dans le menu Caster
 port = 3000                 # le port DIAL sur le Wi-Fi de la maison (les téléphones y trouvent Pixel)
 # node = "/usr/bin/node"    # si Node.js n'est pas dans le PATH
 
+[ecran]
+# « Partager mon écran » : l'écran d'un ordinateur (ou d'un téléphone) en direct sur Pixel, voir docs/CAST.md.
+# https_port = 8443         # une adresse https en plus (https://pixel.local:8443/ecran), avec le certificat que fait install.sh
+
+[airplay]
+# La « Recopie de l'écran » d'un iPhone, d'un iPad ou d'un Mac, avec UxPlay. À installer d'abord :
+# PIXEL_AIRPLAY=1 sh deploy/install.sh (voir docs/CAST.md), puis enabled = true.
+enabled = false
+name = "Pixel"              # son nom dans la liste « Recopie de l'écran »
+pin = true                  # l'iPhone tape le code à 4 chiffres que Pixel affiche (sans lui, tout le Wi-Fi peut s'afficher sur Pixel)
+# args = ["-bt709"]         # Pi 4 : si les couleurs sont fausses ; ["-avdec"] : décoder la vidéo avec le processeur
+
 # [security]
 # token = "..."             # code d'accès des téléphones ; créé tout seul sinon

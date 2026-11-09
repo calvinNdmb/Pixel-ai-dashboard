@@ -28,7 +28,7 @@ const until = async (fn, ms = 6000, step = 100) => { const end = Date.now() + ms
 
 /* ---------- the demo server ---------- */
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-poche-')), cfg = path.join(tmp, 'config.toml');
-fs.writeFileSync(cfg, `data_dir = "${tmp}"\n[ui]\nthemes = ["retro", "moderne", "manga", "neon", "croquis", "lcd"]\n`);
+fs.writeFileSync(cfg, `data_dir = "${tmp}"\n[security]\ntoken = "le-code-poche"\n[ui]\nthemes = ["retro", "moderne", "manga", "neon", "croquis", "lcd"]\n`);
 let srv = null;
 async function startServer() {
   srv = spawn('python3', [path.join(APP, 'server.py'), '--demo', '--port', String(PORT), '--config', cfg], { cwd: APP, stdio: 'ignore' });
@@ -355,7 +355,7 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
   /* ================= the Pi's usual address, plain http: no imitation at all ================= */
   const hc = await browser.newContext({ ...P7 });
   const hp = await hc.newPage(), hErr = errors(hp);
-  await hp.goto(LAN + '/'); await until(() => hp.evaluate(() => !!window.PixelPoche && PixelPoche.on && document.getElementById('conn').textContent === 'connecté'), 8000);
+  await hp.goto(LAN + '/?t=le-code-poche');   // another name than localhost: the access code, as a phone has it from the QR code await until(() => hp.evaluate(() => !!window.PixelPoche && PixelPoche.on && document.getElementById('conn').textContent === 'connecté'), 8000);
   await hp.waitForTimeout(900);
   const hs = await hp.evaluate(() => ({ secure: isSecureContext, wl: !!navigator.wakeLock, bat: !!navigator.getBattery, motion: 'DeviceMotionEvent' in window, on: PixelPoche.on, awake: PixelPoche.awake, linked: PixelPoche.linked,
     note: (n => n && !n.hidden && n.textContent)(document.querySelector('.poche-note')) }));
@@ -377,7 +377,7 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: pa
   const ap = await ac.newPage(), aErr = errors(ap);
   const modes = () => ap.evaluate(() => window.__rn.filter(m => m.mode).map(m => m.mode));
   const lastMode = async () => (await modes()).slice(-1)[0];
-  await ap.goto(LAN + '/'); await until(() => ap.evaluate(() => !!window.PixelPoche && PixelPoche.on && document.getElementById('conn').textContent === 'connecté'), 8000);
+  await ap.goto(LAN + '/?t=le-code-poche'); await until(() => ap.evaluate(() => !!window.PixelPoche && PixelPoche.on && document.getElementById('conn').textContent === 'connecté'), 8000);
   await ap.waitForTimeout(600);
   check('the app: sideways, he asks the app to keep the screen on ({mode: "pixel"}, after the page\'s own mode)', (await lastMode()) === 'pixel' && (await modes()).length >= 2, JSON.stringify(await modes()));
   check('…and never says "no access"', !(await ap.evaluate(() => window.__rn.some(m => m.access === false))));

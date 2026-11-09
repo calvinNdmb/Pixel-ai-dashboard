@@ -1,9 +1,10 @@
 # Caster sur Pixel
 
-Deux parties :
+Trois parties :
 
 1. **Le mode d'emploi** de ce qui est fait : le panneau **Caster sur Pixel** de l'appli, le partage Android, le Raccourci iPhone, YouTube (avec la télécommande du téléphone, et le bouton Caster de l'appli YouTube).
-2. **Les autres façons** d'envoyer l'écran d'un téléphone ou d'un PC sur un Raspberry Pi : AirPlay, Google Cast, DLNA, Miracast, partage d'écran dans le navigateur. Avec, pour chacune, ce qu'elle apporte, ses limites, le travail, et la suite conseillée.
+2. **Partager un écran** : l'écran d'un ordinateur, d'un téléphone Android, d'un iPhone, d'un iPad ou d'un Mac, en direct sur Pixel.
+3. **Les autres façons** d'envoyer l'écran d'un téléphone ou d'un PC sur un Raspberry Pi : AirPlay, Google Cast, DLNA, Miracast, partage d'écran dans le navigateur. Avec, pour chacune, ce qu'elle apporte, ses limites, le travail, et la suite conseillée.
 
 ---
 
@@ -20,11 +21,12 @@ Deux parties :
 | un lien vers une image ou une vidéo | comme un fichier envoyé | idem |
 | un lien YouTube ou Vimeo | leur lecteur, dans une « télé », Pixel la regarde à côté ; pour YouTube, le téléphone est la télécommande (voir YouTube) | jusqu'au bout |
 | un lien vers une page web | une carte : le titre, le site, un QR code pour l'ouvrir sur ton téléphone | 2 minutes |
+| un écran partagé (ordinateur, Android, iPhone) | en direct, en entier (voir « Partager un écran ») | jusqu'à **Arrêter** |
 
 Ça s'affiche **par-dessus l'écran ouvert**. À la fin, Pixel revient où il était.
 
 - **Pour arrêter :** touche l'écran de Pixel (pour YouTube, la colonne à droite du lecteur), le bouton **Arrêter** du téléphone, ou tape `stop`. Ouvrir un autre écran (une touche du Stream Deck, un glissement) arrête aussi.
-- **En thème Rétro :** l'image prend le vert du tube, avec ses lignes et son grain. Le réglage **Couleurs d'origine** la laisse telle quelle. Sans l'effet cathodique (touche *Effet CRT*), les couleurs restent aussi.
+- **Dans ses vraies couleurs :** pendant un cast, plus d'effet cathodique, quel que soit le thème : ni vert, ni lignes, ni grain, ni bande qui défile, ni reflet. L'image est nette, en entier sur du noir. L'effet revient tel quel à la fin.
 - **Un petit Pixel** passe la tête dans le coin. Il est surpris, puis il réagit : amoureux devant une photo, il rit devant un GIF, il lit un texte, il écoute une vidéo. Sur une photo, il se cache après quelques secondes et revient jeter un œil de temps en temps.
 
 ### Depuis l'appli (le panneau « Caster sur Pixel »)
@@ -34,7 +36,6 @@ Sur ton téléphone ou ton ordinateur, ouvre l'appli de Pixel (le QR code de Ré
 - **Photo ou vidéo :** choisis dans ta galerie. Le pourcentage de l'envoi s'affiche.
 - **Colle un lien :** YouTube, Vimeo, une page, une image. `youtu.be/…` sans `https://` marche aussi.
 - **Écris un petit mot :** il s'affiche en gros.
-- **Couleurs d'origine :** cochée, l'image garde ses couleurs en Rétro. Si quelque chose est déjà à l'écran, ça change tout de suite.
 - **Durée :** 2 min par défaut, ou 30 s, 10 min, ou jusqu'à **Arrêter**.
 - **Les derniers :** les 8 derniers envois. Touche-en un pour l'afficher encore.
 
@@ -85,7 +86,7 @@ Ensuite, dans Photos, Safari ou YouTube : **Partager**, puis le raccourci.
 
 ```bash
 curl -F file=@photo.jpg "http://pixel.local:8080/api/cast?t=TON_CODE"
-curl -F file=@video.mp4 -F raw=1 "http://pixel.local:8080/api/cast?t=TON_CODE"       # couleurs d'origine
+curl -F file=@video.mp4 "http://pixel.local:8080/api/cast?t=TON_CODE"
 curl -H 'Content-Type: application/json' -d '{"text": "À table !"}' "http://pixel.local:8080/api/cast?t=TON_CODE"
 curl -H 'Content-Type: application/json' -d '{"url": "https://youtu.be/aqz-KE-bpKQ"}' "http://pixel.local:8080/api/cast?t=TON_CODE"
 ```
@@ -185,8 +186,8 @@ port = 3000       # le port DIAL, sur le Wi-Fi de la maison
 | `POST /api/cast` | un fichier (`multipart/form-data` : `file`, et `raw`, `seconds`, `title`), un formulaire simple ou du JSON (`{"text"}`, `{"url", "title"}`). Répond `{"ok": true, "cast": {...}}` ou `{"ok": false, "error": "..."}` (400, 403, 413, 415). |
 | `POST /share` | le partage Android : `title`, `text`, `url`, `media`. Répond 303 vers `/?cast=…`. |
 | `GET /cast/NOM` | les fichiers reçus, avec leur vrai type. |
-| actions WebSocket | `cast.text`, `cast.link`, `cast.stop`, `cast.again` (`id`), `cast.colors` (`raw`), `cast.end` (envoyée par l'écran de Pixel à la fin d'une vidéo). |
-| état | `cast` : `{id, kind (image, gif, video, text, link), src, text, url, title, site, embed, qr, t0, until, raw}`. `cast_recent` : les derniers. |
+| actions WebSocket | `cast.text`, `cast.link`, `cast.stop`, `cast.again` (`id`), `cast.colors` (`raw` : sans effet, l'image garde toujours ses couleurs), `cast.end` (envoyée par l'écran de Pixel à la fin d'une vidéo). |
+| état | `cast` : `{id, kind (image, gif, video, text, link, screen), src, text, url, title, site, embed, qr, t0, until, raw}`. `cast_recent` : les derniers. |
 | actions WebSocket (YouTube) | `yt.play`, `yt.pause`, `yt.toggle`, `yt.seek` (`by` ±, ou `to`), `yt.volume` (`level`, ou `by`), `yt.mute` (`on`), `ytcast.code` (le code TV à l'écran). L'écran de Pixel envoie `yt.report` (ce que fait le lecteur) et `yt.ended`. |
 | état (YouTube) | `cast.yt` : `{id, list, start, music}`. `cast.ytp` : `{src (lien, appli), v, n, cmds (les 8 derniers ordres, numérotés), st (état, position, durée, volume, erreur)}`. `ytcast` : `{on, ok, status, code, senders, name}`. Un cast `ytcode` : le code TV. |
 | `GET /ytcast` | le WebSocket du module YouTube, seul (`pixel/ytcast.py` décrit ses messages) : le Pi lui-même, sans en-tête `Origin` (aucune page web), avec le code du module dans son premier message. |
@@ -205,11 +206,135 @@ port = 3000       # le port DIAL, sur le Wi-Fi de la maison
 - Pour une **page web**, Pixel ne montre pas la page elle-même, seulement sa carte.
 - **Pas encore essayé sur le vrai Pi :** le dessin d'une vidéo 1080p 60 fois par seconde sur le Pi 4, et le son par la sortie du Pi. Si la vidéo saccade, une vidéo en 720p ira mieux.
 
+## 2. Partager un écran
+
+Pixel montre **en direct** l'écran d'un ordinateur, d'un téléphone ou d'une tablette. Ça s'affiche comme un cast : par-dessus l'écran ouvert, **dans ses vraies couleurs** (pas d'effet cathodique), en entier sur du noir. À la fin, Pixel revient où il était.
+
+| Depuis | Comment | Ce qu'il faut |
+| --- | --- | --- |
+| un ordinateur (Windows, Mac, Linux, Chromebook) | la page **Partager mon écran** de Pixel, dans Chrome, Edge ou Firefox | rien à installer ; une adresse sécurisée (le lanceur, plus bas) |
+| un téléphone Android | l'appli **ScreenStream**, en mode Local | ScreenStream (F-Droid ou Play Store) |
+| un iPhone, un iPad, un Mac | **Recopie de l'écran** (AirPlay) | UxPlay sur le Pi, installé une fois |
+| un iPhone ou un iPad sous iOS 27 | la page Partager mon écran, dans Safari | l'adresse https de Pixel |
+
+### Depuis un ordinateur
+
+1. Sur l'ordinateur, ouvre **`http://pixel.local:8080/ecran`**. (Ou l'adresse IP du Pi, avec `/ecran` au bout. L'appli du téléphone l'affiche dans **Caster sur Pixel → Partager un écran**.) Un autre nom, comme celui que la box donne au Pi (`pixel.home`…), est refusé : c'est ce qui empêche un autre site de se faire passer pour Pixel.
+2. Pixel affiche un **code à 6 chiffres**. Tape-le dans la page, puis **Valider**. Le bouton **Afficher un code** de l'appli du téléphone en affiche un aussi, sur Pixel et sur le téléphone.
+3. Touche **Partager mon écran**. Le navigateur demande quoi partager : un onglet, une fenêtre ou tout l'écran. L'image arrive sur Pixel en une ou deux secondes.
+   - **Fluide** pour une vidéo ou un jeu, **Net** pour du texte ou des diapos.
+   - **Avec le son** : Chrome et Edge partagent le son d'un onglet, et celui de tout l'écran sous Windows. Il sort par le Pi.
+4. **Pour arrêter :** **Arrêter le partage** dans la page (ou la barre du navigateur), **Arrêter** dans l'appli du téléphone, ou touche l'écran de Pixel. Ouvrir un autre écran ou caster autre chose arrête aussi.
+
+Tant que la page reste ouverte, elle reste reconnue : pour partager une autre fenêtre, retouche **Partager mon écran**, sans code. Une page rechargée redemande un code. Si l'ordinateur a déjà ouvert l'appli de Pixel avec le QR code, il a le code d'accès : la page s'en sert, pas de code à taper.
+
+#### L'adresse sécurisée
+
+Les navigateurs ne partagent l'écran que depuis une adresse **sécurisée** : en https, ou un fichier ouvert depuis le disque. Or Pixel répond en `http://`. Sur `http://pixel.local:8080/ecran`, la page le voit et propose trois façons, de la plus simple à la plus technique :
+
+1. **Le lanceur (conseillé).** Le bouton **Télécharger le lanceur** donne un fichier `Pixel-ecran.html`. Ouvre-le d'un double-clic : il s'ouvre dans le navigateur, depuis le disque, et ça suffit pour partager l'écran. Il trouve Pixel par son nom, sinon par son adresse IP. Garde-le, sur le bureau par exemple : il resservira. Il ne contient pas le code d'accès, seulement une clé à lui, qui lui permet de demander un code à Pixel. Si Chrome demande s'il faut garder le fichier, choisis **Conserver**.
+2. **L'adresse https de Pixel.** `install.sh` a fait un certificat dans `~/.config/pixel/tls/`. Pour l'ouvrir, ajoute `https_port = 8443` sous `[ecran]` dans `config.toml`, puis `sudo systemctl restart pixel@$USER`. Ouvre `https://pixel.local:8443/ecran`. Le navigateur prévient que « la connexion n'est pas privée » : c'est normal, le certificat est fait par Pixel. **Paramètres avancés → Continuer vers pixel.local**. Chrome le redemande une fois par semaine. C'est aussi l'adresse pour Safari sous iOS 27.
+3. **Le réglage de Chrome ou d'Edge**, en dernier recours. Ouvre `chrome://flags/#unsafely-treat-insecure-origin-as-secure` (Edge : `edge://flags/#unsafely-treat-insecure-origin-as-secure`). Colle les adresses de Pixel que la page affiche (`http://pixel.local:8080,http://192.168.1.42:8080`), choisis **Enabled**, puis **Relaunch**. Si l'adresse IP du Pi change, il faut la remettre.
+
+#### Si l'image n'arrive pas
+
+- L'ordinateur et Pixel doivent être sur **le même réseau** : pas un Wi-Fi invité, pas d'« isolation des clients » sur la box, pas de VPN.
+- Sous Windows, le réseau doit être en profil **Privé**. Le profil Public bloque les connexions directes.
+- `install.sh` règle le Chromium du Pi pour qu'il donne sa vraie adresse, à la seule page de Pixel (`/etc/chromium/policies/managed/pixel-ecran.json`). La connexion ne dépend alors plus du mDNS du réseau. Si Pixel était installé avant, relance `sh deploy/install.sh` une fois.
+- L'image est limitée à 1280 × 720, 30 images par seconde, 4 Mb/s. C'est assez pour l'écran de 800 × 480, et le Pi 4 décode le H.264 avec sa puce.
+
+### Depuis un téléphone Android : ScreenStream
+
+Chrome sur Android ne sait pas partager l'écran. L'appli libre **ScreenStream** le fait, et Pixel affiche ce qu'elle diffuse.
+
+1. Installe **ScreenStream** (F-Droid ou Play Store). Choisis le mode **Local (MJPEG)**. Dans ses réglages, laisse le **code PIN** désactivé. Dans ses réglages d'image, réduis sa taille à peu près à celle de l'écran de Pixel (800 × 480) : le Pi décode chaque image, et une image plus grande ne se voit pas mieux.
+2. Touche **Démarrer**, et accepte qu'elle enregistre l'écran.
+3. Dans l'appli de Pixel, sur ce même téléphone : **Caster sur Pixel → Afficher l'écran du téléphone**. Pixel trouve l'adresse du téléphone tout seul.
+   - Si ScreenStream utilise un autre port que 8080, change **Port**.
+   - Si Pixel voit le téléphone par une adresse IPv6 (c'est souvent le cas avec les box françaises), il le dit et demande l'adresse : tape dans **Adresse** celle que ScreenStream affiche (`192.168.1.23:8080`). Pareil si Pixel ne trouve pas le téléphone.
+4. **Pour arrêter :** **Arrêter** dans l'appli, ou touche l'écran de Pixel. Arrête aussi ScreenStream sur le téléphone.
+
+C'est l'écran de Pixel qui charge l'image (`http://<le téléphone>:8080/stream.mjpeg`). Le serveur de Pixel ne s'y connecte jamais. Pas de son, et un peu de retard : c'est une suite d'images JPEG.
+
+### Depuis un iPhone, un iPad ou un Mac : AirPlay
+
+[UxPlay](https://github.com/FDH2/UxPlay) fait du Pi un récepteur AirPlay. Pixel le lance et le surveille. Quand un iPhone se connecte, Pixel passe en mode cast, et il revient quand l'iPhone s'en va.
+
+**Une fois, sur le Pi :**
+
+1. Dans le dossier `pixel-app`, installe UxPlay : `PIXEL_AIRPLAY=1 sh deploy/install.sh`. Ça compile UxPlay 1.73.7, en quelques minutes. La version des paquets de Bookworm (1.62) est trop ancienne.
+2. Dans `config.toml` :
+   ```toml
+   [airplay]
+   enabled = true
+   name = "Pixel"      # son nom dans la liste
+   pin = true          # le code à 4 chiffres que Pixel affiche
+   ```
+3. `sudo systemctl restart pixel@$USER`.
+
+**Ensuite, sur l'iPhone ou l'iPad :** **Centre de contrôle → Recopie de l'écran → Pixel**. Pixel affiche un code à 4 chiffres : tape-le sur l'iPhone. L'écran de l'iPhone remplit celui de Pixel, avec le son. Sur un Mac : **Centre de contrôle → Recopie de l'écran**. Dans l'appli YouTube de l'iPhone, le bouton AirPlay envoie aussi la vidéo à Pixel.
+
+**Pour arrêter :** **Arrêter la recopie** sur l'iPhone, ou **Arrêter** dans l'appli de Pixel : Pixel relance UxPlay, ce qui renvoie l'iPhone. La fenêtre d'UxPlay couvre l'écran tactile : toucher Pixel ne l'arrête pas.
+
+**Bon à savoir :**
+
+- Pas de service à créer : Pixel lance UxPlay lui-même. Il attend que le bureau (Wayland) soit là, le relance s'il plante, et l'arrête avec lui. L'appli du téléphone dit où il en est : **prêt**, **connecté**, **pas installé**…
+- Ses options : `-n Pixel -nh -fs -vs waylandsink -s 1280x720@60 -fps 30 -p -reset 5 -nohold -nofreeze -srgb no -pin -hls`. Avec `-nofreeze`, un iPhone perdu (le Wi-Fi coupé) ne laisse pas sa dernière image en plein écran par-dessus Pixel ; et Pixel relance alors UxPlay. Sur un Pi 4, `args = ["-bt709"]` si les couleurs sont fausses, `["-avdec"]` si la vidéo bloque.
+- Ses ports : TCP 7000, 7001, 7100 et UDP 6000, 6001, 7011. Pi OS n'a pas de pare-feu par défaut. L'iPhone trouve Pixel par Bonjour (`avahi-daemon`, déjà sur Pi OS) : sur un Wi-Fi invité, il ne le voit pas.
+- Les vidéos protégées (Netflix, Apple TV+…) restent noires.
+- Un service systemd à toi plutôt que Pixel ? Laisse `enabled = false` et crée un service **utilisateur** (`~/.config/systemd/user/pixel-uxplay.service`, avec `Environment=WAYLAND_DISPLAY=wayland-0` et la ligne `ExecStart` de UxPlay, puis `systemctl --user enable --now pixel-uxplay`). Mais alors Pixel ne sait pas quand un iPhone se connecte, et ne passe pas en mode cast.
+
+### Depuis un iPhone ou un iPad sous iOS 27 : Safari
+
+Safari sait partager l'écran depuis iOS 27, mais seulement sur une adresse https. Une fois l'adresse https de Pixel ouverte (voir plus haut), ouvre l'appli de Pixel par `https://pixel.local:8443/?t=TON_CODE`. Le bouton **Caster sur Pixel → Partager l'écran de cet appareil** apparaît. On ne sait pas encore si Safari capture tout l'iPhone ou seulement Safari, ni s'il continue quand on change d'appli : AirPlay reste le plus sûr.
+
+### Les réglages (`config.toml`)
+
+```toml
+[ecran]
+# https_port = 8443       # l'adresse https, avec le certificat que fait install.sh (~/.config/pixel/tls/)
+
+[airplay]
+enabled = false           # true une fois UxPlay installé
+name = "Pixel"
+pin = true
+# args = ["-bt709"]
+```
+
+### Pour les curieux : comment ça marche
+
+- **WebRTC :** la page de l'ordinateur capture l'écran (`getDisplayMedia`) et l'envoie directement à l'écran de Pixel : Chromium, sur `http://localhost`, qui est une adresse sécurisée. Le serveur ne voit pas l'image. Il relaie seulement la mise en relation sur `/ecran/ws` : l'offre, la réponse, les candidats ICE. Pas de serveur STUN : sur le Wi-Fi de la maison, ce n'est pas utile. H.264 d'abord (le Pi 4 le décode avec sa puce, le Pi 5 avec le processeur), 1280 × 720 et 30 images par seconde au plus. L'écran de Pixel la dessine 30 fois par seconde au plus, et seulement quand une nouvelle image arrive (`requestVideoFrameCallback`) : un bureau immobile ne coûte presque rien au Pi.
+- **Routes :** `GET /ecran` (la page), `GET /ecran/lanceur.html` (le lanceur à télécharger), `GET /ecran/ws` (la mise en relation), `POST /ecran/telephone` (`{port, address}` : ScreenStream).
+- **Messages de `/ecran/ws` :** l'ordinateur envoie `pair` (un code sur Pixel), `hello` (`code` ou `t`, et `name`), `start`, `offer`, `ice`, `stop`. L'écran de Pixel envoie `kiosk` (`session`), `answer`, `ice`, `live`, `fail`. Le serveur répond `code`, `code-off`, `ok`, `bad`, `ready`, `offer`, `answer`, `ice`, `live`, `stopped` (`why`, `msg`) et `error`.
+- **Actions WebSocket :** `ecran.code` (un code, depuis l'appli), `ecran.fail` (l'écran de Pixel n'y arrive pas), `airplay.stop`. `cast.stop` arrête tout.
+- **État :** `cast` : `{kind: "screen", via: "webrtc" | "mjpeg" | "airplay", phase: "code" | "paired" | "connecting" | "live" | "pin", title, note, code, session, src}`. `airplay` : `{on, status, client, name, error}`. `settings.ecran` : les adresses de la page.
+- **Les fichiers :** `pixel/ecran.py` (le code, la mise en relation, ScreenStream, l'https), `pixel/airplay.py` (UxPlay), `web/ecran.html` (la page de l'ordinateur, sans rien à charger), `web/ecran.js` (ce que reçoit l'écran de Pixel, et le panneau du téléphone).
+
+### Sécurité
+
+- **Le code à usage unique :** 6 chiffres, sur l'écran de Pixel (et dans l'appli du téléphone, qui a déjà le code d'accès), valables 3 minutes. 5 essais, puis il faut en demander un autre. Un nouveau code au plus toutes les 5 secondes. Après 30 codes faux dans l'heure, l'appareil qui les a tapés n'a plus de code pour un moment (en IPv6, compté par son réseau /64) ; les autres en ont toujours, et le bouton **Afficher un code** de l'appli marche toujours. Il faut donc **voir l'écran de Pixel** pour y partager le sien. Sans ce code, ou le code d'accès de l'appli, le serveur ne relaie rien. Et une page sans le code d'accès ne peut faire afficher un code que si rien n'est casté, ni dans les 30 secondes après qu'on l'a fermé sur Pixel : quelqu'un du Wi-Fi ne peut pas prendre l'écran de Pixel.
+- **Seul l'écran de Pixel reçoit l'image :** le rôle de récepteur n'est accepté que du Pi lui-même, depuis la page de Pixel.
+- **Une page d'un autre site** ne peut même pas se connecter à `/ecran/ws`, ni faire afficher un code : ni par son adresse (son `Origin`), ni par un nom à elle qui mène au Pi (le « DNS rebinding » : Pixel ne répond qu'à `pixel.local`, `pixel`, `localhost` et ses adresses IP), ni depuis un cadre « sandbox » (`Origin: null`, comme le lanceur, mais sans sa clé). Seuls les pages de Pixel, le lanceur ouvert depuis le disque et les programmes sont acceptés.
+- **Les connexions :** au plus 3 sans code par appareil (12 en tout), fermées une minute après leur code, ou après une minute sans en demander. L'écran de Pixel n'est jamais compté : il se connecte toujours.
+- **Le lanceur** ne contient pas le code d'accès : seulement les adresses de Pixel et une clé à lui (`~/.config/pixel/ecran-lanceur.key`), qui ne sert qu'à demander un code. Pour la changer, efface ce fichier et redémarre Pixel : les anciens lanceurs ne marchent plus, il faut le retélécharger.
+- **ScreenStream :** l'adresse du téléphone doit être une adresse IP de la maison : pas un nom, pas le Pi lui-même, pas Internet. Un téléphone vu en IPv6 doit taper son adresse IPv4. C'est l'écran de Pixel qui charge le flux, jamais le serveur.
+- **AirPlay :** avec `pin = true`, l'iPhone doit taper le code affiché par Pixel. Sans lui, n'importe quel appareil du Wi-Fi pourrait s'afficher.
+- **La vraie adresse du Pi** n'est donnée qu'à la page de Pixel (`http://localhost:8080`), pas aux autres sites que l'écran peut montrer (le lecteur YouTube).
+
+### Pas encore essayé sur le vrai Pi
+
+Tout a été testé sur un ordinateur : `test_ecran.py` (le serveur), `test_ecran.js` (l'écran de Pixel), `test_ecran_web.js` (deux pages Chromium, une fausse mire, un faux ScreenStream), `test_airplay.py` (un faux UxPlay). Reste à essayer sur le Pi :
+
+- **WebRTC :** le décodage sur le Pi 4 (avec sa puce ? `chrome://webrtc-internals`, `decoderImplementation`) et le processeur du Pi 5 en 720p ; le vrai retard ; le lanceur ouvert sous Windows 11, avec Chrome et Edge (l'avertissement de téléchargement, `pixel.local` sous Windows) ; Firefox et Safari ; la règle `pixel-ecran.json` avec le Chromium de Pi OS.
+- **AirPlay :** UxPlay 1.73.7 compilé sur Bookworm ; sa fenêtre plein écran **au-dessus** de Chromium sous labwc (si elle reste derrière, une règle de fenêtre de labwc peut la mettre devant) ; le nom du socket Wayland (`wayland-0`) ; les lignes qu'écrit UxPlay avec un vrai iPhone (celles des tests viennent de son code source) ; `-hls` avec l'appli YouTube.
+- **ScreenStream :** le nombre d'images par seconde sur le Wi-Fi de la maison, et ce que coûte au Pi le décodage de ses images JPEG (sinon : poser l'image au-dessus du canevas, redimensionnée par le navigateur) ; un téléphone vu en IPv6.
+- **iOS 27 :** Safari et `getDisplayMedia`.
+
 ---
 
-## 2. Les autres façons de caster sur un Raspberry Pi
+## 3. Les autres façons de caster sur un Raspberry Pi
 
-Ce qui est fait au-dessus **envoie un fichier ou un lien**. Pour **recopier l'écran** d'un téléphone ou d'un PC en direct, voici les solutions, de la plus utile à la moins utile pour Pixel.
+Voici toutes les solutions regardées pour envoyer un fichier ou **recopier l'écran** d'un téléphone ou d'un PC sur un Raspberry Pi, de la plus utile à la moins utile pour Pixel. Le partage d'écran (plus haut) en reprend trois : WebRTC, AirPlay et ScreenStream.
 
 ### En résumé
 
@@ -217,14 +342,17 @@ Ce qui est fait au-dessus **envoie un fichier ou un lien**. Pour **recopier l'é
 | --- | --- | --- | --- | --- | --- |
 | **Caster sur Pixel** (fait) | tout téléphone, PC | non : fichiers, liens, textes | bonne | fait | la base |
 | **YouTube** : lien et bouton Caster de l'appli (fait) | Android, iPhone, PC | non : la vidéo | bonne (lien), moyenne (bouton) | fait | le bouton Caster est en option |
-| **AirPlay avec UxPlay** | iPhone, iPad, Mac | oui, avec le son | bonne | ½ à 1 jour | **la suite, si la maison a des iPhone ou un Mac** |
+| **AirPlay avec UxPlay** | iPhone, iPad, Mac | oui, avec le son | bonne | fait (UxPlay à installer) | **fait** : voir « Partager un écran » |
 | **Partage Android dans l'appli pixel-mobile** | Android | non | très bonne | ½ jour | **la suite côté Android** |
-| **Partage d'écran WebRTC** | navigateur d'ordinateur | oui (onglet, fenêtre, écran) | bonne | 1 jour | quand Pixel aura une adresse https |
+| **Partage d'écran WebRTC** | navigateur d'ordinateur | oui (onglet, fenêtre, écran) | bonne | fait | **fait**, avec le lanceur (pas besoin d'https) |
+| **ScreenStream** (MJPEG) | Android | oui, sans le son | bonne | fait | **fait** |
 | **DLNA / UPnP** (gmrender-resurrect) | Android (BubbleUPnP), Windows | non : fichiers | moyenne | ½ jour | possible, peu utile |
 | **Google Cast** | Android, Chrome | — | impossible | — | non |
 | **Miracast** (MiracleCast) | Android, Windows | oui | mauvaise | plusieurs jours | non |
 
 ### AirPlay : UxPlay
+
+**Fait** : voir « Partager un écran » plus haut. Ce qui a changé par rapport à cette note : UxPlay est compilé (le paquet de Bookworm, 1.62, est trop ancien), Pixel le lance et lit ses lignes lui-même plutôt qu'un service systemd, avec `-srgb no` pour labwc. La note d'origine :
 
 [UxPlay](https://github.com/FDH2/UxPlay) est un récepteur AirPlay libre : la **Recopie de l'écran** d'un iPhone, d'un iPad ou d'un Mac, avec le son. Les versions récentes lisent aussi les vidéos YouTube envoyées par AirPlay (option `-hls`).
 
@@ -287,6 +415,8 @@ Ce qui est fait au-dessus **envoie un fichier ou un lien**. Pour **recopier l'é
 
 ### Partage d'écran dans le navigateur (WebRTC)
 
+**Fait** : voir « Partager un écran » plus haut, avec un code à usage unique et un lanceur à télécharger pour l'adresse sécurisée (ou l'https de Pixel, ou le réglage de Chrome). Et pas de vert du tube : l'image garde ses couleurs. La note d'origine :
+
 Un bouton **Partager mon écran** dans l'appli, sur un ordinateur. Le navigateur demande quoi partager (`getDisplayMedia` : un onglet, une fenêtre ou tout l'écran). L'image va directement à l'écran de Pixel (WebRTC), qui l'affiche comme un cast vidéo.
 
 - **La mise en relation :** passe par le WebSocket déjà là. Une action `rtc.signal` relaie l'offre, la réponse et les candidats ICE entre l'ordinateur et l'écran du Pi. Sur le Wi-Fi de la maison, pas besoin de serveur STUN.
@@ -298,9 +428,10 @@ Un bouton **Partager mon écran** dans l'appli, sur un ordinateur. Le navigateur
 
 ### La suite conseillée
 
-1. **Maintenant :** le cast intégré (fait). Il couvre le plus courant : montrer une photo, une vidéo, un lien ou un mot, depuis n'importe quel téléphone.
+1. **Maintenant :** le cast intégré (fait). Il couvre le plus courant : montrer une photo, une vidéo, un lien ou un mot, depuis n'importe quel téléphone. Et le partage d'écran (fait) : un ordinateur, Android (ScreenStream), un iPhone ou un Mac (AirPlay).
 2. **Android, sans https :** faire accepter les partages à l'appli `pixel-mobile`. Un « intent filter » pour les images, les vidéos et le texte, par exemple avec `expo-share-intent`. L'appli envoie à `POST /api/cast` avec le code qu'elle garde déjà. Une demi-journée.
-3. **iPhone et Mac :** UxPlay, avec l'interrupteur **AirPlay** dans Réglages et le code PIN. C'est la vraie recopie d'écran, pour peu de travail.
-4. **Une adresse https** (Tailscale) : elle débloque le menu Partager de l'appli web et le partage d'écran WebRTC depuis un ordinateur.
-5. **Plus tard, si besoin :** Pixel comme lecteur DLNA, pour Windows (**Caster sur un appareil**) et BubbleUPnP.
-6. **Non :** Google Cast (impossible) et Miracast (pas fiable).
+3. **iPhone et Mac :** UxPlay (fait). Ensuite, peut-être : un interrupteur **AirPlay** dans Réglages, plutôt que `config.toml`.
+4. **Une adresse https** (Tailscale, ou celle de Pixel : `https_port`) : elle débloque le menu Partager de l'appli web. Le partage d'écran d'un ordinateur s'en passe (le lanceur).
+5. **Android, mieux que ScreenStream :** le partage d'écran natif dans l'appli `pixel-mobile` (react-native-webrtc, MediaProjection), vers le même écran de Pixel que les ordinateurs, avec le son.
+6. **Plus tard, si besoin :** Pixel comme lecteur DLNA, pour Windows (**Caster sur un appareil**) et BubbleUPnP.
+7. **Non :** Google Cast (impossible) et Miracast (pas fiable).

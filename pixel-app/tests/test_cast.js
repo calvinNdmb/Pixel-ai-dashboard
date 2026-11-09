@@ -2,7 +2,7 @@
 // Runs the pack, themes.js, persona.js, the scene packs and screens.js in a VM with a stub canvas, a fake frame clock and stub
 // media (a picture that loads, a video that plays, a GIF decoder, a player frame), then:
 // - every kind of cast (photo, GIF, video, text, page link, YouTube on Pixel's screen and on a phone) draws in every theme,
-//   with both faces, in Rétro with and without the tube's green, with the CRT effect off, under the quick menu;
+//   with both faces, always in its own colours (no tube's green: tests/test_ecran.js checks the whole CRT layer), under the quick menu;
 // - the screen that was open comes back when it ends, it waits for the boot splash, an expired cast does not show;
 // - a touch stops it; a video is drawn at each of its new frames, with its sound on Pixel's screen only; its end and its errors go
 //   to the server; a photo is drawn from a copy at the screen's size; a still GIF is decoded once, an animated one at its own pace;
@@ -106,12 +106,12 @@ const KINDS = {
   }
   set({ view: { ...S.view, theme: 'retro', face: 'pack' }, cast: null }); tick();
 
-  // ---- the tube's green (Rétro), the colours of origin, the CRT effect off ----
+  // ---- its own colours, always: no tube's green any more (cast v2), whatever the theme or the old "couleurs d'origine" flag ----
   const tinted = async (o, view = {}) => { set({ view: { ...S.view, theme: 'retro', crt_off: false, ...view }, cast: { ...KINDS.photo(), ...o } }); await flush(); tick(); await flush(); ops.length = 0; tick(600); return ops.includes('color'); };
-  check('Rétro: the photo takes the green of the tube', await tinted({}));
-  check("Rétro: 'couleurs d'origine' keeps its colours", !(await tinted({ raw: true })));
+  check('Rétro: the photo keeps its own colours (no green of the tube over it)', !(await tinted({})));
+  check("Rétro: the same with the old 'couleurs d'origine' flag", !(await tinted({ raw: true })));
   check('Rétro with the CRT effect off: its own colours', !(await tinted({}, { crt_off: true })));
-  check('LCD: in its greens; Moderne: as it is', await tinted({}, { theme: 'lcd' }) && !(await tinted({}, { theme: 'moderne' })));
+  check('LCD and Moderne: as it is too', !(await tinted({}, { theme: 'lcd' })) && !(await tinted({}, { theme: 'moderne' })));
   set({ view: { ...S.view, theme: 'retro', crt_off: false }, cast: null }); tick();
 
   // ---- it shows over the open screen, which comes back ----

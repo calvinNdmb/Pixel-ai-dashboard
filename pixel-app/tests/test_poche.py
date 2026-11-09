@@ -73,7 +73,7 @@ def static_checks():
     check("the scenes poche.js plays exist", all(i in ids for i in ("poche-part", "poche-revient", "poche-arrive", "poche-rentre")) and
           all(f"'{i}'" in js for i in ("poche-part", "poche-revient", "poche-arrive", "poche-rentre")))
     check("the news between the Pixels is not a Stream Deck action for screens.js (no generic 'action' scene)",
-          "|poche\\.)/.test(p.act.name)" in (web / "screens.js").read_text())
+          bool(re.search(r"\|poche\\\.[|)][^/\n]*/\.test\(p\.act\.name\)", (web / "screens.js").read_text())))   # poche. among the excluded prefixes
     for f, after, before in (("index.html", "app/screens.js", "app/app.js"), ("lab/index.html", "../screens.js", "lab.js")):
         page = (web / f).read_text()
         check(f"{f} loads the scene pack, and poche.js after screens.js and before {before.split('/')[-1]}",

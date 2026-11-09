@@ -30,6 +30,7 @@ from . import youtube
 log = logging.getLogger("pixel")
 LOCAL = {"127.0.0.1", "::1"}
 PROXIED = ("X-Forwarded-For", "X-Forwarded-Host", "Forwarded", "X-Real-IP")    # a request a proxy on the Pi passes on
+LOCAL_NAMES = {"localhost", "127.0.0.1", "::1"}     # the Host of a page of the Pi itself
 MB = 1024 * 1024
 # the ISO media (MP4) brands of phone and camera videos ("qt  ": an iPhone's .mov), not the still pictures in the same box (HEIC, AVIF)
 MP4 = {b"isom", b"iso2", b"iso4", b"iso5", b"iso6", b"mp41", b"mp42", b"avc1", b"M4V ", b"M4VH", b"M4VP", b"dash", b"mmp4", b"MSNV",
@@ -68,11 +69,12 @@ def sniff(head):
 
 
 def local_page(request):
-    """The Pi itself, from Pixel's own page: from 127.0.0.1 or ::1, addressed to localhost, with no Origin or Pixel's own on
-    the port the request came in on (http://localhost:PORT, deploy/kiosk.sh). A page of another site shown on the screen (a
-    video player) is not Pixel, nor a frame it makes (sandboxed, data:, srcdoc: Origin "null"), nor another name for the Pi
-    (a DNS rebinding page: its Host is its own name too). A proxy on the Pi (tailscale serve) passes on other devices'
-    requests from 127.0.0.1 too, under its own name and with its headers: those need the code."""
+    """The Pi itself, from Pixel's own page (http://localhost:PORT, deploy/kiosk.sh) or a program without a page (no Origin):
+    from 127.0.0.1 or ::1, addressed to localhost, 127.0.0.1 or [::1], with no Origin or Pixel's own on the port the request
+    came in on. A page of another site shown on the screen (a video player, its ads) is not Pixel: its Origin is that site's,
+    or "null" (a sandboxed frame, data:, srcdoc:), and a name of its own that leads to the Pi (DNS rebinding) comes as the
+    Host. A proxy on the Pi (tailscale serve) passes on other devices' requests from 127.0.0.1 too, under its own name and
+    with its headers: those need the code."""
     if request.remote not in LOCAL:
         return False
     h = request.headers
@@ -80,10 +82,10 @@ def local_page(request):
         return False
     host = (request.host or "").lower()
     try:
-        if urlsplit("//" + host).hostname not in ("localhost", "127.0.0.1", "::1"):
+        if urlsplit("//" + host).hostname not in LOCAL_NAMES:
             return False
         origin = h.get("Origin")
-        if not origin:
+        if origin is None:
             return True
         if urlsplit(origin).netloc.lower() != host:
             return False
@@ -92,8 +94,10 @@ def local_page(request):
     sock = request.transport.get_extra_info("sockname") if request.transport else None
     if not sock:
         return False
-    port = "" if sock[1] == 80 else f":{sock[1]}"
-    return origin.lower() in {f"http://{n}{port}" for n in ("localhost", "127.0.0.1", "[::1]")}
+    p = sock[1]
+    mine = {f"http://{n}" + ("" if p == 80 else f":{p}") for n in ("localhost", "127.0.0.1", "[::1]")}
+    mine |= {f"https://{n}" + ("" if p == 443 else f":{p}") for n in ("localhost", "127.0.0.1", "[::1]")}
+    return origin.lower() in mine
 
 
 def has_access(request, token):

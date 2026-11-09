@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Pixel · Partager mon écran</title>
+<!-- PIXEL:CONFIG -->
+<style>
+/* Pixel's screen sharing page (pixel/ecran.py serves it at /ecran, and as the downloaded Pixel-ecran.html). Self-contained:
+   the downloaded copy, opened from the disk, has nothing else to load. */
+:root{--plastic:#d9d2bd;--plastic-lo:#c4bca5;--ink:#2f2b23;--crt:#061009;--g:#46ff82;--gd:#1e7840;--amber:#ffb347;--desk:#24251f;--red:#b3261e}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{min-height:100vh;background:var(--desk);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;justify-content:center;align-items:flex-start;padding:16px}
+main{width:100%;max-width:620px;background:linear-gradient(180deg,#e6e0cd,var(--plastic) 40%,var(--plastic-lo));border-radius:20px;padding:22px 20px 18px;box-shadow:inset 0 2px 0 #f1ecdd,0 22px 30px -18px #000}
+h1{margin:0 0 14px;font-size:22px;letter-spacing:.02em}
+h1 small{display:block;font-size:13px;font-weight:600;letter-spacing:.3em;color:#6d6656}
+.screen{background:var(--crt);color:var(--g);border-radius:12px;padding:14px 16px;font:19px/1.35 ui-monospace,"Cascadia Mono",Menlo,monospace;min-height:58px;box-shadow:inset 0 3px 10px rgba(0,0,0,.6);overflow-wrap:anywhere}
+.screen.warn{color:var(--amber)}
+section{margin-top:16px}
+p{margin:.5em 0}
+button,.btn{font:inherit;font-weight:600;min-height:44px;padding:0 18px;border-radius:999px;border:0;background:var(--ink);color:var(--plastic);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+button:disabled{opacity:.5;cursor:default}
+button.big{font-size:20px;min-height:58px;width:100%}
+button.stop{background:var(--red);color:#fff}
+button.link{background:none;color:var(--ink);text-decoration:underline;padding:0 6px;min-height:36px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input.code{font:28px ui-monospace,monospace;letter-spacing:.18em;min-height:52px;width:8.2em;max-width:100%;text-align:center;border-radius:12px;border:2px solid var(--ink);background:#fbf8ef;color:var(--ink);padding:0 8px}
+label.opt{display:flex;gap:8px;align-items:center;min-height:36px}
+.help ol{padding-left:1.3em;margin:.4em 0}
+.help li{margin:.7em 0}
+.help code,.mono{font:14px ui-monospace,monospace;background:#fbf8ef;border-radius:6px;padding:2px 6px;overflow-wrap:anywhere}
+input.copy{font:14px ui-monospace,monospace;width:100%;min-height:40px;border-radius:8px;border:1px solid #8d8574;background:#fbf8ef;padding:0 8px}
+.note{font-size:14px;color:#5b5547}
+a{color:var(--ink)}
+</style>
+</head>
+<body>
+<main>
+  <h1><small>PIXEL</small>Partager mon écran sur Pixel</h1>
+  <p class="screen" id="msg" role="status" aria-live="polite">Un instant…</p>
+
+  <section id="pair" hidden>
+    <form id="pairForm" class="row" autocomplete="off">
+      <label for="code">Le code affiché sur l'écran de Pixel :</label>
+      <input class="code" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000 000" required>
+      <button type="submit">Valider</button>
+    </form>
+    <p><button type="button" class="link" id="again">Afficher un nouveau code sur Pixel</button></p>
+  </section>
+
+  <section id="share" hidden>
+    <button type="button" class="big" id="go">Partager mon écran</button>
+    <div class="row" style="margin-top:8px">
+      <label class="opt"><input type="radio" name="hint" value="motion" checked> Fluide (vidéo, jeux)</label>
+      <label class="opt"><input type="radio" name="hint" value="detail" id="sharp"> Net (texte, diapos)</label>
+      <label class="opt"><input type="checkbox" id="sound"> Avec le son</label>
+    </div>
+    <p class="note">Le navigateur te demande quoi partager : un onglet, une fenêtre ou tout l'écran. L'image va directement à Pixel, sur le Wi-Fi de la maison (1280 × 720 au plus).</p>
+  </section>
+
+  <section id="live" hidden>
+    <button type="button" class="big stop" id="stop">Arrêter le partage</button>
+    <p class="note">Tu peux aussi toucher l'écran de Pixel, ou Arrêter dans l'appli du téléphone.</p>
+  </section>
+
+  <section id="retry" hidden><button type="button" id="reconnect">Reconnecter</button></section>
+
+  <section id="help" class="help" hidden>
+    <div id="helpSecure" hidden>
+      <p><b>Ton navigateur ne partage l'écran que depuis une adresse sécurisée.</b> Trois façons d'y arriver, de la plus simple à la plus technique :</p>
+      <ol>
+        <li><b>Le lanceur</b> : <a class="btn" id="launcher" href="/ecran/lanceur.html" download="Pixel-ecran.html">Télécharger le lanceur</a><br>
+          Ouvre le fichier <span class="mono">Pixel-ecran.html</span> téléchargé (double-clic) : ton navigateur le laisse partager l'écran. Garde-le, il resservira. Si Chrome demande s'il faut garder le fichier, choisis <b>Conserver</b>.</li>
+        <li id="httpsOn" hidden><b>L'adresse sécurisée de Pixel</b> : <a id="httpsLink" href="#">https://…</a><br>
+          Le navigateur prévient que la connexion n'est pas privée : c'est normal, le certificat est fait par Pixel. <b>Paramètres avancés</b>, puis <b>Continuer vers le site</b>. Il le redemande une fois par semaine.</li>
+        <li id="httpsOff"><b>Une adresse sécurisée (https)</b> : à activer sur le Pi (<span class="mono">https_port = 8443</span> dans <span class="mono">config.toml</span>, voir docs/CAST.md).</li>
+        <li><b>Le réglage de Chrome ou d'Edge</b>, en dernier recours : ouvre <span class="mono" id="flag">chrome://flags/#unsafely-treat-insecure-origin-as-secure</span>, colle cette ligne dans la case, choisis <b>Enabled</b>, puis <b>Relaunch</b> :
+          <input class="copy" id="origins" readonly aria-label="Les adresses de Pixel, à coller dans le réglage"><button type="button" class="link" id="copy">Copier</button></li>
+      </ol>
+    </div>
+    <div id="helpPhone" hidden>
+      <p id="helpAndroid" hidden><b>Sur Android</b>, Chrome ne sait pas partager l'écran. Installe <b>ScreenStream</b> (F-Droid ou Play Store), mode <b>Local</b>, sans code PIN, touche <b>Démarrer</b>, puis dans l'appli de Pixel : <b>Caster sur Pixel → Afficher l'écran du téléphone</b>.</p>
+      <p id="helpApple" hidden><b>Sur iPhone et iPad</b> : <b>Centre de contrôle → Recopie de l'écran → Pixel</b> (si AirPlay est activé sur Pixel). Safari sait aussi partager l'écran depuis iOS 27, sur l'adresse sécurisée de Pixel.</p>
+    </div>
+    <p id="helpOther" hidden>Ce navigateur ne sait pas partager son écran. Essaie Chrome, Edge ou Firefox sur un ordinateur.</p>
+  </section>
+
+  <p class="note" style="margin-top:18px">Sur un Mac, un iPhone ou un iPad, AirPlay marche aussi : <b>Recopie de l'écran → Pixel</b>, si Pixel l'a activé.</p>
+</main>
+<script>
+(() => {
+/* The sender: capture the screen (getDisplayMedia, from a click), then WebRTC to Pixel's screen. The signalling goes through
+   /ecran/ws: the one-time code shown on Pixel (or the app's access code, when this page has it), then the offer, the answer
+   and the ICE candidates. H.264 first, 1280x720, 30 im/s, 4 Mb/s at most. Everything is feature-detected. */
+const CFG = window.PIXEL_ECRAN || {};
+const $ = id => document.getElementById(id);
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private */ } } };
+const qs = new URLSearchParams(location.search), file = location.protocol === 'file:';
+let token = qs.get('t') || (file ? '' : store.get('pixel_t')) || '';
+if (qs.get('t')) { store.set('pixel_t', qs.get('t')); history.replaceState(null, '', location.pathname); }
+const ua = navigator.userAgent, touchMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+const android = /Android/i.test(ua), apple = /iPhone|iPad|iPod/i.test(ua) || touchMac;
+const canCapture = !!(window.isSecureContext && navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+const canRtc = typeof RTCPeerConnection === 'function' && typeof WebSocket === 'function';
+const H264 = /^video\/h264$/i;
+let ws = null, authed = false, usedToken = false, stream = null, pc = null, sharing = false;
+
+const say = (t, warn) => { $('msg').textContent = t; $('msg').classList.toggle('warn', !!warn); };
+const show = (...ids) => ['pair', 'share', 'live', 'retry', 'help'].forEach(i => { $(i).hidden = !ids.includes(i); });
+const send = m => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
+function myName() {
+  const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  if (/iPhone/i.test(ua)) return 'iPhone';
+  if (/iPad/i.test(ua) || touchMac) return 'iPad';
+  if (android) return 'Android';
+  if (/CrOS/i.test(ua) || /Chrome OS/i.test(p)) return 'Chromebook';
+  if (/Win/i.test(p)) return 'PC Windows';
+  if (/Mac/i.test(p)) return 'Mac';
+  if (/Linux/i.test(p)) return 'PC Linux';
+  return 'Ordinateur';
+}
+
+/* ---------- the help, when this browser cannot share from here ---------- */
+function help() {
+  show('help');
+  if (!window.isSecureContext && !apple && !android) {
+    $('helpSecure').hidden = false;
+    const base = file ? String(CFG.page || '').replace(/\/ecran$/, '') : '';
+    $('launcher').href = base + (CFG.launcher || '/ecran/lanceur.html');
+    if (CFG.https) { $('httpsOn').hidden = false; $('httpsOff').hidden = true; $('httpsLink').href = CFG.https; $('httpsLink').textContent = CFG.https; }
+    if (/Edg\//.test(ua)) $('flag').textContent = 'edge://flags/#unsafely-treat-insecure-origin-as-secure';
+    $('origins').value = (CFG.origins && CFG.origins.length ? CFG.origins : [location.origin]).join(',');
+    say("Ce navigateur ne peut pas partager l'écran depuis cette adresse (http). Voici comment faire.", true);
+  } else if (android || apple) {
+    $('helpPhone').hidden = false; $(android ? 'helpAndroid' : 'helpApple').hidden = false;
+    say(android ? "Sur Android, le partage d'écran passe par ScreenStream." : "Sur iPhone et iPad, le plus simple est AirPlay.", true);
+  } else { $('helpOther').hidden = false; say("Ce navigateur ne sait pas partager son écran.", true); }
+}
+$('copy').addEventListener('click', () => {
+  const t = $('origins').value;
+  const done = () => { $('copy').textContent = 'Copié !'; };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, () => {});
+  else { $('origins').select(); try { if (document.execCommand('copy')) done(); } catch (e) { /* select and copy by hand */ } }
+});
+
+/* ---------- the connection to Pixel: its own address, or (the downloaded page) its name, then its IP address ---------- */
+function connect(i = 0) {
+  const list = CFG.ws && CFG.ws.length ? CFG.ws : [(location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ecran/ws'];
+  if (i >= list.length) { say("Pixel ne répond pas. L'ordinateur est-il sur le même Wi-Fi que Pixel, et Pixel allumé ?" + (file ? ' Sinon, télécharge de nouveau ce lanceur sur la page /ecran de Pixel.' : ''), true); show('retry'); return; }
+  say('Connexion à Pixel…');
+  let w, up = false;
+  try { w = new WebSocket(list[i]); } catch (e) { connect(i + 1); return; }
+  const late = setTimeout(() => { if (!up) { w.onclose = null; try { w.close(); } catch (e) { /* closed */ } connect(i + 1); } }, 4000);
+  w.onopen = () => { up = true; clearTimeout(late); ws = w; opened(); };
+  w.onclose = () => { clearTimeout(late); if (!up) { connect(i + 1); return; } if (ws === w) { ws = null; closed(); } };
+  w.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } if (ws === w && m) on(m); };
+}
+function opened() {
+  authed = false;
+  if (token) { usedToken = true; send({ type: 'hello', t: token, name: myName() }); say('Connexion à Pixel…'); }
+  else ask();
+}
+function ask() { send({ type: 'pair' }); show('pair'); say('Pixel affiche un code sur son écran…'); }
+function closed() {
+  const was = sharing; cleanup(); authed = false;
+  say(was ? "Pixel ne répond plus : le partage s'est arrêté." : 'Pixel ne répond plus.', true); show('retry');
+}
+async function on(m) {
+  switch (m.type) {
+    case 'code': say("Un code s'affiche sur l'écran de Pixel : tape-le ici."); show('pair'); $('code').focus(); break;
+    case 'code-off': if (!authed) say("Le code n'est plus sur l'écran de Pixel. Demande-en un nouveau.", true); break;
+    case 'error': say(m.msg || 'Pixel refuse.', true); break;
+    case 'bad':
+      if (usedToken) { usedToken = false; token = ''; ask(); break; }       // an old access code: the one-time code instead
+      say(m.msg || "Ce n'est pas le bon code.", true); $('code').select(); break;
+    case 'ok': authed = true; show('share'); say("Pixel est prêt. Touche « Partager mon écran »."); $('go').focus(); break;
+    case 'ready': try { await offer(); } catch (e) { say("Le navigateur n'a pas pu préparer la connexion (" + (e && e.name || e) + ').', true); stop(); } break;
+    case 'answer': if (pc && typeof m.sdp === 'string') { try { await pc.setRemoteDescription({ type: 'answer', sdp: m.sdp }); tune(); } catch (e) { say('Réponse de Pixel illisible.', true); stop(); } } break;
+    case 'ice': if (pc) pc.addIceCandidate(m.candidate || null).catch(() => {}); break;
+    case 'live': say("Ton écran est sur Pixel, en direct."); break;
+    case 'stopped': cleanup(); say(m.msg || 'Le partage est terminé.', m.why !== 'toi'); show(authed ? 'share' : 'pair'); break;
+  }
+}
+
+/* ---------- the code ---------- */
+$('pairForm').addEventListener('submit', e => { e.preventDefault(); const c = $('code').value.replace(/\D/g, ''); if (c) { send({ type: 'hello', code: c, name: myName() }); say('Vérification…'); } });
+$('again').addEventListener('click', () => { if (ws) ask(); else connect(); });
+$('reconnect').addEventListener('click', () => connect());
+
+/* ---------- the capture (from a click: browsers ask for it), the offer ---------- */
+async function capture() {
+  const video = { width: { max: 1280 }, height: { max: 720 }, frameRate: { ideal: 30, max: 30 } };
+  const extra = { selfBrowserSurface: 'exclude', surfaceSwitching: 'include', systemAudio: 'include' };   // unknown keys are ignored
+  const md = navigator.mediaDevices;
+  if ($('sound').checked) {
+    try { return await md.getDisplayMedia({ video, audio: true, ...extra }); }
+    catch (e) { if (!e || e.name === 'NotAllowedError' || e.name === 'AbortError' || e.name === 'InvalidStateError') throw e; }   // no sound here: without it
+  }
+  return md.getDisplayMedia({ video, audio: false, ...extra });
+}
+$('sound').checked = !!navigator.userAgentData;            // Chrome and Edge share a tab's sound (and the whole screen's, on Windows)
+$('go').addEventListener('click', async () => {
+  if (sharing) return;
+  try { stream = await capture(); }
+  catch (e) { say(e && e.name === 'NotAllowedError' ? 'Partage annulé.' : "Le navigateur n'a pas pu capturer l'écran (" + (e && e.name || e) + ').', true); return; }
+  const v = stream.getVideoTracks()[0];
+  if (v) {
+    try { v.contentHint = $('sharp').checked ? 'detail' : 'motion'; } catch (e) { /* older */ }
+    v.addEventListener('ended', () => { if (sharing) stop(); });       // the browser's own "Arrêter le partage"
+    v.applyConstraints({ width: { max: 1280 }, height: { max: 720 }, frameRate: { max: 30 } }).catch(() => {});
+  }
+  sharing = true; show('live'); say("Connexion à l'écran de Pixel…");
+  send({ type: 'start' });
+});
+function preferH264(tr) {
+  try {
+    const caps = window.RTCRtpReceiver && RTCRtpReceiver.getCapabilities && RTCRtpReceiver.getCapabilities('video');
+    if (caps && typeof tr.setCodecPreferences === 'function') tr.setCodecPreferences([...caps.codecs.filter(c => H264.test(c.mimeType)), ...caps.codecs.filter(c => !H264.test(c.mimeType))]);
+  } catch (e) { /* the browser's own order */ }
+}
+async function offer() {                                    // Pixel's screen is there (again): a fresh connection
+  if (!stream) return;
+  if (pc) { try { pc.close(); } catch (e) { /* closed */ } }
+  const me = pc = new RTCPeerConnection({ iceServers: [] });   // the home network: no STUN, no TURN
+  pc.onicecandidate = e => { if (pc === me) send({ type: 'ice', candidate: e.candidate ? e.candidate.toJSON() : null }); };
+  pc.onconnectionstatechange = () => { if (pc === me && pc.connectionState === 'failed') { say("La connexion avec Pixel a échoué. Pixel et l'ordinateur sont-ils sur le même réseau ?", true); stop(); } };
+  for (const t of stream.getTracks()) { const tr = pc.addTransceiver(t, { direction: 'sendonly', streams: [stream] }); if (t.kind === 'video') preferH264(tr); }
+  await pc.setLocalDescription(await pc.createOffer());
+  send({ type: 'offer', sdp: pc.localDescription.sdp });
+}
+async function tune() {                                     // 4 Mb/s and 30 im/s at most: plenty for Pixel's 800 x 480
+  if (!pc) return;
+  for (const s of pc.getSenders()) {
+    if (!s.track || s.track.kind !== 'video' || typeof s.getParameters !== 'function') continue;
+    try { const p = s.getParameters(); if (!p.encodings || !p.encodings.length) p.encodings = [{}]; p.encodings[0].maxBitrate = 4e6; p.encodings[0].maxFramerate = 30; await s.setParameters(p); } catch (e) { /* the browser's defaults */ }
+  }
+}
+function cleanup() {
+  sharing = false;
+  if (pc) { try { pc.close(); } catch (e) { /* closed */ } pc = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+function stop() { send({ type: 'stop' }); cleanup(); show(authed ? 'share' : 'pair'); say('Partage arrêté.'); }
+$('stop').addEventListener('click', stop);
+addEventListener('pagehide', () => { if (sharing) send({ type: 'stop' }); });
+
+if (!canCapture || !canRtc) help();
+else connect();
+})();
+</script>
+</body>
+</html>
