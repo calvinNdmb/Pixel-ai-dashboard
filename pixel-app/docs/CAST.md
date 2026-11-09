@@ -48,7 +48,7 @@ L'appli de Pixel se déclare comme cible de partage (`share_target` dans `web/ma
 
 Pour avoir le menu Partager, il faut une de ces trois choses :
 
-- **Une adresse https vers Pixel.** Le plus simple : [Tailscale](https://tailscale.com) sur le Pi et le téléphone (HTTPS activé dans sa console), puis `tailscale serve --bg 8080` sur le Pi. Ça donne une adresse `https://pixel.<ton-réseau>.ts.net` avec un vrai certificat. Ouvre l'appli par cette adresse avec ton code (`/?t=…`), puis **Installer l'application**. Attention : par `tailscale serve`, les requêtes arrivent du Pi lui-même. Garde ton réseau Tailscale pour tes propres appareils.
+- **Une adresse https vers Pixel.** Le plus simple : [Tailscale](https://tailscale.com) sur le Pi et le téléphone (HTTPS activé dans sa console), puis `tailscale serve --bg 8080` sur le Pi. Ça donne une adresse `https://pixel.<ton-réseau>.ts.net` avec un vrai certificat. Ouvre l'appli par cette adresse avec ton code (`/?t=…`), puis **Installer l'application**. Par `tailscale serve`, les requêtes arrivent du Pi lui-même, mais Pixel reconnaît le relais (son adresse `.ts.net`, ses en-têtes) : **le code d'accès reste demandé**, comme depuis le Wi-Fi. Garde ton réseau Tailscale pour tes propres appareils, et pas de `tailscale funnel` (Internet).
 - **Un réglage de Chrome sur le téléphone**, pour les essais : `chrome://flags/#unsafely-treat-insecure-origin-as-secure`, ajoute `http://pixel.local:8080`. Chrome traite alors l'adresse comme sécurisée. L'installation comme vraie appli n'est pas garantie.
 - **L'appli Android de Pixel** (`pixel-mobile`), le jour où elle accepte les partages : voir « La suite » plus bas. C'est le plus fiable.
 
@@ -113,8 +113,8 @@ keep = 8          # les derniers fichiers gardés, à réafficher
 
 ### Sécurité
 
-- **Le même code d'accès** que le reste de l'appli : `?t=`, l'en-tête `X-Pixel-Token`, ou le cookie que pose l'appli (`SameSite=Strict` : une page d'un autre site ne l'envoie jamais). Seul le Pi lui-même passe sans code. Et seulement les appareils de la maison, comme avant.
-- **Une page d'un autre site affichée sur le Pi** (le lecteur YouTube) n'est pas Pixel : elle n'a pas accès au WebSocket ni au cast sans le code.
+- **Le même code d'accès** que le reste de l'appli : `?t=`, l'en-tête `X-Pixel-Token`, ou le cookie que pose l'appli (`SameSite=Strict` : une page d'un autre site ne l'envoie jamais). Seul le Pi lui-même passe sans code (la page de Pixel ouverte sur `localhost`, pas une requête relayée par `tailscale serve` ou un autre proxy). Et seulement les appareils de la maison, comme avant.
+- **Une page d'un autre site affichée sur le Pi** (le lecteur YouTube, ou un cadre qu'il ouvre : `Origin: null`) n'est pas Pixel : elle n'a pas accès au WebSocket ni au cast sans le code. Le lecteur est dans un cadre `sandbox` : ses liens ne peuvent ni ouvrir une fenêtre ni remplacer Pixel.
 - **Les fichiers :** leur type vient de leurs premiers octets, jamais de leur nom. Un fichier qui n'est pas une image ou une vidéo est refusé tout de suite. Ils arrivent sur la carte SD au fil de l'envoi, s'arrêtent à la limite de taille, et prennent un nom tiré au sort dans `~/.config/pixel/cast/`. Seuls les 8 derniers restent.
 - **Les liens :** le serveur n'en ouvre **aucun**. Sinon, quiconque peut caster pourrait fouiller le réseau de la maison depuis le Pi. Une image ou une vidéo en lien est chargée par le navigateur de l'écran, comme sur n'importe quelle page. YouTube et Vimeo jouent dans leur propre lecteur. Une autre page n'est jamais ouverte sur le Pi : juste une carte avec un QR code.
 

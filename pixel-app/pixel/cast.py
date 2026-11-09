@@ -27,6 +27,7 @@ from aiohttp import web
 
 log = logging.getLogger("pixel")
 LOCAL = {"127.0.0.1", "::1"}
+PROXIED = ("X-Forwarded-For", "X-Forwarded-Host", "Forwarded", "X-Real-IP")    # a request a proxy on the Pi passes on
 MB = 1024 * 1024
 # the ISO media (MP4) brands of phone and camera videos ("qt  ": an iPhone's .mov), not the still pictures in the same box (HEIC, AVIF)
 MP4 = {b"isom", b"iso2", b"iso4", b"iso5", b"iso6", b"mp41", b"mp42", b"avc1", b"M4V ", b"M4VH", b"M4VP", b"dash", b"mmp4", b"MSNV",
@@ -65,11 +66,23 @@ def sniff(head):
 
 
 def local_page(request):
-    """The Pi itself, from Pixel's own page: a page of another site shown on the screen (a video player) is not Pixel."""
+    """The Pi itself, from Pixel's own page: from 127.0.0.1 or ::1, addressed to localhost, with no Origin or Pixel's own.
+    A page of another site shown on the screen (a video player) is not Pixel, nor a frame it makes (sandboxed, data:,
+    srcdoc: Origin "null"). A proxy on the Pi (tailscale serve) passes on other devices' requests from 127.0.0.1 too,
+    under its own name and with its headers: those need the code."""
     if request.remote not in LOCAL:
         return False
-    origin = request.headers.get("Origin")
-    return not origin or origin == "null" or urlsplit(origin).netloc.lower() == (request.host or "").lower()
+    h = request.headers
+    if any(k in h for k in PROXIED) or any(k.lower().startswith("tailscale-") for k in h):
+        return False
+    host = (request.host or "").lower()
+    try:
+        if urlsplit("//" + host).hostname not in ("localhost", "127.0.0.1", "::1"):
+            return False
+        origin = h.get("Origin")
+        return not origin or urlsplit(origin).netloc.lower() == host
+    except ValueError:
+        return False
 
 
 def has_access(request, token):
