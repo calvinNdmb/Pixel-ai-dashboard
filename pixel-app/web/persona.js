@@ -283,6 +283,7 @@ const EVENTS = {
   'poche-loin': 'Pixel de poche : le Pi ne répond plus',
   'poche-maison': 'Pixel de poche : le Pi répond à nouveau',
   'poche-revoila': 'Pixel de poche : le téléphone ressort de la poche',
+  cast: 'Quelque chose s’affiche en cast',   // data.kind: image, gif, video, text, link; data.title (screens.js, pixel/cast.py)
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the

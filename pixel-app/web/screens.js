@@ -156,7 +156,7 @@ function drawVisage() {
 }
 /* touch: squash under the finger, petting makes him fall in love (taps are handled by the hit above) */
 let rubAt = null;
-const onFace = p => L.scr === 'visage' && L.boot < 0 && P && !L.menu &&Math.abs(p.x - 400) < 330 && p.y > 40 && p.y < 430;
+const onFace = p => L.scr === 'visage' && L.boot < 0 && P && !L.menu && !CA.id && Math.abs(p.x - 400) < 330 && p.y > 40 && p.y < 430;
 // every new touch clears "petted", so a swipe on another screen still changes screen
 cv.addEventListener('pointerdown', e => { const p = toCanvas(e); L.petted = false; if (onFace(p)) { LIFE.face.press(true); rubAt = p; } });
 cv.addEventListener('pointermove', e => {
@@ -458,6 +458,182 @@ function drawBanner() {
   box(50, y, 700, h, AM, B); ls.forEach((l, i) => txt(l, 400, y + 12 + i * lh, fs, AM, 'center'));
 }
 
+/* ---------- Cast: a photo, a GIF, a video, a text or a link sent from a phone (pixel/cast.py) ----------
+   Drawn over whatever screen is open, which comes back when it ends: pictures and texts after a while (the server's
+   [cast] seconds), videos at their end (Pixel's screen tells the server: cast.end), at once on a touch (cast.stop).
+   In Rétro the picture takes the green phosphor of the tube, under the CRT effects of themes.js (LCD: its greens),
+   unless "couleurs d'origine" (cast.raw). A little Pixel peeks in from the corner and reacts.
+   A video plays in a hidden <video>, drawn every frame (60 im/s: wantFps); a GIF is decoded frame by frame (ImageDecoder:
+   a canvas only ever draws the first frame of a GIF); YouTube and Vimeo play in their own player over the canvas, on
+   Pixel's screen only (a phone shows a card). The sound plays on Pixel's screen only (kiosk.sh lets it start alone). */
+const CA = { id: null, kind: '', t: 0, img: null, vid: null, gif: null, frame: null, ifr: null, err: '', ended: false, peek: 0 };
+const PEEK = PackPlayer(), PEEKLIFE = PixelLife();
+const EMB = { x: 16, y: 58, w: 584, h: 328 };          // where YouTube and Vimeo play (16:9), Pixel beside them
+const caps = s => T.upper ? s.toUpperCase() : s;
+const castLive = () => { const c = P && P.cast; return c && c.id && (!c.until || srv() < c.until) ? c : null; };
+function castFail(id, what) { if (CA.id !== id) return; CA.err = what; L.dirty = true; if (L.kiosk) send('cast.end', { id, error: what }); }
+function castLoad(c) {                // a new cast: its picture, its animation, its video or its player
+  castDrop();
+  Object.assign(CA, { id: c.id, kind: c.kind, t: now, err: '', ended: false });
+  if (L.kiosk) { L.sleepy = false; L.lastInput = now; }       // something happened: he is awake, his nap counts from now
+  if (PER) PER.event('cast', { kind: c.kind, title: c.title || '' }, { visage: false });   // his reaction waits for his face screen
+  fast(1500);
+  if ((c.kind === 'image' || c.kind === 'gif') && typeof Image === 'function') {   // a GIF shows its first frame until it is decoded
+    const im = CA.img = new Image(), id = c.id;
+    im.decoding = 'async'; im.referrerPolicy = 'no-referrer'; im.onload = () => { L.dirty = true; }; im.onerror = () => castFail(id, 'image'); im.src = c.src;
+  }
+  if (c.kind === 'gif') castGif(c);
+  else if (c.kind === 'video') castVideo(c);
+  else if (c.kind === 'link' && c.embed && L.kiosk) castFrame(c);
+}
+async function castGif(c) {
+  const id = c.id;
+  if (typeof ImageDecoder !== 'function' || typeof fetch !== 'function') return;
+  try {
+    const r = await fetch(c.src, { referrerPolicy: 'no-referrer' }); if (!r.ok || CA.id !== id) return;
+    const type = (r.headers.get('content-type') || '').split(';')[0] || (/\.webp(\?|$)/i.test(c.src) ? 'image/webp' : 'image/gif');
+    const dec = new ImageDecoder({ data: await r.arrayBuffer(), type }); await dec.tracks.ready;
+    if (CA.id !== id) { dec.close(); return; }
+    CA.gif = { dec, n: dec.tracks.selectedTrack ? dec.tracks.selectedTrack.frameCount : 1, i: 0, busy: false, next: 0 };
+    gifNext();
+  } catch (e) { /* a link to a site that does not allow it (CORS), or a broken file: its first frame only */ }
+}
+function gifNext() {                  // the next frame; the one on screen stays for its own delay
+  const g = CA.gif; if (!g || g.busy) return; g.busy = true;
+  g.dec.decode({ frameIndex: g.i }).then(r => {
+    if (CA.gif !== g) { r.image.close(); return; }
+    if (CA.frame) CA.frame.close();
+    const d = (r.image.duration || 0) / 1000;                // µs -> ms; 10 ms or less means 100 ms, as in the browsers
+    CA.frame = r.image; g.next = now + (d > 10 ? d : 100); g.i = (g.i + 1) % Math.max(1, g.n); g.busy = false; L.dirty = true;
+  }, () => { g.busy = false; if (g.i) g.i = 0; else CA.gif = null; });
+}
+function castVideo(c) {
+  const v = document.createElement('video'); if (!v || typeof v.play !== 'function') return;
+  const id = c.id; CA.vid = v;
+  v.playsInline = true; v.preload = 'auto'; v.muted = !L.kiosk || !!(SON() && SON().on && SON().volume === 0);   // sound on Pixel only
+  v.onended = () => { if (CA.id === id && !CA.ended) { CA.ended = true; if (L.kiosk) send('cast.end', { id }); } };
+  v.onerror = () => castFail(id, 'video');
+  v.onloadedmetadata = () => { const t = (srv() - c.t0) / 1000; if (!L.kiosk && t > 1 && t < v.duration - 1) v.currentTime = t; };   // a phone joins in where Pixel is
+  v.src = c.src;
+  const go = () => v.play().catch(() => { if (!v.muted && CA.vid === v) { v.muted = true; go(); } });   // no sound allowed: without sound, rather than not at all
+  go();
+}
+function castFrame(c) {               // YouTube or Vimeo: their player, over the canvas (the scanlines of the page go over it)
+  const host = cv.parentElement; if (!host || typeof host.append !== 'function') return;
+  const f = document.createElement('iframe'), yt = /youtube/.test(c.embed);
+  f.src = c.embed + (yt ? '&origin=' + encodeURIComponent(location.origin) : '');
+  f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.referrerPolicy = 'strict-origin-when-cross-origin'; f.title = c.title || 'Vidéo';
+  f.style.cssText = `position:absolute;z-index:1;border:0;background:#000;left:${EMB.x / 8}%;top:${EMB.y / 4.8}%;width:${EMB.w / 8}%;height:${EMB.h / 4.8}%`;
+  f.addEventListener('load', () => {  // ask the player to say when the video ends (the postMessage APIs of YouTube and Vimeo)
+    const say = m => { try { f.contentWindow.postMessage(JSON.stringify(m), '*'); } catch (e) { /* gone */ } };
+    if (yt) { say({ event: 'listening', id: 1 }); say({ event: 'command', func: 'addEventListener', args: ['onStateChange'], id: 1 }); } else say({ method: 'addEventListener', value: 'ended' });
+  });
+  host.append(f); CA.ifr = f;
+}
+addEventListener('message', e => {
+  if (!CA.ifr || e.source !== CA.ifr.contentWindow) return;
+  let d = e.data; try { if (typeof d === 'string') d = JSON.parse(d); } catch (err) { return; }
+  const over = d && (d.event === 'ended' || (d.event === 'onStateChange' && d.info === 0) || (d.event === 'infoDelivery' && d.info && d.info.playerState === 0));
+  if (over && !CA.ended) { CA.ended = true; if (L.kiosk) send('cast.end', { id: CA.id }); }
+});
+function castDrop() {                 // the cast is over: its video, its decoder and its player go
+  const v = CA.vid; if (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { /* already gone */ } }
+  try { if (CA.gif) CA.gif.dec.close(); if (CA.frame) CA.frame.close(); } catch (e) { /* already closed */ }
+  if (CA.ifr) CA.ifr.remove();
+  if (CA.id && L.kiosk) L.lastInput = now;
+  Object.assign(CA, { id: null, kind: '', img: null, vid: null, gif: null, frame: null, ifr: null, err: '', peek: 0 });
+}
+function castSync() {                 // every frame: what is cast now (null: nothing, or Pixel is starting up)
+  const c = L.boot >= 0 ? null : castLive();
+  if (!c) { if (CA.id) { castDrop(); L.dirty = true; } return null; }
+  if (c.id !== CA.id) castLoad(c);
+  return c;
+}
+function castSrc() {                  // what to draw, and its size: the GIF's frame, the video's, the picture
+  if (CA.frame) return [CA.frame, CA.frame.displayWidth, CA.frame.displayHeight];
+  if (CA.vid && CA.vid.readyState >= 2 && CA.vid.videoWidth) return [CA.vid, CA.vid.videoWidth, CA.vid.videoHeight];
+  if (CA.img && CA.img.complete && CA.img.naturalWidth) return [CA.img, CA.img.naturalWidth, CA.img.naturalHeight];
+  return null;
+}
+function castTint(c, r) {             // Rétro: the picture in the tube's green phosphor (its light, the tube's colour); LCD: in its greens
+  const tube = T.id === 'retro' ? !(P.view && P.view.crt_off) : T.id === 'lcd';
+  if (!tube || c.raw) return;
+  X.save(); X.beginPath(); X.rect(r.x, r.y, r.w, r.h); X.clip();
+  X.globalCompositeOperation = 'color'; X.fillStyle = T.id === 'lcd' ? DK : G; X.fillRect(r.x, r.y, r.w, r.h);
+  X.globalCompositeOperation = 'multiply'; X.fillStyle = T.id === 'lcd' ? B : '#b4ffcb'; X.fillRect(r.x, r.y, r.w, r.h);
+  X.restore();
+}
+function castMedia(c) {               // a photo, a GIF or a video: as big as it fits, centred
+  X.shadowBlur = 0; X.fillStyle = B; X.fillRect(0, 0, W, H);
+  if (CA.gif && now >= CA.gif.next) gifNext();
+  const s = castSrc();
+  if (!s) { glow(); txt(CA.err ? caps("Impossible de l'afficher") : caps('Chargement') + '.'.repeat(1 + Math.floor(now / 400) % 3), 400, 214, 36, CA.err ? AM : D, 'center'); return; }
+  const [src, w, h] = s, k = Math.min(W / w, H / h), r = { w: w * k, h: h * k };
+  r.x = (W - r.w) / 2; r.y = (H - r.h) / 2;
+  X.imageSmoothingEnabled = true; X.drawImage(src, r.x, r.y, r.w, r.h);
+  castTint(c, r);
+  if (CA.vid && CA.vid.duration > 0) { X.globalAlpha = 0.8; X.fillStyle = D; X.fillRect(0, H - 3, W * CA.vid.currentTime / CA.vid.duration, 3); X.globalAlpha = 1; }   // how far the video is
+  glow();
+}
+function castSign(c) {                // a text: a big sign, in the theme's font, as big as it fits
+  header('Message');
+  const aw = 720, ah = 296, ay = 64, text = String(c.text || '').replace(/ ([!?:;»])/g, '\u00a0$1').replace(/« /g, '«\u00a0');   // « ! » stays with its word
+  let size = 120, lines = [];
+  for (; size > 26; size -= 6) {
+    lines = wrap(text, aw, size, 'title'); X.font = F(size, 'title');
+    if (lines.length * size * 1.12 <= ah && lines.every(l => X.measureText(l).width <= aw)) break;
+  }
+  lines = lines.slice(0, Math.max(1, Math.floor(ah / (size * 1.12)))).map(l => fit(l, aw, size, 'title'));
+  const lh = size * 1.12, y0 = ay + (ah - lines.length * lh) / 2;
+  lines.forEach((l, i) => txt(l, 400, y0 + i * lh, size, WH, 'center', 'title'));
+}
+function castCard(c) {                // a page (or, on a phone, a YouTube video): its title, its site, a QR code to open it on the phone
+  header(c.embed ? c.site || 'Vidéo' : 'Lien');
+  const q = c.qr || []; let tx = 24;
+  if (q.length) { const n = q.length, m = Math.max(2, Math.floor(236 / (n + 8))), qs = m * (n + 8); X.shadowBlur = 0; X.drawImage(qrImage(q, m, qs), 24, 66, qs, qs); glow(); tx = 24 + qs + 26; }
+  const tw = W - 24 - tx, tl = wrap(c.title || c.url || '', tw, 40, 'title').slice(0, 3);
+  tl.forEach((l, i) => txt(fit(l, tw, 40, 'title'), tx, 70 + i * 44, 40, WH, 'left', 'title'));
+  let y = 76 + tl.length * 44;
+  txt(fit(c.site || '', tw, 30), tx, y, 30, G); y += 46;
+  para(c.embed ? "La vidéo joue sur l'écran de Pixel." : q.length ? "Scanne le code avec ton téléphone pour ouvrir la page." : c.url || '', tx, y, Math.min(tw, q.length ? tw : 560), 24, D, 28);
+}
+function castPlayer(c) {              // Pixel's screen, YouTube or Vimeo: a TV with their player, Pixel watching beside it
+  header(c.site || 'Vidéo');
+  box(EMB.x - 4, EMB.y - 4, EMB.w + 8, EMB.h + 8, D, '#000');
+  txt(fit(c.title || '', EMB.w, 26), EMB.x, EMB.y + EMB.h + 16, 26, G);
+  rule(612, 60, 2, 360);
+  box(626, 376, 160, 54, AM); txt(fit(caps('Arrêter'), 148, 28), 706, 389, 28, AM, 'center');
+  hit(612, 48, W - 612, H - 48, () => send('cast.stop'));                  // the column beside the player stops it
+  const vis = L.menu ? 'hidden' : 'visible'; if (CA.ifr.style.visibility !== vis) CA.ifr.style.visibility = vis;   // under the quick menu
+}
+function castFace(c, e, player) {     // the little Pixel: he peeks in from the corner, reacts, ducks away, comes back now and then
+  const media = c.kind === 'image' || c.kind === 'gif' || c.kind === 'video', show = !media || e < 7000 || (e - 7000) % 30000 > 25000;
+  CA.peek = clamp(CA.peek + (show ? 1 : -1) * fdt / 450, 0, 1);
+  if (CA.peek <= 0) return;
+  const k = 1 - (1 - CA.peek) ** 3, w = 192, h = 108;
+  const react = e < 1400 ? 'surpris' : e < 4600 ? { image: 'amoureux', gif: 'rire', video: 'etoiles', text: 'reflechit', link: c.embed ? 'etoiles' : 'idee' }[c.kind] : (c.kind === 'video' || c.embed ? 'ecoute' : null);
+  const md = { surpris: 'surpris', amoureux: 'amoureux', rire: 'content', etoiles: 'excite', reflechit: 'reflechit', idee: 'content', ecoute: 'ecoute' }[react] || 'neutre';
+  let x = W - w - 26, y = Math.round(H - h - 6 + (1 - k) * (h + 50));     // his box goes on under the edge, as if he leaned in
+  if (player) { x = 606; y = 110; X.globalAlpha = k; }
+  else { X.globalAlpha = 0.92; box(x - 8, y - 8, w + 16, h + 80, D, B); X.globalAlpha = 1; }
+  if (packMode()) packDraw(PEEK, react, x, y, w, h);
+  else { const a = PEEKLIFE.update(now, md, { look: player ? { x: -1.5, y: 0.2 } : { x: -1.3, y: -0.9 }, calm: true }); face(x + w / 2, y + h / 2 + 4, 6, a.mood, a.lx, a.ly, a); }
+  X.globalAlpha = 1;
+}
+function drawCast(c) {
+  const e = now - CA.t, player = c.kind === 'link' && !!c.embed && !!CA.ifr;
+  if (c.kind === 'text') castSign(c);
+  else if (player) castPlayer(c);
+  else if (c.kind === 'link') castCard(c);
+  else castMedia(c);
+  if (!player) hit(0, 0, W, H, () => send('cast.stop'));                   // a touch anywhere: back to where he was
+  X.shadowBlur = 0; castFace(c, e, player); glow();
+  if (!player && e < 4500) {                                              // how to stop it, for a few seconds
+    X.globalAlpha = clamp((4500 - e) / 600, 0, 1) * 0.92; box(16, H - 52, 340, 38, D, B);
+    txt(fit(caps("Touche l'écran pour arrêter"), 324, 24), 186, H - 45, 24, G, 'center'); X.globalAlpha = 1;
+  }
+}
+
 /* ---------- quick menu: swipe down to open, swipe up (or touch outside) to close ----------
    Theme, brightness, restart and power off. Restart and power off need a second touch within 4 s. */
 const MENU = { x: 40, w: 720, h: 460, y: 16 };        // h: with its three rows (theme, brightness, sound)
@@ -536,6 +712,7 @@ function fast(ms = 150) { L.fastUntil = Math.max(L.fastUntil, realNow() + ms); }
 function wantFps() {
   const r = realNow();
   if (L.full || !P || L.boot >= 0 || L.banner || rubAt || (PV.id && L.scr === 'visage') || (L.local && now < L.local.until) || (L.pack && now < L.pack.until) || r < L.fastUntil || r - L.inputAt < 2500 || r - L.changeAt < 1200) return 60;
+  if (CA.id) return CA.vid || CA.gif || now - CA.t < 1500 ? 60 : Math.min(T.faceFps || 30, 30);   // a cast: a video or a GIF at full speed
   const calm = T.calmFps || 10;                       // still screens: the clock, a blinking cursor
   switch (L.scr) {
     case 'visage': {
@@ -553,7 +730,7 @@ function wantFps() {
 }
 let drawnAt = -1e9, seenScr = '', seenTheme = '';
 function personaCtx() {               // what the personality needs to know about the world
-  const vis = L.scr === 'visage' && L.boot < 0, rooms = P.lights && P.lights.rooms || [], h = new Date().getHours();
+  const vis = L.scr === 'visage' && L.boot < 0 && !CA.id, rooms = P.lights && P.lights.rooms || [], h = new Date().getHours();
   const free = vis && !L.sleepy && mood() === 'neutre' && !serverAnim() && P.chat.phase === 'idle' && !(P.codex && P.codex.running) && !L.banner
     && !(L.packEv && now < L.packEv.until) && !(L.kiosk && (P.settings.sleep_min || 10) * 60000 - (now - L.lastInput) < 20000);
   return { visage: vis, canLive: free, idle: now - L.lastInput, weather: P.weather && P.weather.now ? P.weather.now.kind : '',
@@ -577,9 +754,10 @@ function frame(t) {
   L.dirty = false; drawnAt = r;
   const dt = Math.min(120, t - last); last = t; fdt = dt; update(); hits = [];
   X.setTransform(S, 0, 0, S, 0, 0); X.globalAlpha = 1; X.shadowBlur = 0; T.bg(dt); glow();
+  const cast = P ? castSync() : null;                 // a photo, a video... from a phone, over the screen that is open
   if (!P) { txt('CONNEXION À PIXEL' + '.'.repeat(1 + Math.floor(now / 400) % 3), 40, 200, 40, G); if (L.error) para(L.error, 40, 260, 720, 28, AM); }
   else if (L.boot >= 0) drawBoot();
-  else { if (PER) PV = PER.update(dt, personaCtx()); (DRAW[L.scr] || drawVisage)(dt); }
+  else { if (PER) PV = PER.update(dt, personaCtx()); if (cast) drawCast(cast); else (DRAW[L.scr] || drawVisage)(dt); }
   if (P && L.menu && L.boot < 0) drawMenu();
   drawBanner();
   if (T.fg) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }
@@ -608,7 +786,7 @@ return {
       if (P.lights && p.lights && lit(P.lights.rooms) !== lit(p.lights.rooms) && anyOn(P.lights.rooms) && anyOn(p.lights.rooms)) ev('lights-change');
       const wk = w => w && w.now && w.now.kind;
       if (wk(P.weather) && wk(p.weather) && wk(P.weather) !== wk(p.weather)) ev('weather', { kind: wk(p.weather) });
-      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|poche\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
+      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|poche\.|cast\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
     }
     if (p.toast && p.toast.id !== L.lastToast) {
       L.lastToast = p.toast.id; L.banner = { msg: p.toast.msg, ms: p.toast.ms || 3000, t: now };
@@ -637,7 +815,8 @@ return {
     L.menu = open ? { t: now, confirm: null, off: null, view: view || null, direct: !!view } : null; fast(300); L.dirty = true;
   },
   get menuOpen() { return !!L.menu; },
-  get buddy() { return { x: BUD.x, act: BUD.act, dir: BUD.dir }; },   // the little Pixel of the Minuteur screen (tests, lab)
+  get buddy() { return { x: BUD.x, act: BUD.act, dir: BUD.dir }; },
+  get cast() { return { id: CA.id, kind: CA.kind, ready: !!castSrc(), err: CA.err, frame: CA.gif ? CA.gif.i : -1, video: !!CA.vid, playing: !!(CA.vid && !CA.vid.paused), player: !!CA.ifr, peek: CA.peek }; },   // tests, lab   // the little Pixel of the Minuteur screen (tests, lab)
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

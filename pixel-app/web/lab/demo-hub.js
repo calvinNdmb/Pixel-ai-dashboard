@@ -81,7 +81,10 @@ const S = {
   agenda: demoAgenda(),
   timer: { mode: 'TRAVAIL', total: 1500, left: 1500, running: false, ends_at: 0, done: 2 },
   sys: { temps: [], cpus: [], bright: 1, hw_bright: false, host: 'pixel', temp: 46, cpu: 8, ram_used: 1.2e9, ram_total: 4.1e9, wifi: -52, uptime: 3 * 86400 + 4 * 3600, disk: 24, ip: '192.168.1.42' },
-  settings: { url: 'http://pixel.local:8080/?t=demo', ip_url: 'http://192.168.1.42:8080/?t=demo', qr: QR, demo: true, sleep_min: 10, claude: 'démo (pas de clé API)', deck: 'Stream Deck MK.2 (15 touches)', themes: THEMES.map(t => t.id) },
+  settings: { url: 'http://pixel.local:8080/?t=demo', ip_url: 'http://192.168.1.42:8080/?t=demo', qr: QR, demo: true, sleep_min: 10, claude: 'démo (pas de clé API)', deck: 'Stream Deck MK.2 (15 touches)', themes: THEMES.map(t => t.id),
+    cast: { max_mb: 40, seconds: 120 } },
+  cast: null,                     // pixel/cast.py: what a phone shows on Pixel's screen, and the last ones
+  cast_recent: [],
   toast: null,
   boot_at: 0,
 };
@@ -207,13 +210,130 @@ function targets(room) {
 const T = S.timer, tleft = () => T.running ? Math.max(0, (T.ends_at - Date.now()) / 1000) : T.left;
 const num = (v, d) => Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : d;
 
+/* ---------- casting (pixel/cast.py): the files stay in this page, as object URLs; nothing is sent anywhere ---------- */
+const CAST_MAX = 40 * 1048576, CAST_SECS = 120, CAST_KEEP = 8, CAST_LIVE = 4 * 3600e3;
+const CAST_MIME = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm' };
+const CAST_ITEM = ['kind', 'src', 'text', 'url', 'title', 'embed', 'site'];
+const CAST_BAD = 'Format non pris en charge. Photos : JPEG, PNG, GIF, WebP. Vidéos : MP4, WebM.';
+const MP4_BRANDS = ['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'M4V ', 'M4VH', 'M4VP', 'dash', 'mmp4', 'MSNV', '3gp4', '3gp5', '3gp6', '3g2a', 'qt  '];
+/* the lab's sample link, and its QR code made by segno like server.qr_rows (the lab has no QR encoder: other links get none) */
+const CAST_SAMPLE = 'https://fr.wikipedia.org/wiki/Pixel_art', CAST_SAMPLE_QR = ['11111110011101100100001111111', '10000010100010001110101000001', '10111010110000101011101011101', '10111010100011010101101011101', '10111010011000111011101011101', '10000010000101000100001000001', '11111110101010101010101111111', '00000000101000001001100000000', '10000010111101100111011001110', '00011000011100010111100110110', '01010110111010111100111100000', '11010001000100001000010111000', '00100010100101111001101000001', '11110101111010011001101110011', '10011010001000010100111001100', '00100100000100101000110100101', '01000011100110001101000001100', '11011000100101011111101010111', '11011110111010010111110101001', '10100001111111000000110010000', '10011110000100100100111110111', '00000000111110110110100011000', '11111110001110010111101011100', '10000010011010100001100010011', '10111010001011110001111111001', '10111010010010101111010101101', '10111010001101111011001111110', '10000010000111010000001001101', '11111110100101000111010110100'];
+const castBlobs = [];                                     // the object URLs, the oldest first: only the last few stay
+const castKey = e => e.src || e.url || 't:' + (e.text || '');
+function castSniff(b) {                                   // cast.py sniff(): the first bytes, never the name
+  const str = (i, n) => String.fromCharCode(...b.slice(i, i + n)), has = (i, a) => a.every((v, k) => b[i + k] === v);
+  if (has(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return ['png', 'image'];
+  if (has(0, [0xff, 0xd8, 0xff])) return ['jpg', 'image'];
+  if (['GIF87a', 'GIF89a'].includes(str(0, 6))) return ['gif', 'gif'];
+  if (str(0, 4) === 'RIFF' && str(8, 4) === 'WEBP') return ['webp', str(12, 4) === 'VP8X' && b.length > 20 && b[20] & 2 ? 'gif' : 'image'];
+  if (has(0, [0x1a, 0x45, 0xdf, 0xa3]) && str(0, 64).includes('webm')) return ['webm', 'video'];
+  if (str(4, 4) === 'ftyp' && MP4_BRANDS.includes(str(8, 4))) return ['mp4', 'video'];
+  return null;
+}
+function castUrl(s) {                                     // cast.py clean_url()
+  s = String(s ?? '').trim(); if (!s || s.length > 2000 || /[\s"'<>\\]/.test(s)) return null;
+  try { const u = new URL(s); return ['http:', 'https:'].includes(u.protocol) && u.hostname && !u.username && !u.password ? s : null; } catch { return null; }
+}
+function castClassify(url) {                              // cast.py classify(): from the address alone
+  const u = new URL(url), host = u.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, ''), last = u.pathname.split('/').pop(), ext = last.includes('.') ? last.split('.').pop().toLowerCase() : '';
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return { kind: 'image' };
+  if (ext === 'gif') return { kind: 'gif' };
+  if (['mp4', 'm4v', 'mov', 'webm'].includes(ext)) return { kind: 'video' };
+  let vid = '';
+  if (['youtube.com', 'music.youtube.com', 'youtube-nocookie.com'].includes(host)) { const m = u.pathname.match(/^\/(?:shorts|embed|live|v)\/([^/]+)/); vid = u.pathname === '/watch' ? u.searchParams.get('v') || '' : m ? m[1] : ''; }
+  else if (host === 'youtu.be') vid = u.pathname.replace(/^\/+/, '').split('/')[0];
+  if (/^[A-Za-z0-9_-]{11}$/.test(vid)) {
+    const t = (u.searchParams.get('t') || u.searchParams.get('start') || '').match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/), start = t ? (+t[1] || 0) * 3600 + (+t[2] || 0) * 60 + (+t[3] || 0) : 0;
+    return { kind: 'link', site: 'YouTube', embed: `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&enablejsapi=1${start ? '&start=' + start : ''}` };
+  }
+  const v = ['vimeo.com', 'player.vimeo.com'].includes(host) && u.pathname.match(/^\/(?:video\/)?(\d{5,12})(?:\/([0-9a-f]{6,20}))?\/?$/);
+  if (v) { const h = v[2] || u.searchParams.get('h') || ''; return { kind: 'link', site: 'Vimeo', embed: `https://player.vimeo.com/video/${v[1]}?autoplay=1${/^[0-9a-f]{6,20}$/.test(h) ? '&h=' + h : ''}` }; }
+  return { kind: 'link' };
+}
+function castStart(item, { seconds = null, raw = false } = {}) {     // cast.py _start(): over whatever screen is open
+  const now = Date.now(), n = Number(seconds), secs = seconds == null || seconds === '' || !Number.isFinite(n) ? CAST_SECS : Math.max(0, Math.min(3600, Math.trunc(n)));
+  const timed = ['image', 'gif', 'text'].includes(item.kind) || (item.kind === 'link' && !item.embed);
+  S.cast = { ...item, id: Math.random().toString(36).slice(2, 10), t0: now, until: timed && secs ? now + secs * 1000 : 0, raw: !!raw };
+  if (S.cast.kind === 'link' && !S.cast.embed) S.cast.qr = item.url === CAST_SAMPLE ? CAST_SAMPLE_QR : null;
+  const old = S.cast_recent.find(e => castKey(e) === castKey(item)), entry = { ...Object.fromEntries(CAST_ITEM.filter(k => k in item).map(k => [k, item[k]])), id: old ? old.id : Math.random().toString(36).slice(2, 10), at: now };
+  S.cast_recent = [entry, ...S.cast_recent.filter(e => e !== old)].slice(0, CAST_KEEP);
+  mark(); return S.cast;
+}
+function castText(text, opts) {
+  let t = String(text ?? '').replace(/\r/g, '').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n').slice(0, 400).trim();
+  if (!t) throw new Error("Écris d'abord quelque chose.");
+  if (t.length > 280) t = t.slice(0, 279).trimEnd() + '…';
+  return castStart({ kind: 'text', text: t, title: 'Message' }, opts);
+}
+function castLink(url, title = '', opts = {}) {
+  const u = castUrl(url); if (!u) throw new Error("Ce lien n'est pas une adresse web (http:// ou https://).");
+  const w = castClassify(u), p = new URL(u), site = w.site || p.hostname.replace(/^www\./, ''), tail = p.pathname.split('/').filter(Boolean);
+  const def = w.embed ? `Vidéo ${site}` : tail.length && w.kind !== 'link' ? tail[tail.length - 1] : site + (tail.length ? '/' + tail[tail.length - 1] : '');
+  const item = { kind: w.kind, url: u, site, title: String(title || '').trim().slice(0, 200) || def.slice(0, 200) };
+  if (w.kind !== 'link') item.src = u;
+  if (w.embed) item.embed = w.embed;
+  return castStart(item, opts);
+}
+async function castFile(blob, { title = '', ...opts } = {}) {    // a file of this computer or phone (the server's POST /api/cast): '' or the error
+  try {
+    if (!blob || !blob.size) throw new Error('Rien à afficher : choisis une photo, une vidéo, un lien ou un texte.');
+    if (blob.size > CAST_MAX) throw new Error('Fichier trop gros : 40 Mo au plus.');
+    const t = castSniff(new Uint8Array(await blob.slice(0, 64).arrayBuffer())); if (!t) throw new Error(CAST_BAD);
+    const src = URL.createObjectURL(new Blob([blob], { type: CAST_MIME[t[0]] }));       // its real type, for the GIF decoder
+    castBlobs.push(src);
+    while (castBlobs.length > CAST_KEEP) { const gone = castBlobs.shift(); S.cast_recent = S.cast_recent.filter(e => e.src !== gone); if (!(S.cast && S.cast.src === gone)) URL.revokeObjectURL(gone); }
+    castStart({ kind: t[1], src, title: String(title || '').slice(0, 200) || { image: 'Photo', gif: 'Animation', video: 'Vidéo' }[t[1]] }, opts);
+    return '';
+  } catch (e) { toast(e.message, 4000); mark(); return e.message; }
+}
+function castTry(fn) { try { fn(); return ''; } catch (e) { toast(e.message, 4000); return e.message; } }
+/* the lab's samples: a postcard drawn on a canvas, a short video recorded from a canvas, a text, a link */
+function castPostcard() {
+  const c = document.createElement('canvas'); c.width = 1200; c.height = 800; const g = c.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 0, 560); sky.addColorStop(0, '#2b1b5a'); sky.addColorStop(0.55, '#e0507a'); sky.addColorStop(1, '#ffb347'); g.fillStyle = sky; g.fillRect(0, 0, 1200, 800);
+  g.fillStyle = '#fff3c4'; g.beginPath(); g.arc(760, 470, 120, 0, 7); g.fill();
+  g.globalAlpha = 0.6; g.fillStyle = '#fff'; for (let i = 0; i < 40; i++) g.fillRect((i * 263) % 1200, (i * 97) % 260, 3, 3); g.globalAlpha = 1;
+  g.fillStyle = '#3b1f4a'; g.beginPath(); g.moveTo(0, 560); [[160, 380], [330, 520], [520, 330], [720, 560], [900, 410], [1060, 520], [1200, 440], [1200, 800], [0, 800]].forEach(([x, y]) => g.lineTo(x, y)); g.fill();
+  g.fillStyle = '#1d1030'; g.fillRect(0, 600, 1200, 200);
+  for (let y = 615; y < 800; y += 22) { g.globalAlpha = 0.35 * (1 - (y - 600) / 200); g.fillStyle = '#ffd58a'; g.fillRect(640 + Math.sin(y) * 30, y, 240 - (y - 600) / 2, 5); } g.globalAlpha = 1;
+  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.font = 'bold 92px sans-serif'; g.fillText('Coucou Pixel !', 600, 190);
+  g.font = '40px sans-serif'; g.fillText('Une carte postale du labo', 600, 260);
+  return new Promise(res => c.toBlob(res, 'image/png'));
+}
+async function castClip(ms = 4000) {                      // a little video made by the browser itself (MediaRecorder)
+  if (typeof MediaRecorder !== 'function') throw new Error('Ce navigateur ne sait pas enregistrer de vidéo : essaie avec ta propre vidéo.');
+  const c = document.createElement('canvas'); c.width = 640; c.height = 360; const g = c.getContext('2d'), stream = c.captureStream(30);
+  const type = ['video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find(t => MediaRecorder.isTypeSupported(t));
+  const rec = new MediaRecorder(stream, type ? { mimeType: type } : {}), parts = [], t0 = Date.now();
+  rec.ondataavailable = e => { if (e.data && e.data.size) parts.push(e.data); };
+  const cols = ['#ffffff', '#ffe600', '#00e5ff', '#00e04b', '#ff3fd1', '#ff2a2a', '#2a3cff'];
+  const draw = () => {                                    // colour bars, a ball that bounces, a count down
+    const t = (Date.now() - t0) / 1000;
+    cols.forEach((col, i) => { g.fillStyle = col; g.fillRect(i * 640 / 7, 0, 640 / 7 + 1, 240); });
+    g.fillStyle = '#101018'; g.fillRect(0, 240, 640, 120);
+    const x = 40 + Math.abs(((t * 260) % 1120) - 560), y = 300 - Math.abs(Math.sin(t * 5)) * 50;
+    g.fillStyle = '#ffb347'; g.beginPath(); g.arc(x, y, 24, 0, 7); g.fill();
+    g.fillStyle = '#101018'; g.textAlign = 'center'; g.font = 'bold 96px sans-serif'; g.fillText(String(Math.max(1, Math.ceil(ms / 1000 - t))), 320, 160);
+  };
+  draw(); rec.start(250); const iv = setInterval(draw, 33);   // setInterval: the lab's slow motion must not slow the recording down
+  await sleep(ms); clearInterval(iv); const done = new Promise(r => { rec.onstop = r; }); rec.stop(); await done; stream.getTracks().forEach(t => t.stop());
+  return new Blob(parts, { type: (rec.mimeType || 'video/webm').split(';')[0] });
+}
+async function castSample(what, opts = {}) {
+  if (what === 'photo') return castFile(await castPostcard(), { ...opts, title: 'Carte postale' });
+  if (what === 'video') { let clip; try { clip = await castClip(); } catch (e) { toast(e.message, 4000); mark(); return e.message; } return castFile(clip, { ...opts, title: 'Mire du labo' }); }
+  if (what === 'text') return castTry(() => castText('À table ! Le dîner est prêt dans 5 minutes.', opts));
+  if (what === 'link') return castTry(() => castLink(CAST_SAMPLE, 'Pixel art — Wikipédia', opts));
+  return '';
+}
+
 /* ---------- actions: same names and arguments as the real server ---------- */
 const A = {
   'theme.set': ({ name }) => {
     if (!TNAME[name]) { if (ALLNAME[name]) toast(THEMES.length < 2 ? `Pour le moment, seul le thème ${THEMES[0].name} est activé.` : `Ce thème n'est pas activé. Les thèmes : ${THEMES.map(t => t.name).join(', ')}.`, 5000); return; }
     S.view.theme = name; toast('THÈME ' + TNAME[name].toUpperCase());
   },
-  'screen.show': ({ screen }) => { if (!NAV.includes(screen)) return; if (S.screen === 'veille' && screen !== 'veille') mood('surpris', 900); S.screen = screen; },
+  'screen.show': ({ screen }) => { if (!NAV.includes(screen)) return; S.cast = null; if (S.screen === 'veille' && screen !== 'veille') mood('surpris', 900); S.screen = screen; },
   'mood.set': ({ name, ms = 0 }) => mood(String(name), Math.trunc(num(ms, 0))),
   'face.set': ({ name }) => { if (!FACES[name]) return; S.view.face = name; toast('VISAGE : ' + FACES[name].toUpperCase()); },
   'anim.play': ({ id, loops = null }) => {               // once or twice (loops = 0: until another one), then back to the mood or the idle
@@ -258,6 +378,18 @@ const A = {
   'sys.boot': () => { S.boot_at = Date.now(); },
   'sys.power': ({ what = 'poweroff' } = {}) => { toast(what === 'reboot' ? 'REDÉMARRAGE… (démo : rien ne se passe)' : 'EXTINCTION… (démo : rien ne s\'éteint)', 4000); },
   cmd: ({ text }) => command(String(text).slice(0, 2000)),
+  'cast.stop': () => { S.cast = null; },
+  'cast.text': ({ text, seconds = null }) => castTry(() => castText(text, { seconds })),
+  'cast.link': ({ url, title = '', seconds = null, raw = false }) => castTry(() => castLink(url, title, { seconds, raw })),
+  'cast.again': ({ id, raw = false }) => {
+    const e = S.cast_recent.find(x => x.id === id); if (!e) return toast("Ce cast n'est plus sur Pixel.", 3000);
+    castStart(Object.fromEntries(CAST_ITEM.filter(k => k in e).map(k => [k, e[k]])), { raw });
+  },
+  'cast.end': ({ id, error = '' }) => {                   // Pixel's screen: the video is over, or it could not read it
+    if (!S.cast || S.cast.id !== id) return; S.cast = null;
+    if (error) toast({ video: "Pixel n'arrive pas à lire cette vidéo (format ?).", image: "Pixel n'arrive pas à afficher cette image." }[error] || "Pixel n'arrive pas à l'afficher.", 4000);
+  },
+  'cast.colors': ({ raw = null } = {}) => { if (S.cast) S.cast.raw = raw == null ? !S.cast.raw : !!raw; },
 
   /* lab-only actions */
   'lab.toast': ({ msg, ms = 4000, mood: m = null }) => { toast(String(msg || '').slice(0, 300) || 'NOTIFICATION', ms); if (m) mood(m, 1800); },
@@ -305,7 +437,7 @@ Object.assign(A, {
 });
 
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
-const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · sinon : Claude";
+const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
 ALLT.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });   // every theme: a disabled one gets the "not on" message
@@ -336,6 +468,8 @@ function command(raw) {
   if (!t) return;
   if (['aide', 'help', '?', '/aide'].includes(t)) return toast(HELP, 9000);
   if (['/effacer', '/clear', 'effacer'].includes(t)) return A['chat.clear']();
+  if (['stop cast', 'arrete le cast', 'arrete de caster', 'fin du cast'].includes(t) || (['stop', 'arrete', 'arreter'].includes(t) && S.cast)) return A['cast.stop']();   // commands.py: casting
+  if (/^(?:cast|caste|caster)\s+\S/.test(t)) { const rest = raw.replace(/^\S+\s+/, '').trim(); return /^https?:\/\//i.test(rest) ? A['cast.link']({ url: rest }) : A['cast.text']({ text: rest }); }
   if (t.startsWith('codex ') && raw.length > 6) { A['screen.show']({ screen: 'codex' }); return A['codex.run']({ task: raw.slice(6).trim() }); }
   if ((m = t.match(/^(minuteur|timer|chrono)(?:\s+(\d+(?:[.,]\d+)?))?\s*(?:min|minutes?)?$/))) { A['screen.show']({ screen: 'minuteur' }); if (m[2]) A['timer.start']({ minutes: parseFloat(m[2].replace(',', '.')) }); return; }
   if (['pause', 'reprendre', 'stop'].includes(t) && (T.running || t === 'reprendre')) return A['timer.toggle']();
@@ -370,6 +504,7 @@ function command(raw) {
 
 /* ---------- background jobs: timer tick (0.25 s), system graphs (1 s) ---------- */
 setInterval(() => {
+  if (S.cast && ((S.cast.until && Date.now() >= S.cast.until) || Date.now() - S.cast.t0 > CAST_LIVE)) { S.cast = null; mark(); }   // cast.py tick()
   if (T.running && tleft() <= 0) { Object.assign(T, { left: 0, running: false }); if (T.mode === 'TRAVAIL') T.done++; toast('MINUTEUR : TERMINÉ !', 5000); mood('surpris', 2500); }
 }, 250);
 setInterval(() => {
@@ -381,6 +516,7 @@ setInterval(() => {
 
 return {
   NAV, NAMES, THEMES, ALLT, MOODS, KINDS, ANIMS, AGROUPS, FACES, PSCENES, S, norm, row3, snapshot, findScene,
+  cast: { file: castFile, sample: castSample, sniff: castSniff, classify: castClassify },   // the lab's Caster panel (and tests)
   themeName: id => TNAME[id] || id, moodName: id => MNAME[id] || id,
   busy: () => ({ chat: chatBusy, codex: S.codex.running }),
   /* Initial values, before the first listener (no toast): the lab restores the last theme and screen. */

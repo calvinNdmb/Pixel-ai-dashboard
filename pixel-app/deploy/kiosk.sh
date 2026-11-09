@@ -11,6 +11,6 @@ done
 PREF="$HOME/.config/chromium/Default/Preferences"
 [ -f "$PREF" ] && sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/; s/"exited_cleanly":false/"exited_cleanly":true/' "$PREF"
 BROWSER=$(command -v chromium-browser || command -v chromium)
-# --autoplay-policy: Pixel's bleeps (web/son.js) play without a first touch
+# --autoplay-policy: Pixel's bleeps (web/son.js), and the videos cast from a phone with their sound, play without a first touch
 exec "$BROWSER" --kiosk --password-store=basic --autoplay-policy=no-user-gesture-required --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble \
   --check-for-update-interval=31536000 --overscroll-history-navigation=0 --app="$URL"

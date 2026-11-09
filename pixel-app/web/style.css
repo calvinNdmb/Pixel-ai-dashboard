@@ -88,3 +88,36 @@ body.kiosk .mfoot,body.kiosk .kb,body.kiosk .modes{display:none}
 body.kiosk .cmd{font-size:26px}
 body.kiosk .cmd.hide{display:none}
 @media (max-width:420px){.hint{display:none}}
+/* Caster sur Pixel (phone / computer): a photo, a video, a link or a text on his screen (app.js, pixel/cast.py) */
+.cast{width:min(100%,600px);background:linear-gradient(180deg,var(--plastic-hi),var(--plastic) 30%,var(--plastic-lo));border-radius:16px;padding:4px 16px 12px;box-shadow:inset 0 2px 0 var(--plastic-hi),inset 0 -4px 0 var(--plastic-lo),0 18px 26px -18px #000}
+.cast summary{font:600 12px var(--f-ui);letter-spacing:.3em;text-transform:uppercase;color:var(--ink);padding:0 2px;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;list-style:none}
+.cast summary::-webkit-details-marker{display:none}
+.cast summary::before{content:"▸";font-size:14px;letter-spacing:0}
+.cast[open] summary::before{content:"▾"}
+.cast summary:focus-visible{outline:2px solid var(--g);outline-offset:2px;border-radius:8px}
+.cast-in{display:grid;gap:10px;background:var(--recess);border-radius:12px;padding:12px;color:var(--plastic)}
+.cast-now{margin:0;font:clamp(18px,4.4vw,24px)/1.1 var(--f-crt);color:var(--g);text-shadow:0 0 6px rgba(70,255,130,.45);overflow-wrap:anywhere}
+.cast-row,.cast-form,.cast-opts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cast-form input{flex:1;min-width:0;min-height:44px;border:1px solid var(--gd);border-radius:10px;background:var(--key);color:var(--g);font:18px var(--f-crt);padding:0 12px}
+.cast-form input::placeholder{color:var(--gd)}
+.cast-form input:focus-visible{outline:2px solid var(--g);outline-offset:1px}
+.cbtn{min-height:44px;min-width:44px;border:0;border-radius:10px;background:var(--plastic);color:var(--desk);font:600 14px var(--f-ui);padding:0 16px;cursor:pointer;box-shadow:0 3px 0 #000}
+.cbtn:active{transform:translateY(2px);box-shadow:0 1px 0 #000}
+.cbtn:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+.cbtn.big{flex:1}
+.cbtn.stop{background:var(--amber)}
+.cbtn:disabled{opacity:.35;cursor:default}
+.cast-opts{font:13px var(--f-ui);color:var(--plastic);gap:4px 16px}
+.cast-opts .ck{display:flex;align-items:center;gap:8px;min-height:44px}
+.cast-opts input{width:22px;height:22px;accent-color:var(--g)}
+.cast-opts select{min-height:44px;border-radius:8px;border:1px solid var(--gd);background:var(--key);color:var(--g);font:16px var(--f-crt);padding:0 6px}
+.cast-msg{margin:0;font:13px var(--f-ui);color:var(--amber)}
+.cast-msg:empty,.cast-recent:empty{display:none}
+.cast-recent{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.cast-recent button{flex:0 0 auto;width:88px;height:66px;border:1px solid var(--gd);border-radius:10px;background:var(--key) center/cover no-repeat;color:var(--g);font:15px/1 var(--f-crt);padding:4px 4px 18px;cursor:pointer;overflow:hidden;overflow-wrap:anywhere;position:relative}
+.cast-recent button.cur{border-color:var(--g);box-shadow:0 0 0 2px var(--g)}
+.cast-recent button span{position:absolute;left:0;right:0;bottom:0;background:rgba(6,16,9,.8);font:11px var(--f-ui);color:var(--plastic);padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cast-hint{margin:0;font:12px/1.45 var(--f-ui);color:var(--plastic-lo)}
+.cast-hint b{font-weight:600}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+body[data-mode="pixel"] .cast,body.kiosk .cast{display:none}

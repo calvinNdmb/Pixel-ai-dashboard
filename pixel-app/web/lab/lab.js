@@ -183,6 +183,24 @@ $('toastForm').addEventListener('submit', e => {
   e.preventDefault(); const msg = $('toastText').value.trim() || 'Coucou !';
   remember('toastText', msg); act('lab.toast', { msg, ms: 4500, mood: 'surpris' });
 });
+/* ---------- Caster sur Pixel: what a phone sends (demo-hub.js keeps the files in this page, as object URLs) ---------- */
+let castRaw = !!saved.castRaw;
+const castNote = $('castNote').textContent, castSay = msg => setT($('castNote'), msg || castNote);
+async function castGo(fn, busy) {
+  touch(); stopTour(); L.sleepy = false;
+  if (busy) castSay(busy);
+  const err = await fn(); castSay(err);
+}
+document.querySelectorAll('[data-cast]').forEach(b => b.addEventListener('click', () =>
+  castGo(() => hub.cast.sample(b.dataset.cast, { raw: castRaw }), b.dataset.cast === 'video' ? 'Le labo enregistre une petite vidéo (4 s)…' : '')));
+$('castFileBtn').addEventListener('click', () => $('castFile').click());
+$('castFile').addEventListener('change', () => { const f = $('castFile').files[0]; $('castFile').value = ''; if (f) castGo(() => hub.cast.file(f, { raw: castRaw, title: f.name })); });
+$('castRawBtn').addEventListener('click', () => { castRaw = !castRaw; remember('castRaw', castRaw); if (P && P.cast) hub.dispatch('cast.colors', { raw: castRaw }); syncStatic(); });
+$('castForm').addEventListener('submit', e => {
+  e.preventDefault(); const v = $('castInput').value.trim(); if (!v) return;
+  touch(); stopTour(); castSay('');
+  hub.dispatch(/^https?:\/\//i.test(v) ? 'cast.link' : 'cast.text', /^https?:\/\//i.test(v) ? { url: v, raw: castRaw } : { text: v });
+});
 function sleepNow() {
   stopTour(); touch();
   if (!P || P.screen !== 'visage') hub.dispatch('screen.show', { screen: 'visage' });
@@ -399,6 +417,7 @@ function syncStatic() {
   press($('idleBtn'), L.packIdle !== false); press($('allBtn'), !!showAll);
   setT($('allBtn'), showAll ? 'Arrêter' : 'Tout voir');
   testChips.forEach(b => press(b, b.dataset.id === TC.page));
+  press($('castRawBtn'), P && P.cast ? !!P.cast.raw : castRaw);
 }
 function refresh() {                                  // things that change without a new state: mood expiry, fps
   if (!P) return;
@@ -433,6 +452,7 @@ function render(s) {
   document.querySelectorAll('#faceSeg button').forEach(b => press(b, b.dataset.face === (v.face || 'pack')));
   screenChips.forEach(b => press(b, b.dataset.id === s.screen)); kmS.forEach(b => press(b, b.dataset.id === s.screen));
   weatherChips.forEach(b => press(b, b.dataset.id === wx));
+  press($('castRawBtn'), s.cast ? !!s.cast.raw : castRaw);
   s.lights.rooms.forEach((r, i) => { const b = roomChips[i]; if (!b) return; setT(b, r.on ? `${r.name} ${r.bri} %` : `${r.name} éteint`); press(b, r.on); });
   press($('unitsBtn'), v.units_f); setT($('unitsBtn'), v.units_f ? '°F → °C' : '°C → °F');
   press($('crtBtn'), !v.crt_off); press($('agToday'), v.agenda_day === 0); press($('agTomorrow'), v.agenda_day === 1);

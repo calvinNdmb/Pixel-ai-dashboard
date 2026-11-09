@@ -14,7 +14,7 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
-        "visage vivant · sinon : Claude")
+        "visage vivant · caste <lien ou texte> · stop cast · sinon : Claude")
 # a few words that play an animation on their own
 BARE = {"danse": "danse", "chante": "chante", "coucou": "salut", "bisou": "bisou"}
 FACE_WORDS = {"pack": "pack", "pack 52": "pack", "52": "pack", "animations": "pack", "vivant": "vivant", "anime": "vivant"}
@@ -59,6 +59,16 @@ async def run(hub, text):
     if t.startswith("codex ") and len(raw) > 6:
         await hub.dispatch("screen.show", {"screen": "codex"})
         return await hub.dispatch("codex.run", {"task": raw[6:].strip()})
+
+    # casting (pixel/cast.py): "caste https://youtu.be/...", "caste À table !"; "stop" ends a cast before it pauses the timer
+    if t in ("stop cast", "arrete le cast", "arrete de caster", "fin du cast") or (t in ("stop", "arrete", "arreter") and hub.s.get("cast")):
+        return await hub.dispatch("cast.stop")
+    m = re.match(r"^(?:cast|caste|caster)\s+\S", t)
+    if m:
+        rest = raw.split(None, 1)[1].strip()
+        if re.match(r"^https?://", rest, re.I):
+            return await hub.dispatch("cast.link", {"url": rest})
+        return await hub.dispatch("cast.text", {"text": rest})
 
     m = re.match(r"^(minuteur|timer|chrono)(?:\s+(\d+(?:[.,]\d+)?))?\s*(?:min|minutes?)?$", t)
     if m:

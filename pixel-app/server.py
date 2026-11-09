@@ -22,6 +22,7 @@ from aiohttp import WSMsgType, web
 
 from pixel import anims, commands, scenes, timer
 from pixel.agenda import Agenda
+from pixel.cast import Cast, local_page
 from pixel.claude import Claude
 from pixel.codex import Codex
 from pixel.deck import Deck
@@ -34,7 +35,6 @@ from pixel import poche                  # Pixel de poche: the phone held sidewa
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
-LOCAL = {"127.0.0.1", "::1"}
 
 
 def home_networks():
@@ -135,6 +135,7 @@ def core_actions(hub, datadir):
     @hub.action("screen.show")
     async def show(screen):
         if screen in NAV:
+            hub.s["cast"] = None                        # opening a screen ends what was cast on Pixel (pixel/cast.py)
             if hub.s["screen"] == "veille" and screen != "veille":
                 hub.mood("surpris", 900)
             hub.s["screen"] = screen
@@ -182,6 +183,7 @@ async def serve(args, cfg, datadir, token):
     tick = timer.setup(hub)
     deck = Deck(hub, cfg.get("streamdeck", {}))
     hub.s["settings"]["claude"] = claude.C["status"]
+    cast = Cast(hub, cfg.get("cast", {}), datadir, token, qr_rows)     # photos, videos, texts and links from a phone
 
     @hub.action("cmd")
     async def cmd(text):
@@ -196,7 +198,8 @@ async def serve(args, cfg, datadir, token):
         raise web.HTTPFound("/app/lab/index.html" + ("?" + q if q else ""))
 
     async def ws_handler(request):
-        if request.remote not in LOCAL and request.query.get("t") != token:
+        # the Pi itself, from Pixel's own page (not from a video player shown on the screen), or the access code
+        if not local_page(request) and request.query.get("t") != token:
             raise web.HTTPForbidden(text="Code d'accès manquant : scanne le QR code dans Réglages sur l'écran de Pixel.")
         ws = web.WebSocketResponse(heartbeat=20)
         await ws.prepare(request)
@@ -239,6 +242,9 @@ async def serve(args, cfg, datadir, token):
     app.router.add_get("/sw.js", worker)
     app.router.add_get("/pixel.apk", apk)
     app.router.add_get("/ws", ws_handler)
+    app.router.add_post("/api/cast", cast.api)
+    app.router.add_post("/share", cast.share)              # the Android share sheet (manifest.webmanifest share_target)
+    app.router.add_get("/cast/{name}", cast.file)
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
         app.router.add_get(path, lab)
     app.router.add_static("/app/", HERE / "web")
@@ -247,7 +253,7 @@ async def serve(args, cfg, datadir, token):
     await web.TCPSite(runner, args.host, port).start()
 
     jobs = [hub.broadcaster(), hub.every(1, system.sample), hub.every(5, hue.refresh), hub.every(1200, weather.refresh),
-            hub.every(600, agenda.refresh), hub.every(0.25, tick), hub.every(10, deck.connect)]
+            hub.every(600, agenda.refresh), hub.every(0.25, tick), hub.every(10, deck.connect), hub.every(1, cast.tick)]
     log.info("Pixel prêt. Écran : http://localhost:%s/?kiosk=1   Téléphone : %s", port, url)
     hub.s["boot_at"] = 0
     hub.mark()

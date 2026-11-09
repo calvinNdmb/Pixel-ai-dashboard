@@ -37,6 +37,28 @@
       <span class="hint">Tape <b>aide</b> pour la liste des commandes</span>
     </div>
   </div>
+  <details class="cast" id="cast">
+    <summary>Caster sur Pixel</summary>
+    <div class="cast-in">
+      <p class="cast-now" id="castNow">Rien à l'écran pour le moment.</p>
+      <div class="cast-row">
+        <button type="button" class="cbtn big" id="castPick">Photo ou vidéo</button>
+        <button type="button" class="cbtn stop" id="castStop" disabled>Arrêter</button>
+      </div>
+      <input type="file" id="castFile" accept="image/*,video/*" hidden>
+      <form class="cast-form" id="castLinkForm" autocomplete="off"><label class="sr" for="castLink">Lien à afficher</label>
+        <input id="castLink" type="text" inputmode="url" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="Colle un lien : YouTube, une page, une image…"><button type="submit" class="cbtn">Afficher</button></form>
+      <form class="cast-form" id="castTextForm" autocomplete="off"><label class="sr" for="castText">Texte à afficher</label>
+        <input id="castText" type="text" maxlength="280" enterkeyhint="send" placeholder="Écris un petit mot"><button type="submit" class="cbtn">Afficher</button></form>
+      <div class="cast-opts">
+        <label class="ck"><input type="checkbox" id="castRaw"> Couleurs d'origine</label>
+        <label class="ck">Durée <select id="castSecs"><option value="">2 min</option><option value="30">30 s</option><option value="600">10 min</option><option value="0">jusqu'à Arrêter</option></select></label>
+      </div>
+      <p class="cast-msg" id="castMsg" role="status" aria-live="polite"></p>
+      <div class="cast-recent" id="castRecent" role="group" aria-label="Les derniers casts"></div>
+      <p class="cast-hint">Une photo, une vidéo jusqu'au bout, un texte ou un lien. Touche l'écran de Pixel pour arrêter. Depuis une autre appli : <b>Partager → Pixel</b> (appli installée, voir docs/CAST.md).</p>
+    </div>
+  </details>
 </main>
 <script src="app/pack52/pixel52.js"></script>
 <script src="app/pack52/pixel52-themes.js"></script>

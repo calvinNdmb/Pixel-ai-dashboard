@@ -2,7 +2,7 @@
    localhost; a phone does not run it on plain http). Pixel lives on the Pi, so the network always comes first; the app's
    own files (the page, its scripts, styles and fonts) are kept too, so that away from home the page still opens and the
    Pixel de poche wakes up from the last snapshot app.js kept. Only a page it never kept gets the "Pixel ne répond pas" page.
-   The WebSocket, /pixel.apk and the rest: the network only. */
+   It also keeps the access code, for the share sheet (below). The WebSocket, /pixel.apk and the rest: the network only. */
 const OFFLINE = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pixel</title>
 <body style="margin:0;display:grid;place-items:center;height:100vh;background:#141713;color:#d9d2bd;font:16px/1.5 system-ui,sans-serif;text-align:center">
 <div style="padding:24px"><p style="font:44px monospace;margin:0 0 12px;color:#46ff82">:(</p>
@@ -20,7 +20,21 @@ async function keepShell() {        // the page, the files it loads (index.html 
 }
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(keepShell().catch(() => {})); });
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+/* "Partager → Pixel" on Android (manifest share_target): the photo, the video or the link arrives here as a POST to /share.
+   The app gives us its access code (app.js), and we pass the share on to Pixel with it, then go back to the app. */
+self.addEventListener('message', e => {
+  if (e.data && typeof e.data.token === 'string') e.waitUntil(caches.open('pixel').then(c => c.put('/__pixel_t', new Response(e.data.token))));
+});
+async function share(req) {
+  let t = '';
+  try { const r = await (await caches.open('pixel')).match('/__pixel_t'); if (r) t = await r.text(); } catch (e) { /* no code yet: the cookie, maybe */ }
+  try {
+    const r = await fetch('/share', { method: 'POST', body: await req.formData(), headers: t ? { 'X-Pixel-Token': t } : {}, credentials: 'same-origin' });
+    return Response.redirect(r.redirected ? r.url : '/?cast=' + (r.ok ? 'ok' : 'erreur'), 303);
+  } catch (e) { return Response.redirect('/?cast=hors-ligne', 303); }
+}
 self.addEventListener('fetch', e => {
+  if (e.request.method === 'POST' && new URL(e.request.url).pathname === '/share') { e.respondWith(share(e.request)); return; }
   const q = e.request, u = new URL(q.url), nav = q.mode === 'navigate';
   if (q.method !== 'GET' || u.origin !== location.origin || (!nav && !u.pathname.startsWith('/app/'))) return;
   const key = nav && u.pathname === '/' ? '/' : q;     // the page, whatever its ?t= or ?mode=
