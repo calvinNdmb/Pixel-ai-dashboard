@@ -106,6 +106,15 @@
       <p class="note" id="persoNote">Touche Pixel sur l’écran : les yeux, le haut de la tête, la bouche, les côtés ou à côté de lui. Tape plusieurs fois de suite pour l’énerver, caresse-le pour le calmer. Laissé seul, il vit sa vie : toutes les 1 à 2 minutes et demie, un moment au hasard.</p>
     </section>
 
+    <section class="grp" aria-labelledby="hPoche">
+      <h2 id="hPoche">Pixel de poche</h2>
+      <p class="note">Sur ton téléphone, tourne-le en mode paysage : il devient un deuxième Pixel, à câliner. Les deux Pixels se connaissent.</p>
+      <div class="btns"><button type="button" id="pocheView" aria-pressed="false">Voir sur un téléphone</button></div>
+      <div class="ev"><h3 id="pocheTwinTitle">Son jumeau de poche</h3><div class="btns" id="pocheTwin"></div></div>
+      <div class="ev" id="pocheSenseBox" hidden><h3>Ce que sent le téléphone</h3><div class="btns" id="pocheSense"></div></div>
+      <p class="note" id="pocheNote">&nbsp;</p>
+    </section>
+
     <section class="grp" aria-labelledby="hEvents">
       <h2 id="hEvents">Événements</h2>
       <div class="ev"><h3>Notification</h3>
@@ -261,9 +270,12 @@
 <script src="../scenes/toucher.js"></script>
 <script src="../scenes/vie.js"></script>
 <script src="../scenes/surprises.js"></script>
+<script src="../scenes/poche.js"></script>
 <script src="../screens.js"></script>
+<script src="../poche.js"></script>
 <script src="demo-hub.js"></script>
 <script src="testcard.js"></script>
 <script src="lab.js"></script>
+<script src="poche-lab.js"></script>
 </body>
 </html>

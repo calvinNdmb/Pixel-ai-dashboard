@@ -283,6 +283,27 @@ const A = {
   'lab.settings': ({ sleep_min }) => { if (sleep_min != null && Number(sleep_min) > 0) S.settings.sleep_min = Number(sleep_min); },
 };
 
+/* ---------- Pixel de poche (pixel/poche.py): the two Pixels pass news, and the voyage ---------- */
+S.poche = { ev: null, voyage: null, here: 0 };
+const POCHE_KINDS = ['bonjour', 'tape', 'caresse', 'secoue', 'la', 'au-revoir'], POCHE_GAP = 2500, POCHE_VOYAGE = 60000, pocheLast = {};
+const pocheVisiting = () => { const v = S.poche.voyage; return !!v && v.to === 'poche' && Date.now() < v.until; };
+Object.assign(A, {
+  'poche.touch': ({ kind, by = 'poche' } = {}) => {
+    if (!POCHE_KINDS.includes(kind) || !['poche', 'pi'].includes(by)) return;
+    const t = Date.now(), k = by + ' ' + kind; if (t - (pocheLast[k] ?? -1e15) < POCHE_GAP) return; pocheLast[k] = t;
+    if (by === 'poche') S.poche.here = kind === 'au-revoir' ? 0 : t;
+    if (kind === 'la' || kind === 'au-revoir') return;
+    S.poche.ev = { id: ((S.poche.ev && S.poche.ev.id) || 0) + 1, by, kind, t0: t };
+  },
+  'poche.voyage': ({ to = 'poche' } = {}) => {
+    const t = Date.now();
+    if (to === 'poche' && !pocheVisiting()) S.poche.voyage = { to: 'poche', t0: t, until: t + POCHE_VOYAGE };
+    else if (to === 'pi' && pocheVisiting()) S.poche.voyage = { to: 'pi', t0: t, until: t };
+    else return;
+    S.anim = null; S.screen = 'visage';
+  },
+});
+
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
 const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };

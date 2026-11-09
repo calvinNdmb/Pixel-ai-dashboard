@@ -261,6 +261,7 @@ cv.addEventListener('pointerup', e => {
   if (d.long) return;
   if (kiosk && corner(d) && corner(p) && Math.hypot(p.x - d.x, p.y - d.y) < 30) return openMenu();   // tap in a corner: lab menu
   if (Screens.input()) return;
+  if (window.PixelPoche && PixelPoche.up(p)) return;      // the phone frame (Pixel de poche): only his face, no swipe
   const dx = p.x - d.x, dy = p.y - d.y;
   if (!L.petted && Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy)) return swipe(dx < 0 ? 1 : -1);   // not while petting Pixel
   Screens.hit(p.x, p.y);
@@ -444,6 +445,7 @@ hub.listen(snap => {
   const first = !P; P = snap;
   Screens.setState(snap);
   L.scr = snap.screen;                                // the lab always mirrors the (fake) server's screen
+  if (window.PixelPoche) PixelPoche.state(snap);     // ../poche.js: the two Pixels; its phone frame keeps his face
   if (first) L.kiosk = true;                         // from now on he falls asleep when left alone, like on the device
   render(snap); refresh();
 });
