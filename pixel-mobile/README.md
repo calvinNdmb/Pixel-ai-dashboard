@@ -1,8 +1,17 @@
 # Pixel pour Android
 
-L'appli Android de Pixel (version 1.1). **Elle n'a pas besoin du Pi : Pixel vit sur ton téléphone.** Relie-la à ton Pi et tu retrouves en plus les lampes, Claude, Codex, l'agenda, le cast, et le partage depuis tes autres applis. Elle affiche la page de Pixel en plein écran, avec ses trois modes : **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
+L'appli Android de Pixel (version 1.2). **Elle n'a pas besoin du Pi : Pixel vit sur ton téléphone.** Relie-la à ton Pi et tu retrouves en plus les lampes, Claude, Codex, l'agenda, le cast, et le partage depuis tes autres applis. Elle affiche la page de Pixel en plein écran, avec ses trois modes : **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
 
 C'est un projet Expo (SDK 58) : une vue web (`react-native-webview`), plus quelques fonctions natives, dont un petit module Kotlin à elle (`modules/pixel-native`).
+
+## Nouveau dans la version 1.2
+
+- **Son caractère, le nourrir, les exos de maths, sans Pi.** Le Pixel du téléphone a tout : 15 caractères et huit curseurs, son nom et le tien ; son ventre, ses goûts et les 24 plats ; les exos du CP au collège, avec leurs scores et leurs trophées. Ils sont gardés quand tu fermes l'appli.
+- **Dans le menu de l'appli** (bouton retour) : **Son caractère**, **Le nourrir** et **Exos de maths** ouvrent leur panneau, sur la page de ton Pi comme sur le Pixel du téléphone, même en mode Pixel.
+- **Son ventre suit l'heure,** même appli fermée : comme sur le Pi éteint, rien la nuit, et au pire un petit creux quand tu reviens, jamais une faim de loup.
+- **Le même Pixel que ton Pi :** relié, le Pixel du téléphone reprend son caractère, son ventre, ses goûts et tes progrès en exos.
+- **Le Pixel de poche a son assiette :** tourne le téléphone, touche l'assiette en bas à droite, et donne-lui à manger.
+- **Sur l'écran du Pi,** un cast (photo, vidéo, YouTube, écran partagé) passe devant tout : un exo ouvert attend dessous et revient tel quel quand le cast se termine.
 
 ## Nouveau dans la version 1.1
 
@@ -18,10 +27,12 @@ C'est un projet Expo (SDK 58) : une vue web (`react-native-webview`), plus quelq
 Au premier lancement, Pixel est là tout de suite : pas de QR code, pas de réseau.
 
 - **Ce qui marche :** son visage, ses 52 animations, sa personnalité et toutes ses scènes, ses humeurs, les thèmes, l'horloge, le minuteur, la veille, les réglages et Pixel de poche (tourne le téléphone). La barre de commande aussi : `minuteur 10`, `humeur content`, `fais le poisson`, `aide`…
+- **Son caractère, le nourrir, les exos de maths :** comme sur le Pi. Sous les touches, **Caractère**, **Nourrir** et **Exos** ouvrent leur panneau ; le menu de l'appli aussi (**Son caractère**, **Le nourrir**, **Exos de maths**), même en mode Pixel. Les commandes marchent : `sois grognon`, `appelle-toi Bip`, `mange une pomme`, `tu as faim ?`, `exo`, `table de 7`, `défi chrono`, puis ta réponse (`42`). En Pixel de poche, l'assiette en bas à droite ouvre son plateau de 24 plats. Seul Claude, qui peut aussi les changer, a besoin du Pi.
 - **Ce qui a besoin du Pi le dit :** les écrans Lumières, Claude, Codex et Agenda affichent « Relie Pixel à ton Pi pour ça », et leurs touches restent éteintes. Une question pour Claude, `salon 40`, `codex …` ou un partage d'écran : Pixel répond la même chose. Il n'y a aucune fausse donnée.
 - **Système** montre les mesures du téléphone : batterie, réseau, écran, processeur. Sa touche **Démarrage** rejoue le démarrage de Pixel, avec les pièces du téléphone.
 - **La météo :** tape `météo Lyon` (ta ville) dans la barre de commande. Pixel demande la météo à Open-Meteo, gratuit et sans compte. La ville est gardée. Sans réseau, il le dit et réessaie tout seul.
-- **Ce qui est gardé quand tu fermes l'appli :** le thème, le visage, °C ou °F, l'effet CRT, la luminosité de son visage, une humeur qui dure (endormi…), le minuteur en cours, la ville, et tout ce qu'il retient de lui (son caractère, par exemple).
+- **Ce qui est gardé quand tu fermes l'appli :** le thème, le visage, °C ou °F, l'effet CRT, la luminosité de son visage, une humeur qui dure (endormi…), le minuteur en cours, la ville, et tout ce qu'il retient de lui : son caractère, son ventre, ses goûts et ses derniers repas, tes scores, trophées et niveaux d'exos, leurs réglages. Un exo en cours, lui, ne reste pas.
+- **Son ventre pendant que l'appli est fermée :** il compte le temps comme sur le Pi éteint. La nuit (de 23 h à 6 h) ne compte pas, et 6 heures au plus : il revient au pire avec un petit creux. S'il avait déjà faim, il n'a pas plus faim.
 - **Les thèmes :** les six, au choix dans Réglages ou avec `thème néon`. Une fois l'appli reliée à ton Pi, le Pixel du téléphone a les mêmes thèmes que lui : ceux que ton Pi a activés.
 
 ## Relier ton Pi
@@ -34,13 +45,14 @@ L'adresse et le code d'accès sont gardés dans le stockage sécurisé du télé
 - **Quand ton Pi ne répond pas** (éteint, loin de la maison, téléphone hors réseau, une page d'erreur à son adresse, ou un code refusé), Pixel continue sur ton téléphone, avec un petit bandeau : « Ton Pixel (Pi) ne répond pas : Pixel vit sur ton téléphone ». Jamais d'écran bloqué. Le bandeau se ferme avec ×, et reste fermé.
 - **L'appli redemande au Pi**, de moins en moins souvent : après 5 s, 10 s, 20 s… puis toutes les 2 minutes. Jamais quand l'appli est en arrière-plan, pour ta batterie. Elle vérifie que c'est bien Pixel qui répond, et pas un autre appareil à la même adresse.
 - **Quand ton Pi répond à nouveau :** si personne n'a touché le Pixel du téléphone depuis une minute (ni secoué, ni penché en Pixel de poche), qu'aucun minuteur n'y tourne et que le menu est fermé, l'appli revient au Pi toute seule. Un téléphone posé sur son support retrouve ainsi le vrai Pixel. Sinon, touche **Revenir** sur le bandeau : un câlin, une partie de Pixel de poche, une commande ou un minuteur en cours ne sont jamais coupés. Pour rester sur le Pixel du téléphone, choisis **Rester sur ce téléphone** dans le menu.
-- **Le même Pixel :** tant que l'appli montre ton Pi, elle garde sa dernière image de lui : son thème, ses thèmes activés, ses réglages, sa ville et ce qu'il retient de lui (son caractère, par exemple). Sans le Pi, le Pixel du téléphone les reprend. Elle ne garde rien d'autre : ni ton code d'accès, ni ton agenda, ni tes lampes.
+- **Le même Pixel :** tant que l'appli montre ton Pi, elle garde sa dernière image de lui : son thème, ses thèmes activés, ses réglages, sa ville et ce qu'il retient de lui : son caractère, son ventre, ses goûts, tes progrès en exos. Sans le Pi, le Pixel du téléphone les reprend. Elle ne garde rien d'autre : ni ton code d'accès, ni ton agenda, ni tes lampes.
 - **Pas de synchronisation vers le Pi.** Ce que tu changes sur le Pixel du téléphone reste sur le téléphone : le Pi ne le voit pas. Et si tu retrouves ton Pi entre-temps, c'est lui qui compte : la fois suivante, le Pixel du téléphone reprend ce que ton Pi montrait.
 
 ## Le menu de l'appli
 
 Il s'ouvre avec le **bouton retour** (dans la page du Pi, le bouton retour revient d'abord en arrière dans la page), ou en touchant **Pixel sur ce téléphone ⋯** sous l'écran du Pixel du téléphone. Il ne touche pas l'écran de Pixel, donc il ne gêne aucun de ses gestes : toucher, glisser, appui long pour le câliner, caresse.
 
+- **Son caractère**, **Le nourrir**, **Exos de maths** : leurs panneaux, sur le Pixel affiché (ton Pi ou le téléphone). En mode Pixel, les touches reviennent avec. Un Pi pas encore à jour n'a pas ces panneaux : le menu ne les montre pas.
 - **Mon Pixel (Pi)** : revenir à la page de ton Pi (tout de suite, même s'il ne répondait plus).
 - **Pixel sur ce téléphone** : le Pixel du téléphone, même quand ton Pi est là. Ce choix est gardé.
 - **Rester sur ce téléphone** (quand ton Pi ne répond pas) : le même choix. L'appli ne revient plus toute seule au Pi.
@@ -99,9 +111,11 @@ Le partage et les notifications marchent appli fermée. L'appli recopie donc l'a
 
 Ton Pi sert le fichier `~/.config/pixel/pixel.apk`.
 
-## Installer la mise à jour 1.1
+## Installer la mise à jour 1.2
 
-Cet APK est signé avec une nouvelle clé. Android refuse donc de l'installer par-dessus l'ancienne appli : il dit « Application non installée », ou parle d'un conflit.
+**Depuis la 1.1 :** installe le nouvel APK par-dessus, comme plus haut. Rien ne se perd : ton Pi reste relié, et le Pixel du téléphone garde ce qu'il avait. (Il faut qu'il soit signé avec la même clé que ta 1.1. Sinon, Android refuse, comme ci-dessous.)
+
+**Depuis la 1.0 :** l'APK est signé avec une nouvelle clé depuis la 1.1. Android refuse donc de l'installer par-dessus l'ancienne appli : il dit « Application non installée », ou parle d'un conflit.
 
 1. **Une seule fois :** désinstalle l'ancienne appli Pixel (appui long sur son icône, puis **Désinstaller**).
 2. Installe le nouvel APK, comme plus haut.
@@ -185,10 +199,10 @@ Côté Pixel (dossier `pixel-app`) : `node tests/test_local.js` pour le Pixel du
 | `App.tsx` | L'écran de départ : le Pixel du téléphone, ou la page du Pi. Le QR code, la page du Pi, le menu et les notifications par-dessus. |
 | `src/LocalPixel.tsx` | Le Pixel du téléphone : la page hors ligne, son état rendu avant qu'elle démarre. |
 | `src/Linked.tsx` | Pi relié : sa page, le Pixel du téléphone quand il ne répond pas, le bandeau, les nouvelles tentatives. |
-| `src/PixelMenu.tsx` | Le menu de l'appli. |
+| `src/PixelMenu.tsx` | Le menu de l'appli, avec les panneaux de la page affichée. |
 | `src/Notifs.tsx` | L'écran des notifications du téléphone. |
 | `src/webBridge.ts` | Ce que les deux vues web partagent : leurs réglages, les messages de la page, les fonctions natives branchées. |
-| `src/plugs.ts` | Les fonctions natives des deux pages : l'écran allumé, Pixel de poche, les notifications pour le Pixel du téléphone, l'image du Pi. |
+| `src/plugs.ts` | Les fonctions natives des deux pages : l'écran allumé, Pixel de poche, les notifications pour le Pixel du téléphone, l'image du Pi, ses panneaux (Caractère, Nourrir, Exos) pour le menu. |
 | `src/poche.ts` | Pixel de poche : l'écran en paysage, l'accéléromètre et la batterie pour la page, le plein écran. |
 | `src/back.ts` | Le bouton retour : ce qui est au-dessus le prend. |
 | `src/localStore.ts` | Ce que l'appli garde pour le Pixel du téléphone. |

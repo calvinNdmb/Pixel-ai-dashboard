@@ -256,13 +256,14 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
    - éteint, tu navigues de ton côté sans changer l'écran de Pixel.
 4. Sous les touches, **Caractère**, **Nourrir** et **Exos** ouvrent leurs panneaux (voir [Le personnaliser](#le-personnaliser)).
 
-**L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/), version 1.1) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
+**L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/), version 1.2) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
 - Pose l'APK dans le dossier de données de Pixel, sous le nom `~/.config/pixel/pixel.apk`. Dans Chrome sur Android, un lien **Appli Android** apparaît alors sous le clavier.
 - Au premier lancement, Pixel vit déjà dans l'appli, sans le Pi (voir « Pixel sans Pi »). Pour la relier au Pi : bouton retour, **Relier à mon Pixel**, puis le QR code de Pixel. Elle s'en souvient. Quand le Pi ne répond pas, Pixel continue sur le téléphone.
 - **Partager sur Pixel :** dans n'importe quelle appli, **Partager**, puis **Pixel**, envoie sur son écran un lien (une vidéo YouTube s'y lance), un texte, une photo, un GIF ou une vidéo (40 Mo au plus). Sans Pi relié, la carte de partage dit de le relier.
 - **Les notifications du téléphone** (désactivées au départ) : Pixel réagit à celles des applis que tu choisis, et ses scènes de notification se jouent. Il ne reçoit que le nom de l'appli (« 📱 Nouveau message WhatsApp »), le titre seulement si tu le permets (« 📱 WhatsApp : Maman »), jamais le texte. Sans Pi, le Pixel du téléphone y réagit quand l'appli est ouverte, et rien ne quitte le téléphone. Les règles complètes sont dans le [README de l'appli](../pixel-mobile/README.md).
 - **Le Pixel de poche** a tous ses sens dans l'appli, même en http, sur la page du Pi comme sur le Pixel du téléphone (voir plus bas).
-- **Pour passer de la 1.0 à la 1.1,** désinstalle une fois l'ancienne appli : la 1.1 est signée avec une nouvelle clé. Installe la nouvelle : Pixel y vit déjà. Pour retrouver ton Pi, scanne à nouveau son QR code (bouton retour, **Relier à mon Pixel**).
+- **Son caractère, le nourrir, les exos de maths** marchent aussi dans l'appli, avec ou sans Pi : sous les touches, ou dans le menu de l'appli (bouton retour : **Son caractère**, **Le nourrir**, **Exos de maths**).
+- **De la 1.1 à la 1.2,** installe la nouvelle par-dessus : rien ne se perd. **De la 1.0,** désinstalle une fois l'ancienne appli : depuis la 1.1, l'appli est signée avec une nouvelle clé. Installe la nouvelle : Pixel y vit déjà. Pour retrouver ton Pi, scanne à nouveau son QR code (bouton retour, **Relier à mon Pixel**).
 
 L'appli marche sur ton Wi-Fi, en IPv4 comme en IPv6 : un téléphone trouve souvent `pixel.local` par son adresse IPv6. Pixel ne répond qu'aux appareils de la maison, même si ta box laisse passer l'IPv6 depuis Internet. Sans le code d'accès, un autre appareil du réseau voit la page mais ne peut rien faire.
 
@@ -315,19 +316,21 @@ Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec le partage d'écran d
 
 ## Pixel sans Pi
 
-**L'appli Android n'a pas besoin du Pi.** Au premier lancement, Pixel vit sur le téléphone : son visage, ses 52 animations, sa personnalité et toutes ses scènes, ses humeurs, les thèmes, l'horloge, le minuteur, la veille, les réglages et Pixel de poche. Sans réseau, et sans aucune fausse donnée : les écrans Lumières, Claude, Codex et Agenda disent « Relie Pixel à ton Pi pour ça », Système montre les mesures du téléphone, et la météo est la vraie (tape `météo Lyon`, Pixel la demande à Open-Meteo). Les six thèmes sont à lui, puisqu'aucun Pi ne les choisit. Son thème, ses réglages, son humeur, le minuteur et sa ville sont gardés quand l'appli se ferme.
+**L'appli Android n'a pas besoin du Pi.** Au premier lancement, Pixel vit sur le téléphone : son visage, ses 52 animations, sa personnalité et toutes ses scènes, ses humeurs, son caractère, ses repas, les exos de maths, les thèmes, l'horloge, le minuteur, la veille, les réglages et Pixel de poche. Sans réseau, et sans aucune fausse donnée : les écrans Lumières, Claude, Codex et Agenda disent « Relie Pixel à ton Pi pour ça », Système montre les mesures du téléphone, et la météo est la vraie (tape `météo Lyon`, Pixel la demande à Open-Meteo). Les six thèmes sont à lui, puisqu'aucun Pi ne les choisit. Son thème, ses réglages, son humeur, le minuteur, sa ville, son caractère, son ventre et ses goûts, ses scores d'exos sont gardés quand l'appli se ferme.
+
+**Son caractère, le nourrir et les exos, sans Pi.** Tout marche comme sur le Pi : les panneaux **Caractère**, **Nourrir** et **Exos** sous les touches (ou dans le menu de l'appli), les commandes (`sois grognon`, `mange une pomme`, `exo`, `table de 7`…), l'assiette et le plateau du Pixel de poche quand tu tournes le téléphone. Seul Claude a besoin du Pi. Quand l'appli reste fermée un moment, son ventre compte le temps comme sur le Pi quand il est éteint : rien la nuit, et au pire un petit creux au retour, jamais une faim de loup. Relié à ton Pi, le Pixel du téléphone reprend son caractère, ses goûts, son ventre et tes progrès en exos (scores, trophées, niveaux, réglages). Un exo resté ouvert sur le Pi reste sur le Pi.
 
 Dans l'appli, ce Pixel a les mêmes fonctions natives que la page du Pi : Pixel de poche avec les sens du téléphone, l'écran qui reste allumé, et les notifications du téléphone si tu les actives (elles ne quittent pas le téléphone). Le partage depuis une autre appli, lui, a besoin de l'écran du Pi.
 
-Reliée au Pi, l'appli montre la page du Pi, comme avant. Quand le Pi ne répond pas, Pixel continue sur le téléphone, avec un bandeau, et l'appli redemande au Pi de temps en temps. Le Pixel du téléphone reprend le thème, les réglages et le caractère du Pi. Ce que tu changes sur le téléphone sans le Pi reste sur le téléphone : rien ne remonte au Pi. Le guide complet est dans [`pixel-mobile`](../pixel-mobile/README.md).
+Reliée au Pi, l'appli montre la page du Pi, comme avant. Quand le Pi ne répond pas, Pixel continue sur le téléphone, avec un bandeau, et l'appli redemande au Pi de temps en temps. Le Pixel du téléphone reprend le thème, les réglages, le caractère, le ventre, les goûts et les exos du Pi. Ce que tu changes sur le téléphone sans le Pi reste sur le téléphone : rien ne remonte au Pi. Le guide complet est dans [`pixel-mobile`](../pixel-mobile/README.md).
 
 **Comment c'est fait.** C'est la vraie page du téléphone (`web/index.html`), réunie en un seul fichier hors ligne par `tools/build_app_bundle.py`. Le faux serveur de Pixel Lab (`web/lab/demo-hub.js`, le même état et les mêmes actions que `server.py`) tourne dans la page, et `web/local.js` en fait un vrai Pixel : il retire les données de démo, dit ce qui a besoin du Pi, va chercher la météo et garde son état. `app.js` lui parle comme au Pi, par une prise qui ressemble à son WebSocket. Une action ajoutée à `demo-hub.js` marche donc aussi dans l'appli, et l'état qu'elle ajoute (`S.<clé>`) est gardé, puis repris de l'image du Pi. Une seule règle pour une nouvelle fonction : si son vrai état n'est pas `S.<clé>` mais une variable à elle, que sa fonction `publish()` recopie dans `S`, elle dit comment le reprendre, n'importe où dans `demo-hub.js` :
 
 ```js
-restorable('nourrir', v => { /* reprendre ce qui est valable dans v (la forme de S.nourrir) */ publish(); });
+restorable('nourrir', (v, at) => { /* reprendre ce qui est valable dans v (la forme de S.nourrir) ; at : l'heure de cette copie */ publish(); });
 ```
 
-Sans cela, ce qui est repris serait écrasé au `publish()` suivant. Une action qui a besoin du Pi s'ajoute à la liste `PI` de `local.js` (le partage d'écran, AirPlay et YouTube y sont déjà).
+Sans cela, ce qui est repris serait écrasé au `publish()` suivant. `at` est l'heure où la copie a été faite (la sauvegarde du téléphone, ou l'image du Pi) : son ventre s'en sert pour compter le temps passé appli fermée, les exos pour savoir ce qui était « aujourd'hui ». Nourrir et les exos ont chacun le leur ; le caractère aussi, pour nettoyer ce qui revient, comme `caractere.json` sur le Pi. Une action qui a besoin du Pi s'ajoute à la liste `PI` de `local.js` (le partage d'écran, AirPlay et YouTube y sont déjà).
 
 ```bash
 python3 tools/build_app_bundle.py pixel-local.html
@@ -338,7 +341,7 @@ L'appli le refait elle-même avant chaque APK (`npm run bundle:web`, dans `pixel
 <!-- personnaliser -->
 ## Le personnaliser
 
-Trois façons de faire de Pixel *ton* Pixel. Sur ton téléphone, sous les touches : **Caractère**, **Nourrir** et **Exos**, côte à côte.
+Trois façons de faire de Pixel *ton* Pixel, avec ou sans Pi. Sur ton téléphone, sous les touches : **Caractère**, **Nourrir** et **Exos**, côte à côte. Dans l'appli Android, le menu (bouton retour) les ouvre aussi. Sans Pi, ils vivent sur le téléphone (voir « Pixel sans Pi ») ; le Pi relié, le téléphone reprend les siens.
 
 - **Son caractère** : câlin, grognon, farceur, gourmand, petit prof… ou huit curseurs. Tape `sois grognon`, `plus câlin`, `appelle-toi Bip`.
 - **Le nourrir** : son ventre se vide dans la journée, donne-lui un des 24 plats. Tape `mange une pomme`, `tu as faim ?`, `à table !`.
@@ -454,7 +457,7 @@ Dans Pixel Lab, le panneau **Nourrir** donne chaque plat, joue chaque réaction,
 Pour relancer ses tests :
 
 ```
-python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PORT=… pour un autre)
+python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PY_PORT=… pour un autre)
 node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots DOSSIER pour les captures
 ```
 
@@ -520,7 +523,7 @@ Ouvre ensuite <http://localhost:8080> pour la version téléphone, ou <http://lo
 
 ## Tester les animations : Pixel Lab
 
-Le labo d'essai : chaque thème, chaque humeur, les 10 écrans et tous les événements (notification, Claude, Codex, minuteur, veille, démarrage…), avec ralenti, pause et un test du vrai écran 7 pouces (couleurs, bords, toucher, images par seconde). Il est dessiné par le vrai code de Pixel, avec de fausses données.
+Le labo d'essai : chaque thème, chaque humeur, les 10 écrans et tous les événements (notification, Claude, Codex, minuteur, veille, démarrage…), avec ralenti, pause et un test du vrai écran 7 pouces (couleurs, bords, toucher, images par seconde). Il est dessiné par le vrai code de Pixel, avec de fausses données. Ses panneaux **Personnalité**, **Caractère**, **Nourrir** et **Exos de maths** se suivent : tout ce qui fait son caractère au même endroit.
 
 - **Sur ton ordinateur :** lance le mode démo ci-dessus, puis ouvre <http://localhost:8080/lab>.
 - **Sur le Pi, en plein écran :** `chromium-browser --kiosk "http://localhost:8080/lab?kiosk=1"`. Appuie 1 seconde sur l'écran pour ouvrir le menu.
@@ -633,10 +636,10 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
   - les limites, par appli et par minute ;
   - le bandeau (« 📱 WhatsApp : Maman », « 📱 Nouveau message WhatsApp ») qui fait jouer ses scènes de notification ;
   - `telephone.last` dans l'état partagé, sans jamais le titre.
-- **Pixel sans Pi** (`test_local.js`, dans Chromium) : le fichier hors ligne de l'appli, ouvert en `file://` sans aucun accès au réseau, sur un téléphone en portrait puis en paysage. Aucune erreur, aucune requête, aucun WebSocket. Il vit et réagit au doigt ; aucune fausse donnée ; les écrans du Pi le disent et leurs touches restent éteintes, les commandes aussi ; Système montre le téléphone, et son Démarrage les pièces du téléphone ; les six thèmes ; le minuteur sonne. Après un rechargement, les réglages, l'humeur et le minuteur sont toujours là, et l'état d'une nouvelle fonction aussi, même gardé dans une variable à elle. Dans l'appli (simulée) : les messages vers l'appli, son état rendu par l'appli, l'image du Pi, la plus récente qui gagne, même quand elle arrive après la météo. La météo, avec et sans réseau, une faute de frappe, une ville tapée pendant que la météo d'une autre arrive. Une notification du téléphone passée par l'appli : le même bandeau que sur le Pi, et il réagit. Le Pixel de poche, sans bouton de voyage, avec les sens de l'appli (secoué, il a le tournis).
+- **Pixel sans Pi** (`test_local.js`, dans Chromium) : le fichier hors ligne de l'appli, ouvert en `file://` sans aucun accès au réseau, sur un téléphone en portrait puis en paysage. Aucune erreur, aucune requête, aucun WebSocket. Il vit et réagit au doigt ; aucune fausse donnée ; les écrans du Pi le disent et leurs touches restent éteintes, les commandes aussi ; Système montre le téléphone, et son Démarrage les pièces du téléphone ; les six thèmes ; le minuteur sonne. Après un rechargement, les réglages, l'humeur et le minuteur sont toujours là, et l'état d'une nouvelle fonction aussi, même gardé dans une variable à elle. Dans l'appli (simulée) : les messages vers l'appli, son état rendu par l'appli, l'image du Pi, la plus récente qui gagne, même quand elle arrive après la météo. La météo, avec et sans réseau, une faute de frappe, une ville tapée pendant que la météo d'une autre arrive. Une notification du téléphone passée par l'appli : le même bandeau que sur le Pi, et il réagit. Son caractère, ses repas et ses exos : repris de l'image du Pi (sa forme à lui), utilisés, gardés après un redémarrage ; son ventre après deux jours appli fermée (au pire un petit creux) ; le message `{panels}` et les panneaux ouverts depuis le menu de l'appli, même en mode Pixel. Le Pixel de poche, sans bouton de voyage, avec les sens de l'appli (secoué, il a le tournis), son assiette et son plateau.
 - **Caractère** (`test_caractere.py`, `test_caractere.js`) : les 15 caractères, les valeurs bornées et nettoyées (même 1e400 ou Infinity), le fichier gardé (même abîmé : le serveur démarre toujours), les commandes (et les phrases qui partent toujours à Claude, comme « parle-moi » ou « tu t'appelles vraiment Pixel »), l'outil et la consigne de Claude, la conversation gardée avec l'abonnement, les mêmes règles dans Pixel Lab, des noms de scènes qui ne prennent pas ceux des autres paquets. À 50 partout, exactement les mêmes scènes et les mêmes phrases, pour le même tirage au sort, que sans caractère dans l'état du serveur et que sans `caractere.js` du tout (et qu'avant la fonction, git d1451d5 : comparaison notée, qui compte avec `CARACTERE_STRICT=1`). Sur des centaines d'essais : un Pixel grognon s'énerve et boude plus (et plus longtemps), un câlin devient plus vite amoureux, un indépendant repousse les câlins, un bavard parle plus et un taiseux bien moins, un énergique vit plus souvent et plus vite, un blasé laisse passer des notifications ; mais quel que soit son caractère, ce que tu fais pour lui a toujours sa réponse, et « Il parle » éteint garde les rappels. Aussi : les heures calmes, son nom et ton surnom dans ses phrases, sa réaction à chaque changement, le panneau du téléphone (qui s'efface devant le Pixel de poche), l'écran du Pi et le panneau de Pixel Lab.
 - **Exos de maths** (`test_exos.py`, `test_exos.js`) : chaque type d'exo à chaque niveau (9 000 exercices) a sa bonne réponse parmi 4 choix différents, vérifiée en refaisant le calcul ; les erreurs classiques sont dans les choix ; la même graine donne le même exo. Le jeu, sur une fausse horloge : l'indice et le deuxième essai, la correction, une série, une table, le défi chrono, les niveaux qui montent, descendent ou restent fixes, l'objectif du jour, les trophées, l'exo oublié qui se range, le fichier `exos.json`. La réponse n'arrive jamais aux écrans avant que tu aies répondu. Un double appui, un écran en retard ou la même erreur deux fois ne coûtent jamais le deuxième essai ni ne répondent à la question suivante ; sa fête n'est pas coupée ; un `exos.json` abîmé ou d'une drôle de forme n'empêche pas Pixel de démarrer ; chaque correction explique. Les commandes (un nombre seul ne va à l'exo que s'il y en a un d'ouvert, et jamais à Claude pendant la correction ; `4 025` ; `encore` et `une autre` seulement pendant ou juste après un exo) et l'outil de Claude. Dans Chromium : l'écran du Pi dans les 6 thèmes (un double appui sur une réponse fausse, puis la bonne, et ses réactions), chaque réponse touchée jusqu'à son bord droit, le clavier, l'indice en touchant Pixel, son petit rappel, une série rapide où chaque réponse a sa scène, le bilan d'une série, les images par seconde, aucun moment de vie pendant un exo, sa proposition et le bouton **Oui !** ; le panneau du téléphone (réponses, double appui, pavé et sa touche **−**, le chrono arrêté quand le panneau se ferme, réglages, scores) et la barre de commande ; dans Pixel Lab, les mêmes règles.
-- **Les trois ensemble** (`test_perso.py`, `test_perso.js`) : les commandes de chacun vont au bon endroit (un nombre seul à l'exo ouvert seulement, les repas et le caractère pendant un exo), les trois outils de Claude côte à côte, sa consigne avec son caractère, l'état de Pixel avec son ventre et les exos du jour, jamais la réponse d'un exo ouvert ; gourmand, grognon et farceur (et l'humeur du jour) changent son ventre et ses repas, studieux ses questions et sa fête ; à 50, chaque scène des trois et du Pixel de poche pèse comme avant. Dans Chromium : sur l'écran du Pi, qui passe devant qui (une photo envoyée, imitée, le menu rapide, un exo, sa question, le plateau), un changement de caractère pendant un exo, en Rétro, LCD et Néon ; le Pixel de poche ; les trois boutons du téléphone et leurs panneaux ; dans Pixel Lab, les trois panneaux et les mêmes commandes que le serveur.
+- **Les trois ensemble** (`test_perso.py`, `test_perso.js`) : les commandes de chacun vont au bon endroit (un nombre seul à l'exo ouvert seulement, les repas et le caractère pendant un exo), les trois outils de Claude côte à côte, sa consigne avec son caractère, l'état de Pixel avec son ventre et les exos du jour, jamais la réponse d'un exo ouvert ; gourmand, grognon et farceur (et l'humeur du jour) changent son ventre et ses repas, studieux ses questions et sa fête ; à 50, chaque scène des trois et du Pixel de poche pèse comme avant. Dans Chromium : sur l'écran du Pi, qui passe devant qui (un vrai cast, le menu rapide, un exo, sa question, le plateau ; sous un cast, l'exo attend, ni le doigt ni le clavier n'y répondent, et il revient tel quel), un changement de caractère pendant un exo, en Rétro, LCD et Néon ; le Pixel de poche ; les trois boutons du téléphone et leurs panneaux ; dans Pixel Lab, les trois panneaux et les mêmes commandes que le serveur.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
@@ -646,27 +649,27 @@ python3 tests/test_pixel.py          # lance son propre serveur de démo sur le 
 python3 tests/test_real.py
 python3 tests/test_claude_loop.py
 python3 tests/test_abonnement.py
-python3 tests/test_agenda.py
+python3 tests/test_agenda.py         # ses agendas de test sur le port 8111 (AGENDA_PORT=… pour un autre)
 node tests/test_life.js
 node tests/test_pack.js
 node tests/test_persona.js
-python3 tests/test_poche.py
-node tests/test_poche.js             # il faut Playwright ; --shots DOSSIER pour les captures
-python3 tests/test_cast.py           # son propre serveur de démo sur le port 8104
+python3 tests/test_poche.py          # son serveur de démo sur le port 8144 (POCHE_PY_PORT=… pour un autre)
+node tests/test_poche.js             # il faut Playwright ; port 8143 (POCHE_PORT=…) ; --shots DOSSIER pour les captures
+python3 tests/test_cast.py           # son propre serveur de démo sur le port 8104 (CAST_PY_PORT=… pour un autre)
 node tests/test_cast.js
-python3 tests/test_youtube.py        # ses serveurs de démo sur les ports 8164 et 8165, avec un faux module YouTube
+python3 tests/test_youtube.py        # ses serveurs de démo sur les ports 8164 et 8165 (YOUTUBE_PY_PORT, YOUTUBE_PY_PORT_OFF), avec un faux module YouTube
 node tests/test_youtube.js
-node tests/test_youtube_e2e.js       # Playwright : un serveur de démo sur le port 8166, un faux lecteur YouTube
-node tests/test_youtube_lab.js       # Playwright : Pixel Lab sur le port 8163
-python3 tests/test_ecran.py          # son propre serveur de démo sur le port 8152 (et https sur 8158)
+node tests/test_youtube_e2e.js       # Playwright : un serveur de démo sur le port 8166 (YOUTUBE_E2E_PORT), un faux lecteur YouTube
+node tests/test_youtube_lab.js       # Playwright : Pixel Lab sur le port 8163 (YOUTUBE_LAB_PORT)
+python3 tests/test_ecran.py          # son propre serveur de démo sur le port 8152 (et https sur 8158) ; ECRAN_PY_PORT, ECRAN_HTTPS_PORT, ECRAN_TRAP_PORT
 node tests/test_ecran.js
-node tests/test_ecran_web.js         # Playwright : son serveur sur le port 8153, un faux ScreenStream sur 8154
+node tests/test_ecran_web.js         # Playwright : son serveur sur le port 8153, un faux ScreenStream sur 8154 ; ECRAN_WEB_PORT, ECRAN_MJPEG_PORT, ECRAN_EVIL_PORT
 python3 tests/test_airplay.py
-python3 tests/test_telephone.py
+python3 tests/test_telephone.py      # un serveur de démo sur le port 8146 (TELEPHONE_PORT)
 node tests/test_local.js             # Pixel sans Pi ; il faut Playwright ; --shots DOSSIER pour les captures
 python3 tests/test_caractere.py      # son propre serveur de démo sur le port 8163 (CARACTERE_PY_PORT pour un autre)
 node tests/test_caractere.js         # il faut Playwright ; port 8164 (CARACTERE_PORT) ; --shots DOSSIER pour les captures
-python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PORT=… pour un autre)
+python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PY_PORT=… pour un autre)
 node tests/test_nourrir.js           # port 8175 (NOURRIR_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures

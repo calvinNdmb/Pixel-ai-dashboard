@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pixel",
     "slug": "pixel",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.mopi.pixel",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#d9d2bd",
         "foregroundImage": "./assets/android-icon-foreground.png",
