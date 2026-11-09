@@ -65,7 +65,7 @@ Deux petites pièces de test, avant les grosses :
 6. **Les prises :** la nappe, la prise blanche avec ses fils et l'interrupteur ne doivent toucher nulle part (le dos est ouvert).
 
 Si ça ne va pas, change la cote en haut de `generate.py`, puis relance `python3 generate.py` et `python3 tools/verify.py`. Les tests et le vrai moniteur suivent ensemble :
-- **la vitre n'entre pas, ou elle flotte :** `SCR_W`, `SCR_H` (164,5 et 98,5), le jeu `SCR_CLR` (0,75), ou la hauteur des nervures `SCR_RIB` (0,6 : elles laissent 0,15 mm) ;
+- **la vitre n'entre pas, ou elle flotte :** `SCR_W`, `SCR_H` (164,5 et 98,5), le jeu `SCR_CLR` (0,75), ou la hauteur des nervures `SCR_RIB` (0,3 : elles laissent 0,45 mm) ;
 - **la carte dépasse du bord, ou reste loin dedans :** l'épaisseur vitre + carte → `SCR_T` (10). Les poteaux suivent ;
 - **la coupelle n'entre pas sur la bague, ou flotte :** le diamètre de la bague → `SCR_NUT_D` (5), ou celui de la coupelle → `SCR_CUP_D` (5,6) ;
 - **la coupelle touche la carte :** la hauteur de la bague → `SCR_NUT_H` (3) ;
@@ -197,7 +197,7 @@ Si une vérification échoue, la ligne dit ce qui touche quoi. Le moniteur suit 
   - le Pi 4 (prises USB comprises) avec ses fiches : Stream Deck, micro, USB-C et les 2 fils de l'écran ;
   - le module du Stream Deck, ses 15 touches, sa prise USB-C et la prise coudée ; le plateau en option avec un Stream Deck entier ;
   - en v2 : les boutons, les supports de LED, le haut-parleur, le ruban LED et la barre translucide.
-- **L'écran :** logement de 166 × 100 mm (comme le cadre de test qui passe), avec 8 nervures qui laissent 0,15 mm autour de la vitre. 12 mm libres derrière la carte, sauf aux 4 coins. Pas de vis dans l'écran, pas de ruban, pas de faux Pi.
+- **L'écran :** logement de 166 × 100 mm (comme le cadre de test qui passe), avec 8 nervures qui laissent 0,45 mm autour de la vitre. 12 mm libres derrière la carte, sauf aux 4 coins. Pas de vis dans l'écran, pas de ruban, pas de faux Pi.
 - **Les 4 poteaux :** une coupelle de 5,6 mm sur chaque bague (0,3 mm de jeu tout autour), qui l'enfonce de 0,3 mm. Le bord de la coupelle reste à 1,2 mm de la carte. Ils évitent la nappe, la prise blanche et ses fils, l'interrupteur et les entretoises, l'écran dans un sens ou dans l'autre. Ils sont nervurés et soudés aux parois de l'arrière (libres sur 2 mm seulement), et s'impriment sans support.
 - **L'arrière tient :** 4 vis dans 4 pattes du cadre. Le jeu des trous (0,15 mm) est plus petit que le serrage (0,3 mm) : les poteaux ne peuvent pas reculer.
 - **La fenêtre :** 160,5 × 93,5 mm, centrée et symétrique. L'image (154,5 × 86,5) est décalée de 2 mm sur la vitre : la fenêtre la montre entière avec au moins 1 mm de marge, que l'écran soit monté dans un sens ou dans l'autre (et même à l'envers en miroir). Le rebord tient la vitre tout autour : 2 mm sur les côtés, 2,5 mm en haut et en bas (les poteaux la plaquent dessus). Près de la fenêtre, il garde 1,3 mm d'épaisseur droite (pas d'arête coupante).
