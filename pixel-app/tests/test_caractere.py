@@ -61,10 +61,15 @@ out.merge = [K.apply(g, { traits: { grognon: 'x', calin: 80 } })[0].traits, K.ap
   K.apply(K.apply(g, { calme: { de: 21 } })[0], { calme: { de: 'x', a: null } })[1]];
 out.notice = [K.notice({ nom: 'Bip' }, { what: 'parle', value: false }), K.notice({ nom: 'Bip' }, { what: 'parle', value: true }), K.notice({ nom: 'Bip' }, null)];
 out.sur = [K.surMesure(K.clean({ traits: { calin: 55 } })), K.surMesure(K.clean({ traits: { studieux: 20 } })), K.surMesure(K.clean({ traits: { calin: 85 } }))];
+out.names = JSON.parse(process.argv[3]).map(n => K.cleanName(n, 16));
 console.log(JSON.stringify(out));
 """
     return json.loads(subprocess.check_output(["node", "-e", code, str(APP / "web" / "caractere.js"),
-                                               json.dumps([[t, st] for t, st, _ in PHRASES], ensure_ascii=False)], text=True))
+                                               json.dumps([[t, st] for t, st, _ in PHRASES], ensure_ascii=False), json.dumps(NAMES)], text=True))
+
+
+# names typed with accents written apart, vowel signs, emoji, letters beyond 16 bits: the Pi and the screens must agree
+NAMES = ["प्रिया", "Zoe\u0301", "Zoé", "שָׁלוֹם", "<b>Bip</b>\n", "_Lu_lu_", "Jean-Paul", "  .Max.  ", "😀Léo", "𝓐lice" + "x" * 30, "Ça\u200bva"]
 
 
 # what the review found, typed: (text, his state, what must happen: the caractere.set arguments, "claude", or "toast" (the list))
@@ -206,6 +211,10 @@ def rules():
                                                                     C.kind({**t50, "calin": 70, "grognon": 80}, {**t50, "grognon": 80})]
        and J["clean"] == C.clean({"traits": {"calin": 150, "grognon": -4, "bavard": "x", "foo": 3}, "nom": "  Bip<script> ", "surnom": "Max!!",
                                   "calme": {"de": 30, "a": -2}, "boude": "non", "parle": False}), json.dumps(J["clean"], ensure_ascii=False))
+    names = [C.clean_name(n, 16) for n in NAMES]
+    ok("names: the same on the Pi and the screens, accents and vowel signs kept (« प्रिया », « Zoé » typed as e + ´), at most 16 letters",
+       J["names"] == names and names[0] == "प्रिया" and names[1] == names[2] == "Zoé" and names[4] == "bBipb" and names[8] == "Léo" and len(names[9]) == 16,
+       json.dumps([names, J["names"]], ensure_ascii=False))
     return J
 
 
