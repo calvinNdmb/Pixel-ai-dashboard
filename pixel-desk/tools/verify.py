@@ -214,7 +214,8 @@ def screen_mount(parts, holder, y_lip, label, cx=0.0, cz=0.0, posts=None):
     x0, z0, x1, z1 = pocket.bounds
     pw, ph = g.scr_pocket()
     n_ribs = len(g.scr_ribs())
-    check(abs((x1 - x0) - pw) < 0.05 and abs((z1 - z0) - ph) < 0.05 and 0.05 <= gap <= 0.3 and n_ribs == 8,
+    # the gap: 0.15 mm was too tight on a real print (the frame had to flex), 0.45 lets the glass in and still centres it
+    check(abs((x1 - x0) - pw) < 0.05 and abs((z1 - z0) - ph) < 0.05 and 0.3 <= gap <= 0.6 and n_ribs == 8,
           f"{label}: the pocket centres the glass",
           f"{x1 - x0:.2f} x {z1 - z0:.2f} mm (glass + {g.SCR_CLR} mm, like the fit test), {n_ribs} ribs leave {gap:.2f} mm "
           f"to the glass")

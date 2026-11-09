@@ -94,8 +94,8 @@ TAKEUP_T = 1.0                                  # optional 1 mm felt / rubber do
 # Optional: double-sided foam tape between the black border and the lip (TAPE_T > 0 moves the glass back).
 TAPE_T = 0.0                                    # 0: the glass sits directly on the lip
 TAPE_GAP, TAPE_EDGE = 0.5, 0.5                  # tape strips: this far from the window edge and from the glass edge
-SCR_RIB = 0.6                                   # small ribs in the pocket walls centre the glass
-SCR_RIB_W = 3.0                                 # (they leave SCR_CLR - SCR_RIB = 0.15 mm all around)
+SCR_RIB = 0.3                                   # small ribs in the pocket walls centre the glass (0.6 was too tight on the print)
+SCR_RIB_W = 3.0                                 # (they leave SCR_CLR - SCR_RIB = 0.45 mm all around)
 SCR_RIBS = dict(x=[-50.0, 50.0], z=[-25.0, 25.0])   # rib positions on the top/bottom walls (X) and the sides (Z)
 # ScreenMountTest: the bezel's glass zone, cut short (quick print)
 SMT_LIP = 2.0                                   # lip in front of the tape (the real bezel's is FUNNEL deep)
