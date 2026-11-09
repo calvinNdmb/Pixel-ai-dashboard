@@ -24,9 +24,11 @@ function connect() {
     if (!opened && !kiosk) { L.error = "Pas d'accès : scanne le QR code dans Réglages, sur l'écran de Pixel."; toApp({ access: false }); }
     setTimeout(connect, retry = Math.min(retry * 2, 8000));
   };
+  if (POCHE) POCHE.watch(ws);                         // the Pixel de poche hears the snapshots, and whether the Pi answers
 }
 function send(action, args = {}) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action, args })); }
 Screens.setSend(send);
+const POCHE = window.PixelPoche ? window.PixelPoche.app({ send, kiosk }) : null;   // poche.js: the phone sideways becomes a second Pixel
 
 function show(screen) {
   if (!NAV.includes(screen)) return;
@@ -121,6 +123,7 @@ cv.addEventListener('pointerdown', e => { down = { ...Screens.toCanvas(e), t: pe
 cv.addEventListener('pointerup', e => {
   if (!down) return; const p = Screens.toCanvas(e), dx = p.x - down.x, dy = p.y - down.y, down0y = down.y; down = null;
   if (Screens.input()) return;
+  if (POCHE && POCHE.up(p)) return;                  // Pixel de poche: only his face, no swipe nor quick menu
   // swipe down opens the quick menu (from the top edge even while petting Pixel), swipe up closes it
   const vertical = Math.abs(dy) > 90 && Math.abs(dy) > 1.5 * Math.abs(dx), across = Math.abs(dx) > 90 && Math.abs(dx) > 2 * Math.abs(dy);
   if (Screens.menuOpen) { if ((vertical && dy < 0) || (across && dx > 0)) Screens.menu(false); else if (!vertical && Math.abs(dx) < 20 && Math.abs(dy) < 20) Screens.hit(p.x, p.y); return; }

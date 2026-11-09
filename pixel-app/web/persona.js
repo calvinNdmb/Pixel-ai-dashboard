@@ -271,6 +271,18 @@ const EVENTS = {
   weather: 'La météo change',           // data.kind: soleil, nuage, pluie, neige, orage
   typing: 'Tu écris au clavier',
   action: 'Une touche du Stream Deck ou une action du téléphone',   // data.name: the action (lights.set, timer.start...)
+  'jumeau-bonjour': 'Son jumeau de poche s’allume sur le téléphone',   // the two Pixels (web/poche.js, pixel/poche.py)
+  'jumeau-tape': 'On touche son jumeau, l’autre Pixel',              // data.ici: 'poche' on the phone, else the Pi
+  'jumeau-caresse': 'On caresse son jumeau, l’autre Pixel',          // data.ici: 'poche' on the phone, else the Pi
+  'jumeau-secoue': 'On secoue son jumeau de poche',
+  'poche-allume': 'Pixel de poche : il apparaît sur le téléphone',
+  'poche-secousse': 'Pixel de poche : on secoue le téléphone',
+  'poche-glisse': 'Pixel de poche : on penche fort le téléphone',      // data.side: -1 left, 1 right
+  'poche-batterie': 'Pixel de poche : la batterie est faible',          // data.level: %
+  'poche-recharge': 'Pixel de poche : le téléphone se recharge',
+  'poche-loin': 'Pixel de poche : le Pi ne répond plus',
+  'poche-maison': 'Pixel de poche : le Pi répond à nouveau',
+  'poche-revoila': 'Pixel de poche : le téléphone ressort de la poche',
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the
