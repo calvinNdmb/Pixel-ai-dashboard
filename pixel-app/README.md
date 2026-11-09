@@ -208,6 +208,150 @@ Tape `humeur triste`, `humeur fier`… pour en voir une. Sur le Stream Deck, la 
 
 ![Les écrans dans les 6 thèmes](preview-themes-screens.png)
 
+## Taper au clavier
+
+Il y a trois façons d'écrire :
+
+- **Sur ton ordinateur :** ouvre l'appli et tape directement, ça écrit dans la barre `C:\PIXEL>`. Les flèches ← et → changent d'écran.
+- **Sur ton téléphone :** touche la barre `C:\PIXEL>`, le clavier du téléphone s'ouvre.
+- **Sur Pixel lui-même :** touche la barre, ou la touche **Clavier** du Stream Deck. Un clavier AZERTY s'affiche sur l'écran tactile. Un clavier Bluetooth marche aussi : le Pi 4 a le Bluetooth, donc il n'ajoute pas de câble.
+
+Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça part à Claude.
+
+| Tu tapes | Ça fait |
+| --- | --- |
+| `salon 40` | met le salon à 40 % |
+| `allume bureau`, `éteins cuisine`, `chambre off` | allume ou éteint une pièce |
+| `éteins tout`, `allume tout` | toutes les pièces |
+| `scène film` | lance une scène Hue |
+| `minuteur 10`, `pause` | lance un minuteur de 10 minutes, le met en pause |
+| `codex corrige le test qui échoue` | lance une tâche Codex |
+| `météo`, `agenda`, `système`… | ouvre cet écran |
+| `humeur content`, `humeur triste`, `humeur fâché`… | change l'humeur du visage |
+| `thème néon`, `thème croquis`, `thème lcd`, `thème rétro`… | change le style de l'écran |
+| `thème suivant`, `thème précédent` | passe au thème d'après, ou d'avant |
+| `anim danse`, `animation fou rire`, `danse`, `coucou`… | joue une des 52 animations |
+| `animations` | affiche la liste des animations |
+| `fais le poisson`, `fais la sieste`, `joue la toupie`… | un de ses moments de vie (voir « Sa personnalité ») |
+| `scènes` | affiche ses moments de vie |
+| `visage vivant`, `visage pack` | change de visage |
+| `aide` | affiche la liste des commandes |
+| n'importe quoi d'autre | c'est envoyé à Claude, par exemple « baisse un peu les lumières, je regarde un film » |
+
+## Le Stream Deck
+
+- **Rangées 1 et 2 :** les 10 écrans.
+- **Rangée 3 (en couleur) :** des actions qui changent selon l'écran. Par exemple : humeurs, *Anim +* et *Humeur +* sur Visage, scènes sur Lumières, *Pause café* sur Minuteur, *Clavier* sur Claude, *Thème −* et *Thème +* sur Réglages.
+- **Dessin des touches :** aux couleurs et avec la police du thème. L'écran ouvert est mis en valeur.
+
+## Sur ton téléphone
+
+1. Sur l'écran de Pixel, glisse vers la gauche sur son visage (ou ouvre **Réglages**), puis scanne le QR code. Il contient le code d'accès.
+2. Dans le navigateur, choisis **Ajouter à l'écran d'accueil**. Pixel s'ouvre alors comme une appli.
+3. Le bouton **Miroir de Pixel** :
+   - allumé, ton téléphone montre et change l'écran de Pixel ;
+   - éteint, tu navigues de ton côté sans changer l'écran de Pixel.
+4. Sous les touches, **Caractère**, **Nourrir** et **Exos** ouvrent leurs panneaux (voir [Le personnaliser](#le-personnaliser)).
+
+**L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/)) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
+- Pose l'APK dans le dossier de données de Pixel, sous le nom `~/.config/pixel/pixel.apk`. Dans Chrome sur Android, un lien **Appli Android** apparaît alors sous le clavier.
+- Au premier lancement, l'appli scanne le QR code de Pixel, puis s'en souvient.
+
+L'appli marche sur ton Wi-Fi, en IPv4 comme en IPv6 : un téléphone trouve souvent `pixel.local` par son adresse IPv6. Pixel ne répond qu'aux appareils de la maison, même si ta box laisse passer l'IPv6 depuis Internet. Sans le code d'accès, un autre appareil du réseau voit la page mais ne peut rien faire.
+
+![Sur un téléphone](preview-phone.png)
+
+## Pixel de poche
+
+**Tourne ton téléphone en mode paysage** : l'appli devient un deuxième Pixel, comme un petit animal dans ta poche. C'est le même Pixel que sur l'écran du Pi : même thème (Rétro par défaut), mêmes 52 animations, même personnalité et toutes ses scènes. Il reçoit les mêmes nouvelles : notifications, Codex, minuteur, météo, lumières. Remets le téléphone droit et tu retrouves la télécommande. C'est le téléphone lui-même qu'il faut tourner : un écran partagé ou le clavier qui s'ouvre ne le font pas apparaître.
+
+Sur une tablette, ou si la rotation de ton téléphone est bloquée, touche **Pixel de poche** sous l'écran de Pixel. Le bouton **×**, en haut à gauche, ramène la télécommande.
+
+**Comme sur le Pi**, il réagit à ton doigt : les yeux, la tête, la bouche, les côtés. Tapote-le plusieurs fois de suite, il s'énerve. Caresse-le du doigt, ou **appuie longtemps** dessus : c'est un câlin.
+
+**Et en plus, il sent le téléphone :**
+- **secoue-le** : il a le tournis (« Je suis pas un cocktail ! ») ;
+- **penche-le** : il glisse vers le bas et se penche pour rester droit ; très penché, « Wooo, ça glisse ! » ;
+- **sors-le de ta poche**, ou reprends le téléphone posé depuis un moment : « Il faisait tout noir dans ta poche ! » ;
+- **la batterie du téléphone** à 15 % puis à 5 % : « Branche-moi ! » ; branché : « Miam, de l'électricité ! » (Android seulement, l'iPhone ne donne pas sa batterie à une page) ;
+- **loin de la maison** (le Pi ne répond plus) : il continue de vivre sur le téléphone et dit qu'il ne capte plus la maison ; dès que le Pi répond, il se reconnecte tout seul. Si le téléphone a fermé la page entre-temps, elle ne se rouvre sans le Pi que sur une adresse en https : le téléphone garde alors l'appli et le dernier état de Pixel. En http, il faut la rouvrir à la maison.
+
+**Ses sens demandent une adresse en https.** Un téléphone ne donne ses mouvements (secouer, pencher), sa batterie et « l'écran reste allumé » qu'à une page sûre : en https, ou ouverte sur l'appareil lui-même. Sur l'adresse habituelle de Pixel, en http, le Pixel de poche vit quand même, réagit au doigt et aux câlins, connaît son jumeau et fait le voyage, mais il ne sent pas le téléphone ; il le dit une fois, en bas de l'écran. Dans l'appli Android, l'écran reste allumé même en http : c'est l'appli qui s'en charge. Pour tout avoir, ouvre Pixel par une adresse en https dont le téléphone accepte le certificat.
+
+**Les deux Pixels se connaissent.** Caresse celui du téléphone : celui du Pi est jaloux (« Hé ! Tu caresses l'autre ?! »). Touche-le ou secoue-le : celui du Pi s'inquiète pour son jumeau. Quand tu allumes le Pixel de poche, celui du Pi lui fait coucou. Et dans l'autre sens, si on touche ou caresse le Pixel du Pi, celui de ta poche le remarque.
+
+**Le voyage :** le bouton **Viens !**, en haut à droite, fait venir Pixel dans ton téléphone. Sur le Pi, il prend sa valise et sort de l'écran ; sur le téléphone, son jumeau lui laisse la place et il arrive. Il reste une minute, puis rentre à la maison. **Rentre !** le renvoie plus tôt, et toucher l'écran vide du Pi le rappelle aussi.
+
+**Le téléphone :**
+- l'écran reste allumé tant que Pixel est réveillé (en https, ou dans l'appli Android). S'il s'endort (10 minutes sans le toucher, comme sur le Pi), le téléphone peut se mettre en veille ;
+- sur Android, la première touche le met en plein écran ; avec le bouton **Pixel de poche**, il reste en paysage. Un iPhone ne permet ni l'un ni l'autre à une page : tourne-le simplement ;
+- sur iPhone, la première touche demande la permission d'utiliser les mouvements (secouer, pencher) ;
+- l'image est nette, à la densité de pixels du téléphone ; les côtés prennent le fond du thème ; pas de défilement ni de zoom ;
+- il reste muet. Pour essayer ses bips quand même, ouvre l'appli avec `?son=1` au bout de l'adresse.
+
+Dans Pixel Lab, le panneau **Pixel de poche** montre le téléphone en paysage, et ses boutons font comme si on secouait, penchait ou caressait l'un ou l'autre des deux Pixels.
+
+<!-- personnaliser -->
+## Le personnaliser
+
+Trois façons de faire de Pixel *ton* Pixel. Sur ton téléphone, sous les touches : **Caractère**, **Nourrir** et **Exos**, côte à côte.
+
+- **Son caractère** : câlin, grognon, farceur, gourmand, petit prof… ou huit curseurs. Tape `sois grognon`, `plus câlin`, `appelle-toi Bip`.
+- **Le nourrir** : son ventre se vide dans la journée, donne-lui un des 24 plats. Tape `mange une pomme`, `tu as faim ?`, `à table !`.
+- **Les exos de maths** : il te pose des questions, du CP au collège. Tape `exo`, `table de 7`, `défi chrono`, puis ta réponse (`42`).
+
+**Les trois marchent ensemble :**
+
+| Son caractère | Ce que ça change |
+| --- | --- |
+| Gourmand | Son ventre se vide plus vite, il a encore de la place quand un autre serait plein, il pense plus souvent à manger, et après un bon plat il en redemande (« Encore ! Il en reste ? »). Petit appétit : l'inverse (« Merci, ça me suffit. »). |
+| Grognon (70 et plus) | Il refuse ce qu'il n'aime pas (« Non. Pas ça. ») au lieu de le manger en grimaçant. |
+| Farceur | Il rote plus souvent après manger. |
+| Studieux | Il te propose plus souvent « Une petite question ? » (si tu l'as permis dans **Exos**), et fait plus souvent un feu d'artifice quand tu as juste. |
+| Tous | Ses scènes de repas et d'exos suivent son caractère, comme toutes les autres, celles du Pixel de poche aussi. Avec l'**humeur du jour**, son appétit bouge un peu chaque jour, comme le reste. |
+
+À 50 partout, rien ne change : c'est le Pixel de tous les jours.
+
+**Sur l'écran du Pi, une chose à la fois.** Du plus fort au moins fort : ce que tu envoies sur son écran (une photo, une vidéo, quand cette fonction sera là), le menu rapide, un exo ouvert, sa question « Une petite question ? », puis l'assiette et le plateau des repas. Ce qui passe derrière attend et revient après : l'assiette se range pendant un exo, il ne réclame pas à manger au milieu d'un exo, et il ne te pose pas de question quand le plateau est ouvert.
+
+**Les commandes ne se marchent pas dessus.** Un nombre seul (`42`) va à l'exo ouvert ; sans exo, il part à Claude, comme avant. Pendant un exo, `mange une pomme`, `tu as faim ?` ou `sois grognon` marchent toujours. Tape `aide` : la liste donne une commande de chacun.
+
+**Avec Claude :** il connaît son caractère, et il voit son ventre et tes exos du jour quand il lit l'état de Pixel. Il peut changer son caractère, le faire manger et lancer un exo. Si un exo est ouvert, il sait qu'il ne doit pas donner la réponse ; il peut te donner un indice.
+<!-- fin de le personnaliser -->
+
+## Son caractère
+
+Tu peux changer le caractère de Pixel : câlin, grognon, farceur, timide… Et ça change vraiment ce qu'il fait.
+
+**Pour le régler**, sur ton téléphone, touche **Caractère** sous les touches. Tu y trouves :
+- **15 caractères tout prêts**, chacun avec sa phrase : Pixel (équilibré), Câlin, Grognon, Farceur, Timide, Bavard, Paresseux, Pile électrique, Gourmand, Petit prof, Rêveur, Curieux, Zen, Indépendant, et **Surprise**, tiré au hasard ;
+- **les réglages fins** : huit curseurs de 0 à 100. Indépendant ↔ Câlin, Patient ↔ Grognon, Taiseux ↔ Bavard, Sérieux ↔ Farceur, Calme ↔ Énergique, Blasé ↔ Curieux, Petit appétit ↔ Gourmand, Pas scolaire ↔ Studieux. À 50 partout, c'est exactement le Pixel de toujours ;
+- **son nom** (Pixel au départ) et **comment il t'appelle** (rien au départ) ;
+- **ses habitudes** : l'humeur du jour (ses traits bougent un peu chaque jour), s'il peut bouder, s'il parle (éteint, il ne bavarde plus, mais les rappels d'agenda, les nouvelles et ses réponses s'affichent toujours), et ses heures calmes (de 23 h à 6 h au départ) ;
+- **Essayer**, qui lui fait jouer une scène typique de son caractère, et **Réinitialiser** (touche deux fois), qui le remet comme au premier jour.
+
+Le choix est gardé au redémarrage (fichier `caractere.json` dans le dossier de données). Le Pixel du Pi et le Pixel de poche ont le même caractère.
+
+| Trait | Ce qu'il fait |
+| --- | --- |
+| Grognon | Il s'énerve plus vite quand tu l'embêtes, boude plus souvent et plus longtemps, ronchonne parfois à la première tape et rouspète tout seul. Patient : l'inverse. |
+| Câlin | Chaque câlin compte double : il devient vite tout amoureux et te fait de gros câlins. Indépendant : il repousse parfois tes câlins (« Ça va, ça va… »). |
+| Bavard | Plus de bulles, et des histoires. Taiseux : il ne dit presque rien. |
+| Farceur | Plus de rires, de grimaces et de farces, comme la fausse panne « Pixel.exe ne répond pas ». Sérieux : moins de pitreries. |
+| Énergique | Il vit sa vie plus souvent, bouge plus vite et saute partout. Calme : il s'étale et fait la sieste (« Trop la flemme »). |
+| Curieux | Il enquête avec sa loupe et répond à tout. Blasé : il laisse passer une bonne partie des nouvelles du monde (notifications, météo, lumières, Codex). Ce que tu fais pour lui (le minuteur, son jumeau, le nourrir, un exercice…) a toujours sa réponse. |
+| Gourmand, Studieux | Il rêve de gâteaux ; il fait des calculs au tableau, avec ses lunettes. |
+
+Toutes ses scènes suivent son caractère, celles des autres paquets aussi : il choisit plus souvent celles qui lui ressemblent.
+
+**Quand tu changes son caractère, il le montre** : une couronne pour le grognon (« Pff… c'est qui le chef ? »), une ronde de cœurs pour le câlin, des lunettes et un tableau pour le petit prof, un dé pour Surprise, une étiquette « Je m'appelle Bip » pour son nouveau nom…
+
+**En tapant :** `sois grognon`, `caractère câlin`, `caractère surprise`, `caractère normal`, `plus câlin`, `moins bavard`, `un peu plus farceur`, `appelle-toi Bip`, `appelle-moi Max`, `oublie mon surnom`, `tais-toi`, `tu peux parler`. `caractère` (ou `caractère ?`) affiche la liste. Une phrase qui ne change rien (`tu peux parler` quand il parle déjà) ou qui ressemble à une conversation (`tu t'appelles vraiment Pixel ?`) va à Claude, comme avant.
+
+**Avec Claude :** il connaît son caractère, son nom et ton surnom, et répond avec (grognon veut dire râleur mais gentil). Demande-lui « sois plus câlin » ou « appelle-toi Bip » : il peut le changer lui-même. Avec l'abonnement Claude, un changement de caractère ne coupe pas la conversation : Claude l'apprend au message suivant.
+
+Dans Pixel Lab, le panneau **Caractère** fait la même chose.
+
 ## Nourrir Pixel
 
 Pixel a un **ventre**. Il se vide doucement pendant la journée, et tu peux le nourrir : il mange sur son écran, avec ses goûts à lui. C'est un petit animal de compagnie gentil : il ne tombe jamais malade, il ne meurt jamais et il ne te fait pas de reproches. Au pire, il a un petit creux et il te le dit.
@@ -270,120 +414,6 @@ python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8
 node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots DOSSIER pour les captures
 ```
 
-## Taper au clavier
-
-Il y a trois façons d'écrire :
-
-- **Sur ton ordinateur :** ouvre l'appli et tape directement, ça écrit dans la barre `C:\PIXEL>`. Les flèches ← et → changent d'écran.
-- **Sur ton téléphone :** touche la barre `C:\PIXEL>`, le clavier du téléphone s'ouvre.
-- **Sur Pixel lui-même :** touche la barre, ou la touche **Clavier** du Stream Deck. Un clavier AZERTY s'affiche sur l'écran tactile. Un clavier Bluetooth marche aussi : le Pi 4 a le Bluetooth, donc il n'ajoute pas de câble.
-
-Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça part à Claude.
-
-| Tu tapes | Ça fait |
-| --- | --- |
-| `salon 40` | met le salon à 40 % |
-| `allume bureau`, `éteins cuisine`, `chambre off` | allume ou éteint une pièce |
-| `éteins tout`, `allume tout` | toutes les pièces |
-| `scène film` | lance une scène Hue |
-| `minuteur 10`, `pause` | lance un minuteur de 10 minutes, le met en pause |
-| `codex corrige le test qui échoue` | lance une tâche Codex |
-| `météo`, `agenda`, `système`… | ouvre cet écran |
-| `humeur content`, `humeur triste`, `humeur fâché`… | change l'humeur du visage |
-| `thème néon`, `thème croquis`, `thème lcd`, `thème rétro`… | change le style de l'écran |
-| `thème suivant`, `thème précédent` | passe au thème d'après, ou d'avant |
-| `anim danse`, `animation fou rire`, `danse`, `coucou`… | joue une des 52 animations |
-| `animations` | affiche la liste des animations |
-| `fais le poisson`, `fais la sieste`, `joue la toupie`… | un de ses moments de vie (voir « Sa personnalité ») |
-| `scènes` | affiche ses moments de vie |
-| `visage vivant`, `visage pack` | change de visage |
-| `aide` | affiche la liste des commandes |
-| n'importe quoi d'autre | c'est envoyé à Claude, par exemple « baisse un peu les lumières, je regarde un film » |
-
-## Le Stream Deck
-
-- **Rangées 1 et 2 :** les 10 écrans.
-- **Rangée 3 (en couleur) :** des actions qui changent selon l'écran. Par exemple : humeurs, *Anim +* et *Humeur +* sur Visage, scènes sur Lumières, *Pause café* sur Minuteur, *Clavier* sur Claude, *Thème −* et *Thème +* sur Réglages.
-- **Dessin des touches :** aux couleurs et avec la police du thème. L'écran ouvert est mis en valeur.
-
-## Sur ton téléphone
-
-1. Sur l'écran de Pixel, glisse vers la gauche sur son visage (ou ouvre **Réglages**), puis scanne le QR code. Il contient le code d'accès.
-2. Dans le navigateur, choisis **Ajouter à l'écran d'accueil**. Pixel s'ouvre alors comme une appli.
-3. Le bouton **Miroir de Pixel** :
-   - allumé, ton téléphone montre et change l'écran de Pixel ;
-   - éteint, tu navigues de ton côté sans changer l'écran de Pixel.
-
-**L'appli Android** (projet Expo [`pixel-mobile`](../pixel-mobile/)) est une vraie appli plein écran, avec les modes **Pixel**, **Clavier** et **Les deux**. En mode Pixel, l'écran du téléphone reste allumé.
-- Pose l'APK dans le dossier de données de Pixel, sous le nom `~/.config/pixel/pixel.apk`. Dans Chrome sur Android, un lien **Appli Android** apparaît alors sous le clavier.
-- Au premier lancement, l'appli scanne le QR code de Pixel, puis s'en souvient.
-
-L'appli marche sur ton Wi-Fi, en IPv4 comme en IPv6 : un téléphone trouve souvent `pixel.local` par son adresse IPv6. Pixel ne répond qu'aux appareils de la maison, même si ta box laisse passer l'IPv6 depuis Internet. Sans le code d'accès, un autre appareil du réseau voit la page mais ne peut rien faire.
-
-![Sur un téléphone](preview-phone.png)
-
-## Pixel de poche
-
-**Tourne ton téléphone en mode paysage** : l'appli devient un deuxième Pixel, comme un petit animal dans ta poche. C'est le même Pixel que sur l'écran du Pi : même thème (Rétro par défaut), mêmes 52 animations, même personnalité et toutes ses scènes. Il reçoit les mêmes nouvelles : notifications, Codex, minuteur, météo, lumières. Remets le téléphone droit et tu retrouves la télécommande. C'est le téléphone lui-même qu'il faut tourner : un écran partagé ou le clavier qui s'ouvre ne le font pas apparaître.
-
-Sur une tablette, ou si la rotation de ton téléphone est bloquée, touche **Pixel de poche** sous l'écran de Pixel. Le bouton **×**, en haut à gauche, ramène la télécommande.
-
-**Comme sur le Pi**, il réagit à ton doigt : les yeux, la tête, la bouche, les côtés. Tapote-le plusieurs fois de suite, il s'énerve. Caresse-le du doigt, ou **appuie longtemps** dessus : c'est un câlin.
-
-**Et en plus, il sent le téléphone :**
-- **secoue-le** : il a le tournis (« Je suis pas un cocktail ! ») ;
-- **penche-le** : il glisse vers le bas et se penche pour rester droit ; très penché, « Wooo, ça glisse ! » ;
-- **sors-le de ta poche**, ou reprends le téléphone posé depuis un moment : « Il faisait tout noir dans ta poche ! » ;
-- **la batterie du téléphone** à 15 % puis à 5 % : « Branche-moi ! » ; branché : « Miam, de l'électricité ! » (Android seulement, l'iPhone ne donne pas sa batterie à une page) ;
-- **loin de la maison** (le Pi ne répond plus) : il continue de vivre sur le téléphone et dit qu'il ne capte plus la maison ; dès que le Pi répond, il se reconnecte tout seul. Si le téléphone a fermé la page entre-temps, elle ne se rouvre sans le Pi que sur une adresse en https : le téléphone garde alors l'appli et le dernier état de Pixel. En http, il faut la rouvrir à la maison.
-
-**Ses sens demandent une adresse en https.** Un téléphone ne donne ses mouvements (secouer, pencher), sa batterie et « l'écran reste allumé » qu'à une page sûre : en https, ou ouverte sur l'appareil lui-même. Sur l'adresse habituelle de Pixel, en http, le Pixel de poche vit quand même, réagit au doigt et aux câlins, connaît son jumeau et fait le voyage, mais il ne sent pas le téléphone ; il le dit une fois, en bas de l'écran. Dans l'appli Android, l'écran reste allumé même en http : c'est l'appli qui s'en charge. Pour tout avoir, ouvre Pixel par une adresse en https dont le téléphone accepte le certificat.
-
-**Les deux Pixels se connaissent.** Caresse celui du téléphone : celui du Pi est jaloux (« Hé ! Tu caresses l'autre ?! »). Touche-le ou secoue-le : celui du Pi s'inquiète pour son jumeau. Quand tu allumes le Pixel de poche, celui du Pi lui fait coucou. Et dans l'autre sens, si on touche ou caresse le Pixel du Pi, celui de ta poche le remarque.
-
-**Le voyage :** le bouton **Viens !**, en haut à droite, fait venir Pixel dans ton téléphone. Sur le Pi, il prend sa valise et sort de l'écran ; sur le téléphone, son jumeau lui laisse la place et il arrive. Il reste une minute, puis rentre à la maison. **Rentre !** le renvoie plus tôt, et toucher l'écran vide du Pi le rappelle aussi.
-
-**Le téléphone :**
-- l'écran reste allumé tant que Pixel est réveillé (en https, ou dans l'appli Android). S'il s'endort (10 minutes sans le toucher, comme sur le Pi), le téléphone peut se mettre en veille ;
-- sur Android, la première touche le met en plein écran ; avec le bouton **Pixel de poche**, il reste en paysage. Un iPhone ne permet ni l'un ni l'autre à une page : tourne-le simplement ;
-- sur iPhone, la première touche demande la permission d'utiliser les mouvements (secouer, pencher) ;
-- l'image est nette, à la densité de pixels du téléphone ; les côtés prennent le fond du thème ; pas de défilement ni de zoom ;
-- il reste muet. Pour essayer ses bips quand même, ouvre l'appli avec `?son=1` au bout de l'adresse.
-
-Dans Pixel Lab, le panneau **Pixel de poche** montre le téléphone en paysage, et ses boutons font comme si on secouait, penchait ou caressait l'un ou l'autre des deux Pixels.
-
-## Son caractère
-
-Tu peux changer le caractère de Pixel : câlin, grognon, farceur, timide… Et ça change vraiment ce qu'il fait.
-
-**Pour le régler**, sur ton téléphone, touche **Caractère** sous les touches. Tu y trouves :
-- **15 caractères tout prêts**, chacun avec sa phrase : Pixel (équilibré), Câlin, Grognon, Farceur, Timide, Bavard, Paresseux, Pile électrique, Gourmand, Petit prof, Rêveur, Curieux, Zen, Indépendant, et **Surprise**, tiré au hasard ;
-- **les réglages fins** : huit curseurs de 0 à 100. Indépendant ↔ Câlin, Patient ↔ Grognon, Taiseux ↔ Bavard, Sérieux ↔ Farceur, Calme ↔ Énergique, Blasé ↔ Curieux, Petit appétit ↔ Gourmand, Pas scolaire ↔ Studieux. À 50 partout, c'est exactement le Pixel de toujours ;
-- **son nom** (Pixel au départ) et **comment il t'appelle** (rien au départ) ;
-- **ses habitudes** : l'humeur du jour (ses traits bougent un peu chaque jour), s'il peut bouder, s'il parle (éteint, il ne bavarde plus, mais les rappels d'agenda, les nouvelles et ses réponses s'affichent toujours), et ses heures calmes (de 23 h à 6 h au départ) ;
-- **Essayer**, qui lui fait jouer une scène typique de son caractère, et **Réinitialiser** (touche deux fois), qui le remet comme au premier jour.
-
-Le choix est gardé au redémarrage (fichier `caractere.json` dans le dossier de données). Le Pixel du Pi et le Pixel de poche ont le même caractère.
-
-| Trait | Ce qu'il fait |
-| --- | --- |
-| Grognon | Il s'énerve plus vite quand tu l'embêtes, boude plus souvent et plus longtemps, ronchonne parfois à la première tape et rouspète tout seul. Patient : l'inverse. |
-| Câlin | Chaque câlin compte double : il devient vite tout amoureux et te fait de gros câlins. Indépendant : il repousse parfois tes câlins (« Ça va, ça va… »). |
-| Bavard | Plus de bulles, et des histoires. Taiseux : il ne dit presque rien. |
-| Farceur | Plus de rires, de grimaces et de farces, comme la fausse panne « Pixel.exe ne répond pas ». Sérieux : moins de pitreries. |
-| Énergique | Il vit sa vie plus souvent, bouge plus vite et saute partout. Calme : il s'étale et fait la sieste (« Trop la flemme »). |
-| Curieux | Il enquête avec sa loupe et répond à tout. Blasé : il laisse passer une bonne partie des nouvelles du monde (notifications, météo, lumières, Codex). Ce que tu fais pour lui (le minuteur, son jumeau, le nourrir, un exercice…) a toujours sa réponse. |
-| Gourmand, Studieux | Il rêve de gâteaux ; il fait des calculs au tableau, avec ses lunettes. |
-
-Toutes ses scènes suivent son caractère, celles des autres paquets aussi : il choisit plus souvent celles qui lui ressemblent.
-
-**Quand tu changes son caractère, il le montre** : une couronne pour le grognon (« Pff… c'est qui le chef ? »), une ronde de cœurs pour le câlin, des lunettes et un tableau pour le petit prof, un dé pour Surprise, une étiquette « Je m'appelle Bip » pour son nouveau nom…
-
-**En tapant :** `sois grognon`, `caractère câlin`, `caractère surprise`, `caractère normal`, `plus câlin`, `moins bavard`, `un peu plus farceur`, `appelle-toi Bip`, `appelle-moi Max`, `oublie mon surnom`, `tais-toi`, `tu peux parler`. `caractère` (ou `caractère ?`) affiche la liste. Une phrase qui ne change rien (`tu peux parler` quand il parle déjà) ou qui ressemble à une conversation (`tu t'appelles vraiment Pixel ?`) va à Claude, comme avant.
-
-**Avec Claude :** il connaît son caractère, son nom et ton surnom, et répond avec (grognon veut dire râleur mais gentil). Demande-lui « sois plus câlin » ou « appelle-toi Bip » : il peut le changer lui-même. Avec l'abonnement Claude, un changement de caractère ne coupe pas la conversation : Claude l'apprend au message suivant.
-
-Dans Pixel Lab, le panneau **Caractère** fait la même chose.
 <!-- exos de maths -->
 ## Les exos de maths
 
@@ -542,6 +572,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Pixel de poche** (`test_poche.js`, dans Chromium) : en paysage, sur un Pixel 7 et un iPhone 14 simulés, il s'affiche en plein écran, net et sans erreur dans les 6 thèmes ; l'écran reste allumé ; une tape le fait réagir, un appui long le câline ; secoué, penché, sa batterie, le Pi arrêté puis relancé (et la page rechargée sans le Pi), la sortie de la poche ; en portrait, la télécommande revient ; ni un écran partagé, ni le clavier, ni un aller-retour rapide ne le font apparaître. L'iPhone est imité dans Chromium (pas de plein écran, la permission des mouvements seulement sur une touche, ses axes à l'envers, `window.orientation`). Une adresse en http sans aucune imitation : il vit sans les sens du téléphone et le dit ; dans l'appli Android, il lui demande de garder l'écran allumé. À côté, l'écran du Pi : le Pixel jaloux, le jumeau qui remarque, le voyage aller et retour. Et le cadre de Pixel Lab. `test_poche.py` vérifie les actions `poche.touch` et `poche.voyage` du serveur.
 - **Caractère** (`test_caractere.py`, `test_caractere.js`) : les 15 caractères, les valeurs bornées et nettoyées (même 1e400 ou Infinity), le fichier gardé (même abîmé : le serveur démarre toujours), les commandes (et les phrases qui partent toujours à Claude, comme « parle-moi » ou « tu t'appelles vraiment Pixel »), l'outil et la consigne de Claude, la conversation gardée avec l'abonnement, les mêmes règles dans Pixel Lab, des noms de scènes qui ne prennent pas ceux des autres paquets. À 50 partout, exactement les mêmes scènes et les mêmes phrases, pour le même tirage au sort, que sans caractère dans l'état du serveur et que sans `caractere.js` du tout (et qu'avant la fonction, git d1451d5 : comparaison notée, qui compte avec `CARACTERE_STRICT=1`). Sur des centaines d'essais : un Pixel grognon s'énerve et boude plus (et plus longtemps), un câlin devient plus vite amoureux, un indépendant repousse les câlins, un bavard parle plus et un taiseux bien moins, un énergique vit plus souvent et plus vite, un blasé laisse passer des notifications ; mais quel que soit son caractère, ce que tu fais pour lui a toujours sa réponse, et « Il parle » éteint garde les rappels. Aussi : les heures calmes, son nom et ton surnom dans ses phrases, sa réaction à chaque changement, le panneau du téléphone (qui s'efface devant le Pixel de poche), l'écran du Pi et le panneau de Pixel Lab.
 - **Exos de maths** (`test_exos.py`, `test_exos.js`) : chaque type d'exo à chaque niveau (9 000 exercices) a sa bonne réponse parmi 4 choix différents, vérifiée en refaisant le calcul ; les erreurs classiques sont dans les choix ; la même graine donne le même exo. Le jeu, sur une fausse horloge : l'indice et le deuxième essai, la correction, une série, une table, le défi chrono, les niveaux qui montent, descendent ou restent fixes, l'objectif du jour, les trophées, l'exo oublié qui se range, le fichier `exos.json`. La réponse n'arrive jamais aux écrans avant que tu aies répondu. Un double appui, un écran en retard ou la même erreur deux fois ne coûtent jamais le deuxième essai ni ne répondent à la question suivante ; sa fête n'est pas coupée ; un `exos.json` abîmé ou d'une drôle de forme n'empêche pas Pixel de démarrer ; chaque correction explique. Les commandes (un nombre seul ne va à l'exo que s'il y en a un d'ouvert, et jamais à Claude pendant la correction ; `4 025` ; `encore` et `une autre` seulement pendant ou juste après un exo) et l'outil de Claude. Dans Chromium : l'écran du Pi dans les 6 thèmes (un double appui sur une réponse fausse, puis la bonne, et ses réactions), chaque réponse touchée jusqu'à son bord droit, le clavier, l'indice en touchant Pixel, son petit rappel, une série rapide où chaque réponse a sa scène, le bilan d'une série, les images par seconde, aucun moment de vie pendant un exo, sa proposition et le bouton **Oui !** ; le panneau du téléphone (réponses, double appui, pavé et sa touche **−**, le chrono arrêté quand le panneau se ferme, réglages, scores) et la barre de commande ; dans Pixel Lab, les mêmes règles.
+- **Les trois ensemble** (`test_perso.py`, `test_perso.js`) : les commandes de chacun vont au bon endroit (un nombre seul à l'exo ouvert seulement, les repas et le caractère pendant un exo), les trois outils de Claude côte à côte, sa consigne avec son caractère, l'état de Pixel avec son ventre et les exos du jour, jamais la réponse d'un exo ouvert ; gourmand, grognon et farceur (et l'humeur du jour) changent son ventre et ses repas, studieux ses questions et sa fête ; à 50, chaque scène des trois et du Pixel de poche pèse comme avant. Dans Chromium : sur l'écran du Pi, qui passe devant qui (une photo envoyée, imitée, le menu rapide, un exo, sa question, le plateau), un changement de caractère pendant un exo, en Rétro, LCD et Néon ; le Pixel de poche ; les trois boutons du téléphone et leurs panneaux ; dans Pixel Lab, les trois panneaux et les mêmes commandes que le serveur.
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
 Pour les relancer :
@@ -559,8 +590,12 @@ python3 tests/test_poche.py
 node tests/test_poche.js             # il faut Playwright ; --shots DOSSIER pour les captures
 python3 tests/test_caractere.py      # son propre serveur de démo sur le port 8163 (CARACTERE_PY_PORT pour un autre)
 node tests/test_caractere.js         # il faut Playwright ; port 8164 (CARACTERE_PORT) ; --shots DOSSIER pour les captures
-python3 tests/test_exos.py           # son serveur de démo sur le port 8181
+python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PORT=… pour un autre)
+node tests/test_nourrir.js           # port 8175 (NOURRIR_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+python3 tests/test_perso.py          # les trois ensemble, sans serveur
+node tests/test_perso.js             # les trois ensemble : port 8192 (PERSO_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 ```
 
 `node tests/shots.js 8102 shots` prend les captures (il faut un serveur de démo sur ce port et Playwright), puis `python3 tests/sheets.py shots .` refait les images de ce guide.
@@ -579,6 +614,8 @@ Pas encore testé avec le vrai matériel :
 | `server.py` | le serveur : page web, WebSocket, tâches de fond |
 | `pixel/` | un module par service : `hue`, `claude` (et `abonnement` : Claude par ton abonnement), `codex`, `weather`, `agenda`, `system`, `timer`, `deck` ; plus `commands` (commandes tapées), `keys` (touches), `state` (état partagé), `anims` (les 52 animations) et `scenes` (ses moments de personnalité) |
 | `web/` | l'interface : `themes.js` fait vivre le visage et dessine les 6 styles (fonds, visages, icônes, démarrage), `persona.js` sa personnalité (réactions, souvenirs, moments de vie), `son.js` sa voix (bips fabriqués par la page), `screens.js` les écrans, `app.js` la connexion, les touches et le clavier, `poche.js` le Pixel de poche (le téléphone en paysage, ses scènes dans `scenes/poche.js`) |
+| `pixel/caractere.py`, `web/caractere.js` | son caractère : les caractères tout prêts, les traits, son nom et ton surnom ; le panneau **Caractère** du téléphone (`caractere.css`) ; ses réactions dans `scenes/caractere.js` |
+| `pixel/nourrir.py`, `web/nourrir.js` | le nourrir : son ventre, ses goûts, ses repas ; l'assiette et le plateau du Pi, le panneau **Nourrir** du téléphone (`nourrir.css`) ; le menu, ses dessins et ses scènes dans `scenes/nourrir.js` |
 | `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
