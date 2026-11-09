@@ -6,7 +6,8 @@
      (lab/demo-hub.js) and Pixel sans Pi run them; tests/test_look.py compares the two;
    - cur(): what the face being drawn looks like now, compiled: { id, shape, eye, cheek, mono, wear: {slot: item}, plain }
      (plain: his eyes, colours and clothes of every day). themes.js draws it in each theme: its eye outlines (shapePts), its
-     colours (eyeHex, cheekHex), what he wears with its own pen (paint) or in pixels (bitmaps); the pack's own engine draws
+     colours (eyeHex, cheekHex), what he wears with its own pen (wear: each drawing made once into a canvas of its own per
+     theme, size and anchors, then copied; paint draws it as it moves) or in pixels (bitmaps); the pack's own engine draws
      it through two optional hooks it is handed (hookPix for pack52/pixel52.js frame(), hookVec for pixel52-themes.js draw());
    - with(look, fn): fn draws with another look (a visiting friend's Pixel, the panel's preview); clean(look): a valid copy;
      get(): the look of this screen (its "porte" included);
