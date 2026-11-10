@@ -553,7 +553,7 @@ async def claude(tmp):
     check("run: a joke on his screen, Claude knows which", hub.s["habitudes"]["rire"]["kind"] == "blague" and HB.BLAGUES[hub.s["habitudes"]["rire"]["n"]][1] in out, out)
     clock.set("2026-11-09 23:00")
     out = await cl.run_tool("habits", {"action": "jouer", "jeu": "cache"})
-    check("…at night: no game, Claude is told why", "pas de jeu" in out and not H.partie, out)
+    check("…at night: no game, Claude is told why", out.startswith("jeu refusé : ") and "dort" in out and not H.partie, out)
 
 
 async def robust(tmp):

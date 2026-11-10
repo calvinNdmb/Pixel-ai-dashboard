@@ -327,17 +327,26 @@ def photos(tmp):
           and "Bip est venu jouer" in new["texte"] and old["photo"] is None, json.dumps(new, ensure_ascii=False))
     clock.t += 60
     A.cooldown = 0
-    v = away(A, f)
 
-    async def home():
-        A._in_visite_fin(f, {"vid": v["vid"], "fait": ["ami-danse"], "par": "fin"})
-        await asyncio.sleep(0.3)
-        await A.relais.close()
-    asyncio.run(home())
+    def visit(g):
+        v = away(A, g)
+
+        async def home():
+            A._in_visite_fin(g, {"vid": v["vid"], "fait": ["ami-danse"], "par": "fin"})
+            await asyncio.sleep(0.3)
+            await A.relais.close()
+        asyncio.run(home())
+    n = len(S.d["timeline"])
+    visit(f)                                           # to Bip's, the same day: one visit memory a day with each friend (amis.py une_fois)
+    check("the same day, the same friend: his visit goes to the journal, not again to his memories", len(S.d["timeline"]) == n,
+          json.dumps(S.d["timeline"][0], ensure_ascii=False))
+    clock.t += 60
+    lou = friend(A, "Lou")
+    visit(lou)
     mine = S.d["timeline"][0]
     S.lier_photo("ami", "Phot1ami")                    # his return: the photo as he tells it (web/amis.js), after his memory
-    check("the visitor's side: his memory first, then his photo (« Pixel est allé jouer chez Bip : ils ont dansé. »)", mine["type"] == "ami" and mine["photo"] == "Phot1ami"
-          and "ils ont dansé" in mine["texte"], json.dumps(mine, ensure_ascii=False))
+    check("the visitor's side: his memory first, then his photo (« Pixel est allé jouer chez Lou : ils ont dansé. »)", mine["type"] == "ami" and mine["photo"] == "Phot1ami"
+          and "chez Lou" in mine["texte"] and "ils ont dansé" in mine["texte"], json.dumps(mine, ensure_ascii=False))
 
 
 # ---------- the same night in JavaScript ----------
