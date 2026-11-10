@@ -374,7 +374,7 @@ Tu peux changer le caractère de Pixel : câlin, grognon, farceur, timide… Et 
 - **15 caractères tout prêts**, chacun avec sa phrase : Pixel (équilibré), Câlin, Grognon, Farceur, Timide, Bavard, Paresseux, Pile électrique, Gourmand, Petit prof, Rêveur, Curieux, Zen, Indépendant, et **Surprise**, tiré au hasard ;
 - **les réglages fins** : huit curseurs de 0 à 100. Indépendant ↔ Câlin, Patient ↔ Grognon, Taiseux ↔ Bavard, Sérieux ↔ Farceur, Calme ↔ Énergique, Blasé ↔ Curieux, Petit appétit ↔ Gourmand, Pas scolaire ↔ Studieux. À 50 partout, c'est exactement le Pixel de toujours ;
 - **son nom** (Pixel au départ) et **comment il t'appelle** (rien au départ) ;
-- **ses habitudes** : l'humeur du jour (ses traits bougent un peu chaque jour), s'il peut bouder, s'il parle (éteint, il ne bavarde plus, mais les rappels d'agenda, les nouvelles et ses réponses s'affichent toujours), et ses heures calmes (de 23 h à 6 h au départ) ;
+- **ses habitudes** : l'humeur du jour (ses traits bougent un peu chaque jour), s'il peut bouder, s'il parle (éteint, il ne bavarde plus, mais les rappels d'agenda, les nouvelles et ses réponses s'affichent toujours), et ses heures calmes (de 23 h à 6 h au départ ; avec **Ses habitudes**, c'est sa nuit, de son coucher à son réveil : le bouton **Son emploi du temps** y mène) ;
 - **Essayer**, qui lui fait jouer une scène typique de son caractère, et **Réinitialiser** (touche deux fois), qui le remet comme au premier jour.
 
 Le choix est gardé au redémarrage (fichier `caractere.json` dans le dossier de données). Le Pixel du Pi et le Pixel de poche ont le même caractère.
@@ -405,7 +405,7 @@ Pixel a un **ventre**. Il se vide doucement pendant la journée, et tu peux le n
 
 **Son ventre :**
 - il se vide d'environ 6 % par heure (réglable : lente, normale, rapide), et un peu plus vite si son caractère est gourmand ;
-- la nuit (de 23 h à 6 h), son ventre dort aussi ;
+- la nuit, son ventre dort aussi : de son coucher à son réveil (**Ses habitudes**), ou de 23 h à 6 h s'il n'a pas d'emploi du temps ;
 - si le Pi a été éteint longtemps, au réveil il a au pire un petit creux, jamais une faim de loup. Pareil si l'horloge du Pi saute en avant au démarrage (il n'a pas de pile pour garder l'heure : il la reprend sur Internet) ;
 - plein, il refuse gentiment ; trop rempli, il gonfle : « Je vais éclater ! ».
 
@@ -497,6 +497,66 @@ Pixel te pose de petits exercices, du CP au collège : additions, soustractions,
 
 Dans Pixel Lab, le panneau **Exos de maths** lance chaque mode et chaque type, répond juste ou faux à ta place, et lui fait proposer une question.
 <!-- fin des exos de maths -->
+
+<!-- ses habitudes -->
+## Ses habitudes
+
+Pixel a sa journée à lui : il se réveille le matin, fait la sieste si tu veux, se couche le soir. Il a ses jeux préférés, il rit de ses blagues, il a de petites peurs (jamais vraiment effrayantes) et il apprend tes phrases.
+
+**Sa journée :**
+- il se réveille à **7 h 30** et se couche à **21 h** (réglable), à l'heure du Pi. Le week-end peut avoir ses horaires (debout plus tard le samedi et le dimanche, au lit plus tard le vendredi et le samedi), et il peut faire une **sieste** (son début et sa durée) ;
+- au réveil, il s'étire : « Aaaah… bien dormi ! Bonjour ! » ;
+- 15 minutes avant le coucher, il bâille (« Bientôt l'heure du dodo ! »), se brosse les dents, demande sa veilleuse s'il a peur du noir, puis dit « Bonne nuit ! » et s'endort ;
+- la nuit, il dort : son écran s'assombrit, avec des étoiles, la lune et des « zzz ». Touche-le : il marmonne (« Mmh… c'est la nuit… ») et se rendort ; une caresse le fait sourire en dormant. Les touches, la barre de commande et le menu rapide marchent comme d'habitude ;
+- un coucher après minuit (`0 h 30`) et les changements d'heure marchent tout seuls.
+
+**Sa nuit compte pour les autres :** ses heures calmes (son caractère) sont désormais sa nuit, de son coucher à son réveil ; son ventre dort pendant ce temps (Nourrir) ; pas d'envie de manger ni de question de maths proposée la nuit, et les notifications ne le réveillent pas. Les heures calmes que tu avais réglées dans **Caractère** deviennent son premier emploi du temps : rien n'est perdu. Si tu éteins **Il suit son emploi du temps**, il ne se couche plus jamais tout seul et les autres reprennent leur nuit d'avant (de 23 h à 6 h).
+
+**Ses mini-jeux**, sur l'écran du Pi, au doigt (de quelques secondes à une minute) :
+- **Cache-cache** : il se cache derrière un bord de l'écran et passe un œil de temps en temps. Touche le bord où il est ! Trois manches ;
+- **Pierre-feuille-ciseaux** : touche ta main, il montre la sienne ; le premier à 2 points gagne ;
+- **Attrape-étoiles** : 30 secondes pour toucher les étoiles qui tombent (les dorées valent 3) ;
+- **Simon** : il allume des cases (un cœur, une étoile, la lune, une note), tu refais la même suite, avec une case de plus à chaque tour.
+
+Il a **deux jeux préférés** (tirés au sort au début, à changer avec ♥) : quand tu en choisis un, il saute de joie. Quand il s'ennuie, il te propose parfois de jouer (« On joue à cache-cache ? » : **Oui !** ou **Plus tard**), jamais la nuit, pas trop souvent, plus souvent s'il est énergique. Un jeu ne cache jamais un cast ni le menu rapide, et un exo ouvert pendant une partie passe devant : la partie attend, puis reprend où elle en était. Tous les écrans montrent la même partie, et chacun peut y jouer. À la fin : **Rejouer** ou **Fini** (sinon, elle se range toute seule). Une partie à la fois : **×** arrête celle en cours. Ses records sont gardés.
+
+**Ce qui le fait rire** (tu choisis) : les chatouilles (tapote vite son visage, ou frotte-le), les blagues (une trentaine, pour les enfants : « Que dit une imprimante dans l'eau ? … J'ai papier ! »), les grimaces, les bruits rigolos, et gagner à un jeu. Plus il est farceur, plus il rit, parfois jusqu'au fou rire.
+
+**Ses peurs**, chacune à cocher, jamais vraiment effrayantes :
+- **l'orage** : quand la météo dit orage, un petit éclair, il sursaute et se cache en tremblant ;
+- **le noir** : quand toutes les lumières s'éteignent pendant qu'il est réveillé ; au coucher, il demande sa veilleuse (une petite lune qui brille dans un coin) ;
+- **les araignées** : de temps en temps, une petite araignée (de grands yeux, un sourire) descend sur son écran. Touche-la : elle remonte et s'en va ;
+- **le vide** : sur le Pixel de poche, quand tu penches beaucoup le téléphone. Remets-le droit.
+
+Quand il a peur, **caresse-le** : il est rassuré et prend du courage, un peu chaque jour. Jour après jour, sa peur diminue, jusqu'à « Même pas peur ! ».
+
+**Ses expressions :** apprends-lui tes phrases pour un moment (bonjour, bonne nuit, quand il est content, merci, au revoir, bravo, quand il a faim) : il les dit de temps en temps à la place des siennes (une longue en deux bulles). Cinq par moment, 60 caractères au plus ; une adresse internet n'est pas une phrase. Elles restent sur le Pi et ne vont jamais à Claude.
+
+**Pour tout régler :** sur ton téléphone, touche **Habitudes** sous les touches : son emploi du temps (et **Réveille-le** pendant sa sieste), ses jeux (♥ et **Jouer**), ce qui le fait rire, ses peurs et son courage, ses phrases (touche-en une pour qu'il la dise, **×** pour l'oublier). Dans **Caractère**, le bouton **Son emploi du temps** y mène.
+
+**En tapant :**
+- `on joue ?`, `joue avec moi`, `cache-cache`, `pierre feuille ciseaux` (ou `chifoumi`), `attrape les étoiles`, `simon`, `on rejoue` (juste après une partie), `stop` (pendant une partie) ;
+- `raconte une blague`, `encore une blague`, `fais une grimace`, `fais un bruit rigolo` ;
+- `dis bonjour comme ça : Salut les loulous !`, `quand tu es content, dis : Youpi !`, `pour dire bonne nuit, dis : Fais de beaux rêves`, `quand tu as faim, dis : J'ai un creux !`, `tes phrases`, `oublie ta phrase de bonjour`, `oublie tes phrases` ;
+- `couche-toi à 20 h 30`, `réveil à 7 h`, `sieste à 14 h`, `pas de sieste`, `à quelle heure tu te couches ?`, `réveille-toi` (pendant sa sieste ; la nuit, il marmonne et se rendort).
+
+Ces phrases-là seulement : le reste part à Claude, comme avant, et `joue cache-cache` reste son moment de vie « Coucou caché ».
+
+**Avec Claude :** il sait s'il dort, connaît son emploi du temps et ses jeux préférés. Demande-lui « couche-toi à 20 h », « apprends à dire bravo comme ça : Champion ! », « on fait un Simon ? » ou « raconte-moi une blague » : il peut le faire lui-même (la nuit, pas de jeu ni de blague). Il ne voit jamais les phrases que tu lui as apprises.
+
+**Sans Pi** (Pixel sans Pi) : sa journée suit l'heure du téléphone. Il n'a peur de l'orage que si une météo est là (la ville que tu as tapée), et jamais du noir : sans Pi, pas de lampes à connaître.
+
+**Dans Pixel Lab**, le panneau **Ses habitudes** : son horloge y est en pause (il reste réveillé, comme en mode démo) ; ses boutons font comme s'il était quelques secondes avant son réveil, sa sieste, son coucher, ses dents ou sa bonne nuit, lancent chaque jeu, chaque rire et chaque peur, et lui apprennent une phrase. Le panneau du téléphone est dessous.
+
+**Ses fichiers :** `pixel/habitudes.py` (son emploi du temps, ses jeux, ses rires, ses peurs, ses phrases, gardés dans `habitudes.json` ; un fichier abîmé ne bloque jamais le démarrage), `web/scenes/habitudes.js` (ses scènes, ses blagues et leurs dessins), `web/habitudes.js` et `web/habitudes.css` (les jeux sur l'écran, sa nuit, le panneau du téléphone, et les mêmes règles pour Pixel Lab et Pixel sans Pi), `web/lab/habitudes-lab.js` (le panneau de Pixel Lab).
+
+Pour relancer ses tests :
+
+```
+python3 tests/test_habitudes.py      # sans serveur : horloges fixées, une nuit à cheval sur minuit, les changements d'heure
+node tests/test_habitudes.js         # port 8420 (HABITUDES_PORT=… pour un autre) ; il faut Playwright ; --shots DOSSIER pour les captures
+```
+<!-- fin de ses habitudes -->
 
 ## Tes agendas (Google et Samsung)
 
@@ -639,6 +699,7 @@ Testé sur ordinateur, avec les tests du dossier `tests/` :
 - **Pixel sans Pi** (`test_local.js`, dans Chromium) : le fichier hors ligne de l'appli, ouvert en `file://` sans aucun accès au réseau, sur un téléphone en portrait puis en paysage. Aucune erreur, aucune requête, aucun WebSocket. Il vit et réagit au doigt ; aucune fausse donnée ; les écrans du Pi le disent et leurs touches restent éteintes, les commandes aussi ; Système montre le téléphone, et son Démarrage les pièces du téléphone ; les six thèmes ; le minuteur sonne. Après un rechargement, les réglages, l'humeur et le minuteur sont toujours là, et l'état d'une nouvelle fonction aussi, même gardé dans une variable à elle. Dans l'appli (simulée) : les messages vers l'appli, son état rendu par l'appli, l'image du Pi, la plus récente qui gagne, même quand elle arrive après la météo. La météo, avec et sans réseau, une faute de frappe, une ville tapée pendant que la météo d'une autre arrive. Une notification du téléphone passée par l'appli : le même bandeau que sur le Pi, et il réagit. Son caractère, ses repas et ses exos : repris de l'image du Pi (sa forme à lui), utilisés, gardés après un redémarrage ; son ventre après deux jours appli fermée (au pire un petit creux) ; le message `{panels}` et les panneaux ouverts depuis le menu de l'appli, même en mode Pixel ; le bouton retour qui ferme d'abord le panneau du dessus (`{sheet}`) ; un panneau touché ou un exo ouvert qui retiennent l'appli sur le téléphone ; une image du Pi pas plus récente que la copie du téléphone qui ne défait rien de ce qu'il a vécu ; rien du Pi à lui seul (`telephone`) gardé sur le téléphone. Le Pixel de poche, sans bouton de voyage, avec les sens de l'appli (secoué, il a le tournis), son assiette et son plateau.
 - **Caractère** (`test_caractere.py`, `test_caractere.js`) : les 15 caractères, les valeurs bornées et nettoyées (même 1e400 ou Infinity), le fichier gardé (même abîmé : le serveur démarre toujours), les commandes (et les phrases qui partent toujours à Claude, comme « parle-moi » ou « tu t'appelles vraiment Pixel »), l'outil et la consigne de Claude, la conversation gardée avec l'abonnement, les mêmes règles dans Pixel Lab, des noms de scènes qui ne prennent pas ceux des autres paquets. À 50 partout, exactement les mêmes scènes et les mêmes phrases, pour le même tirage au sort, que sans caractère dans l'état du serveur et que sans `caractere.js` du tout (et qu'avant la fonction, git 36422fd, la branche principale juste avant son arrivée : comparaison notée, qui compte avec `CARACTERE_STRICT=1`). Sur des centaines d'essais : un Pixel grognon s'énerve et boude plus (et plus longtemps), un câlin devient plus vite amoureux, un indépendant repousse les câlins, un bavard parle plus et un taiseux bien moins, un énergique vit plus souvent et plus vite, un blasé laisse passer des notifications ; mais quel que soit son caractère, ce que tu fais pour lui a toujours sa réponse, et « Il parle » éteint garde les rappels. Aussi : les heures calmes, son nom et ton surnom dans ses phrases (le même nom sur le Pi et sur les écrans, accents et signes des voyelles gardés), sa réaction à chaque changement, le panneau du téléphone (qui s'efface devant le Pixel de poche), l'écran du Pi et le panneau de Pixel Lab.
 - **Exos de maths** (`test_exos.py`, `test_exos.js`) : chaque type d'exo à chaque niveau (9 000 exercices) a sa bonne réponse parmi 4 choix différents, vérifiée en refaisant le calcul ; les erreurs classiques sont dans les choix ; la même graine donne le même exo. Le jeu, sur une fausse horloge : l'indice et le deuxième essai, la correction, une série, une table, le défi chrono, les niveaux qui montent, descendent ou restent fixes, l'objectif du jour, les trophées, l'exo oublié qui se range, le fichier `exos.json`. La réponse n'arrive jamais aux écrans avant que tu aies répondu. Un double appui, un écran en retard ou la même erreur deux fois ne coûtent jamais le deuxième essai ni ne répondent à la question suivante ; sa fête n'est pas coupée ; un `exos.json` abîmé ou d'une drôle de forme n'empêche pas Pixel de démarrer, et un réglage hors limites (1e999) n'y efface ni les scores ni les trophées ; une horloge qui recule ne fige ni le défi chrono ni la correction ; une réponse, une seule bannière (l'objectif et les trophées ensemble) ; chaque correction explique. Les commandes (un nombre seul ne va à l'exo que s'il y en a un d'ouvert, et jamais à Claude pendant la correction ; `4 025` ; `encore` et `une autre` seulement pendant ou juste après un exo) et l'outil de Claude. Dans Chromium : l'écran du Pi dans les 6 thèmes (un double appui sur une réponse fausse, puis la bonne, et ses réactions), chaque réponse touchée jusqu'à son bord droit, le clavier, l'indice en touchant Pixel, son petit rappel, une série rapide où chaque réponse a sa scène, le bilan d'une série, les images par seconde, aucun moment de vie pendant un exo, sa proposition et le bouton **Oui !** ; le panneau du téléphone (réponses, double appui, pavé et sa touche **−**, le chrono arrêté quand le panneau se ferme, réglages, scores) et la barre de commande ; dans Pixel Lab, les mêmes règles.
+- **Ses habitudes** (`test_habitudes.py`, `test_habitudes.js`) : sur des horloges fixées, ses états (réveillé, réveil, sieste, coucher, nuit) à chaque heure, un coucher après minuit, le week-end, une sieste sautée, les horaires impossibles refusés avec leur raison, les deux changements d'heure (sa nuit dure une heure de plus ou de moins, sa journée continue), et les heures qui comptent pour son ventre ; sa routine seconde après seconde (bâillement, dents, veilleuse, bonne nuit, réveil), rien quand l'horloge saute ; les heures calmes de Caractère reprises une seule fois ; un `habitudes.json` abîmé ou farfelu ; chaque jeu de bout en bout (les coups jugés par le serveur, un double appui ou un coup en retard ignorés, la partie qui attend sous un cast ou un exo, refusée la nuit, pendant la sieste, au coucher ou sur un exo), les records, les rires, l'orage selon la météo (jamais la nuit), le courage (un peu chaque jour), les phrases nettoyées ; les commandes (et celles qui restent à Claude ou aux autres), l'outil de Claude ; son ventre qui dort pendant sa nuit à lui ; les mêmes règles dans `web/habitudes.js`. Dans Chromium : chaque jeu au doigt sur l'écran du Pi et sur le téléphone (attrape-étoiles sur les deux à la fois : une étoile touchée deux fois compte une fois), un cast et un exo qui passent devant, le menu rapide toujours là, sa proposition de jouer, chaque jeu dans les 6 thèmes ; son coucher, sa nuit (il marmonne, sourit en dormant, ne joue pas, les notifications attendent), son réveil ; ses blagues dans ses bulles, les chatouilles ; ses peurs (orage, noir, araignée, vide) et le réconfort ; ses phrases à la place des siennes ; le panneau du téléphone (cibles de 56 px, rien de plus large que l'écran, une phrase avec du HTML affichée telle quelle) ; Pixel Lab ; Pixel sans Pi à midi et à 22 h.
 - **Les trois ensemble** (`test_perso.py`, `test_perso.js`) : les commandes de chacun vont au bon endroit (un nombre seul à l'exo ouvert seulement, les repas et le caractère pendant un exo), les trois outils de Claude côte à côte, sa consigne avec son caractère, l'état de Pixel avec son ventre et les exos du jour, jamais la réponse d'un exo ouvert ; gourmand, grognon et farceur (et l'humeur du jour) changent son ventre et ses repas, studieux ses questions et sa fête ; à 50, chaque scène des trois et du Pixel de poche pèse comme avant. Dans Chromium : sur l'écran du Pi, qui passe devant qui (le menu rapide, même par-dessus un vrai cast, le cast, un exo, sa question, le plateau ; sous un cast, l'exo attend, ni le doigt ni le clavier n'y répondent, il revient tel quel, et « Tu réfléchis ? » ne compte pas le temps passé dessous), un changement de caractère pendant un exo, en Rétro, LCD et Néon ; le Pixel de poche ; les trois boutons du téléphone et leurs panneaux ; dans Pixel Lab, les trois panneaux et les mêmes commandes que le serveur (une même liste de phrases d'exos, passée au serveur et à Pixel Lab, donne partout la même chose).
 - **Affichage** (`shots.js`) : les 10 écrans, le démarrage, les 15 humeurs et douze animations s'affichent sans erreur dans les 6 thèmes, sur l'écran 800 × 480. Chaque thème tourne à 60 images par seconde dans Chromium sur ordinateur, même avec le processeur ralenti 4 fois, avec le visage du pack comme avec le visage vivant.
 
@@ -673,6 +734,8 @@ python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8
 node tests/test_nourrir.js           # port 8175 (NOURRIR_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+python3 tests/test_habitudes.py      # ses habitudes, sans serveur (horloges fixées)
+node tests/test_habitudes.js         # port 8420 (HABITUDES_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_perso.py          # les trois ensemble, sans serveur
 node tests/test_perso.js             # les trois ensemble : port 8192 (PERSO_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 ```
@@ -696,6 +759,7 @@ Pas encore testé avec le vrai matériel :
 | `pixel/caractere.py`, `web/caractere.js` | son caractère : les caractères tout prêts, les traits, son nom et ton surnom ; le panneau **Caractère** du téléphone (`caractere.css`) ; ses réactions dans `scenes/caractere.js` |
 | `pixel/nourrir.py`, `web/nourrir.js` | le nourrir : son ventre, ses goûts, ses repas ; l'assiette et le plateau du Pi, le panneau **Nourrir** du téléphone (`nourrir.css`) ; le menu, ses dessins et ses scènes dans `scenes/nourrir.js` |
 | `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
+| `pixel/habitudes.py`, `web/habitudes.js` | ses habitudes : son emploi du temps, ses mini-jeux, ses rires, ses peurs, ses phrases ; les jeux et sa nuit sur l'écran, le panneau **Habitudes** du téléphone (`habitudes.css`) ; ses scènes et ses blagues dans `scenes/habitudes.js` |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |
