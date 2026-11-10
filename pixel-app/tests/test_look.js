@@ -191,17 +191,17 @@ async function inLab(browser) {
   // further down compare his look with the Pi's, dates included (« enlève ton chapeau » keeps the slot empty until tomorrow)
   const d0 = new Date(), p2 = n => String(n).padStart(2, '0');
   await at({ fete: null, date: `${d0.getFullYear()}-${p2(d0.getMonth() + 1)}-${p2(d0.getDate())}T14:00` });
-  await lab.evaluate(() => { Screens.persona.stop(); PixelHub.S.habitudes = { dort: true }; });
+  await lab.evaluate(() => { Screens.persona.stop(); PixelHub.S.habitudes = { ...(PixelHub.S.habitudes || {}), dort: true, nuit: true, etat: 'nuit' }; });
   const night = await until(() => lab.evaluate(() => PixelHub.S.look.porte.nuit && { ...PixelHub.S.look.porte, cur: Screens.persona.state.cur, main: PixelLook.cur().wear }), 5000);
   check(`he sleeps (S.habitudes.dort, a stand-in for his habits): nightcap and pyjama, at once, and a little scene (${night && night.cur})`,
     !!night && night.tete === 'bonnet-nuit' && night.cou === 'pyjama' && night.main.tete === 'bonnet-nuit' && night.cur === 'look-dodo', JSON.stringify(night));
   await lab.evaluate(() => { Screens.persona.stop(); PixelHub.dispatch('look.porte', { item: 'couronne' }); });
   const later = await until(() => lab.evaluate(() => Screens.persona.state.cur && [Screens.persona.state.cur, PixelLook.cur().wear.tete, PixelHub.S.look.accessoires.tete]), 3000);
   check(`…a crown put on in his pyjama waits for the morning (« Je le mettrai demain ! »: ${later && later[0]})`, !!later && later.join() === 'look-demain,bonnet-nuit,couronne', JSON.stringify(later));
-  await lab.evaluate(() => { Screens.persona.stop(); PixelHub.S.habitudes = { dort: false }; });
+  await lab.evaluate(() => { Screens.persona.stop(); PixelHub.S.habitudes = { ...(PixelHub.S.habitudes || {}), dort: false, nuit: false, etat: 'eveille' }; });
   const day = await until(() => lab.evaluate(() => !PixelHub.S.look.porte.nuit && { ...PixelHub.S.look.porte, cur: Screens.persona.state.cur }), 5000);
   check(`…awake: off they come, and on goes the crown (${day && day.cur})`, !!day && day.tete === 'couronne' && !day.cou && day.cur === 'look-debout', JSON.stringify(day));
-  await lab.evaluate(() => { delete PixelHub.S.habitudes; PixelHub.dispatch('look.set', { nuit: false }); PixelHub.S.habitudes = { dort: true }; });
+  await lab.evaluate(() => { PixelHub.dispatch('look.set', { nuit: false }); PixelHub.S.habitudes = { ...(PixelHub.S.habitudes || {}), dort: true, nuit: true, etat: 'nuit' }; });
   const off = await until(() => lab.evaluate(() => PixelHub.S.look.nuit === false && PixelHub.S.look.porte), 5000);
   await wait(3300);
   check('« Pyjama la nuit » off: no pyjama, even asleep', !(await lab.evaluate(() => PixelHub.S.look.porte.nuit)) && !!off);

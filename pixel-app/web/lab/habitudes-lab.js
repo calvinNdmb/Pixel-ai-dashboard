@@ -78,8 +78,8 @@ after.after(sec);
 const NOM = { eveille: 'réveillé', reveil: 'il se réveille', sieste: 'fait la sieste', coucher: 'se prépare pour la nuit', nuit: 'dort' };
 function render() {
   const h = H(); if (!h) return;
-  const t = new Date(Date.now() + (h.horloge.decalage || 0)), g = h.partie;
-  const txt = `Il ${h.etat === 'eveille' ? 'est réveillé' : NOM[h.etat]}${h.horloge.pause ? ' · horloge en pause' : ` · heure simulée ${t.getHours()} h ${String(t.getMinutes()).padStart(2, '0')}`}`
+  const hz = h.horloge || {}, t = new Date(Date.now() + (hz.decalage || 0)), g = h.partie;
+  const txt = `Il ${h.etat === 'eveille' ? 'est réveillé' : NOM[h.etat]}${hz.pause ? ' · horloge en pause' : ` · heure simulée ${t.getHours()} h ${String(t.getMinutes()).padStart(2, '0')}`}`
     + ` · jeux préférés : ${h.jeux.favoris.map(j => PH.JEUX[j]).join(' et ')}${g ? ` · partie de ${PH.JEUX[g.jeu]} (${g.etat === 'fin' ? 'finie' : g.phase})` : ''}`
     + ` · courage : ${Object.entries(h.peurs).map(([k, v]) => `${k} ${v.courage}`).join(', ')}.`;
   if (state.textContent !== txt) state.textContent = txt;

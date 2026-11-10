@@ -44,6 +44,8 @@ def _bare(k):
 # what people may type after "fais" or "joue": the id, the label, the label without its article
 WORDS = {}
 for _i, _label, _g in SCENES:
+    if _i.startswith("ami-"):                   # a friend's visit (pixel/amis.py): they need the friend, no words of their own
+        continue
     for _w in (_i, _i.replace("-", " "), _label):
         _k = anims.key(_w)
         WORDS.setdefault(_k, _i)
@@ -53,7 +55,7 @@ for _w, _i in {"poissons": "poisson", "promenade": "balade", "cache cache": "cac
                "dodo": "sieste", "meditation": "zen", "etirement": "etirement", "boude": "boude", "bouder": "boude",
                "colere": "colere", "pirouette": "pirouette", "toupie": "toupie", "hoquet": "hoquet", "gym": "gym",
                "sport": "gym", "reve": "reverie", "coucou cache": "cache"}.items():
-    WORDS.setdefault(_w, _i)
+    WORDS[_w] = _i                              # chosen words win over a scene pack's label (« dodo », « cache cache »)
 
 
 def find(text):

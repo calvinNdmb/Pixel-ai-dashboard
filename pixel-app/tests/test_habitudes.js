@@ -222,6 +222,7 @@ async function kiosk(browser) {
   await k.addInitScript(() => { window.__album = []; window.PixelAlbum = { snap: why => window.__album.push(why) }; });   // souvenirs: a moment worth a photo
   await k.goto(BASE + '/?kiosk=1');
   await until(() => k.evaluate(() => !!window.PixelHabitudes && !!PixelHabitudes.screen && !!PixelHabitudes.screen.state && Screens.local.lastBootAt > 0 && Screens.local.boot < 0), 15000);
+  await k.evaluate(() => { if (window.PixelAlbum && window.PixelAlbum.store !== undefined) window.PixelAlbum.snap = why => window.__album.push(why); });   // the real album (souvenirs) came after the stub
   const n = await k.evaluate(() => Screens.persona.scenes.filter(s => /^(habitude|jeu|rire|peur)-/.test(s.id)).length);
   check(`his habits are loaded on the Pi's screen (screens.js add-on, ${n} scenes of their own)`, n >= 40, String(n));
   const h0 = H().horaires;
@@ -429,6 +430,7 @@ async function kiosk(browser) {
 
   // ---- his day: bedtime, the night, the morning ----
   await free(k); await wait(900);
+  act('look.set', { nuit: false });                                    // his pyjama (look) would light his face: the veil alone
   const lit = await bright(k);                                         // his screen in the day, for the night's veil
   act('habitudes.demo', { heure: '20:45', avant: 2 });
   const ann = await sceneIs(k, /^habitude-annonce$/, 7000);

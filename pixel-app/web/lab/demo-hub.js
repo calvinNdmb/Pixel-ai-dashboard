@@ -473,9 +473,9 @@ const PSCENES = typeof Screens !== 'undefined' && Screens.persona ? Screens.pers
 const SBY = Object.fromEntries(PSCENES.map(s => [s.id, s]));
 const bare = k => { for (const a of ['le ', 'la ', 'les ', "l'", 'un ', 'une ', 'des ', 'du ', 'ton ', 'ta ', 'il ']) if (k.startsWith(a)) return k.slice(a.length).trim(); return k; };
 const SCENE_WORDS = {};
-for (const s of PSCENES) for (const w of [s.id, s.id.replace(/-/g, ' '), s.label]) { const k = akey(w); SCENE_WORDS[k] ??= s.id; SCENE_WORDS[bare(k)] ??= s.id; }
+for (const s of PSCENES) if (!s.id.startsWith('ami-')) for (const w of [s.id, s.id.replace(/-/g, ' '), s.label]) { const k = akey(w); SCENE_WORDS[k] ??= s.id; SCENE_WORDS[bare(k)] ??= s.id; }   // ami-*: a friend's visit, never typed (pixel/scenes.py)
 for (const [w, id] of Object.entries({ poissons: 'poisson', promenade: 'balade', 'cache cache': 'cache', economiseur: 'dvd', eternuer: 'atchoum', siffler: 'sifflote',
-  'danse secrete': 'danse', dodo: 'sieste', meditation: 'zen', bouder: 'boude', sport: 'gym', reve: 'reverie', 'coucou cache': 'cache' })) if (SBY[id]) SCENE_WORDS[w] ??= id;
+  'danse secrete': 'danse', dodo: 'sieste', meditation: 'zen', bouder: 'boude', sport: 'gym', reve: 'reverie', 'coucou cache': 'cache' })) if (SBY[id]) SCENE_WORDS[w] = id;   // chosen words win (pixel/scenes.py)
 const findScene = s => { const k = akey(s); return SCENE_WORDS[k] || SCENE_WORDS[bare(k)] || null; };
 const FACE_WORDS = { pack: 'pack', 'pack 52': 'pack', 52: 'pack', animations: 'pack', vivant: 'vivant', anime: 'vivant' };
 function findRoom(word) {
