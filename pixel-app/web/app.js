@@ -111,6 +111,19 @@ window.PixelPanel = id => {
   PANELS[id](); return true;
 };
 if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, souvenirs: window.PixelSouvenirs, album: window.PixelSouvenirs, amis: !LOCAL && window.PixelAmis && window.PixelAmis.panel, look: window.PixelLook })[id]) });   // amis: through his Pi only
+/* the row under the keys: each feature adds its own button when its script runs (some later, with the first state); kept
+   here in one order, whatever order they came in: Miroir de Pixel, Agendas, then his own (Caractère, Son look, Nourrir,
+   Exos, Souvenirs, Album, Amis), then the Android app's link. A button not listed stays where it is, after them. */
+const FOOT = document.querySelector('.kb .kfoot > span'), FOOT_ORDER = ['#follow', 'a[href$="reglages.html"]', '.car-go', '.look-go',
+  '.nour-go', '.exos-go', '.souv-go', '.amis-go', '#apk'];
+if (FOOT && !kiosk) {
+  const rank = e => { const i = FOOT_ORDER.findIndex(q => e.matches(q)); return i < 0 ? FOOT_ORDER.length : i; };
+  const sortFoot = () => {
+    const kids = [...FOOT.children], sorted = kids.map((e, i) => [e, rank(e), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(x => x[0]);
+    if (sorted.some((e, i) => e !== kids[i])) { footMO.disconnect(); FOOT.append(...sorted); footMO.observe(FOOT, { childList: true }); }
+  };
+  const footMO = new MutationObserver(sortFoot); sortFoot(); footMO.observe(FOOT, { childList: true });
+}
 /* the phone app's back button closes an open panel first (PixelSheet.close(): true when one was), the topmost first; the page
    tells the app whether one is shown ({sheet}), so that the button knows (pixel-mobile src/plugs.ts) */
 const SHEETS = [['#exos', () => PixelExos.panel(false)], ['#nour', () => PixelNourrir.panel(false)], ['.car-sheet', () => PixelCaractere.close()],

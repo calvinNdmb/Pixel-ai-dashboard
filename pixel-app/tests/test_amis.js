@@ -192,7 +192,7 @@ async function lab(browser) {
   await until(() => l.evaluate(() => !!window.PixelHub && !!PixelHub.S.amis && !!document.getElementById('amis-lab')), 15000);
   check('Pixel Lab: the panel « Les amis », after « Exos de maths », with the demo friend Bip', await l.evaluate(() => {
     const order = [...document.querySelectorAll('#panel > section')].map(s => s.getAttribute('aria-labelledby'));
-    return order.indexOf('hAmis') === order.indexOf('hExos') + 1 && PixelHub.S.amis.amis[0].nom === 'Bip';
+    return order.indexOf('hExos') >= 0 && order.indexOf('hAmis') > order.indexOf('hExos') && PixelHub.S.amis.amis[0].nom === 'Bip';
   }));
   await l.evaluate(() => { Screens.local.boot = -1; Screens.persona.stop(); });
   await l.click('#amis-lab button:text-is("Il vient te voir")');

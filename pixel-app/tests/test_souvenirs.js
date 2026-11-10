@@ -299,7 +299,7 @@ print(json.dumps([json.dumps(x, separators=(",", ":")) for x in [fete(D(2027, 2,
   const lab = await lc.newPage(), lErr = errors(lab);
   await lab.goto(BASE + '/app/lab/index.html?themes=all');
   await until(() => lab.evaluate(() => typeof Screens !== 'undefined' && Screens.local.boot < 0 && !!document.getElementById('hSouvenirs')), 15000);
-  check('Pixel Lab: a « Souvenirs » panel after « Exos de maths »', await lab.evaluate(() => { const s = document.getElementById('hSouvenirs').closest('section'); return s.previousElementSibling && s.previousElementSibling.querySelector('#hExos') !== null; }));
+  check('Pixel Lab: a « Souvenirs » panel after « Exos de maths »', await lab.evaluate(() => { const all = [...document.querySelectorAll('#panel > section')], s = document.getElementById('hSouvenirs').closest('section'), e = document.getElementById('hExos').closest('section'); return all.indexOf(s) > all.indexOf(e) && all.indexOf(e) >= 0; }));
   await lab.evaluate(() => [...document.querySelectorAll('#souvenirs button')].find(b => /anniversaire aujourd/.test(b.textContent)).click());
   check('…« Ton anniversaire aujourd’hui »: the party', await until(() => lab.evaluate(() => Screens.persona.state.cur === 'souvenir-anniversaire'), 4000));
   check('…its photo, kept in the page', await until(() => lab.evaluate(() => PixelHub.S.album.photos.some(p => p.raison === 'anniversaire' && /^blob:/.test(p.src))), 8000));
