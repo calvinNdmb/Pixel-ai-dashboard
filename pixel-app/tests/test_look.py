@@ -497,6 +497,9 @@ def commands_saving_claude(J):
         l2 = r and r.hub.s["look"]
         if want is None:
             ok(f"a file that is {'a JSON bomb' if text.startswith('[[') else repr(text[:16])}: the look of every day, the server starts", bool(r) and {k: l2[k] for k in L.SAVED} == L.DEFAULT, err)
+            aside = tmp / "look.json.illisible"
+            ok("…and the file is put aside as look.json.illisible, never written over", aside.exists() and aside.read_text() == text and not (tmp / "look.json").exists())
+            aside.unlink(missing_ok=True)
         elif want == "hist":
             ok("a file with 500 steps back: the last 8 kept, junk dropped", bool(r) and l2["yeux"] == "chat" and l2["avant"] == L.HISTORY and len(r.K.history) == L.HISTORY, err)
         else:

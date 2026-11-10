@@ -480,20 +480,36 @@ class Look:
         if self.file:
             try:
                 saved = json.loads(self.file.read_text(encoding="utf-8"))
+                if not isinstance(saved, dict):
+                    raise ValueError("not an object")
             except FileNotFoundError:
                 saved = {}
             except Exception as e:                   # unreadable, not JSON, absurd values...: never stop the server
-                log.warning("look.json unreadable (%r): the look of every day", e)
+                log.warning("look.json unreadable (%r): put aside as look.json.illisible, the look of every day", e)
+                self._aside()
                 saved = {}
         try:
             look = clean(saved)
             hist = saved.get("historique") if isinstance(saved, dict) else None
             self.history = [clean(h) for h in [h for h in hist if isinstance(h, dict)][-HISTORY:]] if isinstance(hist, list) else []
         except Exception as e:                       # noqa: BLE001 - whatever the file holds, Pixel starts
-            log.warning("look.json: %r, the look of every day", e)
+            log.warning("look.json: %r, put aside as look.json.illisible, the look of every day", e)
+            self._aside()
             look, self.history = clean({}), []
         self.L = hub.s["look"] = {**look, "porte": {}, "change": None, "avant": len(self.history)}
         self.refresh()
+
+    def _aside(self):
+        """A look.json that cannot be used is kept as look.json.illisible (as amis.json, souvenirs.json are), never written
+        over; if even that fails, nothing is saved this time."""
+        if not self.file:
+            return
+        try:
+            self.file.replace(self.file.with_name("look.json.illisible"))
+        except FileNotFoundError:
+            pass
+        except OSError:
+            self.file = None
 
     def save(self):
         if not self.file:

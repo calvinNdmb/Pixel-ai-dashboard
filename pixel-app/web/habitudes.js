@@ -39,7 +39,8 @@ const norm = s => String(s ?? '').toLowerCase().trim().normalize('NFD').replace(
 function int(v, lo, hi) { if (typeof v !== 'number' || !Number.isFinite(v)) return null; const r = Math.round(v); return r >= lo && r <= hi ? r : null; }
 function toMin(v) {                                   // 450, "7:30", "7h30", "7 h", "19 h 05" -> minutes after midnight, or null
   if (typeof v === 'string') {
-    const m = /^\s*(\d{1,2})\s*(?:(?::|h|H|heures?)\s*(\d{2})?)?\s*$/.exec(v); if (!m) return null;
+    v = v.trim(); if (v.length > 16) return null;      // pixel/habitudes.py TIME_MAX: a long text is no time (and no work)
+    const m = /^(\d{1,2})\s*(?:(?::|h|H|heures?)\s*(\d{2})?)?$/.exec(v); if (!m) return null;
     const h = +m[1], mn = +(m[2] || 0); return h < 24 && mn < 60 ? h * 60 + mn : null;
   }
   return int(v, 0, 1439);

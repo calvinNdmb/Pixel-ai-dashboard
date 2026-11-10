@@ -979,7 +979,8 @@ function drawViewer() {
   const d = new Date(p.t); dl.download = `pixel-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}.${/webp/.test(p.src) ? 'webp' : 'jpg'}`;
   const del = bt('Supprimer', 'souv-btn warn'); sure(del, 'Supprimer', () => { send('album.supprime', { id: p.id }); closeViewer(); });
   const x = bt('×', 'souv-x', closeViewer); x.setAttribute('aria-label', 'Fermer la photo');
-  bar.append(prev, fav, dl, del, next);
+  const art = !!(window.PIXEL_LAB_BUILD && window.PIXEL_LAB_BUILD.artifact);   // the one-page lab on claude.ai: no download there (touch and hold the photo)
+  bar.append(...[prev, fav, art ? null : dl, del, next].filter(Boolean));
   v.replaceChildren(x, im, cap, bar);
 }
 if (typeof document !== 'undefined' && PANEL) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else setTimeout(build); }

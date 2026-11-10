@@ -266,7 +266,7 @@ function heard(p) {
 function news(e) {
   const data = { ami: e.nom || '' };
   if (e.kind === 'retour') {                                             // once he is out of sight (ami-part walks off in 3.6 s)
-    V.back = { data: { ...data, fait: e.fait || [], refus: e.refus || '', par: e.par || '' }, at: Math.max(realNow(), V.leftAt + 3700) };
+    V.back = { data: { ...data, fait: e.fait || [], refus: e.refus || '', par: e.par || '', photo: e.photo !== false }, at: Math.max(realNow(), V.leftAt + 3700) };
     return;
   }
   if (away() || hosting() || asking()) return;                          // busy with a visit: the journal keeps it
@@ -318,7 +318,7 @@ function awayStep() {
   if (b && !b.done && realNow() >= b.at) {
     b.done = true;
     if (Sc.event('ami-retour', b.data, true)) {
-      if (!b.data.refus) setTimeout(() => album(), 6800);              // as he tells what they did
+      if (!b.data.refus && b.data.photo !== false) setTimeout(() => album(), 6800);   // as he tells what they did (one photo a day with each friend: pixel/amis.py)
     } else if (AWAY.includes(cur)) PER.stop();
   }
 }
@@ -414,7 +414,7 @@ function drawGuest(k) {
     if (z && g.e > z[0] && g.e < z[1]) for (let i = 0; i < 3; i++) { const q = ((g.e / 2200) + i / 3) % 1; glyphs(k, 'Z', pos.x + 70 + q * 40, pos.y - 60 - q * 60, 18 + q * 16, c.fg, Math.min(1, (1 - q) * 2)); }
     if (g.tr.shared) { X.save(); try { g.tr.shared(kit, g.e); } catch (e) { /* a prop must never stop him */ } X.restore(); }
   }
-  if (g.id === 'ami-photo' && g.e > 4800 && V.snapped !== v.vid) { V.snapped = v.vid; album(); }    // the souvenir photo, both of them in it
+  if (g.id === 'ami-photo' && g.e > 4800 && V.snapped !== v.vid) { V.snapped = v.vid; if (v.photo !== false) album(); }   // the souvenir photo, both of them in it (one a day with each friend)
   const near = mm => 1 - clamp((Math.abs(mm.x - (mm === m ? GUEST : HOST).x) + Math.abs(mm.y - (mm === m ? GUEST : HOST).y)) / 60, 0, 1);
   const foot = at(48, 50), hm = k.PV && k.PV.id ? k.PV.m : L.lean || compose(M0, HOST), hfoot = PER.project(PB, hm, 48, 50);
   tag(k, v.nom || 'Ami', foot.x, Math.min(foot.y + 6, 404), near(m));      // their names under them, while they stand in their places

@@ -1166,7 +1166,7 @@ async def run_tool(hub, a):
         why = H.start(a.get("jeu", "au-choix"), "claude")
         H.publish()
         if why:
-            return "pas de jeu maintenant : " + why
+            return "jeu refusé : " + why
         return f"partie de {JEUX[H.partie['jeu']]} lancée sur ton écran : la personne joue en touchant l'écran."
     why = H.laugh("blague")
     H.publish()
