@@ -3,7 +3,8 @@ for long: he only gets a little hungry, says so now and then, and enjoys (or not
 
 - His belly ("ventre", 0..100, 100 = full) empties slowly during the day: SPEEDS points an hour (lente, normale,
   rapide), faster when his character trait "gourmand" is high (hub.s["caractere"]["traits"]["gourmand"], 50 when
-  missing: today's Pixel). Never at night (23 h - 6 h). While the server is down, at most DOWN_CAP_H awake hours count,
+  missing: today's Pixel). Never at night: his own night, from his bedtime to his wake-up (pixel/habitudes.py, hub.habitudes),
+  else 23 h - 6 h (NIGHT: no schedule, or the demo's paused one). While the server is down, at most DOWN_CAP_H awake hours count,
   and never below DOWN_FLOOR: he wakes up a little hungry at worst. The same once running, when the clock jumps (the Pi
   has no RTC: NTP sets its clock after boot) or the loop stalls: a gap longer than DOWN_GAP between two ticks. It can be
   switched off ("on": false): then his belly stays as it is, he never asks for anything, and meals are refused with a word.
@@ -277,11 +278,23 @@ class Nourrir:
     def full_at(self):
         return FULL + (trait(self.hub, "gourmand") - 50) / 10       # a glutton always has a little room left
 
+    def _awake(self, t0, t1, cap=None):
+        """Awake hours between t0 and t1: outside his own night when he has a schedule (pixel/habitudes.py), else NIGHT's."""
+        H = getattr(self.hub, "habitudes", None)
+        if H is not None:
+            try:
+                h = H.awake_hours(t0, t1, cap)
+                if h is not None:
+                    return h
+            except Exception:                       # noqa: BLE001 - his belly never depends on it
+                log.exception("habitudes: his night")
+        return awake_hours(t0, t1, cap)
+
     def _down(self, t0, t1):
         """His belly after time nobody watched (the server down, a clock jump): DOWN_CAP_H awake hours at most, not below DOWN_FLOOR."""
         if self.ventre <= DOWN_FLOOR:
             return self.ventre
-        return max(DOWN_FLOOR, self.ventre - awake_hours(t0, t1, DOWN_CAP_H) * self.rate())
+        return max(DOWN_FLOOR, self.ventre - self._awake(t0, t1, DOWN_CAP_H) * self.rate())
 
     def tick(self, t=None):
         """Empties his belly up to now (not at night, not when off); publishes and saves when it shows. Ticks come every
@@ -290,7 +303,7 @@ class Nourrir:
         t = self.now() if t is None else t
         before = (round(self.ventre), level(self.ventre))
         if self.on and t > self.t:
-            self.ventre = self._down(self.t, t) if t - self.t > DOWN_GAP else max(0.0, self.ventre - awake_hours(self.t, t) * self.rate())
+            self.ventre = self._down(self.t, t) if t - self.t > DOWN_GAP else max(0.0, self.ventre - self._awake(self.t, t) * self.rate())
         self.t = t if t < self.t - DOWN_GAP else max(self.t, t)
         if (round(self.ventre), level(self.ventre)) != before:
             self.publish()

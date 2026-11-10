@@ -257,6 +257,22 @@ function build(root, o = {}) {
   }
   const calmeNote = el('small', 'car-calme-n'); calme.append(calmeNote);
   opts.append(calme);
+  /* his habits (habitudes.js): his quiet hours are his night now, from his bedtime to his wake-up; set them there */
+  const hab = typeof window !== 'undefined' && window.PixelHabitudes;
+  if (hab) {
+    const go = btn('car-hab', 'Son emploi du temps');
+    go.addEventListener('click', () => {
+      if (typeof window.PixelPanel === 'function') { close(false); window.PixelPanel('habitudes'); return; }
+      const h = document.getElementById('hHabitudes'); if (h) (h.closest('section') || h).scrollIntoView({ block: 'start', behavior: 'smooth' });   // Pixel Lab
+    });
+    calme.replaceChildren(el('span', 'car-calme-t', 'Heures calmes'), calmeNote, go);
+  }
+  const habNote = () => {
+    const H = hab && hab.screen && hab.screen.state, h = H && H.horaires;
+    if (!h) return 'Ses heures calmes suivent son emploi du temps.';
+    if (!h.actif) return 'Pas d’heures calmes : son emploi du temps est éteint (23 h à 6 h pour son ventre).';
+    return `C’est sa nuit : de son coucher (${hab.hm(h.coucher)}) à son réveil (${hab.hm(h.reveil)}). Rien que des moments calmes.`;
+  };
   const acts = el('div', 'car-actions'), tryB = btn('car-try', 'Essayer'), resetB = btn('car-reset', 'Réinitialiser');
   tryB.title = 'Pixel joue une scène typique de son caractère'; resetB.title = 'Retour au Pixel de tous les jours : traits, noms et habitudes';
   tryB.addEventListener('click', () => send('caractere.essai'));
@@ -283,7 +299,7 @@ function build(root, o = {}) {
     for (const k of ['nom', 'surnom']) if (document.activeElement !== fields[k]) fields[k].value = k === 'nom' && car.nom === NOM ? '' : car[k];
     for (const k in sw) sw[k].setAttribute('aria-checked', String(!!car[k]));
     for (const k in sel) if (document.activeElement !== sel[k]) sel[k].value = String(car.calme[k]);
-    calmeNote.textContent = car.calme.de === car.calme.a ? 'Pas d’heures calmes.' : `La nuit, de ${car.calme.de} h à ${car.calme.a} h : rien que des moments calmes.`;
+    calmeNote.textContent = hab ? habNote() : car.calme.de === car.calme.a ? 'Pas d’heures calmes.' : `La nuit, de ${car.calme.de} h à ${car.calme.a} h : rien que des moments calmes.`;
     if (o.onRender) o.onRender(car);
   }
   render(car);

@@ -10,6 +10,7 @@ from . import anims, caractere, nourrir, scenes
 from .abonnement import Abonnement, wanted
 from .keys import MOODS, NAV, THEMES
 from . import exos                    # start_exercise: a little math exercise on Pixel's screen
+from . import habitudes               # habits: his schedule, a phrase to say, a game, a joke (pixel/habitudes.py)
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (
@@ -30,7 +31,8 @@ def tool(name, description, props=None, required=()):
 
 TOOLS = [
     tool("get_status", "Lit l'état actuel : date et heure, lampes Hue par pièce, scènes, météo sur 5 jours, "
-                       "agenda d'aujourd'hui et de demain, minuteur, tâche Codex, ton ventre et les exos de maths du jour."),
+                       "agenda d'aujourd'hui et de demain, minuteur, tâche Codex, ton ventre, les exos de maths du jour, "
+                       "et tes habitudes (réveillé ou endormi, ton emploi du temps, tes jeux)."),
     tool("set_lights", "Allume, éteint ou règle une pièce Hue. room : nom de la pièce, ou \"*\" pour toutes. "
                        "brightness : 0 à 100 (0 éteint).",
          {"room": {"type": "string"}, "on": {"type": "boolean"}, "brightness": {"type": "integer", "minimum": 0, "maximum": 100}}, ["room"]),
@@ -54,6 +56,7 @@ TOOLS = [
 ]
 TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (pixel/nourrir.py)
 TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
+TOOLS.append(habitudes.TOOL)                # pixel/habitudes.py: habits
 
 # ---- his character (pixel/caractere.py): Claude can change it when asked, and knows it (system_for below) ----
 TOOLS.append(tool(
@@ -116,6 +119,7 @@ def check(name, a):
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
         "set_character": caractere.tool_ok(a),
         "start_exercise": exos.check_tool(a),
+        "habits": habitudes.check_tool(a),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
 
@@ -177,6 +181,8 @@ class Claude:
             c = h.exos.cur
             out["exos"] = h.exos.summary() + (f" Un exo est ouvert sur ton écran ({c.get('type')}) : « {c.get('q')} ». Ne donne pas la réponse ; "
                                                "un indice si on te le demande." if c and c.get("etat") == "question" else "")
+        if getattr(h, "habitudes", None) is not None:           # his day and his games (pixel/habitudes.py); never his taught phrases
+            out["habitudes"] = h.habitudes.summary()
         return out
 
     def _timer_left(self):
@@ -228,6 +234,8 @@ class Claude:
                     + (f", tu l'appelles {c['surnom']}" if c["surnom"] else ""))
         if name == "start_exercise":
             return await exos.run_tool(h, a)
+        if name == habitudes.TOOL["name"]:
+            return await habitudes.run_tool(h, a)
         return "outil inconnu"
 
     # ---- conversation ----

@@ -458,7 +458,7 @@ Object.assign(A, {
 });
 
 /* ---------- typed commands (port of pixel/commands.py; themes and moods come from the live lists) ---------- */
-const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · sinon : Claude";
+const HELP = "salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème manga · codex <tâche> · météo, agenda… (nom d'un écran) · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · on joue ? · raconte une blague · sinon : Claude";
 const SCREEN_WORDS = { ...Object.fromEntries(NAV.map(i => [norm(NAMES[i]), i])), lumiere: 'lumieres', lampes: 'lumieres', timer: 'minuteur', meteo: 'meteo', systeme: 'systeme', visage: 'visage' };
 const THEME_WORDS = {}, MOOD_WORDS = {};
 ALLT.forEach(t => { THEME_WORDS[kw(t.id)] = t.id; THEME_WORDS[kw(t.name)] ??= t.id; });   // every theme: a disabled one gets the "not on" message
@@ -524,6 +524,7 @@ function command(raw) {
   if (SCREEN_WORDS[t]) return A['screen.show']({ screen: SCREEN_WORDS[t] });
   if (carCommand(raw)) return;                           // « sois grognon », « plus câlin »… (caractère, below), last before Claude as in commands.py
   if (NOUR && NOUR.command(raw)) return;                 // « mange une pomme », « à table ! » (Nourrir, below): after him, as in commands.py
+  if (HAB && HAB.command(raw)) return;                   // « on joue ? », « raconte une blague », « dis bonjour comme ça : … » (his habits, below)
   A['chat.ask']({ text: raw });
 }
 
@@ -610,7 +611,8 @@ const NOUR = (() => {
     if (t && c.humeur_jour === true && window.PixelCaractere) try { t = window.PixelCaractere.today(c); } catch { /* the plain traits */ }
     const v = t && t[k]; return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 50;
   };
-  const level = v => (v >= 55 ? 0 : v >= 25 ? 1 : 2), night = t => { const h = new Date(t).getHours(); return h >= 23 || h < 6; };
+  const level = v => (v >= 55 ? 0 : v >= 25 ? 1 : 2);
+  const night = t => { const n = HAB && HAB.isNight(t); if (typeof n === 'boolean') return n; const h = new Date(t).getHours(); return h >= 23 || h < 6; };   // his night (his habits), else 23 h - 6 h
   function roll() {
     const draw = (pool, w, n) => { pool = [...pool]; const out = []; while (pool.length && out.length < n) { let x = Math.random() * pool.reduce((s, f) => s + w[f.cat], 0), i = 0; for (; i < pool.length - 1; i++) { x -= w[pool[i].cat]; if (x < 0) break; } out.push(pool[i].id); pool.splice(i, 1); } return out; };
     const prefere = draw(NF.FOODS, W_FAV, 1)[0], aime = draw(NF.FOODS.filter(f => f.id !== prefere), W_LIKE, 5);
@@ -1047,6 +1049,11 @@ restorable('exos', (v, at) => {
 });
 exPub();
 /* ---------- end of the math exercises ---------- */
+
+/* ---------- his habits (pixel/habitudes.py; the rules come from ../habitudes.js): his day, his games, his laughs, his fears, his
+   phrases. The lab's clock for his schedule is paused (he stays awake, as the --demo server) until habitudes.demo {heure}
+   simulates a time of day (the lab's « Ses habitudes » buttons); Pixel sans Pi lives by the phone's real clock. ---------- */
+var HAB = window.PixelHabitudes && window.PixelHabitudes.hub ? window.PixelHabitudes.hub({ S, A, toast, mark, local: LOCAL, restorable, restorers: () => restorable.fns || {} }) : null;
 
 return {
   NAV, NAMES, THEMES, ALLT, MOODS, KINDS, ANIMS, AGROUPS, FACES, PSCENES, S, norm, row3, snapshot, findScene,
