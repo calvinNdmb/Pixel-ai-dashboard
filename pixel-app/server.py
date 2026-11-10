@@ -200,6 +200,10 @@ def qr_rows(url):
 async def serve(args, cfg, datadir, token):
     hub = Hub(cfg, args.demo)
     core_actions(hub, datadir)
+    if getattr(args, "config_error", ""):                # config.toml could not be read: said again every minute until it is fixed
+        async def config_says():
+            hub.toast(args.config_error, 20000)
+        asyncio.ensure_future(hub.every(60, config_says, first_delay=8))
     poche.setup(hub)                     # Pixel de poche: the two Pixels pass news, the voyage
     caractere.setup(hub, datadir)        # his character, saved in caractere.json
     optional(hub, "habitudes", habitudes.setup, hub, datadir)   # his habits (habitudes.json): after caractère (its old quiet hours), before nourrir (his night)
@@ -344,7 +348,13 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     cfg_path = Path(args.config)
-    cfg = tomllib.loads(cfg_path.read_text()) if cfg_path.exists() else {}
+    cfg, cfg_error = {}, ""
+    try:
+        cfg = tomllib.loads(cfg_path.read_text()) if cfg_path.exists() else {}
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:     # a slip in config.toml (a section written twice…): Pixel starts
+        cfg_error = f"config.toml a une erreur : {e}. Pixel démarre avec les réglages par défaut."   # anyway, and says so on his screen
+        log.error("%s: %s", cfg_path, e)
+    args.config_error = cfg_error
     if not cfg_path.exists():
         log.warning("pas de %s : réglages par défaut (copie config.example.toml)", cfg_path)
     datadir = Path(os.path.expanduser(cfg.get("data_dir", "~/.config/pixel")))
