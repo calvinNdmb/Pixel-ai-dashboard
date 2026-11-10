@@ -7,13 +7,15 @@
   impossible schedules refused with a reason, a DST night (Europe/Paris, both changes) and the awake hours his belly counts;
 - his routine, tick by tick: the bedtime announce, his teeth, his night-light, goodnight, the wake-up; nothing after a
   clock jump; dort and nuit; the demo's paused clock;
-- the file: kept, a broken or absurd habitudes.json never stops him, caractère's old quiet hours migrated once (and the
+- the file: kept (0600), a broken or absurd habitudes.json never stops him (one that is not an object is put aside, never
+  written over), caractère's old quiet hours migrated once (and the
   defaults when they were the old defaults, switched off for « pas d'heures calmes »);
 - the games, each one end to end (cache-cache, pierre-feuille-ciseaux, attrape-étoiles, Simon): moves judged, stale or
   made-up moves ignored, timeouts, results, records, paused under a cast or an exercise, refused at night, his nap, bedtime
   and over an open exercise; his laughs; his fears (the storm from the weather, never at night, comforting him: courage
   over the days); his phrases (cleaned, capped, five a moment, never a link);
-- the typed commands (exact phrases only: the rest goes to Claude, another feature's words stay theirs), Claude's tool;
+- the typed commands (exact phrases only: the rest goes to Claude, another feature's words stay theirs), Claude's tool (never
+  « apprendre »: his phrases are the family's to teach); a long time of day or phrase from a page answered at once;
 - the others follow his night: nourrir's belly sleeps from his bedtime to his wake-up;
 - the same rules in web/habitudes.js (Pixel Lab, Pixel sans Pi): run in node, compared.
 """
@@ -527,19 +529,23 @@ async def claude(tmp):
     names = [t["name"] for t in TOOLS]
     check("Claude's tool « habits », offered beside the others, no name twice", "habits" in names and "habits" in [t["name"] for t in tools_for(["retro"])] and len(names) == len(set(names)))
     good = [{"action": "horaires", "coucher": "20:30"}, {"action": "horaires", "sieste": "", "weekend_reveil": "9:00", "weekend_coucher": "21:30"},
-            {"action": "apprendre", "moment": "bravo", "phrase": "Champion !"}, {"action": "jouer", "jeu": "simon"}, {"action": "jouer"}, {"action": "blague"}]
+            {"action": "jouer", "jeu": "simon"}, {"action": "jouer"}, {"action": "blague"}]
     badl = [{}, {"action": "voler"}, {"action": "horaires"}, {"action": "horaires", "coucher": "25:00"}, {"action": "horaires", "reveil": ""},
-            {"action": "apprendre", "moment": "x", "phrase": "y"}, {"action": "apprendre", "moment": "bravo", "phrase": "https://x.fr"},
+            {"action": "apprendre", "moment": "bravo", "phrase": "Champion !"}, {"action": "apprendre", "moment": "x", "phrase": "y"},
             {"action": "jouer", "jeu": "echecs"}, {"action": "blague", "jeu": "simon"}, {"action": "horaires", "sieste_minutes": 999}, "x"]
     check("check(habits): good inputs pass", all(claude_check("habits", a) is None for a in good), [a for a in good if claude_check("habits", a)])
-    check("…bad ones are refused", all(claude_check("habits", a) for a in badl), [a for a in badl if not claude_check("habits", a)])
+    check("…bad ones are refused, « apprendre » too: a phrase he says on his own is the family's to teach, never Claude's",
+          all(claude_check("habits", a) for a in badl), [a for a in badl if not claude_check("habits", a)])
+    tool = next(t for t in TOOLS if t["name"] == "habits")
+    check("…its schema offers no « apprendre », no moment, no phrase", tool["input_schema"]["properties"]["action"]["enum"] == ["horaires", "jouer", "blague"]
+          and not {"moment", "phrase"} & set(tool["input_schema"]["properties"]) and "apprendre de phrase" in tool["description"], tool["input_schema"]["properties"]["action"])
     cl = Claude(hub, {})
     out = await cl.run_tool("habits", {"action": "horaires", "coucher": "20:30", "sieste": "13:00", "sieste_minutes": 30})
     check("run: his schedule changes, Claude hears it", H.S["horaires"]["coucher"] == 1230 and H.S["horaires"]["sieste"] == {"de": 780, "duree": 30} and "20 h 30" in out, out)
     out = await cl.run_tool("habits", {"action": "horaires", "coucher": "9:00"})
     check("…an impossible one: refused, with the reason", out.startswith("refusé") and H.S["horaires"]["coucher"] == 1230, out)
-    out = await cl.run_tool("habits", {"action": "apprendre", "moment": "bravo", "phrase": "Champion du monde !"})
-    check("run: a phrase taught, quoted back", H.S["expressions"]["bravo"] == ["Champion du monde !"] and "« Champion du monde ! »" in out, out)
+    out = await HB.run_tool(hub, {"action": "apprendre", "moment": "bravo", "phrase": "Champion du monde !"})
+    check("run: « apprendre » even past the check teaches nothing", H.S["expressions"]["bravo"] == [] and "inconnue" in out, out)
     out = await cl.run_tool("habits", {"action": "jouer", "jeu": "cache"})
     check("run: a game starts on his screen", H.partie and H.partie["jeu"] == "cache" and H.partie["par"] == "claude" and "Cache-cache" in out, out)
     H.stop_game()
@@ -548,6 +554,30 @@ async def claude(tmp):
     clock.set("2026-11-09 23:00")
     out = await cl.run_tool("habits", {"action": "jouer", "jeu": "cache"})
     check("…at night: no game, Claude is told why", "pas de jeu" in out and not H.partie, out)
+
+
+async def robust(tmp):
+    """What a page may send never holds the server: a long time of day, a long phrase; his file is his family's only (0600)."""
+    hub, H, clock, _ = make(tmp, "2026-11-09 10:00")
+    long_t = "7" + " " * 80000 + "x"
+    t0 = time.perf_counter()
+    r = HB.to_min(long_t)
+    dt1 = time.perf_counter() - t0
+    check(f"a time of day with 80 000 spaces: no time, at once ({dt1 * 1000:.1f} ms; it took seconds)", r is None and dt1 < 0.05, dt1)
+    check("…the usual ones still: « 7:30 », «  19 heures 05  », « 7 h »", [HB.to_min(x) for x in ("7:30", "  19 heures 05  ", "7 h", "7h30 ")] == [450, 1145, 420, 450])
+    before = dict(H.S["horaires"])
+    t0 = time.perf_counter()
+    await hub.dispatch("habitudes.horaires", {"reveil": long_t, "coucher": "7" + "\t" * 200000})
+    dt2 = time.perf_counter() - t0
+    check(f"habitudes.horaires with them (a WebSocket message): answered at once ({dt2 * 1000:.0f} ms), refused, nothing moves",
+          dt2 < 0.3 and H.S["horaires"] == before and "pas compris" in (hub.s.get("toast") or {}).get("msg", ""), dt2)
+    t0 = time.perf_counter()
+    await hub.dispatch("habitudes.apprendre", {"moment": "bonjour", "phrase": "Salut toi !" + " é a" * (1024 * 1024)})
+    dt3 = time.perf_counter() - t0
+    check(f"habitudes.apprendre with 4 MB: cut before it is cleaned ({dt3 * 1000:.0f} ms), the phrase at its start kept (60 at most)",
+          dt3 < 0.3 and H.S["expressions"]["bonjour"] and H.S["expressions"]["bonjour"][0].startswith("Salut toi !") and len(H.S["expressions"]["bonjour"][0]) <= 60, dt3)
+    mode = os.stat(tmp / "habitudes.json").st_mode & 0o777
+    check("habitudes.json is readable by its owner only (0600: the family's phrases)", mode == 0o600, oct(mode))
 
 
 async def others(tmp):
@@ -606,7 +636,12 @@ def files(tmp):
                     and all(v["courage"] in range(0, 101) for v in S["peurs"].values()) and all(isinstance(x, str) and 0 < len(x) <= 60 for v in S["expressions"].values() for x in v))
             if i == 3:
                 good = good and S["jeux"]["favoris"][0] == "simon" and S["expressions"]["bonjour"] == ["ok", "a" * 60] and S["peurs"]["orage"]["on"] is True and S["sautee"] == ""
-            check(f"a broken habitudes.json ({junk[:24]!r}…) never stops him: everything cleaned", good, S)
+                good = good and not (d / "habitudes.json.illisible").exists()          # values out of place: cleaned, the file is his
+            else:                                                                        # not an object: put aside, never written over
+                aside = d / "habitudes.json.illisible"
+                good = good and aside.exists() and aside.read_text() == junk and json.loads((d / "habitudes.json").read_text())["v"] == 1
+            check(f"a broken habitudes.json ({junk[:24]!r}…) never stops him: everything cleaned"
+                  + ("" if i == 3 else ", the file put aside as it was (habitudes.json.illisible)"), good, S)
         except Exception as e:  # noqa: BLE001
             check(f"a broken habitudes.json ({junk[:24]!r}…) never stops him", False, repr(e))
     d = tmp / "ro"
@@ -661,7 +696,8 @@ def main():
     dst()
     with tempfile.TemporaryDirectory() as a:
         tmp = Path(a)
-        for name, fn in (("routine", routine), ("actions", actions), ("games", games), ("typed", typed), ("claude", claude), ("others", others), ("files", files)):
+        for name, fn in (("routine", routine), ("actions", actions), ("games", games), ("typed", typed), ("claude", claude), ("robust", robust), ("others", others),
+                         ("files", files)):
             d = tmp / name
             d.mkdir()
             r = fn(d)

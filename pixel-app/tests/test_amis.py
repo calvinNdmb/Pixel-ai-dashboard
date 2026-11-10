@@ -12,8 +12,13 @@ the real ntfy.sh.
 - rate limits: incoming (before opening), outgoing (gaps, an hour, a day);
 - visits both ways (the programme, what they did, the memories), refusals (asleep: habitudes.dort and the quiet hours,
   casting, an exercise), « me demander avant » (yes, no, no answer), calling him back, a friend's Pi that does not answer;
-- coucous and stickers, removing a friend (both sides forget), the parent switch, the file (0600, a broken one put aside),
-  the typed commands and Claude's tool.
+- coucous and stickers, removing a friend (both sides forget), the parent switch, the file (0600, a broken one put aside,
+  values of the wrong type dropped one by one), the typed commands and Claude's tool;
+- what a friend's Pixel may make ours do, even one that keeps no rule (limits(), a fake clock): its visit requests heard
+  25 s apart and 20 an hour, our answers stop before the child's last messages of the day and nothing past DAY_MAX, a rest
+  after a hosted visit or a « Non merci », one memory and one photo a day with each friend, amis.json written every 10 s at
+  most; a pairing that brings an id that is already a friend's refused on both sides; my card without what he wears now;
+  codes rate-limited and scrypt one at a time on its own thread; sealed sizes padded to a few buckets; digits other than 0-9.
 The screens (the visitor on the host's kiosk, the panel, the lab's demo friend) are tested in a browser by tests/test_amis.js.
 """
 import asyncio
@@ -35,7 +40,7 @@ APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP))
 sys.path.insert(0, str(APP / "tests"))
 import server  # noqa: E402
-from pixel import amis, caractere, commands, exos, nourrir, poche, relais  # noqa: E402
+from pixel import album, amis, caractere, commands, exos, nourrir, poche, relais  # noqa: E402
 from pixel.claude import TOOLS, check as claude_check  # noqa: E402
 from pixel.state import Hub  # noqa: E402
 from fake_ntfy import FakeNtfy  # noqa: E402
@@ -83,6 +88,10 @@ def codes():
                      ("lapin soleil tarte 42711", "nombre"), ("lapin soleil tarte 0999", "nombre"), ("lapin soleil tarte", "nombre")):
         c, why = amis.lire_code(bad)
         check(f"« {bad} » is not a code ({key})", c is None and key in why, str(why))
+    for odd in ("lapin soleil tarte ４２７１", "lapin soleil tarte ٤٢٧١", "lapin soleil tarte 42७१"):
+        c, why = amis.lire_code(odd)
+        check(f"« {odd} » (digits that are not 0-9: they would stretch to another meeting): refused cleanly, the number is missing",
+              c is None and set(why) == {"nombre"} and "quatre chiffres" in amis.pourquoi_code(why), str(why))
     check("the words as written for the screens: « éléphant · crêpe · forêt · 1234 »", amis.code_texte("elephant-crepe-foret-1234") == "éléphant · crêpe · forêt · 1234")
     # identity cards
     car = amis.clean_card({"id": "0123456789abcdef", "nom": "Bip<script>!!" + "x" * 30, "caractere": "farceur", "theme": "neon", "look": {"yeux": "ronds", "couleur": "#ff00aa"}})
@@ -135,6 +144,25 @@ def box():
         check("a message too long cannot be sealed", False)
     except ValueError:
         check("a message too long cannot be sealed", True)
+    env = {n: len(relais.seal(k, t, {"p": "x" * (n - 8)})) for n in relais.PAD}          # {"p":"…"}: exactly n bytes
+    card = {"v": 1, "id": "0123456789abcdef", "nom": "Bip", "caractere": "farceur", "theme": "neon",
+            "look": {"yeux": "etoile", "couleur_yeux": "rose", "couleur_joues": "theme", "mono": False, "saisons": True, "nuit": True,
+                     "accessoires": {s: None for s in ("tete", "yeux", "visage", "cou", "oreilles")}}}
+    base = {"v": 1, "de": "0123456789abcdef", "a": "fedcba9876543210", "t": int(time.time() * 1000), "id": secrets.token_hex(8)}
+    kinds = [{"k": "coucou"}, {"k": "sticker", "s": "arc"}, {"k": "visite-demande", "vid": "a" * 12}, {"k": "visite-ok", "vid": "a" * 12, "dur": 181},
+             {"k": "visite-non", "vid": "a" * 12, "pourquoi": "pas-de-reponse"}, {"k": "visite-fin", "vid": "a" * 12, "fait": list(amis.ACTIVITES), "par": "fin"},
+             {"k": "merci"}, {"k": "carte", "carte": card}, {"k": "bonjour", "eph": "A" * 43, "carte": card}, {"k": "x", "look": {f"k{i}": "y" * 60 for i in range(14)}}]
+    sizes = {m["k"]: len(relais.seal(k, t, {**base, **m})) for m in kinds}
+    check(f"sealed sizes: always one of {sorted(set(env.values()))} characters (padded to {relais.PAD} bytes), all of the small ones alike",
+          set(sizes.values()) <= set(env.values()) and len({sizes[x] for x in ("coucou", "sticker", "visite-demande", "visite-ok", "visite-non", "visite-fin", "merci", "carte")}) == 1
+          and max(env.values()) <= relais.MAX_BODY, json.dumps(sizes))
+    pad = relais.seal(k, t, {"k": "coucou"})
+    raw = relais.unb64u(pad[5:])
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    plain = AESGCM(k).decrypt(raw[:12], raw[12:], b"pxa1|" + t.encode())
+    old = "PXA1." + relais.b64u(raw[:12] + AESGCM(k).encrypt(raw[:12], b'{"k":"coucou"}', b"pxa1|" + t.encode()))
+    check("…padded with spaces: still JSON for a Pixel 1.3.0, the padding gone when opened, and a 1.3.0 message (unpadded) opens",
+          len(plain) == relais.PAD[0] and json.loads(plain) == {"k": "coucou"} and relais.open_(k, t, pad) == {"k": "coucou"} and relais.open_(k, t, old) == {"k": "coucou"})
     a, b = relais.Ephemeral(), relais.Ephemeral()
     check("X25519: both sides get the same secret; a bad public key gives none", a.shared(b.pub) == b.shared(a.pub) and a.shared("AAAA") is None
           and a.shared(relais.b64u(bytes(32))) is None)
@@ -152,7 +180,7 @@ def make(tmp, nom, **cfg):
     exos.setup(hub, tmp)
     hub.s["caractere"]["nom"] = nom
     hub.s["caractere"]["calme"] = {"de": 23, "a": 23}                  # no quiet hours: the tests run at any time
-    A = amis.setup(hub, tmp, {"relay": RELAY, "silence": 5, **cfg})
+    A = amis.setup(hub, tmp, {"relay": RELAY, "silence": 5, "repos_secondes": 0, **cfg})    # (his rest after a visit: limits())
     seen = []
     d0 = hub.dispatch
 
@@ -210,6 +238,7 @@ async def scenario(tmp):
 
 
 async def flows(tmp, relay):
+    amis.IN_VISITE = (0, 10 ** 6)          # the flows below ask for visits again and again: what a friend may ask has limits() of its own
     (tmp / "a").mkdir()
     (tmp / "b").mkdir()
     (tmp / "c").mkdir()
@@ -217,7 +246,8 @@ async def flows(tmp, relay):
     hb, B = make(tmp / "b", "Bip")
     hb.s["caractere"]["preset"] = "farceur"
     hb.s["view"]["theme"] = "neon"
-    hb.s["look"] = {"yeux": "etoiles", "chapeau": "casquette"}
+    hb.s["look"] = {"yeux": "etoile", "couleur_yeux": "rose", "accessoires": {"tete": "casquette"}, "saisons": True, "nuit": True, "sans": {"cou": "2026-11-09"},
+                    "porte": {"tete": "fete", "cou": "pyjama", "nuit": True, "saison": "anniversaire"}, "change": {"t0": 1, "quoi": "porte"}, "avant": 2}
     await asyncio.sleep(1.2)
     check("no friend, no code: not a single request to the relay, the link is off", relay.subscriptions == [] and relay.published == []
           and A.lien == "off" and ha.s["amis"]["lien"] == "off", f"{relay.subscriptions} {A.lien}")
@@ -235,13 +265,16 @@ async def flows(tmp, relay):
     check("two Pixels become friends with the code, typed any old way (case, accents, commas, the number in two)", ok, f"{list(A.amis)} {list(B.amis)}")
     fa, fb = A.amis.get(B.moi, {}), B.amis.get(A.moi, {})
     check("…each has the other's card: name, preset, theme, look", fa.get("nom") == "Bip" and fa.get("caractere") == "farceur" and fa.get("theme") == "neon"
-          and fa.get("look") == {"yeux": "etoiles", "chapeau": "casquette"} and fb.get("nom") == "Pixou", json.dumps({k: fa.get(k) for k in ("nom", "caractere", "theme", "look")}))
+          and fa.get("look") == {"yeux": "etoile", "couleur_yeux": "rose", "accessoires": {"tete": "casquette"}, "saisons": True, "nuit": True}
+          and fb.get("nom") == "Pixou", json.dumps({k: fa.get(k) for k in ("nom", "caractere", "theme", "look")}))
+    check("…the look chosen for him only: never what he wears now (« porte »: his pyjama tells his bedtime, a party hat his birthday)",
+          "porte" not in json.dumps(A._stored(fa)) + json.dumps(B.ma_carte()) and set(B.ma_carte()["look"]) <= set(amis.CARD_LOOK), json.dumps(B.ma_carte()["look"]))
     check("…the same friendship key on both sides (each one's topics and keys match the other's)", fa and fb and fa["cle"] == fb["cle"] and fa["_t_out"] == fb["_t_in"]
           and fa["_t_in"] == fb["_t_out"] and fa["_k_out"] == fb["_k_in"] and fa["_k_out"] != fa["_k_in"])
     check("…both screens hear the news (nouvel-ami) and both journals keep it", ev(A, "nouvel-ami") and ev(B, "nouvel-ami") and A.journal[0]["quoi"] == "nouvel-ami"
           and B.journal[0]["quoi"] == "nouvel-ami" and ha.s["amis"]["amis"][0]["nom"] == "Bip")
     check("…the code is used up: gone from the snapshot", A.code is None and ha.s["amis"]["code"] is None)
-    secret_words = [w for w in code.split("-")[:3]] + ["Pixou", "Bip", "casquette", "etoiles", "bonjour", "bienvenue", "farceur", "neon", code.split("-")[3]]
+    secret_words = [w for w in code.split("-")[:3]] + ["Pixou", "Bip", "casquette", "etoile", "bonjour", "bienvenue", "farceur", "neon", code.split("-")[3]]
     bodies = relay.bodies()
     plain = [b for b in bodies if not b.startswith("PXA1.") or any(w in b for w in secret_words) or "{" in b]
     decoded = b"".join(relais.unb64u(b[5:]) for b in bodies if b.startswith("PXA1."))
@@ -556,6 +589,26 @@ async def flows(tmp, relay):
     hd, D = make(tmp / "d", "Dédé")
     check("a broken amis.json: Pixel starts with no friend, the file is put aside", D.amis == {} and (tmp / "d" / "amis.json.illisible").exists())
     await close(hd)
+    (tmp / "g").mkdir()
+    friend = {"id": "fedcba9876543210", "nom": "Bip", "cle": relais.b64u(os.urandom(32)), "depuis": 1, "look": {"yeux": "rond", "porte": {"tete": "fete", "saison": "anniversaire"}}}
+    (tmp / "g" / "amis.json").write_text(json.dumps({"moi": "0123456789abcdef", "amis": [friend, ["x"], {"id": ["x"]}], "attente": [7, {"id": {}}],
+                                                     "journal": [{"t": 1, "quoi": "visite", "fait": [["ami-danse"], "ami-course"]}, {"t": 2, "quoi": "sticker-recu", "s": {}},
+                                                                 {"t": 3, "quoi": "refus", "refus": ["dort"]}, "x"],
+                                                     "seen": {"a": []}, "code": {"code": ["x"]}, "compte": [], "par_jour": {"jour": [], "photo": "x"}}))
+    try:
+        hg, G = make(tmp / "g", "Gégé")
+        ok = (list(G.amis) == ["fedcba9876543210"] and [j.get("fait") for j in G.journal] == [["ami-course"], None, None] and "s" not in G.journal[1]
+              and "refus" not in G.journal[2] and G.amis["fedcba9876543210"]["look"] == {"yeux": "rond"} and not (tmp / "g" / "amis.json.illisible").exists())
+        await close(hg)
+    except Exception as e:                    # noqa: BLE001
+        ok = False
+        print("   ", repr(e))
+    check("amis.json with values of the wrong type (a list in « fait », an object for « s »…): Pixel starts, the friend kept, the bad values dropped"
+          " (and a friend's old card loses what he wore: « porte »)", ok)
+    hz = Hub({}, demo=True)
+    out = server.optional(hz, "amis", lambda: (setattr(hz, "amis", object()), hz.s.update(amis={}), 1 / 0))
+    check("a feature that cannot start (server.optional): logged, Pixel goes on without it, no trace of it on the hub",
+          out is None and getattr(hz, "amis", None) is None and "amis" not in hz.s)
     (tmp / "e").mkdir()
     he, E = make(tmp / "e", "Eve", enabled=False)
     await he.dispatch("amis.code")
@@ -564,12 +617,260 @@ async def flows(tmp, relay):
     await close(he)
 
 
+# ---------- what a friend's Pixel may make ours do, whatever it does (a fake clock, nothing goes out) ----------
+class Clock:
+    def __init__(self, t):
+        self.t = t
+
+    def __call__(self):
+        return self.t
+
+
+def pair(base, clock, **cfg):
+    """Two Pixels already friends (the key both sides would derive); what each one publishes is kept in P.sent."""
+    ha, hb = Hub({}, demo=True), Hub({}, demo=True)
+    for h in (ha, hb):
+        h.s["habitudes"] = {"dort": False}             # awake, whatever the hour the tests run at
+    A = amis.Amis(ha, base / "a", {"relay": "http://127.0.0.1:9", **cfg}, now=clock)
+    B = amis.Amis(hb, base / "b", {"relay": "http://127.0.0.1:9", **cfg}, now=clock)
+    ha.amis, hb.amis = A, B
+    k = relais.b64u(os.urandom(32))
+    for owner, other, nom in ((A, B, "Bip"), (B, A, "Pixou")):
+        r = owner._rec({"id": other.moi, "nom": nom, "cle": k, "depuis": 1})
+        owner.amis[r["id"]] = r
+        owner._topics()
+    for P in (A, B):
+        P.sent = []
+
+        async def pub(topic, body, timeout=12.0, P=P):
+            P.sent.append((topic, body))
+            return "ok", int(clock())
+        P.relais.publish = pub
+    return ha, hb, A, B
+
+
+def rogue(B, A, kind, **data):
+    """What B's Pixel sends A when it keeps no rule at all: sealed with B's real key, handed straight to A."""
+    f = A.amis[B.moi]
+    m = {"v": 1, "k": kind, "de": B.moi, "a": A.moi, "t": int(A.now() * 1000), "id": secrets.token_hex(8), **data}
+    A.on_message(f["_t_in"], relais.seal(f["_k_in"], f["_t_in"], m), int(A.now()))
+
+
+def sent_to(A, B):
+    """What A sent B, opened: [kind, ...] (its card included)."""
+    f = A.amis[B.moi]
+    return [m for m in (relais.open_(f["_k_out"], f["_t_out"], b) for t, b in A.sent if t == f["_t_out"]) if m]
+
+
+class Upload:
+    """What album.Album.upload reads of a request: Pixel's own screen on the Pi posting a photo."""
+    def __init__(self, data, raison):
+        self.query, self.headers, self.cookies, self.remote, self.host = {"raison": raison}, {}, {}, "127.0.0.1", "localhost:8080"
+        self.content_type, self.content_length, self.content, self._data = "image/jpeg", len(data), self, [data]
+
+    async def read(self, n=-1):
+        return self._data.pop() if self._data else b""
+
+
+def jpeg():
+    import io
+    from PIL import Image
+    b = io.BytesIO()
+    Image.new("RGB", (800, 480), (10, 40, 20)).save(b, "JPEG", quality=80)
+    return b.getvalue()
+
+
+async def limits(base):
+    amis.IN_VISITE = (25, 20)
+    clock = Clock(time.time())
+    # ---- a flood of visit requests, while he sleeps ----
+    ha, hb, A, B = pair(base / "flood", clock)
+    ha.s["habitudes"] = {"dort": True}
+    writes, real_save = [], A.save
+    A.save = lambda: (writes.append(clock()), real_save())[1]
+    for _ in range(400):
+        rogue(B, A, "visite-demande", vid=secrets.token_hex(6))
+        A.tick()
+        await asyncio.sleep(0)
+        clock.t += 2
+    await asyncio.sleep(0.05)
+    non = [m for m in sent_to(A, B) if m["k"] == "visite-non"]
+    check(f"400 visit requests from a friend's Pixel that keeps no rule (one every 2 s, 13 min): {len(non)} answered "
+          f"({amis.IN_VISITE[0]} s apart, {amis.IN_VISITE[1]} an hour, like his own Pixel's limits), the rest dropped unanswered",
+          len(non) == amis.IN_VISITE[1] and A.rejets == 400 - amis.IN_VISITE[1] and A.compte["n"] <= amis.IN_VISITE[1] + 1, f"{len(non)} {A.rejets} {A.compte}")
+    check(f"…amis.json written {len(writes)} times, not once per message (at most every {amis.SAVE_GAP} s)", len(writes) <= 800 / amis.SAVE_GAP + 5, len(writes))
+    ha.s["habitudes"] = {"dort": False}
+    check("…and the child's own coucou to him still goes", A.coucou(B.moi) is True)
+    # ---- the day's budget: answers stop first, then everything ----
+    A.demandes.clear()
+    A.rate_in.clear()
+    A.compte["n"] = amis.DAY_MAX - amis.KEEP
+    await asyncio.sleep(0.01)
+    n0 = len(A.sent)
+    rogue(B, A, "visite-demande", vid=secrets.token_hex(6))
+    await asyncio.sleep(0)
+    check(f"{amis.DAY_MAX - amis.KEEP} messages today: a friend's request gets no answer (the last {amis.KEEP} are the child's), no visit",
+          len(A.sent) == n0 and not A.visite)
+    A.last_out.clear()
+    check("…the child's own coucou still goes", A.coucou(B.moi) is True)
+    A.compte["n"] = amis.DAY_MAX
+    check(f"{amis.DAY_MAX} messages today: nothing at all goes out, an answer either (_send refuses)",
+          A._send(A.amis[B.moi], "visite-non", vid="a" * 12, pourquoi="dort") is False and A._send(A.amis[B.moi], "merci") is False)
+    await asyncio.sleep(0)
+    check("…not one more on the relay", len(A.sent) == n0 + 1, len(A.sent) - n0)
+    # ---- one visit at a time, and a rest after it; one memory and one photo a day with each friend ----
+    ha, hb, A, B = pair(base / "rest", clock, repos_secondes=300, visite_secondes=20)
+    got = []
+
+    async def souvenir(type="", texte="", t=0):
+        got.append(texte)
+    ha.actions["souvenirs.ajoute"] = souvenir
+    ha.album = album.Album(ha, base / "rest" / "a")
+    photo = jpeg()
+
+    async def upload():                                # kept (200, ok) or not (200 all the same: the screen did nothing wrong)
+        r = await ha.album.upload(Upload(photo, "ami"), "code")
+        return json.loads(r.body)["ok"] if r.status == 200 else r.status
+
+    flags = []
+
+    async def host():
+        rogue(B, A, "visite-demande", vid=secrets.token_hex(6))
+        await asyncio.sleep(0)
+        if not (A.visite and A.visite["etat"] == "chez"):
+            return None
+        flags.append(A.public()["visite"]["photo"])    # what the screens see: will this visit's photo be kept?
+        st = [await upload(), await upload()]           # the souvenir photo, then the screen asks again (a reload)
+        clock.t = A.visite["fin"] / 1000 + 0.5
+        A.tick()
+        await asyncio.sleep(0.01)
+        return st
+    st = await host()
+    check("a friend comes: the visit, its memory, its photo kept once (a second one the same visit: not kept)", st == [True, False] and len(got) == 1
+          and len(ha.album.photos) == 1, f"{st} {got}")
+    clock.t += 30
+    rogue(B, A, "visite-demande", vid=secrets.token_hex(6))
+    await asyncio.sleep(0)
+    last = sent_to(A, B)[-1]
+    check(f"…he asks again 30 s after: « occupé » (Pixel rests {amis.REPOS // 60} min after a visit), no visit", not A.visite
+          and last["k"] == "visite-non" and last["pourquoi"] == "occupe", json.dumps(last))
+    clock.t += 300
+    st = await host()
+    check("…after the rest: another visit, but no second memory nor photo of him today", st == [False, False] and len(got) == 1 and len(ha.album.photos) == 1, f"{st} {got}")
+    check("…the screens know it beforehand (visite.photo: true the first time, false the second)", flags == [True, False], flags)
+    clock.t += 400
+    A.cooldown, A.last_out = 0, {}
+    A.visiter(B.moi)
+    vid = A.visite["vid"]
+    rogue(B, A, "visite-ok", vid=vid, dur=20)
+    rogue(B, A, "visite-fin", vid=vid, fait=["ami-danse", ["ami-course"], {"x": 1}], par=["fin"])
+    await asyncio.sleep(0.01)
+    check("he visits him the same day: home, he tells what they did (a list or an object in « fait »: dropped), still one memory, no photo",
+          not A.visite and A.evs[-1]["kind"] == "retour" and A.evs[-1]["fait"] == ["ami-danse"] and len(got) == 1 and A.evs[-1]["photo"] is False
+          and await upload() is False, json.dumps(A.evs[-1]))
+    clock.t += 86400
+    A.cooldown, A.last_out, A.repos = 0, {}, 0
+    st = await host()
+    check("…the next day: a memory and a photo again", st == [True, False] and len(got) == 2, f"{st} {got}")
+    check("a visit photo with no visit at all: not kept", await upload() is False and len(ha.album.photos) == 2)
+    clock.t += 1000
+    A.demander, A.repos = True, 0
+    rogue(B, A, "visite-demande", vid=secrets.token_hex(6))
+    await asyncio.sleep(0)
+    A.repondre(A.visite["vid"], False)
+    clock.t += 30
+    rogue(B, A, "visite-demande", vid=secrets.token_hex(6))
+    await asyncio.sleep(0)
+    check("« Me demander avant », « Non merci »: asked again 30 s later, « occupé » without asking the family again", not A.visite
+          and sent_to(A, B)[-1].get("pourquoi") == "occupe")
+    A.demander = False
+    # ---- what a friend sends, of the wrong type ----
+    r0 = A.rejets
+    rogue(B, A, "sticker", s={"coeur": 1})
+    rogue(B, A, "sticker", s=["coeur"])
+    check("a sticker that is an object or a list: refused, no error", A.rejets == r0 + 2)
+    A.cooldown, A.last_out = 0, {}
+    clock.t += 100
+    A.visiter(B.moi)
+    rogue(B, A, "visite-non", vid=A.visite["vid"], pourquoi=["dort"])
+    check("…a refusal whose reason is a list: « non »", not A.visite and A.evs[-1].get("refus") == "non", json.dumps(A.evs[-1]))
+    # ---- pairing with an id that is already a friend's ----
+    ha, hb, A, B = pair(base / "ids", clock)
+    clock.t = time.time()
+    before = dict(A.amis[B.moi])
+    A.creer_code()
+    await until(lambda: A.inv, 5)
+    eph = relais.Ephemeral()
+    m = {"v": 1, "k": "bonjour", "de": B.moi, "t": int(clock() * 1000), "id": secrets.token_hex(8), "eph": eph.pub, "carte": {"id": B.moi, "nom": "Bip"}}
+    A.on_message(A.inv["topic"], relais.seal(A.inv["key"], A.inv["topic"], m))
+    await asyncio.sleep(0)
+    reply = relais.open_(A.inv["key"], A.inv["topic"], A.sent[-1][1]) if A.sent and A.inv else None
+    check("my code typed by a Pixel that brings a friend's id (Bip's): refused, « Bip est déjà ton ami », Bip stays as he was, the code still valid",
+          A.amis[B.moi] == before and B.moi not in A.attente and A.code and A.inv and reply and reply["k"] == "deja" and "déjà ton ami" in ha.s["toast"]["msg"],
+          f"{reply} {ha.s.get('toast')}")
+    A.annuler_code()
+    A.ajouter(amis.nouveau_code())
+    await until(lambda: A.ajout and A.ajout.get("etat") == "attente", 5)
+    a = A.ajout
+    eph = relais.Ephemeral()
+    m = {"v": 1, "k": "bienvenue", "de": B.moi, "re": a["mid"], "t": int(clock() * 1000), "id": secrets.token_hex(8), "eph": eph.pub, "carte": {"id": B.moi, "nom": "Bip"}}
+    A.on_message(a["topic"], relais.seal(a["key"], a["topic"], m))
+    check("a code I type whose owner answers with a friend's id: refused, « Ce Pixel est déjà ton ami ! », Bip stays as he was",
+          A.amis[B.moi] == before and A.ajout["etat"] == "erreur" and "déjà ton ami" in A.ajout["pourquoi"], json.dumps(A.ajout, default=str)[:200])
+    A.ajout = None
+    A.ajouter(amis.nouveau_code())
+    await until(lambda: A.ajout and A.ajout.get("etat") == "attente", 5)
+    a = A.ajout
+    m = {"v": 1, "k": "deja", "de": secrets.token_hex(8), "re": a["mid"], "t": int(clock() * 1000), "id": secrets.token_hex(8)}
+    A.on_message(a["topic"], relais.seal(a["key"], a["topic"], m))
+    check("…the owner of the code still has me (« deja »): « il doit d'abord te retirer »", A.ajout["etat"] == "erreur" and "te retirer" in A.ajout["pourquoi"], A.ajout.get("pourquoi"))
+    # ---- my codes: a few at a time, scrypt one at a time ----
+    ha, hb, A, B = pair(base / "codes", clock)
+    clock.t = time.time()
+    real, runs = relais.stretch, {"n": 0, "now": 0, "max": 0}
+
+    def slow(code):
+        runs["n"] += 1
+        runs["now"] += 1
+        runs["max"] = max(runs["max"], runs["now"])
+        time.sleep(0.3)                                  # half a second on a Pi 4
+        runs["now"] -= 1
+        return real(code)
+    relais.stretch = slow
+    try:
+        made = []
+        for _ in range(10):
+            made.append(A.creer_code() is not None)
+            await asyncio.sleep(0)
+            A.annuler_code()
+        t0 = time.perf_counter()
+        await asyncio.to_thread(lambda: None)            # the default executor (the resolver's) does not wait behind scrypt
+        free = time.perf_counter() - t0
+        await asyncio.sleep(0.8)
+        check(f"« Créer mon code » then « Annuler » 10 times: {sum(made)} codes ({amis.CODES[0]} in {amis.CODES[1] // 60} min), then « attends quelques minutes »",
+              made == [True] * amis.CODES[0] + [False] * (10 - amis.CODES[0]) and "attends" in ha.s["toast"]["msg"], f"{made} {ha.s.get('toast')}")
+        check(f"…{runs['n']} scrypt run (a code cancelled before its turn is skipped), one at a time, on its own thread ({free * 1000:.0f} ms for the default one)",
+              runs["n"] <= 2 and runs["max"] == 1 and free < 0.2, json.dumps(runs))
+        clock.t += amis.CODES[1] + 1
+        check("…ten minutes later, a new code", A.creer_code() is not None)
+        await until(lambda: A.inv, 5)
+        check("…and its meeting is ready (stretched)", A.inv and A.inv["code"] == A.code["code"])
+    finally:
+        relais.stretch = real
+    for P in (A, B):
+        for t in list(P.tasks):
+            t.cancel()
+
+
 async def main():
     codes()
     box()
     amis.PAIR_WAIT, amis.QUESTION_WAIT, amis.DEMANDE_WAIT = 90, 45, 25
     with tempfile.TemporaryDirectory() as d:
         await scenario(Path(d))
+    amis.PAIR_WAIT, amis.QUESTION_WAIT, amis.DEMANDE_WAIT = 90, 45, 25
+    with tempfile.TemporaryDirectory() as d:
+        await limits(Path(d))
 
 
 if __name__ == "__main__":

@@ -11,7 +11,8 @@ The same access rules as the other routes (pixel/cast.py has_access): the Pi its
 code (?t=, the X-Pixel-Token header, the app's pixel_t cookie), on the home network only (server.home_only). What comes in
 is checked from its bytes (a JPEG, or a still WebP), its size and its dimensions, never from what it says it is; files get
 random names (NAME), and only those are ever served. MAX_PHOTOS photos and MAX_TOTAL bytes at most: the oldest one that is
-not a favourite goes first; FAV_MAX favourites at most. Kept in data_dir/album/ (album.json lists them: a broken one is
+not a favourite goes first; FAV_MAX favourites at most. A friend's visit (raison « ami »): one photo a day with each friend,
+only during or just after a visit (pixel/amis.py photo_permise), whatever the screens ask (another one: {ok: false}, not kept). Kept in data_dir/album/ (album.json lists them: a broken one is
 rebuilt from the files). Snapshot "album": {photos: [{id, src, t, raison, fav, w, h}] newest first, max, fav_max,
 demande: {id, t0} | None, ev: {id, kind: 'photo' | 'montre', t0, photo?} | None}.
 Actions: album.photo, album.fav {id, on}, album.supprime {id}, album.montre (his screen shows the album, a slideshow).
@@ -279,6 +280,10 @@ class Album:
             return self.fail(415, "Photo de la mauvaise taille.")
         raison = request.query.get("raison", "photo")
         raison = raison if RAISON.match(raison) else "photo"
+        if raison == "ami":                          # a friend's visit: one photo a day with each friend (pixel/amis.py)
+            amis = getattr(self.hub, "amis", None)
+            if amis is None or not amis.photo_permise():  # not kept; a 200 all the same: his screen did nothing wrong (it may
+                return web.json_response({"ok": False, "garde": False, "error": "Une seule photo par jour avec chaque ami."})   # not know)
         self.sent.append(now)
         name = secrets.token_urlsafe(12) + "." + ext
         tmp = self.dir / f".up-{secrets.token_hex(8)}"

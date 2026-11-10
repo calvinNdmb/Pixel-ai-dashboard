@@ -35,7 +35,7 @@ async function tap(page, x, y) { const r = await page.locator('#crt').boundingBo
 function server(port, dir) {
   fs.mkdirSync(dir, { recursive: true });
   const cfg = path.join(dir, 'config.toml');
-  fs.writeFileSync(cfg, `data_dir = "${dir}"\n[ui]\nthemes = ${JSON.stringify(THEMES)}\n[amis]\nrelay = "http://127.0.0.1:${RP}"\nvisite_secondes = 30\nsilence = 10\n`);
+  fs.writeFileSync(cfg, `data_dir = "${dir}"\n[ui]\nthemes = ${JSON.stringify(THEMES)}\n[amis]\nrelay = "http://127.0.0.1:${RP}"\nvisite_secondes = 30\nrepos_secondes = 0\nsilence = 10\n`);   // (his rest after a visit: tests/test_amis.py)
   const p = spawn('python3', [path.join(APP, 'server.py'), '--demo', '--port', String(port), '--host', '127.0.0.1', '--config', cfg], { cwd: APP, stdio: 'ignore' });
   procs.push(p); return p;
 }

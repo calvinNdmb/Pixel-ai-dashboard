@@ -7,9 +7,12 @@ messages after `since`, then each new one as it comes ({"id", "time", "event": "
 "keepalive" every 45 s or so. A topic is any name of 1 to 64 letters, digits, - and _: whoever knows it can read and write,
 so ours are 26 random-looking characters derived from a secret (topic()), and everything inside is sealed:
 
-- seal(key, topic, obj): JSON, AES-256-GCM with a random 96-bit nonce, the topic as associated data (a message copied to
+- seal(key, topic, obj): JSON padded with spaces to one of a few sizes (PAD: the relay cannot tell the kinds of messages
+  apart by their length), AES-256-GCM with a random 96-bit nonce, the topic as associated data (a message copied to
   another topic does not open), "PXA1." + base64url(nonce + ciphertext + tag). open_() returns the object, or None for
   anything that is not exactly that: wrong key, tampered with, another topic, too long, not JSON.
+  What the relay still sees: who publishes and who listens (addresses), on which topics (stable for a friendship), when,
+  and the padded size. See docs/AMIS.md.
 - stretch(code): scrypt (n = 2^15, r = 8: 32 MiB, about half a second on a Pi 4) of a friendship code, then HKDF-SHA256
   for its pairing topic and key: the code itself never travels, and someone who copies the relay's traffic cannot try its
   1.2 * 10^12 values offline in any useful time.
@@ -51,6 +54,8 @@ DEFAULT = "https://ntfy.sh"
 PREFIX = "PXA1."                    # version 1 of the format: anything else on a topic is not ours
 MAX_BODY = 3600                     # characters of a published message (ntfy.sh turns more than 4096 bytes into an attachment)
 MAX_PLAIN = 2400                    # bytes of JSON inside one
+PAD = (512, 1024, MAX_PLAIN)        # bytes: the JSON is padded with spaces to the first of these that holds it, so that the
+                                    # relay cannot tell a coucou from a visit or a card by its length (2400: 3243 characters)
 TOPIC = re.compile(r"^[a-z2-7]{26}$")
 SCRYPT = {"n": 2 ** 15, "r": 8, "p": 1}
 SILENCE = 120.0                     # s without a line (ntfy sends a keepalive every 45 s): the link is dead
@@ -93,8 +98,10 @@ def _aad(topic_):
 
 def seal(key, topic_, obj):
     data = json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode()
-    if len(data) > MAX_PLAIN:
+    size = next((n for n in PAD if len(data) <= n), None)
+    if size is None:
         raise ValueError("message too long")
+    data += b" " * (size - len(data))             # trailing spaces: still JSON for a Pixel that does not strip them
     nonce = os.urandom(12)
     body = PREFIX + b64u(nonce + AESGCM(key).encrypt(nonce, data, _aad(topic_)))
     if len(body) > MAX_BODY:
@@ -113,7 +120,7 @@ def open_(key, topic_, body):
         data = AESGCM(key).decrypt(raw[:12], raw[12:], _aad(topic_))
         if len(data) > MAX_PLAIN:
             return None
-        obj = json.loads(data.decode())
+        obj = json.loads(data.rstrip(b" ").decode())          # the padding goes (seal)
     except (ValueError, InvalidTag, UnicodeDecodeError):
         return None
     return obj if isinstance(obj, dict) else None

@@ -212,8 +212,8 @@ const theme = async name => { act('theme.set', { name }); await until(() => S.vi
   check('a cast on his screen: no photo (nothing of what you cast is copied)', S.album.photos.length === nC);
   act('cast.stop'); await until(() => !S.cast, 3000);
   await calm(k); await wait(1500);
-  await k.evaluate(() => PixelAlbum.snap('ami'));
-  check('PixelAlbum.snap(\'ami\') from another feature: a photo of that moment', !!(await until(() => S.album.photos.find(p => p.raison === 'ami'), 8000)));
+  await k.evaluate(() => PixelAlbum.snap('jeu'));          // (a visit's photo, 'ami', is kept only during or just after a visit: tests/test_amis.py)
+  check('PixelAlbum.snap(\'jeu\') from another feature: a photo of that moment', !!(await until(() => S.album.photos.find(p => p.raison === 'jeu'), 8000)));
   check('…a reason that is not one: « photo »', await k.evaluate(() => PixelAlbum.snap('<img onerror>') && PixelAlbum.pending && PixelAlbum.pending.reason === 'photo'));
   await wait(3000);
 

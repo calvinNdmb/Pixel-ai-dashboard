@@ -8,9 +8,14 @@ stretch it (scrypt) into a meeting topic and its key. On it, the one who typed i
 and his identity card; the code's owner answers « bienvenue » with his own; each computes the same friendship key from that
 exchange and the code. The newcomer then says « merci » on the friendship's own channel: both screens show the new friend.
 An identity card is all a friend knows of the other: a random id, his Pixel's name (pixel/caractere.py, cleaned, 16
-characters at most), his character's preset, his theme and his look (the snapshot "look", an opaque object, 1 KB at most).
+characters at most), his character's preset, his theme and the look chosen for him (CARD_LOOK: never what he wears now, which
+would tell his bedtime or his birthday; 1 KB at most). An id that is already a friend's is never taken by a new meeting.
 Each friendship has two topics (one per direction) and two keys; every message is sealed, carries its sender, its recipient,
 its time and a random id, and is refused when it is old, from the future, already seen, or more than the rate allows.
+What a friend's Pixel may make ours do is capped here too, whatever it does: its visit requests are heard IN_VISITE (a gap,
+an hour), our answers stop before the day's last KEEP messages (DAY_MAX: nothing at all goes out past it), a hosted visit (or
+a question declined) is followed by a rest (REPOS), one memory and one photo a day per friend (une_fois), and what its
+messages change is written to amis.json SAVE_GAP s at most after (save_soon). scrypt runs on its own thread, one at a time.
 
 Visits. « Va voir Bip »: his Pixel walks off this screen (web/scenes/amis.js ami-part) and asks. The host's Pixel says yes
 when he is awake (habitudes.dort, else his character's quiet hours), not casting, not in an exercise, not already busy with
@@ -31,6 +36,7 @@ holds the keys); a broken file is put aside and Pixel starts with no friend. Typ
 See docs/AMIS.md. The lab's mirror: web/lab/amis-lab.js.
 """
 import asyncio
+import concurrent.futures
 import datetime as dt
 import hashlib
 import json
@@ -69,17 +75,32 @@ AGES = {"visite-demande": 90, "visite-attente": 180, "visite-ok": 180, "visite-n
 FRESH = 120                     # s: an older coucou or sticker goes to the journal only (no scene)
 GAP = {"coucou": 20, "sticker": 8, "visite-demande": 30}       # s between two of them to the same friend
 PER_HOUR = {"coucou": 30, "sticker": 40, "visite-demande": 20}
-DAY_MAX = 150                   # messages a day, all friends together (ntfy.sh lets an address send 250)
+DAY_MAX = 150                   # messages a day, all friends together (ntfy.sh lets an address send 250): nothing more goes out
+KEEP = 30                       # ...of which the last 30 are the child's own: the answers to friends (REPLIES) stop before
+REPLIES = ("visite-attente", "visite-non")                     # what a friend's request makes us send by ourselves
 IN_RATE = (30, 60)              # at most 30 messages a minute on one topic (a visit is 3 or 4): more are dropped before opening
+IN_VISITE = (25, 20)            # a friend's visit requests heard: 25 s apart, 20 an hour (his Pixel's own GAP and PER_HOUR,
+                                # a little margin for the relay); the others are dropped unanswered
+REPOS = 300                     # s after hosting a visit, or a question declined or left unanswered: « occupé » to visit
+                                # requests ([amis] repos_secondes, 0..3600)
+CODES = (6, 600)                # at most 6 new codes of mine in 10 min (each one costs a scrypt)
+SAVE_GAP = 10                   # s: what friends' messages change (the ids seen, the journal...) is written at most that often
+RENTRE_PHOTO = 120              # s after he comes home from a visit: his screen's photo of it is still that visit's
 SHOW_GAP = 6                    # s between two scenes for one friend's coucous (or stickers): more go to the journal only
 CARD_GAP = 15 * 60              # s between two sendings of my card to my friends (a new name, a new look)
 JOURNAL = 30
 EVS = 6
 LOOK_MAX = 1024
+CARD_LOOK = ("yeux", "couleur_yeux", "couleur_joues", "mono", "accessoires", "saisons", "nuit")   # what my card says of my look:
+                                # his choices (pixel/look.py SAVED, without "sans"), never what he wears now (his pyjama tells his
+                                # bedtime, a party hat his birthday): the friend's screen dresses him itself
+NOT_LOOK = ("porte", "change", "avant", "sans")                 # in a friend's card (an older Pixel's): dropped
 ID = re.compile(r"^[0-9a-f]{16}$")
 VID = re.compile(r"^[0-9a-f]{12}$")
 REFUS = ("pas-de-reponse", "dort", "occupe", "exo", "absent", "visite", "ferme", "non", "pas-repondu", "croise", "reseau")
 OFF_MSG = "Les amis de Pixel sont éteints. Rallume-les dans « Ses amis », sur ton téléphone."
+DEJA_AMI = "Ce Pixel est déjà ton ami ! S'il t'a retiré de ses amis, retire-le aussi, puis demande-lui un nouveau code."
+DEJA_LUI = "Ton copain t'a encore dans ses amis : il doit d'abord te retirer (« Retirer »), puis te redonner son code."
 WHY = {"cryptography": "Il manque le paquet « cryptography » : relance deploy/install.sh.",
        "config": "Les amis de Pixel sont désactivés dans config.toml ([amis] enabled = false)."}
 
@@ -103,6 +124,17 @@ def _read():
 def norm(s):
     s = unicodedata.normalize("NFD", str(s).lower().strip())
     return "".join(c for c in s if unicodedata.category(c) != "Mn").replace("œ", "oe").replace("æ", "ae").replace("’", "'")
+
+
+_POOL = None
+
+
+def _scrypt_pool():
+    """scrypt's own thread (Amis._etire): one stretch at a time, whatever asks for them."""
+    global _POOL
+    if _POOL is None:
+        _POOL = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="pixel-scrypt")
+    return _POOL
 
 
 MOTS, STICKERS, FAIT, DUREES = _read()
@@ -138,9 +170,10 @@ def proche(w):
 
 def lire_code(text):
     """A typed code, any way it is typed (« Lapin soleil tarte 42 71 », with or without accents, dashes, « Code d'ami : … »):
-    (canonical « lapin-soleil-tarte-4271 », None), or (None, why): {"inconnus": [...], "idees": {...}} | {"mots": n} | {"nombre": s}."""
+    (canonical « lapin-soleil-tarte-4271 », None), or (None, why): {"inconnus": [...], "idees": {...}} | {"mots": n} | {"nombre": s}.
+    Digits 0-9 only, as web/amis.js reads them: « ４２７１ » (full width) would stretch to another meeting, it is no number here."""
     t = norm(str(text or "")[:300])
-    tokens = re.findall(r"[a-z]+|\d+", t)
+    tokens = re.findall(r"[a-z]+|[0-9]+", t)
     words = [w for w in tokens if not w.isdigit() and w not in STOP]
     digits = "".join(w for w in tokens if w.isdigit())
     unknown = [w for w in words if w not in MOT][:3]
@@ -200,7 +233,10 @@ def _plain(v, depth=0):
 
 
 def clean_look(v):
-    """His look (the snapshot "look", web/look.js's business): passed on as it is, if it is small plain data. None otherwise."""
+    """His look (the snapshot "look", web/look.js's business): passed on as it is, if it is small plain data, but never what
+    he wears now or the screens' own keys (NOT_LOOK: an older Pixel sent them). None otherwise."""
+    if isinstance(v, dict):
+        v = {k: x for k, x in v.items() if k not in NOT_LOOK}
     if v is None or not isinstance(v, (dict, list)) or not _plain(v):
         return None
     try:
@@ -278,6 +314,7 @@ class Amis:
         self.dispo = relais.CRYPTO and self.enabled
         self.pourquoi = "" if self.dispo else ("config" if not self.enabled else "cryptography")
         self.visite_ms = int(_num(cfg.get("visite_secondes"), VISITE_S, 20, 600) * 1000)
+        self.repos_s = _num(cfg.get("repos_secondes"), REPOS, 0, 3600)
         url = relais.clean_url(cfg.get("relay")) if "relay" in cfg else relais.DEFAULT
         if not url:
             log.warning("[amis] relay is not a web address: ntfy.sh instead")
@@ -297,6 +334,11 @@ class Amis:
         self.rejets = 0                          # messages refused (tests, the lab): not ours, tampered with, replayed, too many
         self.card_key, self.card_last, self.merci = "", 0.0, []
         self.cooldown, self.tasks, self.qr, self._by_topic = 0.0, set(), None, {}
+        self.demandes, self.repos, self.codes = {}, 0.0, []     # friends' visit requests heard (s); no « oui » before repos; my new codes
+        self.par_jour = {"jour": "", "souvenir": [], "photo": []}   # the friends whose visit made today's memory, today's photo
+        self.rentre = None                       # (friend, s): the visit he last came home from (its photo, on his screen)
+        self._unsaved, self._saved_at = False, 0.0
+        self._lock = asyncio.Lock()              # scrypt: one at a time (_etire)
         self._load()
         self._topics()
 
@@ -309,21 +351,35 @@ class Amis:
 
     # ---------- the file ----------
     def _load(self):
-        d = {}
-        if self.file:
+        """amis.json, read and cleaned in one go: whatever is in it (not JSON, a value of the wrong type), Pixel starts; a
+        file that cannot be used is put aside (amis.json.illisible) and he starts with no friend."""
+        if not self.file:
+            return
+        try:
+            d = json.loads(self.file.read_text(encoding="utf-8"))
+            if not isinstance(d, dict):
+                raise ValueError("not an object")
+            self._apply(d)
+        except FileNotFoundError:
+            pass
+        except Exception as e:                       # noqa: BLE001 - whatever is in it, Pixel starts
+            log.warning("amis.json unreadable (%s): put aside, no friends", e)
             try:
-                d = json.loads(self.file.read_text(encoding="utf-8"))
-                if not isinstance(d, dict):
-                    raise ValueError("not an object")
-            except FileNotFoundError:
-                d = {}
-            except Exception as e:                   # noqa: BLE001 - whatever is in it, Pixel starts
-                log.warning("amis.json unreadable (%s): put aside, no friends", e)
-                try:
-                    self.file.replace(self.file.with_name("amis.json.illisible"))
-                except OSError:
-                    pass
-                d = {}
+                self.file.replace(self.file.with_name("amis.json.illisible"))
+            except OSError:
+                pass
+            self._reset()
+
+    def _reset(self):
+        """No friend, no code, nothing seen, the default settings, a new id: what an unreadable amis.json leaves."""
+        self.moi = secrets.token_hex(8)
+        self.on, self.accepte, self.demander = True, True, False
+        self.amis, self.attente, self.code, self.journal, self.seen = {}, {}, None, [], {}
+        self.compte, self.card_key, self.relais.since = {"jour": "", "n": 0}, "", 0
+        self.par_jour = {"jour": "", "souvenir": [], "photo": []}
+
+    def _apply(self, d):
+        """What amis.json holds (an object), every field checked before it is used: a bad one is left out."""
         if isinstance(d.get("moi"), str) and ID.match(d["moi"]):
             self.moi = d["moi"]
         self.on, self.accepte, self.demander = d.get("on") is not False, d.get("visites") is not False, d.get("demander") is True
@@ -345,11 +401,15 @@ class Amis:
         self.journal = [j for j in map(self._journal_item, d.get("journal") if isinstance(d.get("journal"), list) else []) if j][:JOURNAL]
         s = d.get("seen") if isinstance(d.get("seen"), dict) else {}
         horizon = now - (MAX_AGE + SKEW) * 1000
-        self.seen = {k: v for k, v in s.items() if isinstance(k, str) and ID.match(k) and isinstance(v, int) and v > horizon}
+        self.seen = {k: v for k, v in s.items() if isinstance(k, str) and ID.match(k) and isinstance(v, int) and not isinstance(v, bool) and v > horizon}
         self.relais.since = _int(d.get("since"), 0, 1 << 40)
         if isinstance(d.get("compte"), dict) and isinstance(d["compte"].get("jour"), str):
             self.compte = {"jour": d["compte"]["jour"][:10], "n": _int(d["compte"].get("n"), 0, 10 ** 6)}
         self.card_key = d.get("carte") if isinstance(d.get("carte"), str) else ""
+        p = d.get("par_jour") if isinstance(d.get("par_jour"), dict) else {}
+        if isinstance(p.get("jour"), str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", p["jour"]):
+            self.par_jour = {"jour": p["jour"], **{q: [x for x in p.get(q) if isinstance(x, str) and ID.match(x)][:MAX_AMIS * 2]
+                                                   if isinstance(p.get(q), list) else [] for q in ("souvenir", "photo")}}
 
     def _rec(self, r):
         """A friend as kept in amis.json, every field checked; None when it is not one."""
@@ -385,19 +445,26 @@ class Amis:
         out = {"t": _int(j.get("t"), 0, 1 << 53), "quoi": j["quoi"], "ami": j.get("ami") if isinstance(j.get("ami"), str) and ID.match(j["ami"]) else "",
                "nom": caractere.clean_name(j.get("nom"), caractere.NOM_MAX) or caractere.NOM}
         if isinstance(j.get("fait"), list):
-            out["fait"] = [x for x in j["fait"] if x in FAIT][:10]
-        if j.get("refus") in REFUS:
+            out["fait"] = [x for x in j["fait"] if isinstance(x, str) and x in FAIT][:10]
+        if isinstance(j.get("refus"), str) and j["refus"] in REFUS:
             out["refus"] = j["refus"]
-        if j.get("s") in STICKERS:
+        if isinstance(j.get("s"), str) and j["s"] in STICKERS:
             out["s"] = j["s"]
         return out
 
+    def save_soon(self):
+        """What a friend's message changes (the ids seen, his last word, the journal): written with the next save, SAVE_GAP s
+        at most from now (tick), not once per message."""
+        self._unsaved = True
+
     def save(self):
+        self._unsaved, self._saved_at = False, self.now()
         if not self.file:
             return
         d = {"v": 1, "moi": self.moi, "on": self.on, "visites": self.accepte, "demander": self.demander,
              "amis": [self._stored(r) for r in self.amis.values()], "attente": [self._stored(r) for r in self.attente.values()],
-             "code": self.code, "journal": self.journal, "seen": self.seen, "since": int(self.relais.since), "compte": self.compte, "carte": self.card_key}
+             "code": self.code, "journal": self.journal, "seen": self.seen, "since": int(self.relais.since), "compte": self.compte, "carte": self.card_key,
+             "par_jour": self.par_jour}
         try:
             self.file.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.file.with_suffix(".tmp")
@@ -427,8 +494,8 @@ class Amis:
         car = self.hub.s.get("caractere") if isinstance(self.hub.s.get("caractere"), dict) else {}
         theme = (self.hub.s.get("view") or {}).get("theme")
         look = self.hub.s.get("look")
-        if isinstance(look, dict):           # what draws him (web/look.js with(): his choices and what he wears now), not the screens' own keys
-            look = {k: v for k, v in look.items() if k not in ("change", "avant", "sans")}   # (a change's time would redraw his friends' lists)
+        if isinstance(look, dict):           # his choices only (CARD_LOOK): what he wears now would tell his bedtime and birthday
+            look = {k: look[k] for k in CARD_LOOK if k in look}
         return clean_card({"id": self.moi, "nom": car.get("nom"), "caractere": car.get("preset"), "theme": theme, "look": look})
 
     def _qr(self):
@@ -452,6 +519,7 @@ class Amis:
             vis = {k: v[k] for k in ("vid", "sens", "ami", "etat", "t0", "jusqua", "fin", "programme", "seed", "par") if k in v}
             f = self.amis.get(v["ami"])
             vis["nom"] = names.get(v["ami"], v.get("nom", ""))
+            vis["photo"] = not self.fait_aujourdhui("photo", v["ami"])     # his album keeps one visit photo a day with each friend
             if f:
                 vis.update(look=f["look"], caractere=f["caractere"], theme=f["theme"])
         return {"dispo": self.dispo, "pourquoi": WHY.get(self.pourquoi, ""), "on": self.on, "visites": self.accepte, "demander": self.demander,
@@ -518,12 +586,20 @@ class Amis:
         if self.code:
             self._spawn(self._prepare_code())
 
+    async def _etire(self, code, encore):
+        """relais.stretch(code) on scrypt's own thread, one at a time (32 MiB and half a second each on a Pi 4; the default
+        executor, the resolver's, never waits behind it). None when, by its turn, the code is no longer wanted (encore())."""
+        async with self._lock:
+            if not encore():
+                return None
+            return await asyncio.get_running_loop().run_in_executor(_scrypt_pool(), relais.stretch, code)
+
     async def _prepare_code(self):
         code = self.code["code"] if self.code else None
         if not code or not self.dispo:
             return
-        s = await asyncio.to_thread(relais.stretch, code)
-        if self.code and self.code["code"] == code:
+        s = await self._etire(code, lambda: bool(self.code and self.code["code"] == code))
+        if s is not None and self.code and self.code["code"] == code:
             self.inv = {"code": code, "S": s, "topic": relais.topic(s, "rendez-vous"), "key": relais.subkey(s, "rendez-vous")}
             self._topics()
 
@@ -548,8 +624,12 @@ class Amis:
         return None
 
     def _send(self, f, kind, cb=None, **data):
-        """Seal a message to friend f and post it in the background; cb(status) once it went ("ok", "reseau", "relais")."""
+        """Seal a message to friend f and post it in the background; cb(status) once it went ("ok", "reseau", "relais").
+        False, and nothing goes out, past DAY_MAX messages today, or for an answer (REPLIES) once only KEEP are left."""
         if not self.dispo or not self.on:
+            return False
+        n = self._day()["n"]
+        if n >= DAY_MAX or (kind in REPLIES and n >= DAY_MAX - KEEP):
             return False
         t = self.now()
         self.last_out[(kind, f["id"])] = t
@@ -589,10 +669,9 @@ class Amis:
             self.rejets += 1
             return
         self.seen[m["id"]] = m["t"]
-        pending = f["id"] in self.attente
+        pending = self.attente.get(f["id"]) is f     # (on the newcomer's own channel, not a friend's with the same id)
         if pending:                                  # any word from a newcomer proves he has the same key
-            self._promote(f)
-            if m["k"] == "merci":
+            if not self._promote(f) or m["k"] == "merci":
                 self.save()
                 self.publish()
                 return
@@ -600,7 +679,10 @@ class Amis:
         handler = getattr(self, "_in_" + m["k"].replace("-", "_"), None)
         if handler:
             handler(f, m)
-        self.save()
+        if pending or m["k"] == "au-revoir":         # a friendship that begins or ends: on disk at once
+            self.save()
+        else:                                        # the rest: with the next save (SAVE_GAP), not a write per message
+            self.save_soon()
         self.publish()
 
     def _valid(self, m, f, kinds=None):
@@ -623,6 +705,12 @@ class Amis:
             if len(self.amis) >= MAX_AMIS:
                 self.hub.toast(f"Pixel a déjà {MAX_AMIS} amis : c'est le maximum.", 5000)
                 return None
+            t = self.now()
+            self.codes = [x for x in self.codes if t - x < CODES[1]]
+            if len(self.codes) >= CODES[0]:              # each new code costs a scrypt: a few at a time
+                self.hub.toast("Beaucoup de codes d'un coup : attends quelques minutes avant d'en créer un autre.", 5000)
+                return None
+            self.codes.append(t)
             self.code = {"code": nouveau_code(), "t": now, "expire": now + CODE_TTL * 1000}
             self.inv = None
             self._spawn(self._prepare_code())
@@ -651,7 +739,12 @@ class Amis:
         self.seen[mid] = t
         if not self.code or self.code["code"] != inv["code"]:
             return
-        if len(self.amis) >= MAX_AMIS and card["id"] not in self.amis:
+        if card["id"] in self.amis:                  # a friend already: never replaced by whoever brings his id (the code stays)
+            reply = {"v": 1, "k": "deja", "de": self.moi, "re": mid, "t": now, "id": secrets.token_hex(8)}
+            self._spawn(self.relais.publish(inv["topic"], relais.seal(inv["key"], inv["topic"], reply)))
+            self.hub.toast(f"{self._noms().get(card['id'], card['nom'])} est déjà ton ami ! Pour refaire votre amitié, retire-le d'abord.", 7000)
+            return
+        if len(self.amis) >= MAX_AMIS:
             reply = {"v": 1, "k": "complet", "de": self.moi, "re": mid, "t": now, "id": secrets.token_hex(8)}
             self._spawn(self.relais.publish(inv["topic"], relais.seal(inv["key"], inv["topic"], reply)))
             return
@@ -662,9 +755,6 @@ class Amis:
             return
         key = self._friend_key(shared, inv["S"], m["eph"], eph.pub, inv["topic"])
         rec = {**card, "cle": relais.b64u(key), "depuis": now, "vu": now, "visite": 0, "n": 0, "coucou": 0, "jusqua": now + CONFIRM_WAIT * 1000}
-        old = self.amis.get(card["id"])
-        if old:                                      # an old friend again (he had forgotten me): his history stays
-            rec.update(depuis=old["depuis"], visite=old["visite"], n=old["n"])
         self._derive(rec)
         self.attente[card["id"]] = rec
         self.code, self.montre = None, 0             # once
@@ -682,12 +772,18 @@ class Amis:
         return relais.hkdf(shared, b"pxa1 ami " + transcript, salt=stretched)
 
     def _promote(self, rec):
+        """A newcomer's first word on his own channel: he is a friend now. False (and he is dropped) when a friend with his id
+        came meanwhile by another meeting: that one stays as he is."""
         rec = self.attente.pop(rec["id"], rec)
         rec.pop("jusqua", None)
+        if rec["id"] in self.amis:
+            self._topics()
+            return False
         self.amis[rec["id"]] = rec
         self._topics()
         self._ev("nouvel-ami", rec)
         self._log("nouvel-ami", rec)
+        return True
 
     def ajouter(self, text):
         """A friend's code, typed here: the meeting, in the background."""
@@ -718,8 +814,8 @@ class Amis:
 
     async def _rencontre(self, code):
         a = self.ajout
-        s = await asyncio.to_thread(relais.stretch, code)
-        if self.ajout is not a or not self.on:
+        s = await self._etire(code, lambda: self.ajout is a and self.on)
+        if s is None or self.ajout is not a or not self.on:
             return
         topic, key, eph, mid = relais.topic(s, "rendez-vous"), relais.subkey(s, "rendez-vous"), relais.Ephemeral(), secrets.token_hex(8)
         a.update(etat="attente", topic=topic, key=key, S=s, eph=eph, mid=mid, jusqua=self._ms() + PAIR_WAIT * 1000)
@@ -742,14 +838,15 @@ class Amis:
         if not m:
             self.rejets += 1
             return
-        if m.get("k") not in ("bienvenue", "complet") or m.get("re") != a["mid"]:
+        if m.get("k") not in ("bienvenue", "complet", "deja") or m.get("re") != a["mid"]:
             return                                   # our own « bonjour », or someone else's meeting with the same code
         now = self._ms()
         if not isinstance(m.get("t"), int) or m["t"] < now - PAIR_AGE * 1000 or m["t"] > now + SKEW * 1000:
             self.rejets += 1
             return
-        if m["k"] == "complet":
-            a.update(etat="erreur", pourquoi=f"Le Pixel de ton copain a déjà {MAX_AMIS} amis.")
+        if m["k"] in ("complet", "deja"):
+            a.update(etat="erreur", pourquoi=f"Le Pixel de ton copain a déjà {MAX_AMIS} amis." if m["k"] == "complet"
+                     else DEJA_AMI if isinstance(m.get("de"), str) and m["de"] in self.amis else DEJA_LUI)
             self._topics()
             return self.publish()
         card = clean_card(m.get("carte"))
@@ -757,11 +854,14 @@ class Amis:
         if not card or card["id"] == self.moi or m.get("de") != card["id"] or not shared:
             self.rejets += 1
             return
+        if card["id"] in self.amis:                  # a friend already: never replaced by whoever brings his id
+            a.update(etat="erreur", pourquoi=DEJA_AMI)
+            self._topics()
+            return self.publish()
         key = self._friend_key(shared, a["S"], a["eph"].pub, m["eph"], a["topic"])
-        old = self.amis.get(card["id"])
-        rec = {**card, "cle": relais.b64u(key), "depuis": old["depuis"] if old else now, "vu": now, "visite": old["visite"] if old else 0,
-               "n": old["n"] if old else 0, "coucou": 0}
+        rec = {**card, "cle": relais.b64u(key), "depuis": now, "vu": now, "visite": 0, "n": 0, "coucou": 0}
         self._derive(rec)
+        self.attente.pop(rec["id"], None)            # (he was typing my code at the same time: this friendship is the one)
         self.amis[rec["id"]] = rec
         self.ajout = {"etat": "ok", "nom": rec["nom"], "t": now}
         self._topics()
@@ -802,7 +902,7 @@ class Amis:
 
     def _in_sticker(self, f, m):
         s = m.get("s")
-        if s not in STICKERS:
+        if not isinstance(s, str) or s not in STICKERS:
             self.rejets += 1
             return
         self._log("sticker-recu", f, s=s)
@@ -881,14 +981,15 @@ class Amis:
     def _in_visite_non(self, f, m):
         v = self.visite
         if v and v["sens"] == "sortie" and v["ami"] == f["id"] and v["vid"] == m.get("vid"):
-            self._fin_sortie(refus=m.get("pourquoi") if m.get("pourquoi") in REFUS else "non")
+            p = m.get("pourquoi")
+            self._fin_sortie(refus=p if isinstance(p, str) and p in REFUS else "non")
 
     def _in_visite_fin(self, f, m):
         v = self.visite
         if not v or v["ami"] != f["id"] or v["vid"] != m.get("vid"):
             return
         if v["sens"] == "sortie":
-            fait = [x for x in m.get("fait") if x in FAIT][:12] if isinstance(m.get("fait"), list) else []
+            fait = [x for x in m.get("fait") if isinstance(x, str) and x in FAIT][:12] if isinstance(m.get("fait"), list) else []
             self._fin_sortie(fait=fait, par=m.get("par") if m.get("par") in ("fin", "hote") else "fin")
         elif v["etat"] == "question":
             self.visite = None
@@ -910,13 +1011,14 @@ class Amis:
             self._log("refus", f, nom=nom, refus=refus)
             return
         went = v["etat"] == "chez"
-        self._ev("retour", f, fait=fait or [], par=par or "fin", **who)
+        self._ev("retour", f, fait=fait or [], par=par or "fin", photo=not self.fait_aujourdhui("photo", v["ami"]), **who)
         if f and went:
             f["visite"], f["n"] = self._ms(), f["n"] + 1
         if went or fait:
+            self.rentre = (v["ami"], self.now())     # his screen's photo of this visit, as he tells it (photo_permise)
             self._log("visite", f, nom=nom, fait=fait or [])
             h = histoire(fait, nom, eux=True)
-            self._souvenir(f"{self.ma_carte()['nom']} est allé jouer chez {nom}" + (f" : {h}." if h else "."))
+            self._souvenir(f"{self.ma_carte()['nom']} est allé jouer chez {nom}" + (f" : {h}." if h else "."), ami=v["ami"])
 
     # ---------- visits: a friend's ----------
     def _refus(self, f):
@@ -938,14 +1040,26 @@ class Amis:
             return "exo"
         return None
 
+    def _demande_permise(self, f):
+        """A friend's visit request is heard as often as his own Pixel may send one (IN_VISITE: a gap, an hourly cap: more is a
+        Pixel that does not keep the rules) and while we may still answer (DAY_MAX - KEEP): the others are dropped unanswered."""
+        t = self.now()
+        q = self.demandes[f["id"]] = [x for x in self.demandes.get(f["id"], []) if t - x < 3600]
+        if (q and t - q[-1] < IN_VISITE[0]) or len(q) >= IN_VISITE[1] or self._day()["n"] >= DAY_MAX - KEEP:
+            return False
+        q.append(t)
+        return True
+
     def _in_visite_demande(self, f, m):
         vid = m.get("vid")
-        if not isinstance(vid, str) or not VID.match(vid):
+        if not isinstance(vid, str) or not VID.match(vid) or not self._demande_permise(f):
             self.rejets += 1
             return
         why = self._refus(f)
         if why == "croise":                          # we both set off at the same time: both come home (« on s'est croisés ! »)
             self._fin_sortie(refus="croise")
+        if not why and self.now() < self.repos:
+            why = "occupe"                           # he has just had a visit (REPOS): « Bip est occupé. On ira plus tard ! »
         if why:
             self._send(f, "visite-non", vid=vid, pourquoi=why)
             self._log("refuse", f, refus=why)
@@ -981,6 +1095,7 @@ class Amis:
             self._accueillir(f, vid)
         else:
             self.visite = None
+            self.repos = self.now() + self.repos_s   # « Non merci »: not asked again at once
             self._send(f, "visite-non", vid=vid, pourquoi="non")
             self._log("refuse", f, refus="non")
         self.save()
@@ -1020,7 +1135,7 @@ class Amis:
         nom = self._noms().get(v["ami"], v.get("nom", ""))
         self._log("accueil", f, nom=nom, fait=fait)
         h = histoire(fait, nom, eux=True)
-        self._souvenir(f"{nom} est venu jouer chez {self.ma_carte()['nom']}" + (f" : {h}." if h else "."))
+        self._souvenir(f"{nom} est venu jouer chez {self.ma_carte()['nom']}" + (f" : {h}." if h else "."), ami=v["ami"])
 
     # ---------- coucous, stickers, goodbye ----------
     def coucou(self, ami):
@@ -1079,6 +1194,12 @@ class Amis:
                 self.visite = None
         self.amis.pop(f["id"], None)
         self.attente.pop(f["id"], None)
+        self.demandes.pop(f["id"], None)
+        for q in ("souvenir", "photo"):              # nothing of his id stays in amis.json
+            if f["id"] in self.par_jour.get(q, []):
+                self.par_jour[q].remove(f["id"])
+        if self.rentre and self.rentre[0] == f["id"]:
+            self.rentre = None
         for j in self.journal:                       # his name stays in the journal (the child's history), his id goes
             if j.get("ami") == f["id"]:
                 j["ami"] = ""
@@ -1141,15 +1262,19 @@ class Amis:
         elif v and v["etat"] == "question" and now > v["jusqua"]:
             f = self.amis.get(v["ami"])
             self.visite = None
+            self.repos = t + self.repos_s                # nobody answered: not asked again at once
             if f:
                 self._send(f, "visite-non", vid=v["vid"], pourquoi="pas-repondu")
                 self._log("refuse", f, refus="pas-repondu")
         elif v and v["etat"] == "chez" and now >= v["fin"]:
             self._fin_accueil()
+            self.repos = t + self.repos_s                # a visit at a time, and a rest after it (REPOS)
         self._card_check()
         if self.seen and now % 60000 < 1000:
             horizon = now - (MAX_AGE + SKEW) * 1000
             self.seen = {k: x for k, x in self.seen.items() if x > horizon}
+        if self._unsaved and t - self._saved_at >= SAVE_GAP:
+            self.save()
         state = json.dumps([self.code, self.montre, self.ajout and self.ajout.get("etat"), sorted(self.attente), self.visite and [self.visite.get("etat"), self.visite.get("vid")], len(self.amis)], default=str)
         if state != getattr(self, "_tick_state", None):
             self._tick_state = state
@@ -1203,10 +1328,39 @@ class Amis:
         v = p.get("voyage") if isinstance(p, dict) else None
         return bool(isinstance(v, dict) and v.get("to") == "poche" and v.get("until", 0) > self._ms())
 
-    def _souvenir(self, texte):
-        """A memory for his album (souvenirs.ajoute, when that feature is there), never in the way."""
+    def fait_aujourdhui(self, quoi, ami):
+        """Has a visit with this friend already made today's memory (quoi « souvenir ») or photo (« photo »)?"""
+        return self.par_jour.get("jour") == dt.date.fromtimestamp(self.now()).isoformat() and ami in self.par_jour.get(quoi, [])
+
+    def une_fois(self, quoi, ami):
+        """One visit memory (quoi « souvenir ») and one visit photo (« photo ») a day with each friend, whichever way the
+        visit went: True the first time today (it counts from then), False after. Whoever adds a visit's memory asks here
+        (_souvenir(texte, ami=...)); the screens see it as visite.photo and the « retour » event's photo."""
+        today = dt.date.fromtimestamp(self.now()).isoformat()
+        if self.par_jour.get("jour") != today:
+            self.par_jour = {"jour": today, "souvenir": [], "photo": []}
+        done = self.par_jour.setdefault(quoi, [])
+        if not isinstance(ami, str) or ami in done:
+            return False
+        done.append(ami)
+        self.save_soon()
+        return True
+
+    def photo_permise(self):
+        """May his album keep this visit's photo (pixel/album.py asks for a photo with the reason « ami »)? The friend here now,
+        or the one he has just come home from (RENTRE_PHOTO s); one a day with each (une_fois). False when there is no visit."""
+        v, ami = self.visite, None
+        if v and v["sens"] == "accueil" and v["etat"] == "chez":
+            ami = v["ami"]
+        elif self.rentre and 0 <= self.now() - self.rentre[1] <= RENTRE_PHOTO:
+            ami = self.rentre[0]
+        return ami is not None and self.une_fois("photo", ami)
+
+    def _souvenir(self, texte, ami=None):
+        """A memory for his album (souvenirs.ajoute, when that feature is there), never in the way. ami: the friend of a
+        visit: one memory a day with each (une_fois)."""
         fn = self.hub.actions.get("souvenirs.ajoute")
-        if not fn:
+        if not fn or (ami is not None and not self.une_fois("souvenir", ami)):
             return
 
         async def go():

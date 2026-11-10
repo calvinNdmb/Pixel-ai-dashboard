@@ -32,7 +32,9 @@ pause}, ev: {id, kind, t0} | None (his routine: reveil, annonce, dents, veilleus
 jeux: {favoris: [2 ids], propose, records: {jeu: n}, parties}, partie: the game in play | None, rires: {aime: [...]},
 rire: {id, kind, n, t0} | None, peurs: {id: {on, courage}}, peur: {id, kind, t0, courage} | None,
 expressions: {moment: [phrases]}, phrase: {id, kind (appris, dit), moment, texte, t0} | None}.
-Saved in data_dir/habitudes.json (missing or broken: the defaults; caractère's old quiet hours are migrated once).
+Saved in data_dir/habitudes.json, readable by its owner only (0600: the family's phrases); missing or broken: the defaults (a
+file that cannot be read is put aside as habitudes.json.illisible, never written over); caractère's old quiet hours are
+migrated once.
 web/habitudes.js has the same rules (Pixel Lab, Pixel sans Pi); tests/test_habitudes.py compares them.
 """
 import asyncio
@@ -63,6 +65,8 @@ DEFAULT_H = {"actif": True, "reveil": 7 * 60 + 30, "coucher": 21 * 60, "sieste":
 AWAKE_MIN, NIGHT_MIN, NIGHT_MAX = 6 * 60, 4 * 60, 16 * 60
 NAP_MIN, NAP_MAX = 10, 180
 PHRASE_MAX, PHRASES_MAX = 60, 5
+PHRASE_IN = 400                    # characters of a phrase looked at (habitudes.apprendre): the rest is cut before cleaning
+TIME_MAX = 16                      # characters of a typed time of day (« 19 heures 05 »), spaces around it trimmed
 COURAGE_STEP, COURAGE_DAY = 10, 30
 STORM_GAP = (12 * 60, 25 * 60)     # s between two thunder claps while it storms
 EV_FRESH = 120                     # s: a change of state seen later than that (the Pi was off, the clock jumped) plays nothing
@@ -85,9 +89,11 @@ def _int(v, lo, hi):
 
 
 def to_min(v):
-    """Minutes after midnight from 450, 450.0, "7:30", "7h30", "7 h", "19 h 05"; None when it is not a time of day."""
+    """Minutes after midnight from 450, 450.0, "7:30", "7h30", "7 h", "19 h 05"; None when it is not a time of day.
+    A text is trimmed first and TIME_MAX characters at most: a long one is no time (and no work for the server)."""
     if isinstance(v, str):
-        m = re.fullmatch(r"\s*(\d{1,2})\s*(?:(?::|h|H|heures?)\s*(\d{2})?)?\s*", v)
+        v = v.strip()
+        m = re.fullmatch(r"(\d{1,2})\s*(?:(?::|h|H|heures?)\s*(\d{2})?)?", v) if len(v) <= TIME_MAX else None
         if not m:
             return None
         h, mn = int(m.group(1)), int(m.group(2) or 0)
@@ -505,9 +511,15 @@ class Habitudes:
             return None
         try:
             d = json.loads(self.file.read_text(encoding="utf-8"))
-            return d if isinstance(d, dict) else {}
-        except (OSError, ValueError) as e:
-            log.warning("habitudes.json unreadable (%s): his usual habits", e)
+            if not isinstance(d, dict):
+                raise ValueError("not an object")
+            return d
+        except Exception as e:                          # noqa: BLE001 - put aside, never written over (his taught phrases may be in it)
+            log.warning("habitudes.json unreadable (%s): put aside as habitudes.json.illisible, his usual habits", e)
+            try:
+                self.file.replace(self.file.with_name("habitudes.json.illisible"))
+            except OSError:
+                self.file = None                         # (and if it cannot even be put aside, nothing is saved this time)
             return {}
 
     def save(self):
@@ -516,7 +528,10 @@ class Habitudes:
         try:
             self.file.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.file.with_suffix(".tmp")
-            tmp.write_text(json.dumps({"v": 1, **self.S}, ensure_ascii=False, indent=1), encoding="utf-8")
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)     # his taught phrases: the family's own words
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps({"v": 1, **self.S}, ensure_ascii=False, indent=1))
+            os.chmod(tmp, 0o600)
             os.replace(tmp, self.file)
         except OSError as e:
             log.warning("habitudes.json not saved: %s", e)
@@ -1040,22 +1055,23 @@ async def command(hub, t, raw):
 
 
 # ---------- Claude (pixel/claude.py adds TOOL, asks check_tool() and run_tool()) ----------
+# No « apprendre »: a phrase he says on his own later is taught by the child or a parent (typed, or the panel), never by
+# Claude, whose context holds text from outside (the calendar's invitations...).
 TOOL = {"name": "habits", "eager_input_streaming": True,
         "description": "Tes habitudes à toi, Pixel. action : « horaires » change ton emploi du temps (reveil, coucher, sieste en "
                        "HH:MM, sieste vide : pas de sieste, sieste_minutes ; weekend_reveil et weekend_coucher, vides : pas d'horaires "
-                       "du week-end) ; « apprendre » retient une phrase que tu diras à un moment (moment : " + ", ".join(MOMENTS) +
-                       " ; phrase : 60 caractères au plus) ; « jouer » lance un de tes mini-jeux sur ton écran (jeu : "
+                       "du week-end) ; « jouer » lance un de tes mini-jeux sur ton écran (jeu : "
                        + ", ".join(f"{k} ({v})" for k, v in JEUX.items()) + ", ou au-choix) ; « blague » : tu racontes une de tes "
-                       "blagues sur ton écran. La nuit et pendant ta sieste, tu dors : pas de jeu ni de blague.",
+                       "blagues sur ton écran. La nuit et pendant ta sieste, tu dors : pas de jeu ni de blague. Tu ne peux pas "
+                       "apprendre de phrase : la personne te les apprend elle-même (« dis bonjour comme ça : … »).",
         "input_schema": {"type": "object", "additionalProperties": False, "required": ["action"], "properties": {
-            "action": {"type": "string", "enum": ["horaires", "apprendre", "jouer", "blague"]},
+            "action": {"type": "string", "enum": ["horaires", "jouer", "blague"]},
             "reveil": {"type": "string"}, "coucher": {"type": "string"}, "sieste": {"type": "string"},
             "sieste_minutes": {"type": "integer", "minimum": NAP_MIN, "maximum": NAP_MAX},
             "weekend_reveil": {"type": "string"}, "weekend_coucher": {"type": "string"},
-            "moment": {"type": "string", "enum": list(MOMENTS)}, "phrase": {"type": "string", "maxLength": PHRASE_MAX},
             "jeu": {"type": "string", "enum": list(JEUX) + ["au-choix"]}}}}
 _TOOL_KEYS = {"horaires": {"reveil", "coucher", "sieste", "sieste_minutes", "weekend_reveil", "weekend_coucher"},
-              "apprendre": {"moment", "phrase"}, "jouer": {"jeu"}, "blague": set()}
+              "jouer": {"jeu"}, "blague": set()}
 
 
 def check_tool(a):
@@ -1068,8 +1084,6 @@ def check_tool(a):
             if k in a and not (isinstance(a[k], str) and (a[k] == "" and k != "reveil" and k != "coucher" or to_min(a[k]) is not None)):
                 return False
         return "sieste_minutes" not in a or _int(a["sieste_minutes"], NAP_MIN, NAP_MAX) == a["sieste_minutes"]
-    if a["action"] == "apprendre":
-        return a.get("moment") in MOMENTS and isinstance(a.get("phrase"), str) and len(a["phrase"]) <= 200 and clean_phrase(a["phrase"]) is not None
     if a["action"] == "jouer":
         return a.get("jeu", "au-choix") in list(JEUX) + ["au-choix"]
     return True
@@ -1079,7 +1093,9 @@ async def run_tool(hub, a):
     H = getattr(hub, "habitudes", None)
     if H is None:
         return "tes habitudes ne sont pas disponibles"
-    act = a["action"]
+    act = a.get("action")
+    if act not in _TOOL_KEYS:                     # « apprendre » included: phrases are the family's to teach
+        return "action inconnue : horaires, jouer ou blague"
     if act == "horaires":
         args = {k: a[k] for k in ("reveil", "coucher") if k in a}
         if "sieste" in a or "sieste_minutes" in a:
@@ -1095,10 +1111,6 @@ async def run_tool(hub, a):
         why = H.set_horaires(args)
         H.publish()
         return ("refusé : " + why) if why else "c'est fait. " + H.summary()
-    if act == "apprendre":
-        await hub.dispatch("habitudes.apprendre", {"moment": a["moment"], "phrase": a["phrase"]})
-        lst = H.S["expressions"][a["moment"]]
-        return f"tu as retenu « {lst[0]} » ({MOMENTS[a['moment']].lower()}). Tu le diras de temps en temps." if lst else "phrase refusée"
     if act == "jouer":
         why = H.start(a.get("jeu", "au-choix"), "claude")
         H.publish()
@@ -1210,7 +1222,8 @@ def setup(hub, datadir=None, now=time.time, rng=None, run=True):
 
     @hub.action("habitudes.apprendre")
     async def apprendre(moment="", phrase=""):
-        ok, what = H.teach(str(moment), phrase if isinstance(phrase, str) else "")
+        """A phrase taught by the family (typed, or the panel): never by Claude (TOOL has no such action)."""
+        ok, what = H.teach(str(moment)[:20], phrase[:PHRASE_IN] if isinstance(phrase, str) else "")
         done("" if ok else what)
 
     @hub.action("habitudes.oublier")
