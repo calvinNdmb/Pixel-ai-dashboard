@@ -13,7 +13,7 @@ from . import exos                    # start_exercise: a little math exercise o
 from . import souvenirs               # souvenirs: your birthday, a photo for his album, your mood (only if you allow it)
 from . import amis                    # pixel_friends: his friends' Pixels (the list, a visit, a coucou)
 from . import look                    # set_look: his eyes, colours and what he wears (pixel/look.py)
-from . import habitudes               # habits: his schedule, a phrase to say, a game, a joke (pixel/habitudes.py)
+from . import habitudes               # habits: his schedule, a game, a joke (pixel/habitudes.py; never a phrase to teach him)
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (

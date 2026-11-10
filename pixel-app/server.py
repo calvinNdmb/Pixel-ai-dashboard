@@ -47,6 +47,25 @@ from pixel import habitudes              # his habits: his day (wake-up, nap, be
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
+# A WebSocket message from a page: 3 MiB at most. The largest one a page sends is the calendar file of web/reglages.js
+# (agenda.import: 2 MiB at most, about 2.2 MiB once in JSON); any longer one closes that page's socket (it reconnects).
+WS_MAX = 3 * 1024 * 1024
+# The features of 1.3.0 start one by one: one that cannot start (a bug, a data folder it cannot use) is logged, and Pixel
+# starts without it (the others read them defensively: getattr(hub, "amis", None), hub.s.get("look")...).
+OPTIONAL = {"habitudes": ("habitudes",), "souvenirs": ("souvenirs", "humeur"), "album": ("album",), "amis": ("amis",), "look": ("look",)}
+
+
+def optional(hub, name, setup, *args):
+    """setup(*args) for the feature `name`, or None when it fails: logged, and no trace of it left on the hub."""
+    try:
+        return setup(*args)
+    except Exception:                            # noqa: BLE001 - whatever it is, Pixel starts
+        log.exception("%s ne démarre pas : Pixel démarre sans", name)
+        if getattr(hub, name, None) is not None:
+            delattr(hub, name)
+        for key in OPTIONAL.get(name, (name,)):
+            hub.s.pop(key, None)
+        return None
 
 
 def home_networks():
@@ -181,12 +200,12 @@ async def serve(args, cfg, datadir, token):
     core_actions(hub, datadir)
     poche.setup(hub)                     # Pixel de poche: the two Pixels pass news, the voyage
     caractere.setup(hub, datadir)        # his character, saved in caractere.json
-    habitudes.setup(hub, datadir)        # his habits (habitudes.json): after caractère (its old quiet hours), before nourrir (his night)
+    optional(hub, "habitudes", habitudes.setup, hub, datadir)   # his habits (habitudes.json): after caractère (its old quiet hours), before nourrir (his night)
     nourrir.setup(hub, datadir)          # Nourrir: feeding Pixel (data_dir/nourrir.json)
     exos.setup(hub, datadir)             # math exercises: the exos.* actions, data_dir/exos.json
-    souvenirs.setup(hub, datadir)        # souvenirs.* and humeur.*: data_dir/souvenirs.json, humeur.json (after exos and nourrir: he reads them)
-    amis.setup(hub, datadir)             # his friends: the amis.* actions, data_dir/amis.json, the relay once there is a friend
-    look.setup(hub, datadir)             # « Son look »: the look.* actions, data_dir/look.json
+    optional(hub, "souvenirs", souvenirs.setup, hub, datadir)   # souvenirs.* and humeur.*: souvenirs.json, humeur.json (after exos and nourrir: he reads them)
+    optional(hub, "amis", amis.setup, hub, datadir)             # his friends: the amis.* actions, data_dir/amis.json, the relay once there is a friend
+    optional(hub, "look", look.setup, hub, datadir)             # « Son look »: the look.* actions, data_dir/look.json
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"
@@ -224,7 +243,7 @@ async def serve(args, cfg, datadir, token):
         # the Pi itself, from Pixel's own page (not from a video player shown on the screen), or the access code
         if not local_page(request) and request.query.get("t") != token:
             raise web.HTTPForbidden(text="Code d'accès manquant : scanne le QR code dans Réglages sur l'écran de Pixel.")
-        ws = web.WebSocketResponse(heartbeat=20)
+        ws = web.WebSocketResponse(heartbeat=20, max_msg_size=WS_MAX)
         await ws.prepare(request)
         hub.clients.add(ws)
         await ws.send_str(json.dumps({"type": "state", "data": hub.snapshot()}, ensure_ascii=False))
@@ -271,7 +290,7 @@ async def serve(args, cfg, datadir, token):
     app.router.add_get("/ytcast", ytcast.ws)               # the YouTube sidecar only (pixel/ytcast.py): the Pi itself, its own code
     ecran.routes(app.router)                               # /ecran: « Partager mon écran », its signalling, Android's screen
     telephone.setup(hub, app, token)       # POST /api/notif: the phone's notifications, a toast for his scenes
-    album.setup(hub, app, datadir, token)  # POST /api/album (his own screen's photos), GET /album/NAME: same access rules
+    optional(hub, "album", album.setup, hub, app, datadir, token)   # POST /api/album (his own screen's photos), GET /album/NAME: same access rules
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
         app.router.add_get(path, lab)
     app.router.add_static("/app/", HERE / "web")

@@ -5,7 +5,9 @@
 - the dates, on a fixed clock: your birthday (a 29 February one too, in leap and other years), the next one across the
   year's turn, the monthly and yearly days you met (31 January, 29 February, December to January), 100 days;
 - what is kept: souvenirs.json and humeur.json across a restart, the day you met from the oldest file, broken or hand-edited
-  files (the server always starts), the timeline capped (pinned memories stay), souvenirs.ajoute checked and rate-limited;
+  files (the server always starts; one that cannot be read is put aside, never written over, and the other one keeps all
+  its memories; values of the wrong type dropped one by one; 0600), the timeline capped (pinned memories stay),
+  souvenirs.ajoute checked, rate-limited, and a long text cut before any work on it;
 - his records from the other features' state (a first look takes them as they are), coalesced, his first meal and trophy;
 - the mood journal: when he may ask (his time, never at night, his quiet hours, asleep, twice a day, an hour apart), the
   question's time, the answers, yesterday, private by default (Claude neither sees it nor writes it until allowed);
@@ -241,6 +243,67 @@ def file_checks():
     check("pinning, unpinning, erasing; the day you met cannot be erased", S.epingle(e2["id"]) and S.d["timeline"][0]["epingle"] in (True, False)
           and S.efface(e2["id"]) and not any(x["id"] == e2["id"] for x in S.d["timeline"])
           and not S.efface(next(x["id"] for x in S.d["timeline"] if x["type"] == "rencontre")))
+
+
+async def broken_checks():
+    """A file that cannot be read never costs the other one, nor itself: put aside (NAME.illisible), never written over."""
+    sv = {"v": 1, "anniv": {"jour": 12, "mois": 3}, "demande": 1, "rencontre": "2024-05-01", "rencontre_auto": False, "debut": 1.7e12,
+          "timeline": [{"id": i, "t": 1.72e12 + i * 1e8, "type": "photo", "texte": f"souvenir {i}", "epingle": i < 3, "photo": None} for i in range(1, 41)]}
+    hu = {"v": 1, "on": True, "claude": False, "jours": {"2026-11-01": {"m": "bien", "chips": [["ecole"], "jeux", {"x": 1}], "t": 1},
+                                                         "2026-11-02": {"m": ["triste"], "chips": [], "t": 1}, "2026-11-03": {"m": "super", "chips": "x", "t": 1}}}
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        (d / "souvenirs.json").write_text(json.dumps(sv))
+        (d / "humeur.json").write_text(json.dumps(hu))
+        hub = Hub({}, demo=True)
+        c = Clock(at(2026, 11, 9, 18))
+        S = souvenirs.setup(hub, d, clock=c)
+        check("humeur.json with values of the wrong type (a list in chips, a list for the mood): the right ones kept, the others dropped",
+              sorted(S.h["jours"]) == ["2026-11-01", "2026-11-03"] and S.h["jours"]["2026-11-01"]["chips"] == ["jeux"] and S.h["jours"]["2026-11-03"]["chips"] == []
+              and not (d / "humeur.json.illisible").exists(), json.dumps(S.h["jours"]))
+        await hub.dispatch("souvenirs.demande")
+        await hub.dispatch("humeur.note", {"m": "super"})
+        kept = json.loads((d / "souvenirs.json").read_text())
+        check("…and souvenirs.json keeps its 40 memories, your birthday and the day you met, after the next saves", len(kept["timeline"]) == 40
+              and kept["anniv"] == {"jour": 12, "mois": 3} and kept["rencontre"] == "2024-05-01", len(kept["timeline"]))
+        modes = {f: os.stat(d / f).st_mode & 0o777 for f in ("souvenirs.json", "humeur.json")}
+        check("souvenirs.json and humeur.json are readable by their owner only (0600)", set(modes.values()) == {0o600}, {k: oct(v) for k, v in modes.items()})
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        (d / "souvenirs.json").write_text(json.dumps(sv))
+        (d / "humeur.json").write_text("{ pas du json")
+        hub = Hub({}, demo=True)
+        S = souvenirs.setup(hub, d, clock=Clock(at(2026, 11, 9, 18)))
+        check("a humeur.json that is not JSON: put aside as it was (humeur.json.illisible), a new one", (d / "humeur.json.illisible").read_text() == "{ pas du json"
+              and json.loads((d / "humeur.json").read_text())["jours"] == {})
+        check("…souvenirs.json keeps its 40 memories", len(json.loads((d / "souvenirs.json").read_text())["timeline"]) == 40 and len(S.d["timeline"]) == 40)
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        (d / "souvenirs.json").write_text(json.dumps(sv))
+        (d / "humeur.json").write_text(json.dumps({"v": 1, "jours": {"2026-11-01": {"m": "bien", "chips": [], "t": 1}}}))
+        before = {f: (d / f).read_bytes() for f in ("souvenirs.json", "humeur.json")}
+        real = souvenirs.Souvenirs.observe
+
+        def broken(self):                                # a bug somewhere (not in the files): his files are never written over
+            if self.file:
+                raise RuntimeError("bug")
+            return real(self)
+        souvenirs.Souvenirs.observe = broken
+        try:
+            hub = Hub({}, demo=True)
+            souvenirs.setup(hub, d, clock=Clock(at(2026, 11, 9, 18)))
+            await hub.dispatch("souvenirs.ajoute", {"type": "perso", "texte": "un gâteau"})
+            await hub.dispatch("humeur.note", {"m": "bof"})
+        finally:
+            souvenirs.Souvenirs.observe = real
+        check("Souvenirs failing to start (a bug): Pixel starts, and both files are left exactly as they were",
+              all((d / f).read_bytes() == b for f, b in before.items()) and hub.s.get("souvenirs") is not None)
+    hub, S, c = make(None, at(2026, 11, 9, 15))
+    t0 = time.perf_counter()
+    e = S.ajoute("perso", "Un très long souvenir " + "é a\u0007" * (1024 * 1024))
+    took = time.perf_counter() - t0
+    check(f"souvenirs.ajoute with 4 MB of text: cut before it is cleaned ({took * 1000:.0f} ms), 100 characters", e and len(e["texte"]) <= souvenirs.TEXT_MAX
+          and e["texte"].startswith("Un très long souvenir") and took < 0.2, took)
 
 
 # ---------- his records, from the other features' state ----------
@@ -675,6 +738,7 @@ async def main():
     static_checks()
     date_checks()
     file_checks()
+    await broken_checks()
     record_checks()
     humeur_checks()
     await privacy_checks()

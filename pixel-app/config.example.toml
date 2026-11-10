@@ -69,6 +69,7 @@ pin = true                  # l'iPhone tape le code à 4 chiffres que Pixel affi
 # relay = "https://ntfy.sh"  # le relais (compatible ntfy) : celui de ntfy.sh, ou le tien (docs/AMIS.md, « Ton propre relais »)
 # token = "tk_..."           # le jeton d'accès de ton relais, s'il en demande un
 # visite_secondes = 180      # la durée d'une visite (de 20 à 600)
+# repos_secondes = 300       # après une visite chez lui (ou un « Non merci »), il se repose : pas d'autre visite avant (de 0 à 3600)
 
 # [security]
 # token = "..."             # code d'accès des téléphones ; créé tout seul sinon

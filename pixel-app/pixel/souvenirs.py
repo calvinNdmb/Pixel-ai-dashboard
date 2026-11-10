@@ -24,6 +24,8 @@ see it only when « Claude peut savoir comment je vais » is on, off by default;
 Actions: souvenirs.anniversaire {jour, mois} (null: forget), souvenirs.rencontre {date}, souvenirs.demande, souvenirs.ajoute
 {type, texte, t, epingle}, souvenirs.epingle {id, on}, souvenirs.efface {id}, souvenirs.raconte, souvenirs.fete;
 humeur.note {m, chips}, humeur.pose, humeur.plustard, humeur.reglages {on, heure, claude}, humeur.efface.
+Both files are readable by their owner only (0600); one that cannot be read (not JSON, values of the wrong type) is put
+aside (souvenirs.json.illisible, humeur.json.illisible) and never written over, and the other one is kept as it is.
 The album (photos) is pixel/album.py. The same rules for Pixel Lab and Pixel sans Pi: web/souvenirs.js (PixelSouvenirs.rules).
 """
 import asyncio
@@ -41,6 +43,7 @@ from pathlib import Path
 log = logging.getLogger("pixel.souvenirs")
 
 TIMELINE_MAX, PINNED_MAX, TEXT_MAX = 200, 40, 100
+TEXT_IN = 1000                            # characters of a memory's text looked at (souvenirs.ajoute): the rest is cut first
 TYPE = re.compile(r"^[a-z][a-z0-9-]{0,23}$")
 T_MIN = 946684800000                      # 2000-01-01 (ms): a time before it is not a time
 RENCONTRE_MIN = dt.date(2020, 1, 1)
@@ -252,7 +255,8 @@ def trim(tl):
 
 
 def clean_chips(v):
-    return [c for c in dict.fromkeys(v if isinstance(v, list) else []) if isinstance(c, str) and c in CHIP][:CHIPS_MAX]
+    """A few of CHIPS, once each: anything else in the list (a list, an object: not even hashable) is dropped."""
+    return [c for c in dict.fromkeys(x for x in (v if isinstance(v, list) else []) if isinstance(x, str)) if c in CHIP][:CHIPS_MAX]
 
 
 def clean_humeur(d):
@@ -264,7 +268,7 @@ def clean_humeur(d):
     jours = d.get("jours") if isinstance(d.get("jours"), dict) else {}
     ok = {}
     for k, v in jours.items():
-        if not (isinstance(k, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", k) and isinstance(v, dict) and v.get("m") in MOOD):
+        if not (isinstance(k, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", k) and isinstance(v, dict) and isinstance(v.get("m"), str) and v["m"] in MOOD):
             continue
         try:
             dt.date.fromisoformat(k)
@@ -279,22 +283,37 @@ def clean_humeur(d):
     return out
 
 
-def _load(path):
+def _load(path, clean):
+    """(clean(what the file holds), ok). Missing: the defaults. Unreadable (not JSON, not an object, a value of a type the
+    cleaning trips on…): put aside as NAME.illisible (like amis.json), the defaults, and a new file from then on; ok is
+    False only when it could not even be put aside: the caller then never writes that file, it stays as it is."""
     try:
         d = json.loads(path.read_text(encoding="utf-8"))
-        return d if isinstance(d, dict) else {}
+        if not isinstance(d, dict):
+            raise ValueError("not an object")
+        return clean(d), True
     except FileNotFoundError:
-        return {}
-    except Exception as e:                           # unreadable, not JSON, absurd values: never stop the server
-        log.warning("%s unreadable (%s): starting afresh", path.name, e)
-        return {}
+        return clean({}), True
+    except Exception as e:                           # noqa: BLE001 - unreadable, not JSON, absurd values: never stop the server
+        aside = path.with_name(path.name + ".illisible")
+        try:
+            path.replace(aside)
+        except OSError as e2:
+            log.warning("%s unreadable (%s), and not put aside (%s): kept as it is, not saved", path.name, e, e2)
+            return clean({}), False
+        log.warning("%s unreadable (%s): put aside as %s, starting afresh", path.name, e, aside.name)
+        return clean({}), True
 
 
 def _save(path, data):
+    """Written whole (a temporary file, then renamed), readable by its owner only (0600): his memories, your moods."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(data, ensure_ascii=False, indent=1))
+        os.chmod(tmp, 0o600)
         os.replace(tmp, path)
         return True
     except OSError as e:
@@ -324,8 +343,12 @@ class Souvenirs:
         self.file = self.dir / "souvenirs.json" if self.dir else None
         self.hfile = self.dir / "humeur.json" if self.dir else None
         now = clock()
-        self.d = clean_souvenirs(_load(self.file) if self.file else {})
-        self.h = clean_humeur(_load(self.hfile) if self.hfile else {})
+        self.d, ok = _load(self.file, clean_souvenirs) if self.file else (clean_souvenirs({}), True)
+        if not ok:
+            self.file = None                             # unreadable and not put aside: never written over
+        self.h, ok = _load(self.hfile, clean_humeur) if self.hfile else (clean_humeur({}), True)
+        if not ok:
+            self.hfile = None
         if not self.d["debut"]:
             self.d["debut"] = now * 1000
         if not self.d["rencontre"]:
@@ -542,7 +565,7 @@ class Souvenirs:
     def ajoute(self, type=None, texte=None, t=None, epingle=False):
         """A memory from another feature (a friend's visit...) or the panel: checked, capped, not too often. The entry or None."""
         typ = type if isinstance(type, str) and TYPE.match(type) and type not in ("rencontre",) else None
-        txt = clean_text(texte)
+        txt = clean_text(texte[:TEXT_IN] if isinstance(texte, str) else texte)     # a long text is cut before any work on it
         if not typ or not txt:
             return None
         now = self.clock()
@@ -658,7 +681,7 @@ class Souvenirs:
 
     def note(self, m, chips=None):
         """Today's mood (the last word counts). True when it was one."""
-        if m not in MOOD:
+        if not isinstance(m, str) or m not in MOOD:
             return False
         j, now = self.jour(), _ms(self.clock)
         ch = clean_chips(chips)
@@ -919,10 +942,9 @@ def setup(hub, datadir=None, clock=time.time):
     datadir = Path(datadir) if datadir else Path(os.path.expanduser(hub.cfg.get("data_dir", "~/.config/pixel")))
     try:
         S = Souvenirs(hub, datadir, clock)
-    except Exception:                                  # whatever is in the files, Pixel starts
-        log.exception("souvenirs: starting afresh")
-        S = Souvenirs(hub, None, clock)
-        S.dir, S.file, S.hfile = datadir, datadir / "souvenirs.json", datadir / "humeur.json"
+    except Exception:                                  # a bug (an unreadable file is put aside by _load): Pixel starts, and
+        log.exception("souvenirs: started without his files (left as they are, nothing saved until the next start)")
+        S = Souvenirs(hub, None, clock)                # never writes over files it could not read
     hub.souvenirs = S
 
     def done(changed=True):

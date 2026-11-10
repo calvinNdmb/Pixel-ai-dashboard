@@ -1,6 +1,7 @@
 """Drives a demo server through its WebSocket like the app does, and checks the results.
 
-    python3 tests/test_pixel.py                    # starts its own demo server (port 8102, temporary data folder)
+    python3 tests/test_pixel.py                    # starts its own demo server (port 8102, temporary data folder), twice
+                                                   # (the second time with broken files: Pixel starts all the same)
     python3 tests/test_pixel.py --port 8102 --external --data-dir ~/.config/pixel
                                                    # uses a demo server that is already running there
 """
@@ -383,13 +384,79 @@ async def main(args):
                 check("remote client with the code is accepted", json.loads(m.data)["type"] == "state")
 
 
-async def after_restart(args):
+async def socket_limits(args):
+    """What one page may send: a long time of day answered at once, 3 MiB at most a message (the calendar file fits)."""
+    import server
+    base = f"http://127.0.0.1:{args.port}"
+    async with aiohttp.ClientSession() as http:
+        async def answers():
+            t0 = time.perf_counter()
+            async with http.get(base + "/sw.js") as r:
+                await r.read()
+            return time.perf_counter() - t0
+        async with http.ws_connect(base + "/ws") as ws:
+            await ws.receive(timeout=3)
+            await ws.send_str(json.dumps({"action": "habitudes.horaires", "args": {"reveil": "7" + " " * 80000 + "x"}}))
+            await asyncio.sleep(0.05)
+            took = await answers()
+            check(f"a wake-up time with 80 000 spaces over the socket: the server answers at once ({took * 1000:.0f} ms; it froze for seconds)", took < 0.5, took)
+            line = "SUMMARY:Piscine\\, puis goûter\r\n"
+            ics = "BEGIN:VCALENDAR\r\n" + line * ((2 * 1024 * 1024 - 17) // len(line.encode()))   # a 2 MiB .ics (web/reglages.js's cap): 2.2 MiB in JSON
+            msg = json.dumps({"action": "agenda.import", "args": {"text": ics, "fallback": "test"}}, ensure_ascii=False)
+            await ws.send_str(msg)
+            toast, end = None, time.time() + 10
+            while time.time() < end and not toast:
+                m = await ws.receive(timeout=10)
+                if m.type != aiohttp.WSMsgType.TEXT:
+                    break
+                t = json.loads(m.data)["data"].get("toast") or {}
+                toast = t.get("msg") if "FICHIER" in t.get("msg", "") or "AGENDA" in t.get("msg", "").upper() else None
+            check(f"a calendar file of {len(msg.encode()) / 1048576:.1f} MiB over the socket (the largest a page sends): heard",
+                  toast is not None and not ws.closed and len(msg.encode()) < server.WS_MAX, toast)
+        async with http.ws_connect(base + "/ws") as ws:
+            await ws.receive(timeout=3)
+            await ws.send_str(json.dumps({"action": "view.set", "args": {"key": "x", "value": "y" * (server.WS_MAX + 16)}}))
+            try:
+                m = await ws.receive(timeout=5)
+                while m.type == aiohttp.WSMsgType.TEXT:
+                    m = await ws.receive(timeout=5)
+                kind = m.type
+            except asyncio.TimeoutError:                 # still open: the message was taken
+                kind = None
+            check(f"a message over {server.WS_MAX // 1048576} MiB: that socket is closed (1009, too big), the server goes on",
+                  kind in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING) and ws.close_code == 1009 and await answers() < 0.5,
+                  f"{kind} {ws.close_code}")
+
+
+def break_files(datadir):
+    """Before a restart: files a hand (or a bug) broke, and an album folder that is a file: Pixel must start all the same."""
+    d = Path(datadir)
+    n = len(json.loads((d / "souvenirs.json").read_text())["timeline"])
+    (d / "amis.json").write_text(json.dumps({"journal": [{"t": 1, "quoi": "visite", "fait": [["ami-danse"]]}, {"t": 1, "quoi": "sticker-recu", "s": {}}]}))
+    (d / "humeur.json").write_text("{ pas du json")
+    for f in (d / "album").iterdir():
+        f.unlink()
+    (d / "album").rmdir()
+    (d / "album").write_text("pas un dossier")
+    return n
+
+
+async def after_restart(args, memories=None):
     async with aiohttp.ClientSession() as http:
         async with http.ws_connect(f"http://127.0.0.1:{args.port}/ws") as ws:
             m = await ws.receive(timeout=3)
-            v = json.loads(m.data)["data"]["view"]
+            s = json.loads(m.data)["data"]
+            v = s["view"]
             check("the theme choice survives a restart", v["theme"] == "croquis")
             check("the face choice survives a restart", v["face"] == "vivant", v.get("face"))
+            if memories is not None:
+                d = Path(args.data_dir).expanduser()
+                check("amis.json with values of the wrong type: Pixel starts, with his friends' feature (the bad values dropped)",
+                      (s.get("amis") or {}).get("dispo") is True and len(s["amis"]["journal"]) == 2 and not (d / "amis.json.illisible").exists(), str(s.get("amis"))[:200])
+                check("humeur.json not JSON: put aside, and souvenirs.json keeps every memory", (d / "humeur.json.illisible").read_text() == "{ pas du json"
+                      and len(s["souvenirs"]["timeline"]) == memories == len(json.loads((d / "souvenirs.json").read_text())["timeline"]), memories)
+                check("an album folder that is a file: Pixel starts without his album, the rest is there (look, habits, memories, friends)",
+                      "album" not in s and all(k in s for k in ("look", "habitudes", "souvenirs", "humeur", "amis")), sorted(k for k in s if k in ("album", "look", "habitudes")))
 
 
 if __name__ == "__main__":
@@ -406,12 +473,14 @@ if __name__ == "__main__":
             srv = start_server(args.port, tmp)
             try:
                 asyncio.run(main(args))
+                asyncio.run(socket_limits(args))
             finally:
                 srv.terminate()
                 srv.wait()
+            memories = break_files(tmp)
             srv = start_server(args.port, tmp)
             try:
-                asyncio.run(after_restart(args))
+                asyncio.run(after_restart(args, memories))
             finally:
                 srv.terminate()
                 srv.wait()
