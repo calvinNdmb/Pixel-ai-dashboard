@@ -31,6 +31,8 @@ import { parseMessage, sameOrigin, usePlugs, webProps } from './src/webBridge';
 
 const KEY = 'pixel_url';                                       // what Pixel's QR code holds: http://pixel.local:8080/?t=<code>
 const LINK_URL = /^pixel:\/\/relier\?at=(\d{1,15})$/;           // the share card's « Relier à mon Pixel » (ShareActivity.kt LINK_URL), and when
+const NFC_URL = /^(https?:\/\/[^/\s?#]+)\/nfc(?:\?t=([\w-]+))?$/;   // Pixel's NFC tag (pixel-app server.py /nfc): his address, maybe his access code
+const NFC_OFF = 'pixel_nfc_off';                               // the tag of a Pi you asked to forget: an old launch must not link it again
 const LINK_MS = 120000;                                        // a link older than that is an old intent given again
 const isPixelUrl = (u: string) => /^https?:\/\/[^/\s?]+\/?\?t=[\w-]+$/.test(u.trim());
 const hostOf = (u: string) => u.replace(/^https?:\/\//, '').replace(/\/?\?.*$/, '');
@@ -47,21 +49,32 @@ export default function App() {
   useEffect(() => {
     Promise.all([SecureStore.getItemAsync(KEY).catch(() => null), readHome()]).then(([u, h]) => { setHome(h); setUrl(u); mirror(u); });
   }, []);
+  const save = useCallback(async (u: string) => {
+    await SecureStore.setItemAsync(KEY, u.trim()); mirror(u.trim()); await saveHome('pi'); setHome('pi'); setUrl(u.trim()); setSetup(false);
+  }, []);
   useEffect(() => {                                                      // opened from the share card, with no Pi linked: the link screen
     let alive = true;
-    const ask = async (u?: string | null) => {                           // each link once, and only a fresh one
+    const ask = async (u?: string | null, fresh = false) => {            // each link once, and only a fresh one
+      const tag = NFC_URL.exec(u ?? '');
+      if (tag) {                                                         // the phone touched Pixel's tag: the app is open; with a code on it and no Pi linked, it links
+        if (!tag[2] || (await SecureStore.getItemAsync(KEY).catch(() => null))) return;
+        if (!fresh && (await SecureStore.getItemAsync(NFC_OFF).catch(() => null)) === u) return;   // the launch that brought it may be given again
+        if (alive) save(`${tag[1]}/?t=${tag[2]}`);
+        return;
+      }
       const at = Number(LINK_URL.exec(u ?? '')?.[1]);
       if (!at || Math.abs(Date.now() - at) > LINK_MS || !(await takeLink(at)) || !alive) return;
       setPanel('none'); setSetup(true);
     };
     Linking.getInitialURL().then(ask, () => {});
-    const sub = Linking.addEventListener('url', e => ask(e.url));
+    const sub = Linking.addEventListener('url', e => ask(e.url, true));
     return () => { alive = false; sub.remove(); };
+  }, [save]);
+  const forget = useCallback(async () => {
+    const u = await SecureStore.getItemAsync(KEY).catch(() => null), m = /^(https?:\/\/[^/\s?#]+)\/?\?t=([\w-]+)$/.exec(u ?? '');
+    if (m) await SecureStore.setItemAsync(NFC_OFF, `${m[1]}/nfc?t=${m[2]}`).catch(() => {});
+    await SecureStore.deleteItemAsync(KEY); mirror(null); forgetPi(); setHome('pi'); setUrl(null);
   }, []);
-  const save = useCallback(async (u: string) => {
-    await SecureStore.setItemAsync(KEY, u.trim()); mirror(u.trim()); await saveHome('pi'); setHome('pi'); setUrl(u.trim()); setSetup(false);
-  }, []);
-  const forget = useCallback(async () => { await SecureStore.deleteItemAsync(KEY); mirror(null); forgetPi(); setHome('pi'); setUrl(null); }, []);
   const goHome = useCallback((h: Home) => { setHome(h); saveHome(h); }, []);
   const openMenu = useCallback(() => setPanel('menu'), []);
   const closePanel = useCallback(() => setPanel('none'), []);

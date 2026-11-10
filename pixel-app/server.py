@@ -283,11 +283,32 @@ async def serve(args, cfg, datadir, token):
         return web.FileResponse(f, headers={"Content-Type": "application/vnd.android.package-archive",
                                             "Content-Disposition": 'attachment; filename="Pixel.apk"', "Cache-Control": "no-cache"})
 
+    async def nfc(request):
+        """The address written on an NFC tag stuck on Pixel (http://pixel.local:8080/nfc, with ?t=<code> to link in one tap).
+        A phone that has the Android app never comes here: Android hands the tag to the app, which opens. A phone without it
+        opens this page in its browser: install the app, or go on in the browser. The access code is only ever given back to
+        who already had it."""
+        has = (datadir / "pixel.apk").exists()
+        t = request.query.get("t", "")
+        go = "/?t=" + token if t and secrets.compare_digest(t, token) else "/"
+        install = ('<a class="b main" href="/pixel.apk">Installer l’appli Pixel</a>'
+                   '<p class="s">Ouvre le fichier téléchargé, autorise l’installation, puis repose ton téléphone sur Pixel : l’appli s’ouvrira toute seule.</p>'
+                   if has else '<p class="s">L’appli Android n’est pas encore sur ce Pixel (pixel.apk).</p>')
+        return web.Response(content_type="text/html", headers={"Cache-Control": "no-store"}, text=(
+            '<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>Pixel</title><style>body{margin:0;background:#141713;color:#d9d2bd;font:17px/1.5 system-ui,sans-serif;display:flex;'
+            'min-height:100vh;align-items:center;justify-content:center}main{max-width:340px;padding:28px;text-align:center}'
+            'h1{font:700 28px monospace;letter-spacing:8px;color:#46ff82}.b{display:block;margin:18px 0 8px;padding:14px 18px;border-radius:999px;'
+            'border:1px solid #7c745c;color:#d9d2bd;text-decoration:none;font-weight:600}.main{background:#d9d2bd;color:#141713;border:0}'
+            '.s{color:#a79f86;font-size:14px}</style><main><h1>PIXEL</h1><p>Coucou ! Je suis Pixel.</p>' + install
+            + f'<a class="b" href="{go}">Continuer dans le navigateur</a></main></html>'))
+
     app = web.Application(middlewares=[home_only])
     app.on_response_prepare.append(revalidate)
     app.router.add_get("/", index)
     app.router.add_get("/sw.js", worker)
     app.router.add_get("/pixel.apk", apk)
+    app.router.add_get("/nfc", nfc)
     app.router.add_get("/ws", ws_handler)
     app.router.add_post("/api/cast", cast.api)
     app.router.add_post("/share", cast.share)              # the Android share sheet (manifest.webmanifest share_target)

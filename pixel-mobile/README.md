@@ -36,6 +36,22 @@ Au premier lancement, Pixel est là tout de suite : pas de QR code, pas de rése
 - **Son ventre pendant que l'appli est fermée :** il compte le temps comme sur le Pi éteint. La nuit (de 23 h à 6 h) ne compte pas, et 6 heures au plus : il revient au pire avec un petit creux. S'il avait déjà faim, il n'a pas plus faim.
 - **Les thèmes :** les six, au choix dans Réglages ou avec `thème néon`. Une fois l'appli reliée à ton Pi, le Pixel du téléphone a les mêmes thèmes que lui : ceux que ton Pi a activés.
 
+## Le tag NFC sur Pixel
+
+Colle un tag NFC sur Pixel et écris dessus **une adresse web** (un enregistrement « URL », avec une appli comme NFC Tools) :
+
+- `http://pixel.local:8080/nfc` : le tag ouvre l'appli, ou propose de l'installer ;
+- `http://pixel.local:8080/nfc?t=TON_CODE` : pareil, et l'appli se relie toute seule à ton Pi si elle ne l'est pas encore. `TON_CODE` est ce qui suit `?t=` dans l'adresse du QR code de Pixel.
+
+Quand un téléphone Android touche le tag :
+
+- **l'appli est installée** : elle s'ouvre directement, sans passer par le navigateur ;
+- **elle ne l'est pas** : le navigateur ouvre une page de ton Pi, avec **Installer l'appli Pixel** (le fichier `pixel.apk` du Pi) et **Continuer dans le navigateur**. Une fois l'appli installée, repose le téléphone sur le tag.
+
+À savoir : le téléphone doit être sur le Wi-Fi de la maison, NFC allumé et écran déverrouillé. Avec le code sur le tag, toute personne qui pose son téléphone dessus peut relier son appli à Pixel, comme avec le QR code : sans le code, elle devra le scanner. Si `pixel.local` ne répond pas chez toi, mets l'adresse IP du Pi à la place. Un iPhone ouvre la page dans Safari (pas d'appli iOS).
+
+Comment c'est fait : l'appli déclare qu'elle sait ouvrir les tags dont l'adresse finit par `/nfc` (`modules/pixel-native/app.plugin.js`), et `App.tsx` lit l'adresse ; la page est servie par `pixel-app/server.py`.
+
 ## Les quiz sur mesure, sans Pi
 
 Le Pixel du téléphone écrit des quiz sur ce que tu veux : tape `quiz sur les volcans`, `quiz de 8 questions sur la table de 7`, `interroge-moi sur les capitales`. On y répond comme aux exos de maths : 4 réponses, un indice, la correction, des étoiles.

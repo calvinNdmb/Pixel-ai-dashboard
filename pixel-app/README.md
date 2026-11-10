@@ -315,6 +315,10 @@ Depuis ton téléphone, montre quelque chose sur l'écran de Pixel. Ça s'affich
 
 Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec le partage d'écran depuis chaque appareil et les autres façons de caster sur un Raspberry Pi.
 
+## Un tag NFC sur Pixel
+
+Un tag NFC collé sur Pixel, avec l'adresse `http://pixel.local:8080/nfc` écrite dessus : un téléphone Android posé dessus ouvre l'appli Pixel si elle est installée, sinon une page de ton Pi qui propose de l'installer (ou de continuer dans le navigateur). Avec `?t=` et ton code d'accès à la fin de l'adresse, l'appli se relie en plus à ton Pi. Le détail est dans [`pixel-mobile`](../pixel-mobile/README.md#le-tag-nfc-sur-pixel).
+
 ## Pixel sans Pi
 
 **L'appli Android n'a pas besoin du Pi.** Au premier lancement, Pixel vit sur le téléphone : son visage, ses 52 animations, sa personnalité et toutes ses scènes, ses humeurs, son caractère, ses repas, les exos de maths, les thèmes, l'horloge, le minuteur, la veille, les réglages et Pixel de poche. Sans réseau, et sans aucune fausse donnée : les écrans Lumières, Claude, Codex et Agenda disent « Relie Pixel à ton Pi pour ça », Système montre les mesures du téléphone, et la météo est la vraie (tape `météo Lyon`, Pixel la demande à Open-Meteo). Les six thèmes sont à lui, puisqu'aucun Pi ne les choisit. Son thème, ses réglages, son humeur, le minuteur, sa ville, son caractère, son ventre et ses goûts, ses scores d'exos sont gardés quand l'appli se ferme.

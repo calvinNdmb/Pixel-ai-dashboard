@@ -1,6 +1,8 @@
 // Pixel's native parts in the app's AndroidManifest.xml (expo prebuild):
 // - ShareActivity in Android's share sheet: a text or a link, one or several photos, GIFs or videos;
 // - NotificationRelay, the notification listener (Android asks the user before it runs), never fed silent or ongoing ones;
+// - the main activity opens when the phone touches Pixel's NFC tag (an address ending in /nfc, on any host: his Pi's page
+//   server.py serves to a phone without the app); the system reads the tag itself, so no NFC permission;
 // - <queries> for the launcher's apps, the list the user picks from (no QUERY_ALL_PACKAGES).
 const { AndroidConfig, withAndroidManifest } = require('expo/config-plugins');
 
@@ -33,6 +35,15 @@ module.exports = function withPixelNative(config) {
         send('android.intent.action.SEND', ['text/plain', 'image/*', 'video/*']),
         send('android.intent.action.SEND_MULTIPLE', ['image/*', 'video/*']),
       ],
+    });
+
+    const main = AndroidConfig.Manifest.getMainActivityOrThrow(c.modResults);
+    const NFC = 'android.nfc.action.NDEF_DISCOVERED';
+    main['intent-filter'] = (main['intent-filter'] || []).filter(f => !(f.action || []).some(a => a.$['android:name'] === NFC));
+    main['intent-filter'].push({
+      action: [name(NFC)],
+      category: [name('android.intent.category.DEFAULT')],
+      data: ['http', 'https'].map(scheme => ({ $: { 'android:scheme': scheme, 'android:host': '*', 'android:pathPrefix': '/nfc' } })),
     });
 
     app.service = (app.service || []).filter(s => !mine(s));
