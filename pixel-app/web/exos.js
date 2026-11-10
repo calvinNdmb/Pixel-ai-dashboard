@@ -100,10 +100,10 @@ function star(k, x, y, r, filled) {                          // a star of the da
   X.restore();
 }
 function title(c) {
-  if (c.etat === 'bilan') return c.mode === 'chrono' ? 'Défi chrono' : c.mode === 'table' ? c.type : 'Fin de la série';
+  if (c.etat === 'bilan') return c.mode === 'chrono' ? 'Défi chrono' : c.mode === 'table' ? c.type : c.kind === 'quiz' ? 'Fin du quiz' : 'Fin de la série';
   if (c.mode === 'chrono') return 'Défi chrono';
   if (c.mode === 'table') return `${c.type} · ${c.i}/${c.n}`;
-  if (c.mode === 'serie') return `Série · ${c.i}/${c.n}`;
+  if (c.mode === 'serie') return `${c.kind === 'quiz' ? 'Quiz' : 'Série'} · ${c.i}/${c.n}`;   // a quiz made to measure (pixel/quiz.py) is a series
   return c.kind === 'enigme' ? 'Une énigme' : 'Exo de maths';
 }
 function faceWant(c, e) {                                    // what his small face does when no scene plays
@@ -174,7 +174,7 @@ function drawQuestion(k, c, t) {
     k.bar(RX, 62, n, left / 60 * n, (RW - 200 - (n - 1) * 3) / n, 16, 3, left < 10 ? AM : G, DK);
     k.txt(`${Math.ceil(left)} s`, RX + RW, 56, 28, left < 10 ? AM : WH, 'right');
     k.txt(label(k, `${c.bons || 0} juste${(c.bons || 0) > 1 ? 's' : ''}`), RX + RW - 72, 58, 22, D, 'right');
-  } else k.txt(k.fit(label(k, `${c.type} · niveau ${c.niveau}`), RW, 22), RX, 58, 22, D);
+  } else k.txt(k.fit(label(k, c.kind === 'quiz' ? c.type : `${c.type} · niveau ${c.niveau}`), RW, 22), RX, 58, 22, D);
   if (res) {                                                 // the verdict and the correction
     const ok = c.ok, head = c.passe ? 'La réponse :' : ok ? (c.monte ? `Juste ! Niveau ${c.niveau + 1} !` : 'Juste !') : 'Pas tout à fait…';
     k.txt(k.fit(label(k, head), RW, 44), RX, 90, 44, ok ? WH : AM, 'left', 'title');
@@ -309,13 +309,13 @@ function renderBody(c) {
     out.push(big, $el('h3', null, 'Les tables'), tables, $el('h3', null, 'Un type d’exo'), kinds);
   } else if (c.etat === 'bilan') {
     const chrono = c.mode === 'chrono', box = $el('div', 'ex-result ok');
-    box.append($el('p', 'ex-verdict', chrono ? 'Temps écoulé !' : 'Série terminée !'), $el('p', 'ex-score', chrono ? `${c.bons} en une minute` : `${c.bons} / ${c.total}`));
+    box.append($el('p', 'ex-verdict', chrono ? 'Temps écoulé !' : c.kind === 'quiz' ? 'Quiz terminé !' : 'Série terminée !'), $el('p', 'ex-score', chrono ? `${c.bons} en une minute` : `${c.bons} / ${c.total}`));
     if (chrono) box.append($el('p', 'ex-expl', c.nouveau_record ? 'Nouveau record !' : `Record : ${c.record}`));
     const act = $el('div', 'ex-actions'); act.append(btn('Encore', () => send('exos.encore'), 'main'), btn('Fini', () => send('exos.stop')));
     out.push(box, act);
   } else {
     const meta = $el('p', 'ex-meta');
-    meta.textContent = c.mode === 'chrono' ? 'Défi chrono' : `${c.type} · niveau ${c.niveau}${c.n > 1 ? ` · ${c.i}/${c.n}` : ''}`;
+    meta.textContent = c.mode === 'chrono' ? 'Défi chrono' : `${c.type}${c.kind === 'quiz' ? '' : ` · niveau ${c.niveau}`}${c.n > 1 ? ` · ${c.i}/${c.n}` : ''}`;
     out.push(meta);
     if (c.mode === 'chrono' && c.ends_at) {
       const bar = $el('div', 'ex-bar'), fill = $el('i'), txt = $el('span', 'ex-left');

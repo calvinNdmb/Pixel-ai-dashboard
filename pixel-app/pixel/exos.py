@@ -791,9 +791,50 @@ def generate(kind, level, rng=None, table=None, k=None, recent=()):
             out = {"q": q, "answer": answer, "choices": choices, "hint": hint, "explication": ex, "calc": calc}
         if len({canon(c) for c in out["choices"]}) == 4:
             break
-    num = all(re.fullmatch(r"−?[\d\u00a0]+(?:,\d+)?(?:\u00a0min)?", c) for c in out["choices"])
-    hour = all(re.fullmatch(r"\d{1,2}" + NB + "h(?:" + NB + r"\d\d)?", c) for c in out["choices"])
-    return {"kind": kind, "niveau": lv, **out, "num": num, "clavier": "num" if num else "heure" if hour else ""}
+    return {"kind": kind, "niveau": lv, **out, **_clavier(out["choices"])}
+
+
+def _clavier(choices):
+    """num: the answers are numbers (a keypad can type them); clavier: which keypad ("num", "heure", "": none)."""
+    num = all(re.fullmatch(r"−?[\d\u00a0]+(?:,\d+)?(?:\u00a0min)?", c) for c in choices)
+    hour = all(re.fullmatch(r"\d{1,2}" + NB + "h(?:" + NB + r"\d\d)?", c) for c in choices)
+    return {"num": num, "clavier": "num" if num else "heure" if hour else ""}
+
+
+# ---------- quizzes written for you (pixel/quiz.py: Claude writes the questions, the game below plays them) ----------
+QUIZ = "quiz"                      # the kind of a written question: no level, no generator
+QUIZ_MAX = 20
+QUIZ_LEN = {"q": 140, "answer": 30, "hint": 140, "explication": 220, "titre": 28}
+
+
+def _line(v, n=None):
+    """One clean line of text (no control character, single spaces), or "" when it is not text or longer than n."""
+    if not isinstance(v, str):
+        return ""
+    v = " ".join("".join(ch for ch in v if ch.isprintable() or ch in " \n\t").split())
+    return v if n is None or len(v) <= n else ""
+
+
+def clean_quiz(titre, questions):
+    """A written quiz, checked: (titre, items). An item: {q, answer, wrong (3), hint, explication}. A question too long for his
+    screen, without 4 different answers, or whose right answer is also among the wrong ones is left out; ValueError when
+    nothing is left."""
+    items = []
+    for it in (questions if isinstance(questions, list) else [])[:QUIZ_MAX * 2]:
+        if not isinstance(it, dict):
+            continue
+        q, ans = _line(it.get("question"), QUIZ_LEN["q"]), _line(it.get("bonne_reponse"), QUIZ_LEN["answer"])
+        wrong = [_line(w, QUIZ_LEN["answer"]) for w in (it.get("mauvaises_reponses") if isinstance(it.get("mauvaises_reponses"), list) else [])]
+        wrong = [w for w in wrong if w][:3]
+        if not q or not ans or len(wrong) != 3 or len({canon(c) for c in [ans, *wrong]}) != 4:
+            continue
+        items.append({"q": q, "answer": ans, "wrong": wrong, "hint": _line(it.get("indice"))[:QUIZ_LEN["hint"]] or "Relis bien la question.",
+                      "explication": _line(it.get("explication"))[:QUIZ_LEN["explication"]] or f"La bonne réponse : {ans}."})
+        if len(items) >= QUIZ_MAX:
+            break
+    if not items:
+        raise ValueError("aucune question utilisable")
+    return (_line(titre)[:QUIZ_LEN["titre"]] or "Quiz"), items
 
 
 # ---------- the game ----------
@@ -981,11 +1022,32 @@ class Exos:
         self._event("propose", mode=mode, source=source)
         return self.cur
 
+    def quiz(self, titre, items, source=None):
+        """A written quiz (clean_quiz): its questions one after the other, as a series. Replaces the exercise in play."""
+        self.run = {"mode": "serie", "kind": QUIZ, "pool": None, "table": None, "niveau": None, "total": len(items), "i": 0, "bons": 0,
+                    "ends_at": 0, "source": source if source in SOURCES else "", "items": items, "titre": titre}
+        self.again = {"quiz": (titre, items)}
+        self._day()
+        self._next()
+        self._event("propose", mode="serie", source=self.run["source"])
+        return self.cur
+
     def encore(self):
-        return self.nouveau(**(self.again or {}))
+        a = self.again or {}
+        return self.quiz(*a["quiz"]) if "quiz" in a else self.nouveau(**a)
 
     def _next(self):
         r = self.run
+        if r.get("items"):                                  # a written quiz: the next question, its answers shuffled
+            it = r["items"][r["i"] % len(r["items"])]
+            ch = [it["answer"], *it["wrong"]]
+            self.R.shuffle(ch)
+            self._id += 1
+            self.cur = {"kind": QUIZ, "niveau": 0, "q": it["q"], "answer": it["answer"], "choices": ch, "hint": it["hint"],
+                        "explication": it["explication"], "calc": None, **_clavier(ch), "id": self._id, "mode": r["mode"], "t0": self.ms(),
+                        "tries": 0, "faux": [], "hint_on": False, "etat": "question", "i": r["i"] + 1, "n": r["total"], "force": True,
+                        "table": None, "titre": r["titre"]}
+            return
         kind = r["kind"] or self.pick_kind(r["pool"])
         lv = r["niveau"] or self.level(kind)
         k = r["ks"][r["i"] % len(r["ks"])] if r.get("ks") else None
@@ -1145,7 +1207,7 @@ class Exos:
         if new:
             st["record_chrono"] = r["bons"]
         self._id += 1
-        label = (f"Table de {r['table']}" if r["mode"] == "table" else LABEL.get(r["kind"]) or "Mélange")
+        label = r.get("titre") or (f"Table de {r['table']}" if r["mode"] == "table" else LABEL.get(r["kind"]) or "Mélange")
         self.cur = {"id": self._id, "mode": r["mode"], "kind": r["kind"] or "", "type": label, "etat": "bilan", "bons": r["bons"], "total": total,
                     "record": max(record, r["bons"]) if chrono else 0, "nouveau_record": bool(new), "t0": self.ms(), "next_at": self.ms() + 14000}
         self.run = None
@@ -1214,7 +1276,7 @@ class Exos:
             cur = {k: c[k] for k in ("id", "mode", "kind", "type", "etat", "bons", "total", "record", "nouveau_record", "t0")}
         elif c:
             cur = {k: c[k] for k in ("id", "kind", "mode", "q", "choices", "num", "clavier", "t0", "tries", "faux", "niveau", "i", "n", "etat", "table")}
-            cur["type"] = f"Table de {c['table']}" if c.get("table") else LABEL[c["kind"]]
+            cur["type"] = c.get("titre") or (f"Table de {c['table']}" if c.get("table") else LABEL.get(c["kind"], ""))
             if c["hint_on"]:
                 cur["hint"] = c["hint"]
             if c["etat"] == "resultat":                        # answered: now it may be shown

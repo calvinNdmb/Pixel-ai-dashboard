@@ -1,9 +1,12 @@
-"""Stream Deck MK.2: draws the 15 keys in Pixel's green-screen style and sends presses to the hub."""
+"""Stream Deck MK.2: draws the 15 keys in Pixel's green-screen style and sends presses to the hub.
+
+While an exercise is open on his face (pixel/exos.py), the keys answer it instead (keys.exo_keys): the digits and OK when
+the answer is a whole number, else the 4 answers; then Suivant, Encore, Fini. The number being typed is kept here."""
 import asyncio
 import logging
 import os
 
-from .keys import NAV
+from .keys import NAV, TYPED_MAX, exo_keys
 
 log = logging.getLogger("pixel.deck")
 WEB = os.path.join(os.path.dirname(__file__), "..", "web")
@@ -23,6 +26,7 @@ class Deck:
     def __init__(self, hub, cfg):
         self.hub, self.cfg = hub, cfg
         self.deck, self.cache, self.bright = None, {}, None
+        self.typed, self.typed_id = "", None        # the number being typed on the keys, and the exercise it answers
         self.loop = asyncio.get_running_loop()
         hub.listeners.append(self.sync)
         hub.s["settings"]["deck"] = "recherche…"
@@ -59,8 +63,32 @@ class Deck:
         if down:
             asyncio.run_coroutine_threadsafe(self.press(key), self.loop)
 
+    def _exo(self, s):
+        """The keys of the exercise open on his face (keys.exo_keys), or None: then the keys are the usual ones."""
+        cur = (s.get("exos") or {}).get("cur") if s.get("screen") == "visage" else None
+        if not cur or cur.get("etat") != "question" or cur.get("id") != self.typed_id:
+            self.typed, self.typed_id = "", (cur or {}).get("id")       # another question: nothing typed yet
+        return exo_keys(cur, self.typed)
+
     async def press(self, key):
         s = self.hub.s
+        exo = self._exo(s)
+        if exo is not None:                         # an exercise is open: the keys answer it
+            k = exo[key] if key < len(exo) else None
+            if not k or not k["action"]:
+                return
+            if k["action"] == "deck.chiffre":
+                self.typed = (self.typed + k["args"]["d"])[:TYPED_MAX].lstrip("0") or "0"
+            elif k["action"] == "deck.efface":
+                self.typed = self.typed[:-1]
+            elif k["action"] == "deck.ok":
+                if self.typed:
+                    value, self.typed = self.typed, ""
+                    await self.hub.dispatch("exos.repondre", {"value": value, "id": self.typed_id})
+            else:
+                await self.hub.dispatch(k["action"], k["args"])
+            self.sync(self.hub.snapshot())          # what was typed shows at once
+            return
         if key < len(NAV):
             await self.hub.dispatch("screen.show", {"screen": NAV[key]})
             return
@@ -91,10 +119,17 @@ class Deck:
         st = STYLES.get(theme, STYLES["retro"])
         fonts = tuple(st["font"])
         want = {}
-        for i, k in enumerate(snap["keys"]["nav"]):
-            want[i] = (k["label"], *st["cur"], fonts) if k["id"] == scr else (k["label"], st["fg"], st["bg"], fonts)
-        for j, k in enumerate(snap["keys"]["row3"].get(scr, [None] * 5)):
-            want[len(NAV) + j] = (k["label"], st["act"], st["bg"], fonts) if k else ("", st["bg"], st["bg"], fonts)
+        exo = self._exo(snap)
+        if exo is not None:                         # an exercise open on his face: its answers on the keys
+            ink = {"num": (st["fg"], st["bg"]), "choix": (st["fg"], st["bg"]), "act": (st["act"], st["bg"]), "vu": st["cur"],
+                   "ok": st["cur"], "ko": (st["bg"], st["act"])}
+            for i, k in enumerate(exo):
+                want[i] = (k["label"], *ink[k["style"]], fonts) if k else ("", st["bg"], st["bg"], fonts)
+        else:
+            for i, k in enumerate(snap["keys"]["nav"]):
+                want[i] = (k["label"], *st["cur"], fonts) if k["id"] == scr else (k["label"], st["fg"], st["bg"], fonts)
+            for j, k in enumerate(snap["keys"]["row3"].get(scr, [None] * 5)):
+                want[len(NAV) + j] = (k["label"], st["act"], st["bg"], fonts) if k else ("", st["bg"], st["bg"], fonts)
         changed = {i: v for i, v in want.items() if self.cache.get(i) != v}
         bright = 10 if scr == "veille" else int(self.cfg.get("brightness", 70))
         if not changed and bright == self.bright:

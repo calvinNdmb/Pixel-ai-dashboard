@@ -6,6 +6,7 @@ import re
 import unicodedata
 
 from . import anims, caractere, nourrir, scenes
+from . import quiz                    # « quiz sur les volcans », « interroge-moi sur les capitales » (pixel/quiz.py)
 from . import exos                    # math exercises: « exo », « table de 7 », a number while one is open
 from . import souvenirs               # « prends une photo », « montre l'album », « mon anniversaire c'est le 12 mars », « je suis triste »
 from . import amis                    # his friends: « va voir Bip », « dis coucou à Bip », « mes amis », « ajoute l'ami … »
@@ -19,7 +20,7 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
-        "visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · "
+        "visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · quiz sur les volcans · "
         "prends une photo · je suis content · mets ton chapeau · yeux de chat · on joue ? · raconte une blague · "
         "sinon : Claude")
 # a few words that play an animation on their own
@@ -76,6 +77,9 @@ async def run(hub, text):
         return await hub.dispatch("cast.text", {"text": rest})
 
     if await exos.command(hub, raw, t):                     # pixel/exos.py: its own words only; a bare number only while an exercise is open
+        return
+
+    if await quiz.command(hub, raw, t):                     # pixel/quiz.py: a quiz made to measure, straight to its writer
         return
 
     if t.startswith("codex ") and len(raw) > 6:

@@ -14,6 +14,8 @@ from . import souvenirs               # souvenirs: your birthday, a photo for hi
 from . import amis                    # pixel_friends: his friends' Pixels (the list, a visit, a coucou)
 from . import look                    # set_look: his eyes, colours and what he wears (pixel/look.py)
 from . import habitudes               # habits: his schedule, a game, a joke (pixel/habitudes.py; never a phrase to teach him)
+from . import quiz                    # create_quiz: a quiz made to measure, written by a second model (pixel/quiz.py)
+from .budget import Budget            # what Claude costs this month, and its ceiling (pixel/budget.py)
 
 log = logging.getLogger("pixel.claude")
 SYSTEM = (
@@ -59,6 +61,7 @@ TOOLS = [
 ]
 TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (pixel/nourrir.py)
 TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
+TOOLS.append(quiz.TOOL)                     # pixel/quiz.py: create_quiz
 TOOLS.append(souvenirs.TOOL)                # pixel/souvenirs.py: souvenirs (birthday, photo, mood: the mood only if allowed)
 TOOLS.append(amis.TOOL)                     # pixel/amis.py: pixel_friends (no free text, no new friend: the list, a visit, a coucou)
 TOOLS.append(look.TOOL)                     # pixel/look.py: set_look
@@ -131,6 +134,7 @@ def check(name, a):
         "run_codex": isinstance(a.get("task"), str) and a["task"].strip(),
         "set_character": caractere.tool_ok(a),
         "start_exercise": exos.check_tool(a),
+        "create_quiz": quiz.check_tool(a),
         "habits": habitudes.check_tool(a),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
@@ -142,6 +146,7 @@ class Claude:
         self.model = cfg.get("model", "claude-opus-5-5")
         self.effort = cfg.get("effort", "low")
         self.history, self.busy, self.client, self.end_mood = [], False, None, "content"
+        hub.claude = self                               # pixel/quiz.py writes its quizzes with the same client
         self.sub, demo_why = None, "démo (pas de clé API)"   # sub: Claude through the owner's Claude subscription (abonnement.py)
         if not hub.demo and wanted(cfg):
             try:
@@ -199,6 +204,8 @@ class Claude:
             out["look"] = h.look.status()
         if getattr(h, "habitudes", None) is not None:           # his day and his games (pixel/habitudes.py); never his taught phrases
             out["habitudes"] = h.habitudes.summary()
+        if self.client and getattr(h, "budget", None) is not None:   # with an API key: what Claude cost this month (pixel/budget.py)
+            out["budget_claude"] = h.budget.status()
         return out
 
     def _timer_left(self):
@@ -250,6 +257,8 @@ class Claude:
                     + (f", tu l'appelles {c['surnom']}" if c["surnom"] else ""))
         if name == "start_exercise":
             return await exos.run_tool(h, a)
+        if name == "create_quiz":
+            return await quiz.run_tool(h, a)
         if name == souvenirs.TOOL["name"]:
             return await souvenirs.run_tool(h, a)
         if name == amis.TOOL["name"]:
@@ -285,6 +294,12 @@ class Claude:
 
     async def _real(self, text):
         A = self.anthropic
+        budget = getattr(self.hub, "budget", None)
+        if budget is not None and not budget.ok():       # the month's ceiling is reached: no call at all
+            self.end_mood = "triste"
+            return self._say(Budget.STOP)
+        # the server-side fallback on a refusal: not on Haiku, which has none
+        extra = {} if str(self.model).startswith("claude-haiku") else {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
         if len(self.history) > 60:                      # start a fresh conversation rather than editing the old one
             self.history = []
         start = len(self.history)
@@ -295,13 +310,14 @@ class Claude:
                 try:
                     async with self.client.beta.messages.stream(
                         model=self.model, max_tokens=16000, system=system_for(self.hub), tools=tools_for(self.hub.s["settings"].get("themes") or list(THEMES)), messages=self.history,
-                        output_config={"effort": self.effort}, cache_control={"type": "ephemeral"},
-                        betas=["server-side-fallback-2026-07-01"], fallbacks="default",
+                        output_config={"effort": self.effort}, cache_control={"type": "ephemeral"}, **extra,
                     ) as stream:
                         async for event in stream:
                             if event.type == "text":
                                 self._say(event.text)
                         resp = await stream.get_final_message()
+                    if budget is not None:
+                        budget.add(resp.model, resp.usage)
                     bad_json = 0
                 except ValueError:                      # tool input JSON the SDK could not parse: re-issue the turn
                     bad_json += 1

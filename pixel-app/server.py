@@ -43,6 +43,8 @@ from pixel import exos                   # little math exercises (and riddles)
 from pixel import souvenirs, album       # his memories and your mood journal; his photo album (/api/album, /album/NAME)
 from pixel import amis                   # les amis de Pixel: visits from house to house, through a relay (docs/AMIS.md)
 from pixel import look                   # his look: eyes, colours, what he wears, the seasons' outfits, his pyjama
+from pixel import quiz                   # quizzes made to measure, written by a second Claude model
+from pixel.budget import Budget          # what Claude costs this month, and its ceiling
 from pixel import habitudes              # his habits: his day (wake-up, nap, bedtime), games, laughs, fears, his phrases
 
 HERE = Path(__file__).resolve().parent
@@ -216,7 +218,10 @@ async def serve(args, cfg, datadir, token):
     weather = Weather(hub, cfg.get("weather", {}))
     agenda = Agenda(hub, cfg.get("agenda", {}))
     system = System(hub)
+    hub.budget = Budget(datadir / "budget.json", cfg.get("claude", {}))     # [claude] budget_eur: the month's ceiling with an API key
+    hub.budget.on_warn = lambda msg: hub.toast(msg, 8000)
     claude = Claude(hub, cfg.get("claude", {}))
+    optional(hub, "quiz", quiz.setup, hub, cfg.get("claude", {}))           # create_quiz, quiz.creer: after exos (it plays them) and Claude (its client)
     Codex(hub, cfg.get("codex", {}))
     tick = timer.setup(hub)
     deck = Deck(hub, cfg.get("streamdeck", {}))

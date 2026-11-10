@@ -14,8 +14,11 @@ ics = []
 # bridge = "192.168.1.20"
 
 [claude]
-model = "claude-opus-5-5"
+model = "claude-haiku-5-5"  # les discussions : Haiku, rapide et très peu cher. Plus fort : claude-sonnet-5-5, claude-opus-5-5
 effort = "low"              # low = réponses rapides ; medium ou high pour qu'il réfléchisse plus
+exos_model = "claude-sonnet-5-5"   # les quiz sur mesure (« quiz sur les volcans ») : un modèle plus fort écrit les questions
+budget_eur = 30             # le plafond du mois avec une clé API, en euros (estimation faite sur le Pi) ; 0 : pas de plafond
+# usd_eur = 0.92            # le cours du dollar pour ce compte (les prix de l'API sont en dollars)
 # Avec ton abonnement Claude au lieu d'une clé API (CLAUDE_CODE_OAUTH_TOKEN dans /etc/pixel.env, voir le README) :
 # backend = "abonnement"    # ou "api". Sans cette ligne : l'abonnement s'il y a un jeton et pas de clé API.
 # abonnement_model = "claude-sonnet-5-5"   # plus léger qu'Opus : ton quota dure plus longtemps

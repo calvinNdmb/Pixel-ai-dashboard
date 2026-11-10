@@ -60,5 +60,65 @@ def row3(screen, s):
     return [None] * 5
 
 
+# ---- an exercise open on his face (pixel/exos.py): the 15 keys answer it (pixel/deck.py) ----
+DIGITS = "1234567890"
+TYPED_MAX = 7
+
+
+def wrap(label, width=9, lines=3):
+    """A label cut in short lines for a key: « On ne sait pas » -> 3 lines."""
+    out = []
+    for w in str(label).replace("\u00a0", " ").split():
+        if out and len(out[-1]) + 1 + len(w) <= width:
+            out[-1] += " " + w
+        else:
+            out.append(w)
+    return "\n".join(out[:lines])
+
+
+def exo_pad(cur):
+    """True when the answer can be typed on the keys: a whole number, not negative (the 4 answers are)."""
+    ch = (cur or {}).get("choices") or []
+    return bool(ch) and all(isinstance(c, str) and c.replace("\u00a0", "").isdigit() for c in ch)
+
+
+def exo_keys(cur, typed=""):
+    """The 15 keys while the exercise `cur` (the public one: never its answer before it is given) is open, or None.
+    A key: None (empty) or {label, action, args, style}; style: num, choix, act, vu (what you typed), ok, ko.
+    The actions deck.chiffre, deck.efface and deck.ok are the Stream Deck's own (the number being typed lives there).
+    - a question whose answers are whole numbers: the digits on rows 1-2; row 3: what you typed, Effacer, OK, Indice, Fini;
+    - any other question: the 4 answers and Indice on row 1; row 3: Passer, Fini;
+    - its result: Juste ! or Raté, the right answer; row 3: Suivant (in a series) or Encore, Fini;
+    - the summary of a series: the score; row 3: Encore, Fini."""
+    if not isinstance(cur, dict) or not cur.get("id"):
+        return None
+    k, cid, etat = [None] * 15, cur["id"], cur.get("etat")
+    key = lambda label, action, style="act", **args: {"label": label, "action": action, "args": args, "style": style}  # noqa: E731
+    fini = key("Fini", "exos.stop")
+    if etat == "question":
+        hint = key("Indice", "exos.indice") if not cur.get("hint") and cur.get("mode") != "chrono" else None
+        if exo_pad(cur):
+            for i, d in enumerate(DIGITS):
+                k[i] = key(d, "deck.chiffre", "num", d=d)
+            k[10:15] = [key(typed or "?", None, "vu"), key("Effacer", "deck.efface"), key("OK", "deck.ok", "ok"), hint, fini]
+        else:
+            for i, c in enumerate((cur.get("choices") or [])[:4]):
+                k[i] = key(wrap(c), "exos.repondre", "choix", value=c, id=cid)
+            k[4] = hint
+            k[13:15] = [key("Passer", "exos.passer", id=cid, etat=etat), fini]
+    elif etat == "resultat":
+        k[0] = key("Juste !", None, "ok") if cur.get("ok") else key("Raté…", None, "ko")
+        k[1] = key(wrap(cur.get("answer", "")), None, "vu")
+        more = cur.get("mode") in ("serie", "table") and cur.get("i", 0) < cur.get("n", 0)
+        k[10] = key("Suivant", "exos.passer", "ok", id=cid, etat=etat) if more else key("Encore", "exos.encore", "ok")
+        k[14] = fini
+    elif etat == "bilan":
+        k[0] = key(f"{cur.get('bons', 0)} / {cur.get('total', 0)}", None, "vu")
+        k[10], k[14] = key("Encore", "exos.encore", "ok"), fini
+    else:
+        return None
+    return k
+
+
 def all_keys(s):
     return {"nav": [{"id": i, "label": NAMES[i]} for i in NAV], "row3": {scr: row3(scr, s) for scr in NAV}}
