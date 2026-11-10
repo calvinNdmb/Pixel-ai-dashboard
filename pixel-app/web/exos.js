@@ -52,41 +52,32 @@ function state(p) {
       const son = window.PixelSon; if (son && son.on && BIP[ev.kind]) try { son.play(BIP[ev.kind]); } catch (e) { /* his voice must never stop him */ }
     }
   }
-  guard();
   panelState();
 }
-
-/* ---------- other views over his face screen wait while an exercise is open ----------
-   web/nourrir.js (another add-on, when both are there) draws its plate in the bottom right corner, over choices 2 and 4,
-   and its touch zone would win: while an exercise is open, it is neither drawn nor opened. */
-function guard() {
-  const N = window.PixelNourrir;
-  if (!N || N.exosGuard || typeof N.over !== 'function') return;
-  const over = N.over, swipe = N.swipe;
-  N.over = k => { if (!open()) return over(k); if (N.trayOpen && N.close) N.close(); };
-  if (typeof swipe === 'function') N.swipe = (dy, y0) => (open() ? false : swipe(dy, y0));
-  N.exosGuard = true;
-}
+/* web/nourrir.js draws its plate in the bottom right corner, over choices 2 and 4, and its touch zone would win: it waits
+   under every add-on of screens.js's ORDER (this one too), neither drawn nor opened while an exercise is open */
 
 /* ---------- the view on the canvas ---------- */
 const FX = 8, FY = 54, FW = 288, FH = 162, RX = 316, RW = 476;   // his face (left), the question and the choices (right)
 const CH = [[RX, 292], [RX + 244, 292], [RX, 380], [RX + 244, 380]], CW = 232, CHH = 80;
 const M0 = { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 };
 function offering() { return !!PER && PER.state.cur === 'exo-envie'; }
-/* over his face screen, first come: the quick menu (over everything, a cast too), a cast (pixel/cast.py: screens.js draws it
-   instead of the screen and of this view), then an open exercise, then its offer, then Nourrir's tray and plate (web/nourrir.js
-   gives way to both). Under a cast an open exercise waits as it is: not drawn, its answers take no touch nor key, and it
-   comes back when the cast ends. */
+/* two views over his face screen, in screens.js's ORDER: an open exercise ('exo', first of all the add-ons: only the boot,
+   a cast and the quick menu come before it) and his offer « Une petite question ? » ('exo-offre', after the others: a game,
+   a friend's visit, souvenirs' views, his offer of a game and his night). Under a cast an open exercise waits as it is: not
+   drawn, its answers take no touch nor key, and it comes back when the cast ends. */
 function castOn() { return !!Sc.casting; }
 const ad = {
-  on: scr => scr === 'visage' && L.boot < 0 && !!E && !castOn() && (open() || offering()),
-  instead: () => open(),
+  name: 'exo',
+  on: scr => scr === 'visage' && L.boot < 0 && !!E && !castOn() && open(),
+  instead: () => true,
   busy: () => open(),
   fps: calm => (!open() ? 0 : cur().mode === 'chrono' && cur().etat === 'question' ? 20 : V.flash && nowMs() - V.flash.at < 1600 ? 30 : calm),
   state,
-  draw(k) { if (open()) drawExo(k); else drawOffer(k); },
+  draw(k) { drawExo(k); },
 };
 K = Sc.addon(ad);
+Sc.addon({ name: 'exo-offre', on: scr => scr === 'visage' && L.boot < 0 && !!E && !castOn() && !open() && offering(), draw(k) { drawOffer(k); } });
 
 function label(k, s) { return k.T.upper ? s.toUpperCase() : s; }
 function button(k, x, y, w, h, text, fn, o = {}) {           // a touch button of the theme, at least 56 px high

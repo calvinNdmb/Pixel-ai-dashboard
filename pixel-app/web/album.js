@@ -38,7 +38,7 @@ function why() {                                     // why no photo can be take
   if (L.scr !== 'visage' || L.boot >= 0) return 'ecran';
   if (Sc.menuOpen) return 'menu';
   if (L.sleepy) return 'dodo';
-  const SV = window.PixelSouvenirs; if (SV && SV.view && SV.view()) return 'question';
+  const SV = window.PixelSouvenirs; if (SV && ('drawn' in SV ? SV.drawn : SV.view && SV.view())) return 'question';   // on screen (one waiting under a visit is not)
   const cur = PER && PER.state.cur; if (cur && PRIVATE.has(cur)) return 'prive';
   if (SV && SV.asleep && SV.asleep()) return 'dodo';                // he sleeps (habitudes, read defensively)
   return '';

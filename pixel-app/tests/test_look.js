@@ -189,19 +189,34 @@ async function inLab(browser) {
   check('his birthday (souvenirs.fete): the party hat', bday.tete === 'fete' && bday.saison === 'anniversaire', JSON.stringify(bday));
   // back to today, in the afternoon: the night below starts from the day (a scene when he goes to bed), and the typed commands
   // further down compare his look with the Pi's, dates included (« enlève ton chapeau » keeps the slot empty until tomorrow)
-  const d0 = new Date(), p2 = n => String(n).padStart(2, '0');
-  await at({ fete: null, date: `${d0.getFullYear()}-${p2(d0.getMonth() + 1)}-${p2(d0.getDate())}T14:00` });
-  await lab.evaluate(() => { Screens.persona.stop(); PixelHub.S.habitudes = { ...(PixelHub.S.habitudes || {}), dort: true, nuit: true, etat: 'nuit' }; });
-  const night = await until(() => lab.evaluate(() => PixelHub.S.look.porte.nuit && { ...PixelHub.S.look.porte, cur: Screens.persona.state.cur, main: PixelLook.cur().wear }), 5000);
-  check(`he sleeps (S.habitudes.dort, a stand-in for his habits): nightcap and pyjama, at once, and a little scene (${night && night.cur})`,
-    !!night && night.tete === 'bonnet-nuit' && night.cou === 'pyjama' && night.main.tete === 'bonnet-nuit' && night.cur === 'look-dodo', JSON.stringify(night));
+  const d0 = new Date(), p2 = n => String(n).padStart(2, '0'), today = `${d0.getFullYear()}-${p2(d0.getMonth() + 1)}-${p2(d0.getDate())}`;
+  await at({ fete: null, date: `${today}T14:00` });
+  // his schedule on (a stand-in with the real snapshot's keys and his clock running; the lab's own clock is paused, which says
+  // nothing): asleep by it, the pyjama comes at once, with no scene of his look's own: his habits' routine tells his bedtime
+  // and his wake-up (« Bientôt l'heure du dodo ! », « Bonjour ! »)
+  const sched = s => lab.evaluate(x => { Screens.persona.stop(); const h = PixelHub.S.habitudes || {}; PixelHub.S.habitudes = { ...h, horaires: { ...(h.horaires || {}), actif: true }, horloge: { decalage: 0, pause: false }, ...x }; }, s);
+  await sched({ dort: true, nuit: true, etat: 'nuit' });
+  const night = await until(() => lab.evaluate(() => PixelHub.S.look.porte.nuit && { ...PixelHub.S.look.porte, main: PixelLook.cur().wear }), 5000);
+  await wait(900); const nightCur = await lab.evaluate(() => Screens.persona.state.cur);
+  check(`he sleeps by his schedule (S.habitudes, a stand-in): nightcap and pyjama, at once, and no scene of his look's own (${nightCur})`,
+    !!night && night.tete === 'bonnet-nuit' && night.cou === 'pyjama' && night.main.tete === 'bonnet-nuit' && !/^look-/.test(nightCur || ''), JSON.stringify([night, nightCur]));
   await lab.evaluate(() => { Screens.persona.stop(); PixelHub.dispatch('look.porte', { item: 'couronne' }); });
   const later = await until(() => lab.evaluate(() => Screens.persona.state.cur && [Screens.persona.state.cur, PixelLook.cur().wear.tete, PixelHub.S.look.accessoires.tete]), 3000);
   check(`…a crown put on in his pyjama waits for the morning (« Je le mettrai demain ! »: ${later && later[0]})`, !!later && later.join() === 'look-demain,bonnet-nuit,couronne', JSON.stringify(later));
-  await lab.evaluate(() => { Screens.persona.stop(); PixelHub.S.habitudes = { ...(PixelHub.S.habitudes || {}), dort: false, nuit: false, etat: 'eveille' }; });
-  const day = await until(() => lab.evaluate(() => !PixelHub.S.look.porte.nuit && { ...PixelHub.S.look.porte, cur: Screens.persona.state.cur }), 5000);
-  check(`…awake: off they come, and on goes the crown (${day && day.cur})`, !!day && day.tete === 'couronne' && !day.cou && day.cur === 'look-debout', JSON.stringify(day));
-  await lab.evaluate(() => { PixelHub.dispatch('look.set', { nuit: false }); PixelHub.S.habitudes = { ...(PixelHub.S.habitudes || {}), dort: true, nuit: true, etat: 'nuit' }; });
+  await sched({ dort: false, nuit: false, etat: 'eveille' });
+  const day = await until(() => lab.evaluate(() => !PixelHub.S.look.porte.nuit && { ...PixelHub.S.look.porte }), 5000);
+  await wait(900); const dayCur = await lab.evaluate(() => Screens.persona.state.cur);
+  check(`…awake: off they come, and on goes the crown, quietly (${dayCur})`, !!day && day.tete === 'couronne' && !day.cou && !/^look-/.test(dayCur || ''), JSON.stringify([day, dayCur]));
+  // his schedule off (or paused): his quiet hours (23 h - 6 h), and his look's own little scenes tell his night
+  await lab.evaluate(() => { Screens.persona.stop(); const h = PixelHub.S.habitudes || {}; PixelHub.S.habitudes = { ...h, horaires: { ...(h.horaires || {}), actif: false }, dort: false, nuit: false, etat: 'eveille' }; });
+  await lab.evaluate(d => PixelHub.dispatch('lab.look', { date: d }), `${today}T23:30`);
+  const pj = await until(() => lab.evaluate(() => (PixelHub.S.look.porte.nuit && /^look-dodo$/.test(Screens.persona.state.cur) ? Screens.persona.state.cur : '')), 5000);
+  check(`…his schedule off: his quiet hours (23 h 30), the pyjama and his own little scene (« C'est l'heure du pyjama ! »: ${pj})`, pj === 'look-dodo');
+  await lab.evaluate(d => { Screens.persona.stop(); PixelHub.dispatch('lab.look', { date: d }); }, `${today}T14:00`);
+  const up = await until(() => lab.evaluate(() => (!PixelHub.S.look.porte.nuit && Screens.persona.state.cur === 'look-debout' ? Screens.persona.state.cur : '')), 5000);
+  check(`…and « Debout ! » in the day (${up})`, up === 'look-debout');
+  await lab.evaluate(() => PixelHub.dispatch('look.set', { nuit: false }));
+  await sched({ dort: true, nuit: true, etat: 'nuit' });
   const off = await until(() => lab.evaluate(() => PixelHub.S.look.nuit === false && PixelHub.S.look.porte), 5000);
   await wait(3300);
   check('« Pyjama la nuit » off: no pyjama, even asleep', !(await lab.evaluate(() => PixelHub.S.look.porte.nuit)) && !!off);

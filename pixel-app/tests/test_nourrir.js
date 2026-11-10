@@ -262,7 +262,10 @@ const cutWords = page => page.evaluate(() => [...document.querySelectorAll('#nou
   await lc.addInitScript(SHIFT);
   const l = await lc.newPage(), lErr = errors(l);
   await l.goto(BASE + '/app/lab/index.html?themes=all'); await until(() => l.evaluate(() => !!window.PixelLab && !!document.getElementById('hNourrir')), 8000);
-  await l.evaluate(() => { PixelHub.dispatch('lab.settings', { sleep_min: 1e6 }); PixelHub.dispatch('screen.show', { screen: 'visage' }); }); await l.waitForTimeout(400);
+  // his pyjama follows his quiet hours in the lab (its paused clock: web/look.js), and its scenes (look-dodo, look-debout) are
+  // no hints: for his look he stays awake, whatever the hour this suite runs at and the hours it pretends (__at)
+  await l.evaluate(() => { PixelHub.dispatch('lab.settings', { sleep_min: 1e6 }); PixelHub.dispatch('screen.show', { screen: 'visage' }); PixelHub.dispatch('lab.look', { dort: false }); });
+  await l.waitForTimeout(400); await l.evaluate(() => Screens.persona.stop());
   await spy(l);
   const sweep = await l.evaluate(async THEMES => {
     const hub = PixelHub, PER = Screens.persona, C = PixelClock, frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));

@@ -215,7 +215,8 @@ const REFUS = { 'pas-de-reponse': n => `${n} n’a pas répondu… il doit dormi
   visite: n => `${n} a déjà de la visite !`, ferme: n => `${n} ne reçoit pas de visite en ce moment.`, non: n => `${n} ne peut pas jouer maintenant.`,
   'pas-repondu': n => `Personne n’a ouvert chez ${n}…`, croise: n => `On s’est croisés ! ${n} venait me voir !`, reseau: () => 'Je n’ai pas trouvé le chemin… pas d’Internet ?' };
 S('ami-revient', 'Il rentre de chez un ami', 'evt', { dur: 9600, on: ['ami-retour'], when: d => !d.refus, anim: [[0, 'curieux'], [3600, 'salut'], [6300, 'etoiles'], [8800, 'content']], mood: 'excite',
-  say: [[3700, 6200, o => (o.par === 'rappel' ? 'Me revoilà ! Tu m’as appelé ?' : `J’ai joué avec ${ami(o)} !`)], [6300, 9400, o => (o.par === 'rappel' ? `${ami(o)} te dit coucou !` : ART ? ART.story(o.fait) : 'C’était super !')]],
+  say: [[3700, 6200, o => (o.par === 'rappel' ? 'Me revoilà ! Tu m’as appelé ?' : o.par === 'dodo' ? 'Me revoilà ! C’est l’heure du dodo.' : `J’ai joué avec ${ami(o)} !`)],
+    [6300, 9400, o => (o.par === 'rappel' ? `${ami(o)} te dit coucou !` : o.par === 'dodo' ? `${ami(o)} te dit bonne nuit !` : ART ? ART.story(o.fait) : 'C’était super !')]],
   move: e => (e < 1500 ? { x: 2000 } : e < 3600 ? { x: 760 * (1 - out(seg(e, 1500, 3600))), y: walk(e), r: sway(e), f: true } : { y: e > 6300 && e < 8200 ? jumps(e - 6300, 620, 30) : 0 }),
   props: (D, e) => { if (e < 4600) D.valise(e, 1 - seg(e, 4000, 4600)); if (e > 6300) D.stars(e - 6300); } });
 S('ami-bredouille', 'Il rentre bredouille', 'evt', { dur: 7800, on: ['ami-retour'], when: d => !!d.refus, anim: [[0, 'curieux'], [3600, 'confus'], [5800, 'content']], mood: 'confus',

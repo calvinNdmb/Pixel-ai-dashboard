@@ -6,7 +6,9 @@
 Only Pixel's own screen captures (the kiosk page: canvas -> WebP or JPEG, about 800 x 480, under 120 Ko): on a special
 moment (his birthday party, a record, a trophy, what other features ask with PixelAlbum.snap), or when asked (album.photo:
 the command « prends une photo », the phone's button, Claude): the screens see "demande", his screen poses and shoots.
-Never during a cast, never with a notification or the agenda's line on screen (web/album.js hides them for the shot).
+Never during a cast, never with a notification or the agenda's line on screen (web/album.js hides them for the shot), never
+while he sleeps or is away at a friend's (album.photo says why); the album shows (album.montre) after an exercise, a game
+or a friend's visit, and not at night.
 The same access rules as the other routes (pixel/cast.py has_access): the Pi itself from Pixel's own page, or the access
 code (?t=, the X-Pixel-Token header, the app's pixel_t cookie), on the home network only (server.home_only). What comes in
 is checked from its bytes (a JPEG, or a still WebP), its size and its dimensions, never from what it says it is; files get
@@ -186,13 +188,20 @@ class Album:
         self.ev = {"id": self._evid, "kind": kind, "t0": self.clock() * 1000, **data}
 
     def refus(self):
-        """Why his screen cannot take a photo now ('' when it can): a cast covers it, an exercise is open."""
+        """Why his screen cannot take a photo now ('' when it can): a cast covers it, an exercise is open, he sleeps (his
+        schedule, else his quiet hours: pixel/souvenirs.py asleep()), he is away at a friend's."""
+        from .souvenirs import asleep, occupe
         c = self.hub.s.get("cast")
         if isinstance(c, dict) and c.get("id") and (not c.get("until") or c["until"] > self.clock() * 1000):
             return "quelque chose est casté sur mon écran : arrête-le d'abord !"
         ex = getattr(self.hub, "exos", None)
         if ex is not None and getattr(ex, "cur", None):
             return "finis d'abord ton exo, et je prends la pose !"
+        if asleep(self.hub, time.localtime(self.clock()).tm_hour):
+            return "chut… je dors. On la prendra à mon réveil !"
+        o = occupe(self.hub)
+        if o and o[0] == "sortie":
+            return f"je suis chez {o[1]} : on la prendra à mon retour !"
         return ""
 
     # ---- the actions ----
@@ -230,9 +239,15 @@ class Album:
         if not self.photos:
             self.hub.toast("Pas encore de photo dans mon album : dis « prends une photo » !", 5000)
             return False
-        ex = getattr(self.hub, "exos", None)
-        if ex is not None and getattr(ex, "cur", None):
-            self.hub.toast("Finis d'abord ton exo, et je te montre mon album !", 4000)
+        from .souvenirs import asleep, occupe
+        ex, o = getattr(self.hub, "exos", None), occupe(self.hub)
+        why = ("Finis d'abord ton exo, et je te montre mon album !" if ex is not None and getattr(ex, "cur", None)
+               else "Finis d'abord ta partie, et je te montre mon album !" if o and o[0] == "jeu"
+               else f"Pas maintenant : {o[1]} est là ! Je te montre mon album après." if o and o[0] == "visite"
+               else f"Je suis chez {o[1]} : je te montre mon album à mon retour !" if o
+               else "Chut… je dors. Je te montre mon album à mon réveil !" if asleep(self.hub, time.localtime(self.clock()).tm_hour) else "")
+        if why:                                        # an exercise, a game, a friend's visit, his night: it waits for their end
+            self.hub.toast(why, 4000)
             return False
         self._event("montre")
         self.hub.s["anim"] = None

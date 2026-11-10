@@ -16,8 +16,10 @@ The rules (the same in web/look.js; tests/test_look.py compares the two):
   Dec) the Santa hat; Halloween (24-31 Oct) the pumpkin and the witch's hat, a day each; winter (Dec-Feb) the bonnet and a
   scarf; in the day (9 h - 20 h), in July and August or on a hot sunny day (25 °C or more), sunglasses (not over his own
   glasses). Off with "saisons": false.
-- The night: while he sleeps (habitudes.dort, when his habits are there; else his quiet hours, caractère calme, 23 h - 6 h
-  by default) and "nuit" is on, his nightcap and pyjama take the head and the neck, his sunglasses and headphones come off.
+- The night: while he sleeps (his schedule, when his habits keep one: his bedtime routine and his night, not his nap;
+  else, or with it off or paused, his quiet hours, caractère calme, 23 h - 6 h by default) and "nuit" is on, his nightcap
+  and pyjama take the head and the neck, his sunglasses and headphones come off. With his schedule on, his habits' routine
+  tells it (bedtime, wake-up): the screens play no pyjama scene of their own then (web/look.js).
 - Colours: in Rétro a colour phosphor, in LCD the palette of a colour pocket console; "mono": true keeps both screens green.
 Actions: look.set {yeux?, couleur_yeux?, couleur_joues?, mono?, saisons?, nuit?, porte?, enleve?, tenue?, normal?} (all
 validated, one undo step), look.porte {item}, look.enleve {item? or slot?} (nothing: everything), look.tenue {tenue},
@@ -109,12 +111,10 @@ def is_default(look):
 # ---- what he wears now: your choices, then the season, then the night ----
 def asleep(hab):
     """His night outfit from his habits: their night and his bedtime routine (« coucher »), not a nap (he naps in his
-    clothes); a bare {dort} (a stand-in, an older snapshot) as it says. None: no habits, his quiet hours decide."""
-    if not isinstance(hab, dict):
-        return None
-    if isinstance(hab.get("nuit"), bool):
-        return hab["nuit"] or hab.get("etat") == "coucher"
-    return hab["dort"] if isinstance(hab.get("dort"), bool) else None
+    clothes); a bare {dort} (a stand-in, an older snapshot) as it says. None: no habits, or his schedule switched off or
+    paused (the demo): his quiet hours decide. The rule of every feature (pixel/habitudes.py sommeil(), without his nap)."""
+    from .habitudes import sommeil
+    return sommeil(hab, sieste=False)
 
 
 def is_night(d, dort=None, calme=None):

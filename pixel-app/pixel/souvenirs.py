@@ -14,8 +14,9 @@ Souvenirs (snapshot "souvenirs", file data_dir/souvenirs.json):
 Le carnet d'humeur (snapshot "humeur", file data_dir/humeur.json, private: never in Claude's prompt; get_status and his tool
 see it only when « Claude peut savoir comment je vais » is on, off by default; the phone does not keep it, web/app.js):
 - once a day, from "heure" (17:00 by default), from the day after you met (the first day, he gets to know you), never at
-  night (21 h - 7 h) nor in his quiet hours (caractère "calme"), nor while he sleeps (habitudes "dort", or its state
-  'coucher'), he asks « Comment tu vas aujourd'hui ? »: Pixel's own screen
+  night (21 h - 7 h) nor while he sleeps (his schedule: his bedtime routine, his night, his nap; with it off or paused, his
+  quiet hours, caractère "calme": asleep()), nor during a game or a friend's visit (occupe(): it waits for their end, as
+  for an exercise), he asks « Comment tu vas aujourd'hui ? »: Pixel's own screen
   asks when someone is there (humeur.pose), at most ASKS_MAX times a day, ASK_GAP apart, QUESTION_S each; an answer from
   any screen, the panel or a typed command (« je suis triste ») is the day's mood: one of MOODS, and a few CHIPS;
 - he reacts (web/scenes/souvenirs.js), and remembers: "hier" (the last day before today, within 2 days) for « Hier… ça va
@@ -45,6 +46,7 @@ T_MIN = 946684800000                      # 2000-01-01 (ms): a time before it is
 RENCONTRE_MIN = dt.date(2020, 1, 1)
 MILESTONES = (100, 200, 300, 500, 1000, 1500, 2000, 3000)
 ADD_GAP_S, ADD_PER_HOUR = 2.0, 30         # souvenirs.ajoute: other features, not too often
+PHOTO_WAIT_S = 15 * 60                    # a visit's photo waits that long for the visit's memory (a visit: 10 min at most)
 MOODS = (("super", "Super", "😄"), ("bien", "Bien", "🙂"), ("bof", "Bof", "😐"), ("triste", "Triste", "😢"), ("colere", "En colère", "😠"))
 MOOD = {m: label for m, label, _ in MOODS}
 CHIPS = (("ecole", "École"), ("copains", "Copains"), ("famille", "Famille"), ("fatigue", "Fatigue"), ("sport", "Sport"),
@@ -161,10 +163,25 @@ def in_quiet(h, calme):
     return (h >= de or h < a) if de > a else de <= h < a
 
 
-def asleep(hub):
-    """He sleeps (pixel/habitudes, read defensively: "dort", or its state 'coucher')."""
-    h = hub.s.get("habitudes")
-    return isinstance(h, dict) and (h.get("dort") is True or h.get("etat") == "coucher")
+def asleep(hub, heure=None):
+    """He sleeps: by his schedule, from his bedtime routine to his wake-up and during his nap; with it off or paused (the
+    demo), his quiet hours (caractère "calme"). One rule for every feature: pixel/habitudes.py endormi()."""
+    from .habitudes import endormi
+    return endormi(hub.s, dt.datetime.now().hour if heure is None else heure)
+
+
+def occupe(hub):
+    """A game (pixel/habitudes.py) or a friend's visit (pixel/amis.py: here, knocking, or he is away) holds his screen:
+    (kind, name) with kind 'jeu', 'visite' or 'sortie', else None. His question, his party, his memories and the album wait
+    for its end, as for an exercise (read defensively)."""
+    h, a = hub.s.get("habitudes"), hub.s.get("amis")
+    if isinstance(h, dict) and isinstance(h.get("partie"), dict):
+        return ("jeu", "")
+    v = a.get("visite") if isinstance(a, dict) else None
+    if isinstance(v, dict):
+        nom = v["nom"] if isinstance(v.get("nom"), str) and v["nom"] else "mon ami"
+        return ("sortie" if v.get("sens") == "sortie" else "visite", nom)
+    return None
 
 
 # ---------- the files, cleaned when read: a broken or hand-edited file never stops Pixel ----------
@@ -539,6 +556,9 @@ class Souvenirs:
         self.added.append((now, typ, txt))
         pins = sum(1 for e in self.d["timeline"] if e["epingle"])
         e = self._add(typ, txt, t=tt, epingle=epingle is True and pins < PINNED_MAX)
+        w = getattr(self, "attend", None)                # its photo, taken before it (lier_photo: a friend's visit here)
+        if w and w["type"] == typ and not e["photo"] and 0 <= now * 1000 - w["t"] < PHOTO_WAIT_S * 1000:
+            e["photo"], self.attend = w["photo"], None
         self._event("ajoute", type=typ, texte=e["texte"], souvenir=e["id"])
         if typ == "ami" and not self.d["records"]["premier_ami"]:      # a friend's first visit (the « amis » feature): a record of its own
             self.d["records"]["premier_ami"] = {"id": "ami", "label": clean_text(txt, 40), "t": e["t"]}
@@ -566,10 +586,15 @@ class Souvenirs:
         return True
 
     def lier_photo(self, raison, photo):
-        """A photo of a special moment (pixel/album.py): the memory of that moment shows it."""
+        """A photo of a special moment (pixel/album.py): the memory of that moment shows it. A friend's visit here comes first:
+        its memory is written when it ends (pixel/amis.py), after its photo, which waits for it (ajoute() links it), never
+        landing on an older visit's memory."""
         types = {"anniversaire": ("anniversaire",), "rencontre": ("rencontre-an", "jours"), "record": ("record", "chrono"),
                  "trophee": ("trophee",)}.get(raison, (raison,))
         now = _ms(self.clock)
+        if raison == "ami" and (occupe(self.hub) or ("",))[0] == "visite":
+            self.attend = {"type": "ami", "photo": photo, "t": now}
+            return False
         for e in self.d["timeline"]:
             if e["type"] in types and not e["photo"] and 0 <= now - e["t"] < 6 * 3600e3:
                 e["photo"] = photo
@@ -579,6 +604,8 @@ class Souvenirs:
         return False
 
     def oublie_photo(self, photo):
+        if (getattr(self, "attend", None) or {}).get("photo") == photo:
+            self.attend = None
         hit = False
         for e in self.d["timeline"]:
             if e["photo"] == photo:
@@ -592,8 +619,8 @@ class Souvenirs:
         return (d or self.today()).isoformat()
 
     def due(self, now=None):
-        """Today's question is due: on, not answered, from his time, not at night nor in his quiet hours, not while he sleeps,
-        ASKS_MAX times a day at most, ASK_GAP_S apart."""
+        """Today's question is due: on, not answered, from his time, not at night, not while he sleeps (his schedule, else his
+        quiet hours), nor during a game or a friend's visit, ASKS_MAX times a day at most, ASK_GAP_S apart."""
         H = self.h
         if not H["on"] or self.question:
             return False
@@ -603,8 +630,7 @@ class Souvenirs:
             return False                               # (the day you met: he gets to know you first)
         if d.hour >= NIGHT[0] or d.hour < NIGHT[1]:
             return False
-        car = self.hub.s.get("caractere")
-        if in_quiet(d.hour, car.get("calme") if isinstance(car, dict) else None) or asleep(self.hub):
+        if asleep(self.hub, d.hour) or occupe(self.hub):   # his night (his schedule, else his quiet hours); a game, a friend's visit
             return False
         a = H["asks"]
         if a["jour"] == d.date().isoformat() and (a["n"] >= ASKS_MAX or now * 1000 - a["t"] < ASK_GAP_S * 1000):

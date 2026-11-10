@@ -464,7 +464,8 @@ function start(id, opts = {}) {
   const lines = (sc.say || []).map(([a, b, ls]) => [a, b, typeof ls === 'function' ? ls(o) : ls ? pick(ls) : (id === 'heure' ? `Coucou ! Il est ${new Date().getHours()} h.` : '')]);
   carVoice(sc, lines);                                 // his name, yours, and more or fewer bubbles (his character)
   if (HOOK.lines) try { HOOK.lines(sc, lines, o); } catch (e) { /* his own lines stay */ }   // the phrases you taught him (web/habitudes.js)
-  st.cur = { sc, t0: H.now(), o, lines, extra: null, forced: !!opts.forced };   // forced: asked for (lab, command), not cut short by the world
+  const at = Number(opts.at) > 0 ? Math.min(Number(opts.at), sc.dur) : 0;      // at: ms into the scene (a friend's visit going on where its time is)
+  st.cur = { sc, t0: H.now() - at, o, lines, extra: null, forced: !!opts.forced };   // forced: asked for (lab, command), not cut short by the world
   if (sc.group === 'vie') { st.hist.push(id); if (st.hist.length > 5) st.hist.shift(); }
   if (H.onScene) try { H.onScene(id, sc.group); } catch (e) { /* his voice (son.js) must never stop him */ }
   return true;
@@ -856,7 +857,7 @@ return {
   away(ms) { st.seen = Date.now() - ms; },        // the lab: pretend you were away
   reset() { Object.assign(st, { annoy: 0, love: 0, last: null, tapAt: -1e9, cur: null, nextLife: 0, hist: [], lights: null, darkAt: 0,
     told: new Set(), hot: false, hotAt: -1e9, wifi: null, wifiGone: 0, feteDay: '', evAt: {}, evLast: '', pending: null }); },   // tests
-  tap, pet, input, update, current, drawOver, decor, play: id => start(id, { forced: true }), stop, busy, project, unproject, zoneOf,
+  tap, pet, input, update, current, drawOver, decor, play: (id, o) => start(id, { forced: true, at: o && o.at }), stop, busy, project, unproject, zoneOf,   // o.at: from that ms of it
   pools: TAP, quiet: SC.filter(s => s.quiet).map(s => s.id),
   /* his character (web/caractere.js hands him the snapshot's "caractere") */
   setTraits: carSetTraits, typical: carTypical, affinity: id => (BY[id] ? carAffinity(BY[id]) : 0), weight: id => (BY[id] ? (BY[id].w || 1) * carAffinity(BY[id]) : 0),

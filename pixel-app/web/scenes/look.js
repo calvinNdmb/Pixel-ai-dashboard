@@ -7,8 +7,10 @@
      (a shy one), grumbles (a grumpy one) or wants a cuddle (a cuddly one): those two only with that character (data.car, his
      traits: web/look.js hands them over), so the Pixel of every day never grumbles at his new hat. Eyes wide open. At night,
      in his pyjama, what goes on his head, ears, eyes or neck waits for the morning (« Je le mettrai demain ! », look-demain).
-   - His pyjama goes on at night (event 'look-nuit'), comes off in the morning ('look-jour'); a season's outfit arrives by itself
-     ('look-saison', data.item, data.saison): the snow for the bonnet, bats at Halloween, confetti for a party, the sun.
+   - His pyjama goes on at night (event 'look-nuit'), comes off in the morning ('look-jour'), when he has no schedule (with one,
+     his habits' bedtime and wake-up scenes tell it: web/scenes/habitudes.js); a season's outfit arrives by itself
+     ('look-saison', data.item, data.saison; after the scene that plays, if one does): the snow for the bonnet, bats at
+     Halloween, confetti for a party, the sun.
    - No moment of life of its own (group « vie »): the Pixel of every day lives exactly as before, whatever he wears.
    Labels start with « Son look » (pixel/scenes.py keeps the first scene for a word, and this pack comes before most others). */
 (window.PixelScenePacks ||= []).push(({ S, L, pick, sm, out, seg, bump, jumps, clamp, TAU, W, HT, prop }) => {

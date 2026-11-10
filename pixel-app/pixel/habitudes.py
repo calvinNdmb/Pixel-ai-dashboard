@@ -4,9 +4,11 @@
   wake-up is after midnight), an optional nap (sieste: start, length) and optional weekend times (a later wake-up on
   Saturday and Sunday, a later bedtime on Friday and Saturday nights). His state (etat): eveille; reveil (the first
   REVEIL_MIN after he wakes up: he stretches, « Bonjour ! »); sieste; coucher (the last COUCHER_MIN before bedtime: he
-  yawns, brushes his teeth, says goodnight); nuit. dort: nuit or sieste (Pixel's look dresses him for the night, friends do
-  not visit). nuit, from bedtime to wake-up, is his night for the other features: his belly sleeps (pixel/nourrir.py),
-  quiet hours, no hunger hint nor offered question, notifications do not wake him (web/habitudes.js, web/persona.js hooks).
+  yawns, brushes his teeth, says goodnight); nuit. dort: nuit or sieste. nuit, from bedtime to wake-up, is his night for
+  his belly (pixel/nourrir.py), his quiet hours, no hunger hint nor offered question, notifications do not wake him
+  (web/habitudes.js, web/persona.js hooks). For the other features he sleeps from his bedtime routine to his wake-up and
+  during his nap (endormi(), sommeil(): friends neither come nor go, a visit ends, souvenirs do not ask, no photo; his
+  pyjama: not for a nap), and with his schedule off or paused they keep their old quiet hours.
   Wall-clock times (naive local datetimes): a schedule across midnight and the DST changes (at night) need nothing more.
   Switched off (actif False) he never goes to bed by himself and the others keep their old night (23 h - 6 h).
   In demo mode (--demo, and Pixel Lab) his clock is paused: he is awake whatever the hour, as before this feature, until
@@ -14,8 +16,9 @@
 - His games (jeux): cache (cache-cache), pfc (pierre-feuille-ciseaux), etoiles (attrape-étoiles), simon. The server keeps
   the game in play (partie) and judges each move (habitudes.coup, which names the game: a double tap or a late screen
   never plays the next one), so every screen shows the same game and any of them can play it; a cast or an exercise opened
-  since pauses it (it comes back as it was), the quick menu does not; none starts at night, during his nap, at bedtime or
-  over an open exercise. He has 2 favourites (drawn at random at first); he is extra happy when you pick one.
+  since pauses it (it comes back as it was), the quick menu does not; none starts at night, during his nap, at bedtime, over
+  an open exercise or during a friend's visit (here, or he is away: pixel/amis.py refuses a visit during a game in turn).
+  He has 2 favourites (drawn at random at first); he is extra happy when you pick one.
 - What makes him laugh (rires.aime): les chatouilles (fast taps or rubbing: web/habitudes.js), les blagues (BLAGUES, read
   from web/scenes/habitudes.js), les grimaces, les bruits rigolos, gagner à un jeu. habitudes.rire plays one on every screen.
 - His fears (peurs): l'orage (the weather says orage: a thunder clap now and then), le noir (all lights off while he is
@@ -474,6 +477,50 @@ def migrate(car):
     return h if not problem(h) else None
 
 
+# ---------- his night, for the other features: one rule (web/habitudes.js sommeil(), endormi() say the same) ----------
+def sommeil(h, sieste=True):
+    """Does he sleep, by his schedule? h: the snapshot "habitudes" (read defensively). True or False when his schedule says
+    it: his bedtime routine (coucher), his night (nuit) and his nap (sieste; sieste=False leaves the nap out: look's pyjama).
+    None when it says nothing (switched off, his clock paused in the demo, no habits): the caller keeps the old quiet hours
+    then. A stand-in without his schedule ({dort}, {nuit}, {etat}: an older snapshot, a test) says it as it is."""
+    if not isinstance(h, dict):
+        return None
+    hor, clock = h.get("horaires"), h.get("horloge")
+    if isinstance(hor, dict) or isinstance(clock, dict):
+        if not isinstance(hor, dict) or hor.get("actif") is False or (isinstance(clock, dict) and clock.get("pause") is True):
+            return None
+        return h.get("etat") in ("coucher", "nuit") or (sieste and h.get("etat") == "sieste")
+    if not sieste and isinstance(h.get("nuit"), bool):
+        return h["nuit"] or h.get("etat") == "coucher"
+    if isinstance(h.get("dort"), bool):
+        return h["dort"] or h.get("etat") == "coucher"
+    if isinstance(h.get("etat"), str):
+        return h["etat"] in ("coucher", "nuit") or (sieste and h["etat"] == "sieste")
+    return None
+
+
+def calme(heure, q):
+    """His old quiet hours (caractère "calme" {de, a}: 23 h - 6 h by default; de == a: none) at that hour."""
+    q = q if isinstance(q, dict) else {}
+    de, a = _int(q.get("de"), 0, 23), _int(q.get("a"), 0, 23)
+    de, a = (23 if de is None else de), (6 if a is None else a)
+    if de == a:
+        return False
+    return (heure >= de or heure < a) if de > a else de <= heure < a
+
+
+def endormi(s, heure, sieste=True):
+    """His night for the other features (s: the hub's state): by his schedule (sommeil), else his old quiet hours at `heure`.
+    Friends do not come and he does not go out, souvenirs do not ask, no photo is taken, a visit ends (pixel/amis.py,
+    pixel/souvenirs.py, pixel/album.py); his pyjama asks sieste=False (pixel/look.py)."""
+    s = s if isinstance(s, dict) else {}
+    v = sommeil(s.get("habitudes"), sieste)
+    if v is not None:
+        return v
+    car = s.get("caractere")
+    return calme(heure, car.get("calme") if isinstance(car, dict) else None)
+
+
 # ---------- the feature on the hub ----------
 class Habitudes:
     def __init__(self, hub, datadir=None, now=time.time, rng=None):
@@ -777,6 +824,10 @@ class Habitudes:
             return "Termine ton exo d'abord !"
         if self.cast_on():
             return "Attends la fin de ce qui s'affiche sur son écran."
+        v = (self.hub.s.get("amis") or {}).get("visite") if isinstance(self.hub.s.get("amis"), dict) else None
+        if isinstance(v, dict):                                 # a friend's visit (pixel/amis.py): no game over it, nor while he is away
+            nom = v.get("nom") if isinstance(v.get("nom"), str) and v.get("nom") else "mon ami"
+            return f"Pas maintenant : {nom} est là !" if v.get("sens") != "sortie" else f"Je suis chez {nom} : on jouera à mon retour !"
         if self.partie and self.partie["etat"] == "joue":       # one at a time: « Rejouer » comes once it is over
             return "Une partie est déjà en cours : touche × pour l'arrêter."
         self.partie = new_game(jeu, now_ms(), self.rng, self._next_id(), jeu in self.S["jeux"]["favoris"], par)

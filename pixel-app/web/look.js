@@ -13,7 +13,8 @@
      get(): the look of this screen (its "porte" included);
    - tracker(): what each face wore a moment ago, so that a new hat drops onto his head and an old one flies off;
    - screen(PER, before, snap, ctx): every snapshot (screens.js setState): his reaction to a change (persona event 'look'),
-     his pyjama going on or off ('look-nuit', 'look-jour'), a season's outfit arriving ('look-saison'): web/scenes/look.js;
+     his pyjama going on or off ('look-nuit', 'look-jour': only without his schedule; with it, his habits' routine tells his
+     bedtime and his wake-up, and the pyjama just comes), a season's outfit arriving ('look-saison'): web/scenes/look.js;
    - the phone's « Son look » panel: app({send, kiosk}) puts its button under the keys (PixelPanel('look') opens it), and
      build(root, {send}) makes it, here and in Pixel Lab (lab/look-lab.js).
    Loaded after screens.js and caractere.js (the lab: before lab/demo-hub.js). themes.js reads window.PixelLook lazily: without
@@ -70,11 +71,15 @@ function clean(d) {
   return o;
 }
 const isDefault = l => ['yeux', 'couleur_yeux', 'couleur_joues'].every(k => l[k] === DEFAULT[k]) && SLOT_IDS.every(s => !l.accessoires[s]);
-function asleep(hab) {                       // his night outfit from his habits (look.py asleep): their night and his bedtime routine, not a nap
-  if (!hab || typeof hab !== 'object') return null;
-  if (typeof hab.nuit === 'boolean') return hab.nuit || hab.etat === 'coucher';
-  return typeof hab.dort === 'boolean' ? hab.dort : null;              // a bare {dort}: a stand-in, an older snapshot
+const obj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+function asleep(hab) {                       // his night outfit from his habits (look.py asleep, web/habitudes.js sommeil(h, false)): his bedtime routine and his
+  if (!obj(hab)) return null;                // night, not a nap; null: his schedule says nothing (none, off, paused): his quiet hours decide
+  if (obj(hab.horaires) || obj(hab.horloge)) return !obj(hab.horaires) || hab.horaires.actif === false || (obj(hab.horloge) && hab.horloge.pause === true) ? null : hab.etat === 'coucher' || hab.etat === 'nuit';
+  if (typeof hab.nuit === 'boolean') return hab.nuit || hab.etat === 'coucher';   // a stand-in without his schedule ({nuit}, {dort}, {etat}): as it says
+  if (typeof hab.dort === 'boolean') return hab.dort || hab.etat === 'coucher';
+  return typeof hab.etat === 'string' ? hab.etat === 'coucher' || hab.etat === 'nuit' : null;
 }
+const routine = S => { const h = S && S.habitudes; return obj(h) && obj(h.horaires) && asleep(h) !== null; };   // his schedule on: his habits' routine tells his night
 function isNight(d, dort, calme) {            // asleep: his habits say so (habitudes.dort), else his quiet hours (caractère calme)
   if (typeof dort === 'boolean') return dort;
   let [de, a] = NIGHT;
@@ -770,7 +775,8 @@ function screen(PER, before, p, ctx = {}) {
     const busy = /^look-/.test(PER.state.cur || '') && Date.now() - seen.at < 2600;    // a quick row of taps: let him finish
     if (busy && name === 'look') return;
     seen.at = Date.now();
-    PER.event(name, data, { visage: ctx.visage !== false, force: true });
+    const wait = name === 'look-saison' && !!PER.state.cur;          // an outfit arriving by itself (the party hat of his birthday…) waits for the scene that
+    PER.event(name, data, { visage: ctx.visage !== false && !wait, force: true });   // plays (the party, a friend's visit), then shows (persona.js: pending, 30 s)
   };
   let changed = false;
   if (ch && ch.t0 !== seen.change) {                    // car: his traits (persona.js), for the scenes only a character brings
@@ -778,7 +784,7 @@ function screen(PER, before, p, ctx = {}) {
     let car = null; try { car = PER.traits || null; } catch { car = null; }
     if (fresh(ch.t0)) ev('look', { ...ch, nuit, car });
   }
-  if (nuit !== seen.nuit) { seen.nuit = nuit; if (!changed) ev(nuit ? 'look-nuit' : 'look-jour', {}); }
+  if (nuit !== seen.nuit) { seen.nuit = nuit; if (!changed && !routine(p)) ev(nuit ? 'look-nuit' : 'look-jour', {}); }   // his schedule on: his bedtime and his wake-up say it (web/habitudes.js)
   else if (!changed && !nuit && L.porte && L.porte.saison) {
     const fresh2 = SLOT_IDS.find(s => wear[s] && wear[s] !== seen.wear[s] && (L.accessoires || {})[s] !== wear[s]);
     if (fresh2) ev('look-saison', { item: wear[fresh2], saison: L.porte.saison });

@@ -13,9 +13,11 @@ Each friendship has two topics (one per direction) and two keys; every message i
 its time and a random id, and is refused when it is old, from the future, already seen, or more than the rate allows.
 
 Visits. « Va voir Bip »: his Pixel walks off this screen (web/scenes/amis.js ami-part) and asks. The host's Pixel says yes
-when he is awake (habitudes.dort, else his character's quiet hours), not casting, not in an exercise, not already busy with
-a visit, and accepts visits (« Me demander avant »: his family answers on his screen or phone first). The host then plays a
-programme of two-Pixel scenes for about 3 minutes (programme()), then says what they did; the visitor's Pixel comes home
+when he is awake (pixel/habitudes.py endormi(): his schedule, from his bedtime routine to his wake-up and his nap, else his
+quiet hours), not casting, not in an exercise nor a game, not already busy with a visit, and accepts visits (« Me demander
+avant »: his family answers on his screen or phone first); falling asleep ends a visit (goodbye, or he is called home).
+The host then plays a programme of two-Pixel scenes for about 3 minutes (programme()), then says what they did; the
+visitor's Pixel comes home
 and tells it (« J'ai joué avec Bip ! On a dansé ! »). No answer within DEMANDE_WAIT s: he comes back (« Bip n'a pas répondu,
 il doit dormir »). Also a « coucou » (he waves on the friend's screen) and stickers from a fixed list: no free text at all.
 
@@ -829,6 +831,8 @@ class Amis:
             why = f"Chut, {moi} dort. Il ira voir {nom} quand il sera réveillé !"
         elif self._exo():
             why = "Finis ton exo d'abord !"
+        elif self._jeu():
+            why = f"On finit la partie, et j'irai voir {nom} !"
         elif self._poche():
             why = f"{moi} est dans ta poche : rappelle-le d'abord !"
         elif self.now() < self.cooldown:
@@ -936,6 +940,8 @@ class Amis:
             return "occupe"
         if self._exo():
             return "exo"
+        if self._jeu():                              # a game on his screen (pixel/habitudes.py): « Bip est occupé »
+            return "occupe"
         return None
 
     def _in_visite_demande(self, f, m):
@@ -998,15 +1004,16 @@ class Amis:
         self.publish()
         return True
 
-    def _au_revoir_maintenant(self, par):
+    def _au_revoir_maintenant(self, par, after=300):
         v = self.visite
         now = self._ms()
         e = now - v["t0"]
-        if any(it["id"] == "ami-aurevoir" and it["at"] <= e + 1000 for it in v["programme"]):
-            return                                   # already saying goodbye
-        v["programme"] = [it for it in v["programme"] if it["at"] <= e] + [{"id": "ami-aurevoir", "at": max(0, e) + 300}]
-        v["fin"] = v["t0"] + max(0, e) + 300 + DUREES["ami-aurevoir"]
+        if any(it["id"] == "ami-aurevoir" and it["at"] <= e + max(1000, after) for it in v["programme"]):
+            return False                             # already saying goodbye
+        v["programme"] = [it for it in v["programme"] if it["at"] <= e] + [{"id": "ami-aurevoir", "at": max(0, e) + after}]
+        v["fin"] = v["t0"] + max(0, e) + after + DUREES["ami-aurevoir"]
         v["par"] = par
+        return True
 
     def _fin_accueil(self):
         v, self.visite = self.visite, None
@@ -1133,6 +1140,9 @@ class Amis:
                 if i in self.amis:
                     self._send(self.amis[i], "merci")
         v = self.visite
+        if v and self._dort() and self._bonne_nuit(v):   # he falls asleep: no visit runs into his night (nor his nap)
+            self.publish()
+            v = self.visite
         if v and v["sens"] == "sortie":
             if v["etat"] in ("demande", "attente") and now > v["jusqua"]:
                 self._fin_sortie(refus="pas-de-reponse")
@@ -1172,22 +1182,43 @@ class Amis:
 
     # ---------- the world around him (other features, read defensively) ----------
     def _dort(self):
-        h = self.hub.s.get("habitudes")
-        if isinstance(h, dict):
-            if isinstance(h.get("dort"), bool):
-                return h["dort"]
-            if isinstance(h.get("etat"), str):
-                return h["etat"] in ("dort", "sieste", "nuit", "dodo")
-        car = self.hub.s.get("caractere") if isinstance(self.hub.s.get("caractere"), dict) else {}
-        q = car.get("calme") if isinstance(car.get("calme"), dict) else {}
-        de, a, hr = _int(q.get("de"), 0, 23, 23), _int(q.get("a"), 0, 23, 6), self._hour()
-        if de == a:
-            return False
-        return hr >= de or hr < a if de > a else de <= hr < a
+        """He sleeps: by his schedule, from his bedtime routine to his wake-up and during his nap; with it off or paused (the
+        demo), his quiet hours (pixel/habitudes.py endormi(): the same rule for every feature)."""
+        from .habitudes import endormi
+        return endormi(self.hub.s, self._hour())
 
     def _tard(self):
-        hr = self._hour()
-        return 20 <= hr or hr < 5
+        """Late enough for a nap side by side: his bedtime routine starts within the hour (his schedule); else 20 h - 5 h."""
+        from .habitudes import sommeil
+        h = self.hub.s.get("habitudes")
+        if sommeil(h) is None or not isinstance(h.get("horaires"), dict):
+            hr = self._hour()
+            return 20 <= hr or hr < 5
+        p = h.get("prochain") if isinstance(h.get("prochain"), dict) else {}
+        t = p.get("t")
+        return p.get("etat") == "coucher" and isinstance(t, (int, float)) and not isinstance(t, bool) and 0 <= t - self._ms() <= 3600000
+
+    def _jeu(self):
+        """A game on his screen (pixel/habitudes.py partie): his friends wait for its end, and so does he."""
+        h = self.hub.s.get("habitudes")
+        return isinstance(h, dict) and isinstance(h.get("partie"), dict)
+
+    def _bonne_nuit(self, v):
+        """He falls asleep (his bedtime, his nap) during a visit: a friend here says goodbye (after his own « Bientôt l'heure du
+        dodo », about 6 s), a friend knocking hears « il dort », and when he is the one away, he is called back home."""
+        f = self.amis.get(v["ami"])
+        if v["sens"] == "sortie":
+            if f:
+                self._send(f, "visite-fin", vid=v["vid"], par="rappel")
+            self._fin_sortie(par="dodo")
+            return True
+        if v["etat"] == "question":
+            self.visite = None
+            if f:
+                self._send(f, "visite-non", vid=v["vid"], pourquoi="dort")
+                self._log("refuse", f, refus="dort")
+            return True
+        return v["etat"] == "chez" and self._au_revoir_maintenant("fin", 6500)
 
     def _cast(self):
         c = self.hub.s.get("cast")

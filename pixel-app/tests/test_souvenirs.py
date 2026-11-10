@@ -396,6 +396,7 @@ async def command_checks():
         exos.setup(hub, tmp)
         S = souvenirs.setup(hub, tmp)
         A = album.setup(hub, None, tmp, "code")
+        hub.s["caractere"]["calme"] = {"de": 23, "a": 23}      # no quiet hours (no habits here: they are his night): the tests run at any time
         seen = []
         d0 = hub.dispatch
 
@@ -432,6 +433,10 @@ async def command_checks():
         await commands.run(hub, "prends une photo")
         check("« prends une photo » during a cast: no photo, he says why", A.demande is None and "cast" in hub.s["toast"]["msg"], hub.s["toast"]["msg"])
         hub.s["cast"] = None
+        hub.s["habitudes"] = {"dort": True}
+        await commands.run(hub, "prends une photo")
+        check("« prends une photo » while he sleeps: no photo (his screen stays dark), he says why", A.demande is None and "je dors" in hub.s["toast"]["msg"], hub.s["toast"]["msg"])
+        del hub.s["habitudes"]
         # Claude's tool
         names = [t["name"] for t in TOOLS]
         check("Claude's tool « souvenirs », beside the others, no name twice", "souvenirs" in names and len(names) == len(set(names)))
@@ -643,6 +648,7 @@ async def server_checks(tmp, first):
             await act("album.fav", id="../../token")
             await act("album.supprime", id={"x": 1})
             check("…an unknown id, or not a string: nothing", len(state["album"]["photos"]) == n0 - 1)
+            await act("caractere.set", calme={"de": 23, "a": 23})     # the demo's paused clock: his quiet hours are his night; none, at any time of the test
             await act("screen.show", screen="meteo")
             await act("album.photo")
             check("album.photo: his screen is asked to pose (demande), on his face screen", state["album"]["demande"] and state["screen"] == "visage")

@@ -130,7 +130,7 @@ async function main(browser) {
   await wait(1500);
   check('his own kiosk: the house « Chez Bip », what is left, « Rappelle-le »', await ka.k.evaluate(() => PixelAmis.state.away && ['ami-part', 'ami-absent'].includes(Screens.persona.state.cur)));
   await shot(ka.k, 'kiosk-absent');
-  const fed = await kb.k.evaluate(() => !!window.PixelNourrir && PixelNourrir.amisGuard === true && !PixelNourrir.trayOpen);
+  const fed = await kb.k.evaluate(() => !!window.PixelNourrir && Screens.addonTop === 'amis' && !PixelNourrir.shown && !PixelNourrir.open() && !PixelNourrir.trayOpen);   // under every add-on (screens.js ORDER)
   check('une chose à la fois: the food tray and its plate wait during the visit', fed);
   B.act('cast.text', { text: 'Coucou !' });
   await until(() => kb.k.evaluate(() => Screens.casting), 4000);
@@ -194,6 +194,9 @@ async function lab(browser) {
     const order = [...document.querySelectorAll('#panel > section')].map(s => s.getAttribute('aria-labelledby'));
     return order.indexOf('hExos') >= 0 && order.indexOf('hAmis') > order.indexOf('hExos') && PixelHub.S.amis.amis[0].nom === 'Bip';
   }));
+  await l.evaluate(() => PixelHub.dispatch('caractere.set', { calme: { de: 23, a: 23 } }));   // the lab's paused clock: his quiet hours are his night; none, at any time of the test
+  await until(() => l.evaluate(() => PixelHub.S.look && PixelHub.S.look.porte && PixelHub.S.look.porte.nuit === false), 5000);   // (at night his pyjama comes off first: « Debout ! »)
+  await wait(500);
   await l.evaluate(() => { Screens.local.boot = -1; Screens.persona.stop(); });
   await l.click('#amis-lab button:text-is("Il vient te voir")');
   check('« Il vient te voir »: Bip comes over (the same programme as on the Pi)', await until(() => l.evaluate(() => PixelAmis.state.hosting && Screens.persona.state.cur === 'ami-arrive'), 5000));

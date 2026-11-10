@@ -56,14 +56,15 @@ const feed = id => { if (!PF.BY[id]) return; send('nourrir.donner', { plat: id }
 
 /* ---------- the tray (the Pi's touch screen, the Pixel de poche, the lab) ---------- */
 const tray = { open: false, t: -1e9 }, TR = { x: 8, w: 784, h: 196, gx: 19, gy: 62, cell: 58, step: 64 }, HANDLE = { x: 736, y: 352, w: 64, h: 64 };
-const shown = () => !!(P && P.nourrir && P.nourrir.on) && L.scr === 'visage' && L.boot < 0 && !Sc.menuOpen
+const shown = () => !!(P && P.nourrir && P.nourrir.on) && L.scr === 'visage' && L.boot < 0 && !Sc.menuOpen && !L.sleepy
   && (L.kiosk || !!(window.PixelPoche && window.PixelPoche.on)) && !(PER && PER.state.cur === 'poche-part') && !above();   // not on the Pi's empty screen while he is in your pocket
 /* over his face screen, these come first: the quick menu (over everything, a cast too), a cast (pixel/cast.py: screens.js draws
-   it instead, and does not call over()), an open exercise and its offer « Une petite question ? » (web/exos.js); the tray and
-   its plate wait, and come back after */
+   it instead, and does not call over()), and every add-on of screens.js's ORDER (an open exercise, a game, a friend's visit,
+   souvenirs' views, his offers, the night veil); the tray and its plate wait, and come back after. Asleep (L.sleepy: his
+   night, his nap, or he dozes off) the tray stays shut: the phone's panel still feeds him */
 function above() {
   const X = window.PixelExos;
-  return !!Sc.casting || !!(X && (X.open || X.offering));
+  return !!Sc.casting || ('addonTop' in Sc ? !!Sc.addonTop : !!(X && (X.open || X.offering)));
 }
 function openTray() { if (tray.open || !shown()) return false; tray.open = true; tray.t = realNow(); fastFor(320); return true; }
 function closeTray(quick) { if (!tray.open) return; tray.open = false; tray.t = quick || RM ? -1e9 : realNow(); fastFor(320); }

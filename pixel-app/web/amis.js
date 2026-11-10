@@ -5,10 +5,13 @@
      to the left and shrinks (persona.update), and every scene of the host's programme plays at its time; touch the visitor:
      he giggles. His own Pixel away: the empty screen shows where he is (a little house, « Chez Bip », the time left,
      « Rappelle-le »), then his return and his story. A friend knocking (« Me demander avant »): Oui / Non. His code, big.
-     A coucou, a sticker, a new friend: the friend's face peeps in from the corner.
-   - Une chose à la fois: a cast (screens.js draws it instead), the quick menu (drawn over everything) and an open exercise
-     (web/exos.js) come first: the visit waits under them, its time runs on. It comes before his offer « Une petite
-     question ? » (no moments of life during a visit) and the food tray and plate (web/nourrir.js), which wait for its end.
+     A coucou, a sticker, a new friend: the friend's face peeps in from the corner (after a game or an exercise, if one is on).
+     The visitor wears the look he chose, dressed by this house: today's season, its weather, this Pixel's night.
+   - Une chose à la fois ('amis' in screens.js's ORDER): a cast (screens.js draws it instead), the quick menu (drawn over
+     everything), an open exercise (web/exos.js) and a game (web/habitudes.js: none starts during a visit, no visit comes
+     during one) come first: the visit waits under them, its time runs on. It comes before souvenirs' views (web/souvenirs.js:
+     they wait for its end), his offers (no moments of life during a visit) and the food tray and plate (web/nourrir.js).
+     Another feature's scene during a visit (a joke, a meal, a photo…) plays to its end, then the visit goes on.
    - the phone: « Amis » under the keys opens « Ses amis » (window.PixelPanel('amis')): the visit of the moment, the friends
      (their face, « Va le voir », « Coucou », a sticker, « Retirer »), my code (and its QR code), a friend's code to type, the
      settings (the parents' switch « Amis »), the journal.
@@ -170,11 +173,10 @@ const PB = { x: 64, y: 50, w: 672, h: 378 };
 const HOST = { x: -190, y: 22, s: 0.56 }, GUEST = { x: 190, y: 22, s: 0.56 }, M0 = { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 };
 const compose = (m, b) => ({ x: b.x + (m.x || 0) * b.s, y: b.y + (m.y || 0) * b.s, s: (m.s ?? 1) * b.s, r: m.r || 0, f: !!m.f, sx: m.sx ?? 1, sy: m.sy ?? 1 });
 const AWAY = ['ami-part', 'ami-absent'], BACK = ['ami-revient', 'ami-bredouille'], AWAY_END = 54000;   // web/scenes/amis.js: he walks back in at 56 s
-const USER = ['tap', 'fache', 'calin', 'retour'];
-const groupOf = id => { const s = PER && PER.scenes.find(x => x.id === id); return s ? s.group : ''; };
 const durOf = id => { const s = PER && PER.scenes.find(x => x.id === id); return s ? s.dur : 0; };
-const V = { evs: new Set(), vid: '', item: '', playedAt: 0, lines: null, poke: null, arrived: '', snapped: '', qSeen: '',
-  awayVid: '', leftAt: -1e9, back: null, wasAway: false, lastAway: null, peek: null, leanOn: null, leanIn: null };
+const V = { evs: new Set(), vid: '', item: '', lines: null, poke: null, arrived: '', snapped: '', qSeen: '',
+  awayVid: '', leftAt: -1e9, back: null, wasAway: false, lastAway: null, peek: null, leanOn: null, leanIn: null, later: [] };
+const LATER_MS = 10 * 60000;                                      // a friend's news waits that long for a game or an exercise to end
 
 const vis = () => (A && A.visite) || null;
 const hosting = () => { const v = vis(); return !!v && v.sens === 'accueil' && v.etat === 'chez'; };
@@ -182,22 +184,32 @@ const asking = () => { const v = vis(); return !!v && v.sens === 'accueil' && v.
 const away = () => { const v = vis(); return !!v && v.sens === 'sortie'; };
 const casting = () => !!Sc.casting;
 const exoOpen = () => !!(window.PixelExos && window.PixelExos.open);
+const gameOn = () => !!(P && P.habitudes && P.habitudes.partie);   // a game (web/habitudes.js): before a visit in screens.js's ORDER
+const held = () => exoOpen() || gameOn();                         // the child's taps are theirs: a friend's news waits for their end
 const onFace = () => L.scr === 'visage' && L.boot < 0 && !casting();
-const showing = () => hosting() && onFace() && !exoOpen();      // the visit is drawn (else it waits under what comes first)
-const awayShown = () => (away() || (!!V.back && !V.back.done)) && onFace() && !exoOpen();
+const showing = () => hosting() && onFace() && !held();          // the visit is drawn (else it waits under what comes first)
+const awayShown = () => (away() || (!!V.back && !V.back.done)) && onFace() && !held();
 const montre = () => !!(A && A.montre && A.code && (P.server_now || Date.now()) < A.montre);
 const srvNow = () => (K ? K.srv() : Date.now());
 const myName = () => (P && P.caractere && P.caractere.nom) || 'Pixel';
 const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0; return h; };
 function setDuo(v, it) { api.duo = { ami: v ? v.nom : '', hote: myName(), seed: v ? hash(v.vid + '|' + (it ? it.at : 0)) : 0 }; }
 
-/* ---------- his look (web/look.js, another feature): PixelLook.with(look, draw), defensively ---------- */
+/* ---------- a friend's look (web/look.js, another feature), defensively: the look he chose, nothing more of what he sends
+   (PixelLook.clean, without the slots he emptied at home), dressed here: today, the weather of this house and this Pixel's
+   night (PixelLook.context, resolve), not his birthday party; then drawn with it (PixelLook.with) ---------- */
+function lookOf(look) {                                                 // the look to draw him with (porte: what he wears here, now), or null
+  const PL = window.PixelLook;
+  if (!look || typeof look !== 'object' || !PL) return null;
+  const l = typeof PL.clean === 'function' ? { ...PL.clean(look), sans: {} } : look;
+  const ctx = typeof PL.context === 'function' ? { ...PL.context(P || {}, new Date()), fete: null } : { date: new Date() };
+  return typeof PL.resolve === 'function' ? { ...l, porte: PL.resolve(l, ctx) } : l;
+}
 function withLook(look, fn) {
   const PL = window.PixelLook;
   if (!look || !PL || typeof PL.with !== 'function') return fn();
   let ran = false;
-  try { const l = typeof PL.clean === 'function' ? PL.clean(look) : look; return PL.with(l, () => { ran = true; return fn(); }); }
-  catch (e) { if (!ran) return fn(); return undefined; }
+  try { const l = lookOf(look); return l ? PL.with(l, () => { ran = true; return fn(); }) : fn(); } catch (e) { if (!ran) return fn(); return undefined; }
 }
 
 /* ---------- his personality: this Pixel on the left during a visit; away, his empty screen does not react ---------- */
@@ -229,7 +241,6 @@ function layout(v) {
 /* ---------- the snapshot ---------- */
 function heard(p) {
   const first = !P; P = p; A = (p && p.amis) || null;
-  guard();
   if (!A) { V.back = null; return; }
   const fresh = t => (p.server_now || Date.now()) - t < 10000;
   for (const e of A.evs || []) {
@@ -259,8 +270,9 @@ function news(e) {
     return;
   }
   if (away() || hosting() || asking()) return;                          // busy with a visit: the journal keeps it
-  const asleep = L.sleepy || (PER && PER.isNight ? PER.isNight(new Date().getHours()) : false);
-  if (asleep && (e.kind === 'coucou' || e.kind === 'sticker')) return;   // asleep (or his quiet hours): it waits in the journal
+  if (held()) { V.later = [...V.later.filter(x => x.id !== e.id), e].slice(-4); return; }   // a game, an exercise: it peeps in after
+  const asleep = L.sleepy || nightNow();
+  if (asleep && (e.kind === 'coucou' || e.kind === 'sticker')) return;   // asleep (his schedule, else his quiet hours): it waits in the journal
   if (e.kind === 'coucou') { Sc.event('ami-coucou', data, true); peek(e, 'coucou'); }
   else if (e.kind === 'sticker' && ART && ART.BY[e.s]) { Sc.event('ami-sticker', { ...data, s: e.s, sn: e.sn || stickerName(e.s) }, true); peek(e, 'sticker'); }
   else if (e.kind === 'nouvel-ami') { Sc.event('ami-nouveau', data, true); peek(e, 'nouvel-ami'); }
@@ -268,17 +280,31 @@ function news(e) {
   else if (e.kind === 'question') Sc.event('ami-question', data, true);
 }
 function peek(e, kind) { V.peek = { kind, nom: e.nom || '', look: e.look || null, s: e.s || '', t: realNow(), until: realNow() + (kind === 'nouvel-ami' ? 7600 : 6000) }; L.dirty = true; }
+function later() {                                                       // the news kept during a game or an exercise, once it is over
+  if (!V.later.length || held() || !P) return;
+  const e = V.later.shift();
+  if (srvNow() - e.t0 < LATER_MS) news(e);
+}
+function nightNow() {                                                    // his night: web/habitudes.js endormi() (his schedule, else his quiet hours)
+  const PH = window.PixelHabitudes, h = new Date().getHours();
+  if (PH && typeof PH.endormi === 'function') return PH.endormi(P || {}, h);
+  return PER && PER.isNight ? PER.isNight(h) : false;
+}
 
-/* ---------- every frame: the visit's programme, his departure and his return ---------- */
+/* ---------- every frame: the visit's programme, his departure and his return ----------
+   The programme runs on the server's clock. A scene that is not the visit's (a touch, a cuddle, a sulk, or another
+   feature's: a joke, a taught phrase, a meal, his new look, the storm, your mood, « prends une photo ») plays to its end
+   while his friend watches; then the visit goes on where its time is now (persona.play's at), never from its start. */
 function sequence() {
   const v = vis(); if (!PER || !hosting()) return;
   const e = srvNow() - v.t0; let it = null;
   for (const x of v.programme || []) if (e >= x.at) it = x;
   if (!it) return;
-  const key = `${v.vid}|${it.id}|${it.at}`, cur = PER.state.cur;
-  if (cur && USER.includes(groupOf(cur)) && cur !== it.id) return;       // a touch, a cuddle, a sulk: they come first, the visit goes on after
-  if (key !== V.item) { V.item = key; setDuo(v, it); L.local = null; L.pack = null; PER.play(it.id); V.playedAt = realNow(); return; }
-  if (cur !== it.id && realNow() - V.playedAt < durOf(it.id) - 400 && !(cur && DUO[cur])) { setDuo(v, it); PER.play(it.id); V.playedAt = realNow() - Math.max(0, e - it.at); }   // cut short: again
+  const key = `${v.vid}|${it.id}|${it.at}`, cur = PER.state.cur, into = Math.max(0, e - it.at);
+  if (cur && cur !== it.id && !DUO[cur]) return;                         // someone else's scene: it comes first, the visit goes on after
+  const go = () => { setDuo(v, it); L.local = null; L.pack = null; PER.play(it.id, { at: into }); };
+  if (key !== V.item) { V.item = key; go(); return; }
+  if (cur !== it.id && !(cur && DUO[cur]) && into < durOf(it.id) - 400) go();   // cut short, or another scene played meanwhile: on with it
 }
 function awayStep() {
   if (!PER) return;
@@ -480,8 +506,9 @@ function drawPeek(k) {
   L.dirty = true;
 }
 /* the add-on: drawn over his face screen when there is something of his friends' (screens.js addon kit) */
-const ad = {
-  on: scr => scr === 'visage' && L.boot < 0 && !!A && A.on !== false && !casting() && !exoOpen() && (hosting() || awayShown() || asking() || montre() || !!V.peek),
+const ad = {                                                             // 'amis' in screens.js's ORDER: after an exercise and a game, before souvenirs' views
+  name: 'amis',
+  on: scr => scr === 'visage' && L.boot < 0 && !!A && A.on !== false && !casting() && !held() && (hosting() || awayShown() || asking() || montre() || !!V.peek),
   instead: () => false,
   busy: () => hosting() || away() || asking() || montre(),               // no moments of life meanwhile (nor his offer « Une petite question ? »)
   fps: calm => (hosting() || V.peek || awayShown() ? 30 : asking() || montre() ? Math.max(calm, 15) : 0),
@@ -496,17 +523,8 @@ const ad = {
 };
 K = Sc.addon(ad);
 send = (a, x) => K.send(a, x);                                           // the screens' own (app.js's socket, the lab's fake server)
-setInterval(() => { try { sequence(); awayStep(); } catch (e) { console.warn('Pixel: amis', e); } }, 100);   // also when his face screen is not drawn
-/* Nourrir's tray and plate (web/nourrir.js) wait while a friend is here or he is away: like web/exos.js's guard */
-function guard() {
-  const N = window.PixelNourrir;
-  if (!N || N.amisGuard || typeof N.over !== 'function') return;
-  const over = N.over, swipe = N.swipe, busy = () => hosting() || away() || asking() || montre() || !!(V.peek && realNow() < V.peek.until);
-  N.over = kk => { if (!busy()) return over(kk); if (N.trayOpen && N.close) N.close(); return undefined; };
-  if (typeof swipe === 'function') N.swipe = (dy, y0) => (busy() ? false : swipe(dy, y0));
-  N.amisGuard = true;
-}
-addEventListener('load', guard);
+setInterval(() => { try { sequence(); awayStep(); later(); } catch (e) { console.warn('Pixel: amis', e); } }, 100);   // also when his face screen is not drawn
+/* Nourrir's tray and plate (web/nourrir.js) wait under this view, as under every add-on of screens.js's ORDER */
 
 /* ---------- the phone: « Ses amis » ---------- */
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -690,7 +708,7 @@ function panelDraw() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else setTimeout(mount);
 
-Object.assign(api, { panel, build, open: () => panel(true), close: () => panel(false), layout: { PB, HOST, GUEST } });
+Object.assign(api, { panel, build, open: () => panel(true), close: () => panel(false), layout: { PB, HOST, GUEST }, lookOf });
 Object.defineProperties(api, {                                           // getters (Object.assign would copy their value once)
   isOpen: { get: () => !!sheet && !sheet.hidden },
   state: { get: () => ({ hosting: hosting(), away: away(), asking: asking(), showing: showing(), item: V.item, guest: showing() ? !!guestState() : false,

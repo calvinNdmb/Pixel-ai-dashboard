@@ -14,8 +14,11 @@
      of the dark (or, switched off, « Même pas peur »).
    - on the phone (app.js's page, not the Pi's screen): the « Ses habitudes » panel (PixelPanel('habitudes'), habitudes.css):
      his schedule, his favourite games and their « Jouer », what makes him laugh, his fears and their courage, his phrases.
-   Over his face screen, first come: the quick menu, a cast (a game waits under it: the server pauses it), an open
-   exercise (web/exos.js: no game starts then), a game, his offers (an exercise's, a game's), then Nourrir's tray and plate.
+   Over his face screen, in screens.js's ORDER: the quick menu, a cast (a game waits under it: the server pauses it), an open
+   exercise (web/exos.js: no game starts then), a game, a friend's visit (web/amis.js: no game during a visit, and no visit
+   during a game: the servers refuse them), souvenirs' views, his offer of a game and his night veil, an exercise's offer,
+   then Nourrir's tray and plate. His night for the other features: sommeil(), endormi() (his schedule, else the old quiet
+   hours), as pixel/habitudes.py says it.
    Loaded after screens.js and web/exos.js, before app.js; in the lab before lab/demo-hub.js. */
 window.PixelHabitudes = (() => {
 /* ---------- the rules (pixel/habitudes.py) ---------- */
@@ -237,6 +240,26 @@ function migrate(car) {                               // pixel/habitudes.py migr
   const h = { ...DEFAULT_H, coucher: de * 60, reveil: a * 60 };
   return problem(h) ? null : h;
 }
+/* his night for the other features, one rule (pixel/habitudes.py sommeil(), calme(), endormi()): by his schedule, from his
+   bedtime routine to his wake-up and during his nap (sieste false: not his nap, his pyjama); with it off or paused (the lab,
+   the demo) or no habits, the old quiet hours (caractère calme, 23 h - 6 h by default). A stand-in without its schedule
+   ({dort}, {nuit}, {etat}) says it as it is. sommeil: true / false, or null (his schedule says nothing) */
+function sommeil(h, sieste = true) {
+  if (!isObj(h)) return null;
+  const on = e => e === 'coucher' || e === 'nuit' || (sieste && e === 'sieste');
+  if (isObj(h.horaires) || isObj(h.horloge)) return !isObj(h.horaires) || h.horaires.actif === false || (isObj(h.horloge) && h.horloge.pause === true) ? null : on(h.etat);
+  if (!sieste && typeof h.nuit === 'boolean') return h.nuit || h.etat === 'coucher';
+  if (typeof h.dort === 'boolean') return h.dort || h.etat === 'coucher';
+  return typeof h.etat === 'string' ? on(h.etat) : null;
+}
+function calme(heure, q) {
+  q = isObj(q) ? q : {}; const de = int(q.de, 0, 23) ?? 23, a = int(q.a, 0, 23) ?? 6;
+  return de === a ? false : de > a ? heure >= de || heure < a : heure >= de && heure < a;
+}
+function endormi(S, heure, sieste = true) {
+  const v = sommeil(isObj(S) ? S.habitudes : null, sieste); if (v !== null) return v;
+  return calme(heure, isObj(S) && isObj(S.caractere) ? S.caractere.calme : null);
+}
 /* ---- typed commands: pixel/habitudes.py command(), word for word ---- */
 const SEP = '\\s*(?:[:,–—-]\\s*)?', MW = "(bonjour|bonne\\s+nuit|merci|au\\s+revoir|bravo|salut|j['’]ai\\s+faim)";
 const TEACH = [
@@ -388,6 +411,8 @@ function hub(o) {
     if (['nuit', 'sieste', 'coucher'].includes(e)) { pasMaintenant(e); return { nuit: 'Chut… il dort. On jouera demain !', sieste: 'Chut… il fait la sieste. On jouera après !', coucher: 'C’est bientôt l’heure du dodo : on jouera demain !' }[e]; }
     if (S.exos && S.exos.cur) return 'Termine ton exo d’abord !';
     if (castOn()) return 'Attends la fin de ce qui s’affiche sur son écran.';
+    const v = isObj(S.amis) && isObj(S.amis.visite) ? S.amis.visite : null;   // a friend's visit (lab/amis-lab.js): no game over it, nor while he is away
+    if (v) { const nom = typeof v.nom === 'string' && v.nom ? v.nom : 'mon ami'; return v.sens !== 'sortie' ? `Pas maintenant : ${nom} est là !` : `Je suis chez ${nom} : on jouera à mon retour !`; }
     if (H.partie && H.partie.etat === 'joue') return 'Une partie est déjà en cours : touche × pour l’arrêter.';   // one at a time
     H.partie = newGame(jeu, Date.now(), ++H.id, H.S.jeux.favoris.includes(jeu), par);
     S.anim = null; S.screen = 'visage'; return '';
@@ -516,14 +541,13 @@ function horairesText(h) {                            // pixel/habitudes.py hora
   return s + '. Change-les dans « Ses habitudes ».';
 }
 const RULES = { JEUX, RIRES, PEURS, MOMENTS, DEFAULT_H, toMin, hm, problem, cleanHoraires, segments, etatAt, awakeHours, newGame, gameMove, gameTick, cleanPhrase, clean,
-  migrate, teachParse, norm, GAME_WORDS, RX, horairesText, SPOTS, HANDS, CACHE, PFC, ETOILES, SIMON, END_MS };
+  migrate, teachParse, norm, GAME_WORDS, RX, horairesText, SPOTS, HANDS, CACHE, PFC, ETOILES, SIMON, END_MS, sommeil, calme, endormi };
 
 /* ---------- every screen: his night, his routine, the games, his laughs, his fears, his phrases ---------- */
 const Sc = typeof Screens !== 'undefined' && Screens && Screens.addon ? Screens : null;
 const SCREEN = Sc ? screenSide(Sc) : null;
 function screenSide(Sc) {
   const L = Sc.local, PER = Sc.persona, W = 800, HT = 480;
-  const kioskPage = typeof location !== 'undefined' && /[?&]kiosk\b/.test(location.search);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), out = x => 1 - (1 - clamp(x, 0, 1)) ** 3;
   const realNow = () => (window.PixelClock ? window.PixelClock.real() : performance.now());
   let P = null, Hs = null, off = 0, K = null;
@@ -538,13 +562,14 @@ function screenSide(Sc) {
   const trait = k => { const v = PER && PER.traits && PER.traits[k]; return typeof v === 'number' && Number.isFinite(v) ? clamp(v, 0, 100) : 50; };
   const game = () => (Hs && Hs.partie) || null;
   const exosOpen = () => !!(window.PixelExos && window.PixelExos.open);
+  const visitOn = () => !!(P && P.amis && P.amis.visite);           // a friend here, knocking, or he is away (web/amis.js)
   const asleep = () => !!(Hs && Hs.dort && L.sleepy && L.scr === 'visage' && L.boot < 0);   // asleep by his schedule, on his face screen
   const fearOn = k => !!(Hs && Hs.peurs && Hs.peurs[k] && Hs.peurs[k].on && Hs.peurs[k].courage < 100);
 
   /* ---- the snapshot (the add-on's state(): every snapshot, before it is drawn) ---- */
   function state(p) {
     const first = !P; P = p; Hs = p.habitudes || null; off = (p.server_now || Date.now()) - Date.now();
-    hooks(); guardNourrir();
+    hooks();
     if (!Hs) { panelState(); return; }
     const fresh = t => !first && !!t && srv() - t < 15000;
     const e = Hs.ev;
@@ -594,7 +619,7 @@ function screenSide(Sc) {
       if (!first && g.fin.resultat !== 'stop') {
         event('jeu-fin', { jeu: g.jeu, resultat: g.fin.resultat, score: g.fin.score, record: !!g.fin.record, rit: !!g.fin.rit });
         son(g.fin.resultat === 'gagne' ? 'danse' : g.fin.rit ? 'rire' : 'salut');
-        if (g.fin.resultat === 'gagne' && (kioskPage || window.PIXEL_LOCAL) && window.PixelAlbum && typeof window.PixelAlbum.snap === 'function') {
+        if (g.fin.resultat === 'gagne' && window.PixelAlbum && window.PixelAlbum.home && typeof window.PixelAlbum.snap === 'function') {   // Pixel's own screen: the Pi's, Pixel sans Pi, Pixel Lab
           setTimeout(() => { try { window.PixelAlbum.snap('jeu'); } catch (e) { /* a photo is a bonus */ } }, 1200);   // a moment worth a photo (souvenirs: « Une partie gagnée », 🎲)
         }
       }
@@ -657,7 +682,7 @@ function screenSide(Sc) {
     if (!Hs || !P) return;
     if (PER && PER.state.cur === 'peur-araignee' && !V.spiderSeen) { V.spiderSeen = true; V.spiderAt = Date.now(); }
     if (PER && PER.state.cur !== 'peur-araignee') V.spiderSeen = false;
-    const busy = !!game() || exosOpen() || Sc.casting || L.boot >= 0;
+    const busy = !!game() || exosOpen() || visitOn() || Sc.casting || L.boot >= 0;   // a friend's visit ends first when he falls asleep (pixel/amis.py)
     if (!Hs.dort || busy || L.scr !== 'visage') {
       if (V.mine) {                                                 // his sleep is his face screen's: another screen's keys work at once
         if (L.sleepy) L.sleepy = false;
@@ -701,6 +726,8 @@ function screenSide(Sc) {
     if (k === 'press') { if (T.down) T.down.held = true; cuddle(); return true; }
     return false;
   };
+  const hit0 = Sc.hit;                                              // what reaches the touch zones while he sleeps is no tap (his taps mumble above):
+  Sc.hit = (x, y) => (asleep() && !Sc.menuOpen ? undefined : hit0(x, y));   // a swipe up (no food tray at night) or a stray one leaves him asleep
   function mumble() {
     const t = performance.now(); if (t - V.lastMumble < 900) return;
     V.lastMumble = t; event('habitude-dodo', { kind: 'marmonne', etat: Hs.etat }); son('baille');
@@ -731,7 +758,7 @@ function screenSide(Sc) {
   }
   if (PER) {
     const tap0 = PER.tap, pet0 = PER.pet, play0 = PER.play;
-    PER.play = id => { V.played = id; return play0(id); };          // asked for (a command, the lab): his sleep waits for its end
+    PER.play = (id, o) => { V.played = id; return play0(id, o); };  // asked for (a command, the lab): his sleep waits for its end
     PER.tap = (p, box, ctx) => {
       if (asleep()) { mumble(); return true; }
       const cur = PER.state.cur;
@@ -781,27 +808,26 @@ function screenSide(Sc) {
   }
   const offering = () => !!PER && PER.state.cur === 'jeu-envie';
 
-  /* ---- the view: over (or instead of) his face screen ---- */
-  function nourrirWaits() { return !!game() || offering(); }
-  function guardNourrir() {                                         // Nourrir's plate and tray wait for a game, as for an exercise
-    const N = window.PixelNourrir;
-    if (!N || N.habGuard || typeof N.over !== 'function') return;
-    const over = N.over, swipe = N.swipe, open = N.open;
-    N.over = k => { if (!nourrirWaits()) return over(k); if (N.trayOpen && N.close) N.close(); return undefined; };
-    if (typeof swipe === 'function') N.swipe = (dy, y0) => (nourrirWaits() ? false : swipe(dy, y0));
-    if (typeof open === 'function') N.open = () => (nourrirWaits() ? false : open());
-    N.habGuard = true;
-  }
+  /* ---- the views over (or instead of) his face screen, in screens.js's ORDER: a game ('jeu', just after an open exercise:
+     before a friend's visit and souvenirs' views), then his offer « On joue à… ? » and the night veil ('habitudes', after
+     them); Nourrir's tray and plate wait under both (web/nourrir.js) ---- */
   const veilOn = () => asleep() && !game();
-  const ad = {
-    on: scr => scr === 'visage' && L.boot < 0 && !Sc.casting && !!Hs && (!!game() || offering() || veilOn()),
-    instead: () => !!game(),
-    busy: () => !!game() || offering(),
-    fps: calm => { const g = game(); if (g) return g.etat === 'fin' ? 20 : g.jeu === 'pfc' && g.phase === 'choix' ? 20 : 30; if (veilOn() && !(PER && PER.state.cur)) return 12; return 0; },
+  K = Sc.addon({
+    name: 'jeu',
+    on: scr => scr === 'visage' && L.boot < 0 && !Sc.casting && !!Hs && !!game(),
+    instead: () => true,
+    busy: () => !!game(),
+    fps: () => { const g = game(); return !g ? 0 : g.etat === 'fin' ? 20 : g.jeu === 'pfc' && g.phase === 'choix' ? 20 : 30; },
     state,
-    draw(k, dt) { const g = game(); if (g) drawGame(k, g); else { if (veilOn()) drawVeil(k); if (offering()) drawOffer(k); } },
-  };
-  K = Sc.addon(ad);
+    draw(k) { const g = game(); if (g) drawGame(k, g); },
+  });
+  Sc.addon({
+    name: 'habitudes',
+    on: scr => scr === 'visage' && L.boot < 0 && !Sc.casting && !!Hs && (offering() || veilOn()),
+    busy: () => offering(),
+    fps: () => (veilOn() && !(PER && PER.state.cur) ? 12 : 0),
+    draw(k) { if (veilOn()) drawVeil(k); if (offering()) drawOffer(k); },
+  });
 
   /* drawing helpers: pixel-art icons (crisp in every theme), buttons, his small face with his scenes */
   const ICONS = {

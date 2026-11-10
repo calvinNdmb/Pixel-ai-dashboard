@@ -29,6 +29,22 @@ const done = () => { pub(); H.mark(); };
 function ev(kind, f, data = {}) { st.ev++; st.evs = [...st.evs, { id: st.ev, kind, t0: now(), ...(f ? { ami: f.id, nom: f.nom, look: f.look } : {}), ...data }].slice(-6); }
 function log(quoi, f, data = {}) { st.journal = [{ t: now(), quoi, ami: f ? f.id : '', nom: f ? f.nom : (data.nom || ''), ...data }, ...st.journal].slice(0, 30); }
 const off = () => { if (!st.on) { toast('Les amis de Pixel sont éteints. Rallume-les dans le panneau « Les amis ».', 5000); return true; } return false; };
+/* the world around him, as pixel/amis.py reads it: his night (web/habitudes.js endormi(): his schedule, else his quiet hours;
+   the lab's paused clock: his quiet hours), a cast, an exercise, a game, the Pixel de poche */
+const PH = window.PixelHabitudes;
+const dort = () => (PH && typeof PH.endormi === 'function' ? PH.endormi(S, new Date().getHours()) : false);
+const castOn = () => !!(S.cast && S.cast.id && (!S.cast.until || S.cast.until > now()));
+const exoOn = () => !!(S.exos && S.exos.cur && S.exos.cur.etat === 'question');
+const jeuOn = () => !!(S.habitudes && S.habitudes.partie);
+const poche = () => { const v = S.poche && S.poche.voyage; return !!(v && v.to === 'poche' && v.until > now()); };
+function tard() {                                         // pixel/amis.py _tard(): his bedtime routine within the hour, else 20 h - 5 h
+  const h = S.habitudes, p = h && h.prochain;
+  if (!PH || PH.sommeil(h) === null || !h || !h.horaires) { const hr = new Date().getHours(); return hr >= 20 || hr < 5; }
+  return !!p && p.etat === 'coucher' && typeof p.t === 'number' && p.t - now() >= 0 && p.t - now() <= 3600e3;
+}
+const ORDER_FAIT = ['ami-danse', 'ami-course', 'ami-cache', 'ami-tape', 'ami-gouter', 'ami-blague', 'ami-photo', 'ami-dodo', 'ami-bavarde'];
+const histoire = fait => ORDER_FAIT.filter(i => (fait || []).includes(i) && ART && ART.FAIT[i]).slice(0, 2).map(i => ART.FAIT[i].eux).join(', et ');   // pixel/amis.py histoire(…, eux)
+function souvenir(texte) { if (A['souvenirs.ajoute']) A['souvenirs.ajoute']({ type: 'ami', texte: texte.slice(0, 200), t: now() }); }   // pixel/amis.py _souvenir()
 
 /* ---------- his own visits (pixel/amis.py visiter): Bip answers in a second, unless he sleeps or does not answer ---------- */
 function home(fait, refus, par) {
@@ -37,12 +53,19 @@ function home(fait, refus, par) {
   if (refus) { ev('retour', f, { refus, ...(f ? {} : { nom: v.nom }) }); log('refus', f, { refus, nom: v.nom }); return done(); }
   ev('retour', f, { fait: fait || [], par: par || 'fin', ...(f ? {} : { nom: v.nom }) });
   if (f && v.etat === 'chez') { f.visite = now(); f.n++; }
-  if (v.etat === 'chez') log('visite', f, { fait: fait || [], nom: v.nom });
+  if (v.etat === 'chez' || (fait || []).length) {
+    log('visite', f, { fait: fait || [], nom: v.nom });
+    const h = histoire(fait); souvenir(`${myCard().nom} est allé jouer chez ${v.nom}` + (h ? ` : ${h}.` : '.'));
+  }
   done();
 }
 function go(ami) {
   const f = find(ami); if (!f || off()) return;
-  if (st.visite) return toast(st.visite.sens === 'sortie' ? `${myCard().nom} est déjà parti chez ${st.visite.nom} !` : `${myCard().nom} a de la visite : il ne peut pas sortir maintenant.`);
+  const moi = myCard().nom;
+  if (st.visite) return toast(st.visite.sens === 'sortie' ? `${moi} est déjà parti chez ${st.visite.nom} !` : `${moi} a de la visite : il ne peut pas sortir maintenant.`);
+  const why = dort() ? `Chut, ${moi} dort. Il ira voir ${f.nom} quand il sera réveillé !` : exoOn() ? 'Finis ton exo d’abord !'   // pixel/amis.py visiter(), in its order
+    : jeuOn() ? `On finit la partie, et j’irai voir ${f.nom} !` : poche() ? `${moi} est dans ta poche : rappelle-le d’abord !` : '';
+  if (why) return toast(why, 5000);
   const vid = hex(12), t = now();
   st.visite = { vid, sens: 'sortie', ami: f.id, nom: f.nom, etat: 'demande', t0: t, jusqua: t + 8000 };
   S.anim = null; S.screen = 'visage'; done();
@@ -55,15 +78,16 @@ function go(ami) {
 }
 /* ---------- Bip comes here (pixel/amis.py _accueillir): the same programme of two-Pixel scenes as on the Pi ---------- */
 function welcome(f, vid) {
-  const h = new Date().getHours(), { items, total } = AM.programme(visitMs(), h >= 20 || h < 5, durs()), t0 = now() + 400;
+  const { items, total } = AM.programme(visitMs(), tard(), durs()), t0 = now() + 400;
   st.visite = { vid, sens: 'accueil', ami: f.id, nom: f.nom, etat: 'chez', t0, fin: t0 + total, programme: items, seed: Math.floor(Math.random() * 1e9) };
   S.anim = null; S.screen = 'visage';
 }
-function visit(f) {
+const REFUSE = { ferme: 'les visites sont fermées', dort: 'Pixel dort', absent: 'Pixel n’est pas là', visite: 'il y a déjà de la visite', occupe: 'Pixel est occupé', exo: 'un exo est ouvert' };
+function visit(f) {                                       // pixel/amis.py _refus(): the same reasons, in the same order
   if (!f || off()) return;
-  if (!st.visites) { log('refuse', f, { refus: 'ferme' }); return toast(`${f.nom} voulait venir : les visites sont fermées.`); }
-  if (st.visite) { log('refuse', f, { refus: st.visite.sens === 'sortie' ? 'absent' : 'visite' }); return toast(`${f.nom} voulait venir, mais ${st.visite.sens === 'sortie' ? 'Pixel n’est pas là' : 'il y a déjà de la visite'}.`); }
-  if (S.exos && S.exos.cur && S.exos.cur.etat === 'question') { log('refuse', f, { refus: 'exo' }); return toast(`${f.nom} voulait venir : un exo est ouvert.`); }
+  const why = !st.visites ? 'ferme' : dort() ? 'dort' : st.visite ? (st.visite.sens === 'sortie' ? 'absent' : 'visite') : poche() ? 'absent'
+    : castOn() ? 'occupe' : exoOn() ? 'exo' : jeuOn() ? 'occupe' : '';
+  if (why) { log('refuse', f, { refus: why }); return toast(`${f.nom} voulait venir : ${REFUSE[why]}.`); }
   const vid = hex(12);
   if (st.demander) { st.visite = { vid, sens: 'accueil', ami: f.id, nom: f.nom, etat: 'question', t0: now(), jusqua: now() + 45000 }; ev('question', f); S.screen = 'visage'; return; }
   welcome(f, vid);
@@ -72,15 +96,24 @@ function hostEnd() {
   const v = st.visite; if (!v || v.sens !== 'accueil') return;
   const f = find(v.ami), e = now() - v.t0, fait = (v.programme || []).filter(it => it.at <= e && AM.ACTIVITES.concat(['ami-photo', 'ami-dodo']).includes(it.id)).map(it => it.id);
   st.visite = null; if (f) { f.visite = now(); f.n++; }
-  log('accueil', f, { fait, nom: v.nom }); done();
+  log('accueil', f, { fait, nom: v.nom });
+  const h = histoire(fait); souvenir(`${v.nom} est venu jouer chez ${myCard().nom}` + (h ? ` : ${h}.` : '.'));   // the photo of the visit waits for it (../souvenirs.js)
+  done();
 }
-function goodbye(par) {
-  const v = st.visite; if (!v || v.sens !== 'accueil' || v.etat !== 'chez') return;
-  const e = now() - v.t0; if (v.programme.some(it => it.id === 'ami-aurevoir' && it.at <= e + 1000)) return;
-  v.programme = v.programme.filter(it => it.at <= e).concat([{ id: 'ami-aurevoir', at: Math.max(0, e) + 300 }]); v.fin = v.t0 + Math.max(0, e) + 300 + (durs()['ami-aurevoir'] || 9000); v.par = par;
+function goodbye(par, after = 300) {
+  const v = st.visite; if (!v || v.sens !== 'accueil' || v.etat !== 'chez') return false;
+  const e = now() - v.t0; if (v.programme.some(it => it.id === 'ami-aurevoir' && it.at <= e + Math.max(1000, after))) return false;
+  v.programme = v.programme.filter(it => it.at <= e).concat([{ id: 'ami-aurevoir', at: Math.max(0, e) + after }]); v.fin = v.t0 + Math.max(0, e) + after + (durs()['ami-aurevoir'] || 9000); v.par = par;
+  return true;
+}
+function bonneNuit(v) {                                   // pixel/amis.py _bonne_nuit(): he falls asleep during a visit
+  if (v.sens === 'sortie') { home([], null, 'dodo'); return true; }
+  if (v.etat === 'question') { st.visite = null; log('refuse', find(v.ami), { refus: 'dort' }); return true; }
+  return goodbye('fin', 6500);
 }
 setInterval(() => {
   const v = st.visite, t = now(); if (!v) { if (st.montre && t > st.montre) { st.montre = 0; done(); } return; }
+  if (dort() && bonneNuit(v)) { done(); return; }
   if (v.sens === 'sortie' && (v.etat === 'demande' || v.etat === 'attente') && t > v.jusqua) home(null, 'pas-de-reponse');
   else if (v.sens === 'sortie' && v.etat === 'chez' && t > v.jusqua) home([], null, 'temps');
   else if (v.sens === 'accueil' && v.etat === 'question' && t > v.jusqua) { const f = find(v.ami); st.visite = null; log('refuse', f, { refus: 'pas-repondu' }); done(); }

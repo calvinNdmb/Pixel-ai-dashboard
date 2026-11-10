@@ -786,13 +786,27 @@ function drawMenu() {
 /* ---------- Nourrir: web/nourrir.js draws his food tray over the face screen, with the screen's own helpers ---------- */
 const NOUR = { X, W, H, RM, L, hit, txt, fit, box, bar, fast: ms => fast(ms), get T() { return T; }, get S() { return S; }, get now() { return now; } };
 
-/* ---------- add-ons (web/exos.js): a view drawn over a screen, or instead of it, with the screens' own helpers ----------
-   Screens.addon({ on(scr), instead(), draw(k, dt), state(p, prev), fps(calm), busy() }) returns k, the kit: the canvas and
-   the theme, text and boxes, touch zones, a face in any box (the pack or the living face), his personality, the state, send.
-   on: drawn on that screen now; instead: in place of the screen; fps: its frame rate (0: the screen's); busy: no moments
-   of life meanwhile; state: every snapshot, before it is drawn. */
+/* ---------- add-ons (web/exos.js…): a view drawn over a screen, or instead of it, with the screens' own helpers ----------
+   Screens.addon({ name, on(scr), instead(), draw(k, dt), state(p, prev), fps(calm), busy() }) returns k, the kit: the canvas
+   and the theme, text and boxes, touch zones, a face in any box (the pack or the living face), his personality, the state,
+   send. on: drawn on that screen now; instead: in place of the screen; fps: its frame rate (0: the screen's); busy: no
+   moments of life meanwhile; state: every snapshot, before it is drawn.
+   Une chose à la fois, over his face screen: the boot, a cast (drawn instead of everything) and the quick menu (over
+   everything) come first; then the one add-on drawn is the first of ORDER whose on() is true (each still decides when it is
+   on); an add-on of another name comes after them, in load order; Nourrir's tray and plate (web/nourrir.js) come last, under
+   every add-on (Screens.addonTop: the one drawn now, '' when none). */
+const ORDER = [
+  'exo',        // an open exercise (web/exos.js)
+  'jeu',        // a game (web/habitudes.js)
+  'amis',       // a friend's visit here, his house « Chez Bip » while he is away, a friend knocking, his code, a peek (web/amis.js)
+  'souvenirs',  // the album's slideshow, the birthday picker, the mood question and its words, « Je te dis ! » (web/souvenirs.js)
+  'habitudes',  // his offer « On joue à… ? », the night veil (web/habitudes.js)
+  'exo-offre',  // his offer « Une petite question ? » (web/exos.js)
+];
 const ADDONS = [], AFACE = {};
-function addonOn() { for (const a of ADDONS) { try { if (a.on(L.scr)) return a; } catch (e) { /* an add-on must never stop the screen */ } } return null; }
+let RANKED = [];
+const rank = a => { const i = ORDER.indexOf(a.name); return i >= 0 ? i : ORDER.length + ADDONS.indexOf(a); };
+function addonOn() { for (const a of RANKED) { try { if (a.on(L.scr)) return a; } catch (e) { /* an add-on must never stop the screen */ } } return null; }
 function addonBusy() { return ADDONS.some(a => { try { return !!(a.busy && a.busy()); } catch (e) { return false; } }); }
 function addonDraw(a, dt) { X.save(); try { a.draw(KIT, dt); } catch (e) { console.warn('Pixel: an add-on failed', e); } X.restore(); glow(); }
 function addonFace(key, want, md, x, y, w, h, m) {   // his face in a box: the pack's animation `want` (null: the idle), or the living face's mood
@@ -978,7 +992,9 @@ return {
   get buddy() { return { x: BUD.x, act: BUD.act, dir: BUD.dir }; },   // the little Pixel of the Minuteur screen (tests, lab)
   get cast() { return { id: CA.id, kind: CA.kind, ready: !!castSrc(), err: CA.err, frame: CA.gif ? CA.gif.i : -1, bitmap: !!CA.bmp, video: !!CA.vid, playing: !!(CA.vid && !CA.vid.paused), player: !!(CA.ifr || (CA.yt && !CA.yt.err)), yt: CA.yt ? CA.yt.info() : null, peek: CA.peek, frames: CA.rvfc }; },   // tests, lab
   get casting() { return !!(P && castLive()); },   // a cast is on (pixel/cast.py): drawn over everything, the add-ons and Nourrir wait (web/exos.js, web/nourrir.js)
-  addon(a) { ADDONS.push({ on: () => false, instead: () => false, ...a }); L.dirty = true; return KIT; },   // web/exos.js
+  addon(a) { ADDONS.push({ on: () => false, instead: () => false, ...a }); RANKED = [...ADDONS].sort((x, y) => rank(x) - rank(y)); L.dirty = true; return KIT; },   // web/exos.js…: ORDER above
+  get addonTop() { const a = P ? addonOn() : null; return a ? a.name || 'addon' : ''; },   // the add-on over his face now ('': none): Nourrir waits under all of them
+  order: ORDER,
   hit(x, y) { for (let i = hits.length - 1; i >= 0; i--) { const [hx, hy, w, h, fn] = hits[i]; if (x >= hx && x <= hx + w && y >= hy && y <= hy + h) { fn({ x, y }); return; } } },
   toCanvas,
 };

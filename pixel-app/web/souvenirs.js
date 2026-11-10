@@ -3,14 +3,16 @@
    - every screen: his scenes from the server's news (your birthday noted, a memory told, your mood: joy, a hug, a breath
      together), and once a day on each screen, when you are there, your birthday party or a day you met;
    - Pixel's own screen (the Pi's, Pixel sans Pi, Pixel Lab: web/album.js HOME), when someone is there (a touch in the last
-     90 s) and he is free (his face screen, no cast, no menu, no exercise, no food tray, no scene but a moment of life, not
-     asleep: habitudes "dort" or 'coucher', read defensively): from "heure", « Comment tu vas aujourd'hui ? » (humeur.pose);
-     the next day, « Hier, tu étais triste… ça va mieux ? »; once ever, « C'est quand ton anniversaire ? »; now and then (2 h
-     apart, 3 a day at most, in the day), a memory: « Tu te souviens de ta série de 12 bonnes réponses ? »;
-   - the view on his face screen (a screens.js add-on), one thing at a time: the quick menu and a cast come first (the cast
-     covers it, its question waits under it), then an open exercise and its offer (web/exos.js), then, here: the album
-     (« montre l'album »: a slideshow, on his own screen), the birthday picker, the mood question (5 big faces, then a few
-     words, if you like), his offer « Je te dis ! »; the food tray and its plate wait (web/nourrir.js, wrapped here);
+     90 s) and he is free (his face screen, no cast, no menu, no exercise, no game, no friend's visit, no food tray, no scene
+     but a moment of life, not asleep: his schedule, else his quiet hours, the rule of web/habitudes.js endormi()): from
+     "heure", « Comment tu vas aujourd'hui ? » (humeur.pose); the next day, « Hier, tu étais triste… ça va mieux ? »; once
+     ever, « C'est quand ton anniversaire ? »; now and then (2 h apart, 3 a day at most, in the day), a memory: « Tu te
+     souviens de ta série de 12 bonnes réponses ? »; a game or a visit over, they come back, as after an exercise;
+   - the view on his face screen (a screens.js add-on, 'souvenirs' in its ORDER), one thing at a time: the quick menu and a
+     cast come first (the cast covers it, its question waits under it), then an open exercise (web/exos.js), a game
+     (web/habitudes.js) and a friend's visit (web/amis.js), then, here: the album (« montre l'album »: a slideshow, on his own
+     screen), the birthday picker, the mood question (5 big faces, then a few words, if you like), his offer « Je te dis ! »;
+     then his offers (a game's, an exercise's) and his night veil; the food tray and its plate wait under all of them;
    - the phone: « Souvenirs » and « Album » buttons under the keys open one sheet with three tabs: Souvenirs (your birthday,
      the day you met, his records, the timeline), Carnet (today's mood, the week, the month, the settings), Album (the grid,
      a full screen view, ★, Enregistrer, Supprimer); PixelPanel('souvenirs' | 'album') opens it from the app's menu;
@@ -96,7 +98,20 @@ function cleanHumeur(d) {                             // the shape of humeur.jso
   return out;
 }
 const inQuiet = (h, calme) => { const de = isInt(calme && calme.de) ? calme.de : 23, a = isInt(calme && calme.a) ? calme.a : 6; return de === a ? false : de > a ? h >= de || h < a : h >= de && h < a; };
-const isAsleep = s => { const h = s && s.habitudes; return !!h && typeof h === 'object' && (h.dort === true || h.etat === 'coucher'); };
+/* his night (souvenirs.py asleep(), one rule for every feature: web/habitudes.js endormi(): his schedule, from his bedtime
+   routine to his wake-up and his nap, else his quiet hours), at the hour h */
+const isAsleep = (s, h = new Date().getHours()) => {
+  const PH = window.PixelHabitudes; if (PH && typeof PH.endormi === 'function') return PH.endormi(s, h);
+  const x = s && s.habitudes; return (!!x && typeof x === 'object' && (x.dort === true || x.etat === 'coucher')) || inQuiet(h, s && s.caractere && s.caractere.calme);
+};
+/* a game (habitudes) or a friend's visit (amis: here, knocking, or he is away) holds his screen (souvenirs.py occupe()):
+   [kind, name] with kind 'jeu', 'visite' or 'sortie', else null */
+const occupe = s => {
+  const h = s && s.habitudes, a = s && s.amis, v = a && typeof a === 'object' ? a.visite : null;
+  if (h && typeof h === 'object' && h.partie && typeof h.partie === 'object') return ['jeu', ''];
+  if (v && typeof v === 'object') return [v.sens === 'sortie' ? 'sortie' : 'visite', typeof v.nom === 'string' && v.nom ? v.nom : 'mon ami'];
+  return null;
+};
 /* the typed commands (souvenirs.py command): { action, args } | { toast, ms, mood } | null (not one: Claude). ctx: { anniv, dans, today } */
 const MONTHS = { janvier: 1, janv: 1, fevrier: 2, fevr: 2, fev: 2, mars: 3, avril: 4, avr: 4, mai: 5, juin: 6, juillet: 7, juil: 7, aout: 8, septembre: 9, sept: 9, octobre: 10, oct: 10, novembre: 11, nov: 11, decembre: 12, dec: 12 };
 const PHOTO = /^(?:prends?|fais|fait)(?:[- ]moi)? (?:une |un )?(?:photo|selfie)(?: de toi)?(?: pixel)?$|^(?:prends?[- ]moi en photo|une photo|photo|clic clac)$/;
@@ -149,7 +164,7 @@ function command(raw, ctx = {}) {
   return null;
 }
 const rules = { MOODS, CHIPS, MOIS, TIMELINE_MAX, PINNED_MAX, JOURS_MAX, fete: (today, anniv, rencontre) => fete(today, anniv, rencontre), nextBirthday, birthdayIn, monthsSince, monthDay,
-  dateText, validDay, parseDay, ymd, command, cleanSouvenirs, cleanHumeur, cleanText, trim, inQuiet };
+  dateText, validDay, parseDay, ymd, command, cleanSouvenirs, cleanHumeur, cleanText, trim, inQuiet, asleep: isAsleep, occupe };
 
 /* ---------- the in-page hub: Pixel Lab and Pixel sans Pi (lab/demo-hub.js calls hub(api)) ----------
    The same actions and snapshots as pixel/souvenirs.py and pixel/album.py. Pixel Lab keeps them in this browser
@@ -160,7 +175,8 @@ let mirror = null;
 function hub(api) {
   const { S, A, mark, toast, mood, restorable } = api, LOCAL = !!api.local, KEY = 'pixel_lab_souvenirs';
   const MAXP = LOCAL ? 24 : 60, FAVP = LOCAL ? 12 : 30, AL = window.PixelAlbum;
-  let F = cleanSouvenirs({}), HF = cleanHumeur({}), question = null, ev = null, hev = null, day = '', added = [];
+  let F = cleanSouvenirs({}), HF = cleanHumeur({}), question = null, ev = null, hev = null, day = '', added = [], attend = null;   // attend: a visit's photo waiting for its memory
+  const PHOTO_WAIT = 15 * 60e3;                        // souvenirs.py PHOTO_WAIT_S
   let evid = Date.now() % 100000 * 100;
   const now = () => Date.now(), today = () => new Date(), noon = d => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTime();
   if (!LOCAL) try { const k = JSON.parse(localStorage.getItem(KEY)) || {}; F = cleanSouvenirs(k.souvenirs); HF = cleanHumeur(k.humeur); } catch { /* afresh */ }
@@ -181,7 +197,7 @@ function hub(api) {
     if (!HF.on || question) return false;
     const d = new Date(t), j = ymd(d), h = d.getHours();
     if (HF.jours[j] || h * 60 + d.getMinutes() < HF.heure || h >= 21 || h < 7 || dayNum(d) <= dayNum(rencontre())) return false;   // not the day you met
-    if (inQuiet(h, S.caractere && S.caractere.calme) || isAsleep(S)) return false;
+    if (isAsleep(S, h) || occupe(S)) return false;   // his night (his schedule, else his quiet hours); a game, a friend's visit
     const a = HF.asks; return !(a.jour === j && (a.n >= ASKS_MAX || t - a.t < ASK_GAP));
   }
   function hier() { const t = today(); for (const n of [1, 2]) { const j = ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() - n)), v = HF.jours[j]; if (v) return { jour: j, m: v.m, chips: [...v.chips], il_y_a: n }; } return null; }
@@ -247,12 +263,15 @@ function hub(api) {
     } catch (e) { console.warn('Pixel: album', e); }
     pubAlbum(); mark();
   }
-  const refus = () => {
+  const refus = () => {                                // album.py refus()
     if (S.cast && S.cast.id && (!S.cast.until || S.cast.until > now())) return 'quelque chose est casté sur mon écran : arrête-le d\'abord !';
     if (S.exos && S.exos.cur) return 'finis d\'abord ton exo, et je prends la pose !';
+    if (isAsleep(S)) return 'chut… je dors. On la prendra à mon réveil !';
+    const o = occupe(S); if (o && o[0] === 'sortie') return `je suis chez ${o[1]} : on la prendra à mon retour !`;
     return '';
   };
   function dropPhoto(p) {
+    if (attend && attend.photo === p.id) attend = null;
     AP.photos.splice(AP.photos.indexOf(p), 1); if (p.url) URL.revokeObjectURL(p.url);
     if (AL && AL.store) AL.store.del(p.id).catch(() => {});
     for (const e of F.timeline) if (e.photo === p.id) e.photo = null;
@@ -265,6 +284,7 @@ function hub(api) {
     while (AP.photos.length > MAXP) { const old = AP.photos.filter(x => !x.fav).sort((a, b) => a.t - b.t)[0]; if (!old) break; dropPhoto(old); }
     if (AL && AL.store) await AL.store.put({ id: p.id, t: p.t, raison, fav: false, w: p.w, h: p.h, blob }).catch(e => console.warn('Pixel: album', e));
     if (raison === 'photo') AP.demande = null;
+    else if (raison === 'ami' && (occupe(S) || [])[0] === 'visite') attend = { type: 'ami', photo: p.id, t: now() };   // a friend here: his visit's memory comes at its end
     else {                                             // souvenirs.py lier_photo: the memory of that moment shows it
       const types = { anniversaire: ['anniversaire'], rencontre: ['rencontre-an', 'jours'], record: ['record', 'chrono'], trophee: ['trophee'] }[raison] || [raison];
       const e = F.timeline.find(x => types.includes(x.type) && !x.photo && now() - x.t < 6 * 3600e3); if (e) e.photo = p.id;
@@ -291,7 +311,9 @@ function hub(api) {
       added = added.filter(x => n - x[0] >= 0 && n - x[0] < 3600e3); if ((added.length && n - added[added.length - 1][0] < 2000) || added.length >= 30) return;
       if (added.some(x => n - x[0] < 60000 && x[1] === type && x[2] === tx)) return;   // the same memory twice in a minute: once
       added.push([n, type, tx]); const tt = typeof t === 'number' && t >= T_MIN && t <= n + 864e5 ? t : null;
-      const e = add(type, tx, tt, epingle === true && F.timeline.filter(x => x.epingle).length < PINNED_MAX); event('ajoute', { type, texte: e.texte, souvenir: e.id });
+      const e = add(type, tx, tt, epingle === true && F.timeline.filter(x => x.epingle).length < PINNED_MAX);
+      if (attend && attend.type === type && !e.photo && n - attend.t >= 0 && n - attend.t < PHOTO_WAIT) { e.photo = attend.photo; attend = null; }   // its photo, taken before it
+      event('ajoute', { type, texte: e.texte, souvenir: e.id });
       if (type === 'ami' && !F.records.premier_ami) F.records.premier_ami = { id: 'ami', label: cleanText(tx, 40), t: e.t };   // a friend's first visit (souvenirs.py)
       publish(); keep();
     },
@@ -324,9 +346,12 @@ function hub(api) {
       p.fav = v; if (AL && AL.store) AL.store.put({ id: p.id, t: p.t, raison: p.raison, fav: v, w: p.w, h: p.h, blob: p.blob }).catch(() => {}); pubAlbum();
     },
     'album.supprime': ({ id = null } = {}) => { const p = AP.photos.find(x => x.id === id); if (!p) return; dropPhoto(p); publish(); pubAlbum(); keep(); },
-    'album.montre': () => {
+    'album.montre': () => {                            // album.py montre(): after an exercise, a game or a friend's visit, not at night
       if (!AP.photos.length) { toast('Pas encore de photo dans mon album : dis « prends une photo » !', 5000); return; }
-      if (S.exos && S.exos.cur) { toast('Finis d\'abord ton exo, et je te montre mon album !', 4000); return; }
+      const o = occupe(S), why = S.exos && S.exos.cur ? 'Finis d\'abord ton exo, et je te montre mon album !' : o && o[0] === 'jeu' ? 'Finis d\'abord ta partie, et je te montre mon album !'
+        : o && o[0] === 'visite' ? `Pas maintenant : ${o[1]} est là ! Je te montre mon album après.` : o ? `Je suis chez ${o[1]} : je te montre mon album à mon retour !`
+          : isAsleep(S) ? 'Chut… je dors. Je te montre mon album à mon réveil !' : '';
+      if (why) { toast(why, 4000); return; }
       AP.ev = { id: ++evid, kind: 'montre', t0: now() }; S.anim = null; S.screen = 'visage'; pubAlbum();
     },
     'lab.souvenirs': ({ quoi = '' } = {}) => {        // Pixel Lab's buttons: today a celebration, yesterday a mood, a question now
@@ -477,8 +502,8 @@ function present() {                                   // a real touch (or key) 
   if (!L || !L.inputAt || (typeof document !== 'undefined' && document.hidden)) return false;
   const e = realNow() - L.inputAt; return e < 90000 && e > 1200;
 }
-function free() {
-  if (!L || !PER || !P || L.scr !== 'visage' || L.boot >= 0 || L.sleepy || Sc.casting || Sc.menuOpen || view() || asleep()) return false;
+function free() {                                     // a game or a friend's visit (here, knocking, away): it all waits for its end, as for an exercise
+  if (!L || !PER || !P || L.scr !== 'visage' || L.boot >= 0 || L.sleepy || Sc.casting || Sc.menuOpen || view() || asleep() || occupe(P)) return false;
   const X = window.PixelExos, N = window.PixelNourrir;
   if ((X && (X.open || X.offering)) || (N && N.trayOpen)) return false;
   const cur = PER.state.cur, g = cur ? (PER.scenes.find(s => s.id === cur) || {}).group : '';
@@ -532,22 +557,18 @@ function view() {
   if (PER && PER.state.cur === 'souvenir-question' && (PER.current().e || 0) > 1500) return 'offre';
   return null;
 }
-const exosOwns = () => { const X = window.PixelExos; return !!(X && (X.open || X.offering)); };
-function guard() {                                     // the food tray and its plate wait while a view of ours shows (as web/exos.js does)
-  const N = window.PixelNourrir;
-  if (N && !N.souvGuard && typeof N.over === 'function') {
-    const over = N.over, swipe = N.swipe, open = N.open;
-    N.over = k => { if (!view()) return over(k); if (N.trayOpen && N.close) N.close(); };
-    if (typeof swipe === 'function') N.swipe = (dy, y0) => (view() ? false : swipe(dy, y0));
-    if (typeof open === 'function') N.open = () => (view() ? false : open());
-    N.souvGuard = true;
-  }
+const exoOpen = () => !!(window.PixelExos && window.PixelExos.open);
+function guard() {                                     // the food tray and its plate wait under our views (screens.js ORDER, web/nourrir.js)
   const X = window.PixelExos;                          // his offer « Une petite question ? » waits for ours, and for the party
   if (X && !X.souvGuard && typeof X.canPropose === 'function') { const cp = X.canPropose; X.canPropose = c => !view() && !(P && P.humeur && P.humeur.question) && cp(c); X.souvGuard = true; }
 }
-function diapo() { const al = P && P.album; if (!al || !al.photos.length || exosOwns()) return; V.album = { i: 0, t: K ? K.now : 0, list: al.photos.slice(0, 30).map(p => p.id) }; V.anniv = null; V.chips = null; if (L) L.dirty = true; }
-const ad = {
-  on: scr => scr === 'visage' && !!L && L.boot < 0 && !Sc.casting && !exosOwns() && !!view(),
+function diapo() {                                     // not over an exercise, a game or a friend's visit (album.py montre() says so first)
+  const al = P && P.album; if (!al || !al.photos.length || exoOpen() || occupe(P)) return;
+  V.album = { i: 0, t: K ? K.now : 0, list: al.photos.slice(0, 30).map(p => p.id) }; V.anniv = null; V.chips = null; if (L) L.dirty = true;
+}
+const ad = {                                           // in screens.js's ORDER: after an open exercise, a game and a friend's visit; before his offers and his night
+  name: 'souvenirs',
+  on: scr => scr === 'visage' && !!L && L.boot < 0 && !Sc.casting && !!view(),
   instead: () => ['album', 'anniv', 'chips', 'humeur'].includes(view()),
   busy: () => !!view(),
   fps: calm => { const v = view(); return v === 'album' ? 20 : v ? 30 : calm; },
@@ -968,7 +989,7 @@ return {
   get mirror() { return mirror; }, get home() { return HOME; },
   panel(open, which) { if (open === false) return panel(false); return panel(true, which === 'album' ? 'album' : which === 'carnet' ? 'carnet' : 'souvenirs'); },
   get isOpen() { return !!pv && !pv.root.hidden; }, get viewer() { return viewer ? viewer.id : null; },
-  get drawn() { return L && ad.on(L.scr) ? view() : null; },   // what his face screen shows of ours now (null: something else comes first)
+  get drawn() { return L && Sc && Sc.addonTop === 'souvenirs' ? view() : null; },   // what his face screen shows of ours now (null: something else comes first)
   diapo, get V() { return { album: V.album && { ...V.album }, anniv: V.anniv && { ...V.anniv }, chips: V.chips && { ...V.chips }, hidden: V.hidden }; },
   layout: { face: FB, faces: MOODS.map((m, i) => ({ m: m[0], x: 16 + i * 154, y: 214, w: 148, h: 188 })), chips: CHIPS.map((c, i) => ({ id: c[0], x: 16 + (i % 4) * 194, y: 216 + Math.floor(i / 4) * 80, w: 186, h: 70 })) },
   ask: () => { if (PER) { play('souvenir-question'); } },   // the lab: he asks your birthday now
