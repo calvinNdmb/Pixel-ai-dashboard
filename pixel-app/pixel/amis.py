@@ -426,7 +426,10 @@ class Amis:
     def ma_carte(self):
         car = self.hub.s.get("caractere") if isinstance(self.hub.s.get("caractere"), dict) else {}
         theme = (self.hub.s.get("view") or {}).get("theme")
-        return clean_card({"id": self.moi, "nom": car.get("nom"), "caractere": car.get("preset"), "theme": theme, "look": self.hub.s.get("look")})
+        look = self.hub.s.get("look")
+        if isinstance(look, dict):           # what draws him (web/look.js with(): his choices and what he wears now), not the screens' own keys
+            look = {k: v for k, v in look.items() if k not in ("change", "avant", "sans")}   # (a change's time would redraw his friends' lists)
+        return clean_card({"id": self.moi, "nom": car.get("nom"), "caractere": car.get("preset"), "theme": theme, "look": look})
 
     def _qr(self):
         if not self.code:

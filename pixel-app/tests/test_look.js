@@ -187,7 +187,7 @@ async function inLab(browser) {
   await lab.evaluate(() => PixelHub.dispatch('look.reset'));
   const bday = await at({ date: '2026-11-09T14:00', fete: 'anniversaire' });
   check('his birthday (souvenirs.fete): the party hat', bday.tete === 'fete' && bday.saison === 'anniversaire', JSON.stringify(bday));
-  await at({ fete: null });
+  await at({ fete: null, date: null });            // back to today: the typed commands below compare his look with the Pi's, dates included
   await lab.evaluate(() => { Screens.persona.stop(); PixelHub.S.habitudes = { dort: true }; });
   const night = await until(() => lab.evaluate(() => PixelHub.S.look.porte.nuit && { ...PixelHub.S.look.porte, cur: Screens.persona.state.cur, main: PixelLook.cur().wear }), 5000);
   check(`he sleeps (S.habitudes.dort, a stand-in for his habits): nightcap and pyjama, at once, and a little scene (${night && night.cur})`,

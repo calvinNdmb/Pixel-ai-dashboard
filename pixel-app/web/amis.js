@@ -569,7 +569,7 @@ function build(root, o = {}) {                                           // the 
   const journal = el('section', 'amis-journal'), ol = el('ol'); journal.append(el('h3', null, 'Ce qui s’est passé'), ol);
   const off = el('p', 'amis-off');
   root.append(etat, off, visite, liste, code, ajout, reg, journal);
-  let shown = '', confirmT = 0;
+  let shown = '', confirmT = 0, stickFor = null;      // stickFor: whose sticker row is open (it stays open when the list is drawn again)
   const confirm = (b, label, fn) => b.addEventListener('click', () => {
     if (b.dataset.sure === '1') { b.dataset.sure = ''; b.textContent = label; fn(); return; }
     b.dataset.sure = '1'; b.textContent = 'Sûr ? Touche encore'; clearTimeout(confirmT); confirmT = setTimeout(() => { b.dataset.sure = ''; b.textContent = label; }, 4000);
@@ -583,16 +583,16 @@ function build(root, o = {}) {                                           // the 
     const busy = !!a.visite, goB = btn('amis-btn main', 'Va le voir', () => go('amis.visite', { ami: f.id }));
     goB.disabled = busy || !a.on; goB.setAttribute('aria-label', `Va voir ${f.nom}`);
     const cou = btn('amis-btn', 'Coucou', () => go('amis.coucou', { ami: f.id })); cou.disabled = !a.on; cou.setAttribute('aria-label', `Coucou à ${f.nom}`);
-    const st = btn('amis-btn', 'Autocollant', () => { stick.hidden = !stick.hidden; st.setAttribute('aria-expanded', String(!stick.hidden)); }); st.disabled = !a.on; st.setAttribute('aria-expanded', 'false');
+    const st = btn('amis-btn', 'Autocollant', () => { stick.hidden = !stick.hidden; stickFor = stick.hidden ? null : f.id; st.setAttribute('aria-expanded', String(!stick.hidden)); }); st.disabled = !a.on;
     const rm = btn('amis-btn warn', 'Retirer'); confirm(rm, 'Retirer', () => go('amis.retire', { ami: f.id })); rm.setAttribute('aria-label', `Retirer ${f.nom} de ses amis`);
     acts.append(goB, cou, st, rm);
-    stick.hidden = true;
+    stick.hidden = !(a.on && stickFor === f.id); st.setAttribute('aria-expanded', String(!stick.hidden));
     const col = ART ? ART.theme(THEMES[(P && P.view && P.view.theme) || 'retro'] || THEMES.retro || { fg: '#46ff82', bg: '#061009' }) : null;
     for (const s of ART ? ART.STICKERS : []) {
       const b = btn('amis-sticker'), cv = el('canvas'); cv.width = cv.height = 12; cv.setAttribute('aria-hidden', 'true');
       const sp = col && ART.sprite(s.id, col); if (sp) cv.getContext('2d').drawImage(sp, 0, 0);
       b.append(cv); b.title = cap(s.nom); b.setAttribute('aria-label', `Envoyer ${s.nom} à ${f.nom}`);
-      b.addEventListener('click', () => { go('amis.sticker', { ami: f.id, s: s.id }); stick.hidden = true; st.setAttribute('aria-expanded', 'false'); });
+      b.addEventListener('click', () => { go('amis.sticker', { ami: f.id, s: s.id }); stick.hidden = true; stickFor = null; st.setAttribute('aria-expanded', 'false'); });
       stick.append(b);
     }
     c.append(face, info, acts, stick); return c;
