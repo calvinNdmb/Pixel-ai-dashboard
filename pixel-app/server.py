@@ -43,6 +43,7 @@ from pixel import exos                   # little math exercises (and riddles)
 from pixel import souvenirs, album       # his memories and your mood journal; his photo album (/api/album, /album/NAME)
 from pixel import amis                   # les amis de Pixel: visits from house to house, through a relay (docs/AMIS.md)
 from pixel import look                   # his look: eyes, colours, what he wears, the seasons' outfits, his pyjama
+from pixel import habitudes              # his habits: his day (wake-up, nap, bedtime), games, laughs, fears, his phrases
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -180,6 +181,7 @@ async def serve(args, cfg, datadir, token):
     core_actions(hub, datadir)
     poche.setup(hub)                     # Pixel de poche: the two Pixels pass news, the voyage
     caractere.setup(hub, datadir)        # his character, saved in caractere.json
+    habitudes.setup(hub, datadir)        # his habits (habitudes.json): after caractère (its old quiet hours), before nourrir (his night)
     nourrir.setup(hub, datadir)          # Nourrir: feeding Pixel (data_dir/nourrir.json)
     exos.setup(hub, datadir)             # math exercises: the exos.* actions, data_dir/exos.json
     souvenirs.setup(hub, datadir)        # souvenirs.* and humeur.*: data_dir/souvenirs.json, humeur.json (after exos and nourrir: he reads them)

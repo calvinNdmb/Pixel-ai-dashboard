@@ -308,7 +308,7 @@ const saved = l => JSON.stringify(Object.fromEntries(SAVED.map(k => [k, l[k]])))
     const go = await phone.$('.look-go');
     const row = await phone.evaluate(() => [...document.querySelector('.kfoot > span').children].filter(e => !e.hidden).map(e => e.textContent.trim()).join(' · '));
     check(`the phone: a « Son look » button under the keys, with the others (${row})`, !!go && await go.isVisible() && (await go.textContent()) === 'Son look'
-      && /Caractère · Son look · Nourrir · Exos/.test(row), row);
+      && /Caractère · Son look · Habitudes · Nourrir · Exos/.test(row), row);
     await phone.tap('.look-go'); await wait(500);
     const dom = await phone.evaluate(() => {
       const s = document.querySelector('.look-sheet'), cv = s.querySelector('.look-cv'), g = cv.getContext('2d'), d = g.getImageData(0, 0, cv.width, cv.height).data, cols = new Set();

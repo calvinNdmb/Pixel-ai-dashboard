@@ -22,6 +22,7 @@ const PANEL: Record<PanelId, { label: string; hint: string }> = {
   nourrir: { label: 'Le nourrir', hint: 'Son ventre, ses goûts, ses 24 plats.' },
   exos: { label: 'Exos de maths', hint: 'De petites questions, du CP au collège.' },
   look: { label: 'Son look', hint: 'Ses yeux, ses couleurs, ses chapeaux, ses tenues.' },
+  habitudes: { label: 'Ses habitudes', hint: 'Son réveil, sa sieste, son coucher ; ses jeux, ses blagues, ses peurs.' },
   souvenirs: { label: 'Ses souvenirs', hint: 'Ton anniversaire, vos records, ton carnet d’humeur.' },
   album: { label: 'L’album photo', hint: 'Ses plus belles photos, à voir en grand ou à garder.' },
   amis: { label: 'Ses amis', hint: 'Il rend visite au Pixel d’un copain, de maison en maison.' },

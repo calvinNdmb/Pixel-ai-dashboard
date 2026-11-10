@@ -81,6 +81,7 @@ for (const face of ['pack', 'vivant']) for (const th of themes) {
 }
 check('every scene ends with Pixel back in his place', offEnd.length === 0, offEnd.slice(0, 3).join(' | '));
 set({ view: { ...S.view, theme: 'retro', face: 'pack' } });
+at('2026-11-08T14:00:00');                          // the sweep above moved the wall clock by hours (more packs, more hours): the day again
 
 // ---- the zones of his face ----
 const B = { x: 64, y: 50, w: 672, h: 378 }, M = { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 }, P2 = (u, v) => PER.project(B, M, u, v);

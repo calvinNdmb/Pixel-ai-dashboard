@@ -354,14 +354,14 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   check('…closed a moment ago: nothing changes', (await back(61, 1000)) === 61);
   /* the app's menu opens his panels here (PixelMenu.tsx, plugs.ts openPanel): the page says which it has */
   const offered = (await S(page, () => window.__rn)).filter(m => Array.isArray(m.panels)).pop();
-  check('the page tells the app its panels: Caractère, Nourrir, Exos, Souvenirs, Album, Son look (not « Ses amis »: through his Pi only)', !!offered && offered.panels.join() === 'caractere,nourrir,exos,souvenirs,album,look', JSON.stringify(offered));
+  check('the page tells the app its panels: Caractère, Nourrir, Exos, Souvenirs, Album, Son look, Ses habitudes (not « Ses amis »: through his Pi only)', !!offered && offered.panels.join() === 'caractere,nourrir,exos,souvenirs,album,look,habitudes', JSON.stringify(offered));
   await page.click('#modes button[data-mode="pixel"]'); await page.waitForTimeout(200);
   const opened = {};
-  for (const [id, sel] of [['nourrir', '#nour'], ['exos', '#exos'], ['caractere', '.car-sheet'], ['souvenirs', '#souv'], ['album', '#souv']]) {
+  for (const [id, sel] of [['nourrir', '#nour'], ['exos', '#exos'], ['caractere', '.car-sheet'], ['souvenirs', '#souv'], ['album', '#souv'], ['habitudes', '.hab-sheet']]) {
     await page.evaluate(i => window.PixelPanel(i), id); await page.waitForTimeout(400);
     opened[id] = await page.evaluate(s => { const e = document.querySelector(s); return !!e && !e.hidden && e.getBoundingClientRect().height > 50 && document.body.dataset.mode === 'both'; }, sel);
     await shot(page, 'app-menu-' + id);
-    await page.evaluate(() => { PixelNourrir.panel(false); PixelExos.panel(false); PixelCaractere.close(false); if (window.PixelSouvenirs) PixelSouvenirs.panel(false); });
+    await page.evaluate(() => { PixelNourrir.panel(false); PixelExos.panel(false); PixelCaractere.close(false); if (window.PixelSouvenirs) PixelSouvenirs.panel(false); if (window.PixelHabitudes) PixelHabitudes.panel(false); });
     await page.click('#modes button[data-mode="pixel"]'); await page.waitForTimeout(200);
   }
   check('…in Pixel mode, the menu\'s « Le nourrir », « Exos de maths », « Son caractère », « Souvenirs », « Album » bring the keys back and open their panel', Object.values(opened).every(Boolean), JSON.stringify(opened));
@@ -446,6 +446,9 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   /* ================= a phone held sideways: the Pixel de poche ================= */
   ({ ctx, page, errs } = await phone(browser, { device: devices['Pixel 7 landscape'], app: true, senses: true }));
   await until(() => page.evaluate(() => !!window.PixelPoche && PixelPoche.on), 4000); await page.waitForTimeout(600);
+  /* his habits (web/habitudes.js): Pixel sans Pi sleeps at night by the phone's clock, and asleep he has no plate; his schedule
+     off here, the same at any hour (tests/test_habitudes.js checks his nights, Pixel sans Pi's too) */
+  await page.evaluate(() => { const h = PixelHub.S.habitudes; if (h && h.horaires.actif) PixelHub.dispatch('habitudes.horaires', { actif: false }); }); await page.waitForTimeout(400);
   const lay = await S(page, () => { const r = document.getElementById('crt').getBoundingClientRect(), v = document.querySelector('.poche-voyage'); return { on: PixelPoche.on, h: r.height, ih: innerHeight, voyage: v ? getComputedStyle(v).display : 'none', scr: Screens.local.scr }; });
   check('sideways: the Pixel de poche, his face alone, full height', lay.on && lay.scr === 'visage' && Math.abs(lay.h - lay.ih) <= 2, JSON.stringify(lay));
   check('…no voyage button: there is no Pi to come from', lay.voyage === 'none', lay.voyage);

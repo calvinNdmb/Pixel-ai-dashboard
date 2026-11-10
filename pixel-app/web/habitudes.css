@@ -1,0 +1,78 @@
+/* The « Ses habitudes » panel of the phone (habitudes.js): a sheet from the bottom, in the theme's colours (style.css: --k-*, --c-*),
+   like « Caractère ». Big touch targets (56 px), readable in the 6 themes, scanlines and a phosphor glow in Rétro. */
+.hab-go{margin:0}
+body.hab-open{overflow:hidden}
+.car-hab{min-height:56px;padding:0 16px;border:2px solid var(--cs);border-radius:14px;background:transparent;color:var(--cf);font:inherit;cursor:pointer}
+.hab-sheet{position:fixed;inset:0;z-index:61;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.6);
+  padding-top:max(12px,env(safe-area-inset-top))}
+.hab-box{--hf:var(--c-fg);--hd:var(--c-dim);--hl:var(--c-line);--ha:var(--k-act);--hs:var(--k-cur);--hs-fg:var(--k-curfg);--hb:var(--k-bg);
+  position:relative;width:min(620px,100%);max-height:100%;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  background:var(--hb);color:var(--hf);border:2px solid var(--hl);border-bottom:0;border-radius:20px 20px 0 0;
+  padding:0 16px max(24px,env(safe-area-inset-bottom));font:calc(20px*var(--hab-k,1))/1.25 var(--c-font);box-shadow:0 -12px 40px rgba(0,0,0,.5)}
+.hab-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;margin:0 -16px;padding:12px 12px 10px 18px;background:var(--hb);border-bottom:2px solid var(--hl)}
+.hab-title{flex:1;min-width:0;margin:0;font:calc(30px*var(--k-size))/1.05 var(--k-font);color:var(--k-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hab-x{flex:none;width:56px;height:56px;border-radius:50%;border:2px solid var(--hl);background:transparent;color:var(--hf);font:32px/1 var(--f-ui);cursor:pointer}
+.hab-body{display:flex;flex-direction:column;gap:10px;padding-top:12px}
+.hab-now{margin:0;padding:12px 14px;border:2px solid var(--hl);border-radius:14px;line-height:1.3;color:var(--ha)}
+.hab-h{margin:14px 0 0;font:calc(22px*var(--k-size))/1 var(--k-font);letter-spacing:.04em;color:var(--k-fg);text-transform:uppercase}
+.hab-note{margin:0;font-size:.75em;line-height:1.3;color:var(--hd)}
+.hab-sched,.hab-peurs,.hab-exprs{display:flex;flex-direction:column;gap:8px}
+.hab-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.hab-row[hidden]{display:none}
+.hab-acts{grid-template-columns:repeat(3,minmax(0,1fr))}
+.hab-time{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:.85em;color:var(--hd)}
+.hab-time select,.hab-teach select{min-height:56px;width:100%;min-width:0;padding:0 10px;border:2px solid var(--hl);border-radius:12px;background:var(--hb);color:var(--hf);font:inherit}
+.hab-time select:disabled{opacity:.5}
+.hab-sw{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:12px;min-height:64px;padding:8px 12px;text-align:left;width:100%;
+  border:2px solid var(--hl);border-radius:14px;background:transparent;color:var(--hf);font:inherit;cursor:pointer}
+.hab-sw-t{grid-column:1}
+.hab-sw small{grid-column:1;font-size:.72em;color:var(--hd);line-height:1.25}
+.hab-knob{grid-column:2;grid-row:1/span 2;position:relative;width:56px;height:32px;border-radius:16px;border:2px solid var(--hl);background:transparent}
+.hab-knob::after{content:"";position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--hd);transition:transform .15s,background .15s}
+.hab-sw[aria-checked="true"] .hab-knob{background:var(--hs);border-color:var(--hs)}
+.hab-sw[aria-checked="true"] .hab-knob::after{transform:translateX(24px);background:var(--hs-fg)}
+.hab-btn{min-height:56px;padding:6px 10px;border:2px solid var(--hs);border-radius:14px;background:transparent;color:var(--hf);font:calc(21px*var(--k-size))/1.05 var(--k-font);cursor:pointer;overflow-wrap:anywhere}
+.hab-btn:disabled{opacity:.45;cursor:default}
+.hab-wake,.hab-learn{background:var(--hs);color:var(--hs-fg)}
+.hab-jeux{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.hab-jeu{display:flex;flex-direction:column;gap:6px;padding:10px;border:2px solid var(--hl);border-radius:14px;min-width:0}
+.hab-jeu.fav{border-color:var(--ha)}
+.hab-jeu-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.hab-jeu-name{min-width:0;font:calc(21px*var(--k-size))/1.1 var(--k-font);color:var(--k-fg);overflow-wrap:break-word}
+.hab-jeu-ic{flex:none;width:28px;height:28px}
+.hab-ic{display:block;width:28px;height:28px;image-rendering:pixelated}
+.hab-fav{flex:none;width:56px;height:56px;margin:-6px -4px -6px 0;border:2px solid var(--hl);border-radius:50%;background:transparent;color:var(--hd);font:26px/1 var(--f-ui);cursor:pointer}
+.hab-fav[aria-pressed="true"]{background:var(--ha);border-color:var(--ha);color:var(--hb)}
+.hab-rec{font-size:.72em;color:var(--hd)}
+.hab-play{background:var(--hs);color:var(--hs-fg)}
+.hab-chips{display:flex;flex-wrap:wrap;gap:8px}
+.hab-chip{min-height:56px;padding:0 14px;border:2px solid var(--hl);border-radius:28px;background:transparent;color:var(--hf);font:inherit;cursor:pointer}
+.hab-chip[aria-pressed="true"]{background:var(--hs);border-color:var(--hs);color:var(--hs-fg)}
+.hab-chip[aria-pressed="true"]::before{content:"✓ "}
+.hab-peur{display:flex;flex-direction:column;gap:6px}
+.hab-courage{height:10px;border-radius:5px;border:2px solid var(--hl);overflow:hidden}
+.hab-courage i{display:block;height:100%;width:0;background:var(--ha);transition:width .3s}
+.hab-courage-t{font-size:.8em;color:var(--ha)}
+.hab-teach{display:grid;grid-template-columns:1fr;gap:8px}
+.hab-teach input{min-height:56px;width:100%;min-width:0;padding:0 12px;border:2px solid var(--hl);border-radius:12px;background:transparent;color:var(--hf);
+  font:calc(22px*var(--hab-k,1)) var(--c-font);caret-color:var(--hf)}
+.hab-teach input::placeholder{color:var(--hd);opacity:.75}
+.hab-msg{margin:0;font-size:.8em;color:var(--ha);min-height:1.2em}
+.hab-expr{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:2px solid var(--hl);border-radius:14px}
+.hab-expr.empty{opacity:.75}
+.hab-expr-t{font-size:.85em;color:var(--hd)}
+.hab-said{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.hab-said li{display:flex;gap:6px;align-items:stretch}
+.hab-say{flex:1;min-width:0;min-height:56px;padding:6px 12px;text-align:left;border:2px solid var(--hl);border-radius:12px;background:transparent;color:var(--hf);font:inherit;overflow-wrap:anywhere;cursor:pointer}
+.hab-say::before{content:"« "}.hab-say::after{content:" »"}
+.hab-del{flex:none;width:56px;min-height:56px;border:2px solid var(--hl);border-radius:12px;background:transparent;color:var(--hf);font:28px/1 var(--f-ui);cursor:pointer}
+.hab-none{font-size:.8em;color:var(--hd);padding:4px 2px}
+.hab-x:focus-visible,.hab-sw:focus-visible,.hab-btn:focus-visible,.hab-fav:focus-visible,.hab-chip:focus-visible,.hab-say:focus-visible,.hab-del:focus-visible,
+.hab-time select:focus-visible,.hab-teach select:focus-visible,.hab-teach input:focus-visible{outline:2px solid var(--hs);outline-offset:2px}
+@media (max-width:380px){.hab-acts{grid-template-columns:1fr}}
+/* per theme: the CRT's scanlines and glow in Rétro; a little more size for the pixel fonts */
+body[data-theme="retro"] .hab-box,body:not([data-theme]) .hab-box{--hab-k:1.08;--hd:#38c46c;background-image:repeating-linear-gradient(180deg,transparent 0 2px,rgba(0,0,0,.28) 2px 3px);
+  text-shadow:0 0 6px rgba(70,255,130,.45)}
+body[data-theme="retro"] .hab-top{background-image:repeating-linear-gradient(180deg,transparent 0 2px,rgba(0,0,0,.28) 2px 3px)}
+body[data-theme="lcd"] .hab-box{--hab-k:1.02}
+body[data-theme="manga"] .hab-box,body[data-theme="croquis"] .hab-box{--hd:#5d5a55}

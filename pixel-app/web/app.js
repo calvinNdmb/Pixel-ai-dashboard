@@ -105,17 +105,18 @@ const PANELS = { caractere: () => window.PixelCaractere && PixelCaractere.open()
   amis: () => window.PixelAmis && PixelAmis.panel && PixelAmis.panel(true) };   // amis.js: « Ses amis » (Pi only for now: without one it says so)
 Object.assign(PANELS, { souvenirs: () => window.PixelSouvenirs && PixelSouvenirs.panel(true, 'souvenirs'), album: () => window.PixelSouvenirs && PixelSouvenirs.panel(true, 'album') });   // souvenirs.js: one sheet, two doors
 PANELS.look = () => window.PixelLook && PixelLook.open();                       // « Son look » (look.js)
+PANELS.habitudes = () => window.PixelHabitudes && PixelHabitudes.panel(true);         // « Ses habitudes » (habitudes.js)
 window.PixelPanel = id => {
   if (kiosk || !Object.hasOwn(PANELS, id) || document.body.classList.contains('poche')) return false;   // Pixel de poche: the whole phone is his face
   if (document.body.dataset.mode === 'pixel') setMode('both');
   PANELS[id](); return true;
 };
-if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, souvenirs: window.PixelSouvenirs, album: window.PixelSouvenirs, amis: !LOCAL && window.PixelAmis && window.PixelAmis.panel, look: window.PixelLook })[id]) });   // amis: through his Pi only
+if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, souvenirs: window.PixelSouvenirs, album: window.PixelSouvenirs, amis: !LOCAL && window.PixelAmis && window.PixelAmis.panel, look: window.PixelLook, habitudes: window.PixelHabitudes })[id]) });   // amis: through his Pi only
 /* the row under the keys: each feature adds its own button when its script runs (some later, with the first state); kept
-   here in one order, whatever order they came in: Miroir de Pixel, Agendas, then his own (Caractère, Son look, Nourrir,
-   Exos, Souvenirs, Album, Amis), then the Android app's link. A button not listed stays where it is, after them. */
+   here in one order, whatever order they came in: Miroir de Pixel, Agendas, then his own (Caractère, Son look, Habitudes,
+   Nourrir, Exos, Souvenirs, Album, Amis), then the Android app's link. A button not listed stays where it is, after them. */
 const FOOT = document.querySelector('.kb .kfoot > span'), FOOT_ORDER = ['#follow', 'a[href$="reglages.html"]', '.car-go', '.look-go',
-  '.nour-go', '.exos-go', '.souv-go', '.amis-go', '#apk'];
+  '.hab-go', '.nour-go', '.exos-go', '.souv-go', '.amis-go', '#apk'];
 if (FOOT && !kiosk) {
   const rank = e => { const i = FOOT_ORDER.findIndex(q => e.matches(q)); return i < 0 ? FOOT_ORDER.length : i; };
   const sortFoot = () => {
@@ -130,6 +131,7 @@ const SHEETS = [['#exos', () => PixelExos.panel(false)], ['#nour', () => PixelNo
   ['#amis', () => PixelAmis.panel(false)]];
 SHEETS.push(['#souv', () => PixelSouvenirs.back()]);   // souvenirs.js: its full screen photo first, then the sheet
 SHEETS.push(['.look-sheet', () => PixelLook.close()]);                           // « Son look » (look.js)
+SHEETS.push(['.hab-sheet', () => PixelHabitudes.panel(false)]);                     // « Ses habitudes » (habitudes.js)
 const openSheets = () => SHEETS.filter(([q]) => { const e = document.querySelector(q); return !!e && !e.hidden && e.getClientRects().length > 0; });
 let sheetTold = null;                                 // what the app was last told
 const tellSheet = () => { const now = openSheets().length > 0; if (now !== sheetTold) { sheetTold = now; toApp({ sheet: now }); } };

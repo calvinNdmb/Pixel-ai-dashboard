@@ -4,7 +4,7 @@
    - phoneNotifs: no Pi linked, the phone's notifications (only if switched on, only the apps ticked) make the phone's own
      Pixel react while the app is open; nothing leaves the phone (with a Pi linked, the native listener sends them to him);
    - piSeed: while his Pi's page is shown, its last snapshot, so that the phone's Pixel looks and behaves like him;
-   - panels: his panels (Caractère, Son look, Nourrir, Exos de maths, Souvenirs, Album, Ses amis), opened from the app's menu on either page;
+   - panels: his panels (Caractère, Son look, Ses habitudes, Nourrir, Exos de maths, Souvenirs, Album, Ses amis), opened from the app's menu on either page;
    - sheets: the back button closes such a panel when one is open, before it opens the app's menu. */
 import { useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
@@ -56,11 +56,11 @@ const piSeed: Plug = {
   },
 };
 
-/* ---------- his panels: Caractère, Son look, Nourrir, Exos de maths, Souvenirs, Album, Ses amis (pixel-app/web/app.js PixelPanel) ----------
+/* ---------- his panels: Caractère, Son look, Ses habitudes, Nourrir, Exos de maths, Souvenirs, Album, Ses amis (pixel-app/web/app.js PixelPanel) ----------
    The page says which ones it has ({panels}); the app's menu (PixelMenu.tsx) offers them, and opens one on the page shown,
    the Pi's or the phone's own Pixel, in this order. An older Pi's page says nothing: no such items; a page without a panel
    (« Ses amis » without a Pi) does not offer it. */
-export const PANELS = ['caractere', 'look', 'nourrir', 'exos', 'souvenirs', 'album', 'amis'] as const;
+export const PANELS = ['caractere', 'look', 'habitudes', 'nourrir', 'exos', 'souvenirs', 'album', 'amis'] as const;
 export type PanelId = (typeof PANELS)[number];
 const panelPages = new Map<Page, PanelId[]>();
 let offered: PanelId[] = [];

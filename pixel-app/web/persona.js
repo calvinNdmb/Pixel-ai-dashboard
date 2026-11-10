@@ -318,6 +318,24 @@ const EVENTS = {
   'look-nuit': 'Son look : il met son pyjama pour dormir',
   'look-jour': 'Son look : il enlève son pyjama',
   'look-saison': 'Son look : une tenue de saison arrive',   // data.item, data.saison
+  // his habits (web/habitudes.js, pixel/habitudes.py, web/scenes/habitudes.js): his day, his games, his laughs, his fears, his phrases
+  'habitude-reveil': 'Habitudes : il se réveille le matin',
+  'habitude-coucher': 'Habitudes : bientôt le coucher',              // data.kind: annonce, dents, veilleuse, dodo
+  'habitude-sieste': 'Habitudes : sa sieste',                         // data.kind: debut, fin
+  'habitude-dodo': 'Habitudes : on le touche pendant qu’il dort',    // data.kind: marmonne, calin, noir, lumiere; data.etat
+  'habitude-pas-maintenant': 'Habitudes : il dort, pas de jeu',        // data.etat: nuit, sieste, coucher; data.quoi: jeu, blague, reveil
+  'habitude-phrase': 'Habitudes : une phrase à toi',                   // data.kind: appris, dit; data.texte
+  'jeu-debut': 'Jeux : une partie commence',                           // data.jeu, data.favori
+  'jeu-coup': 'Jeux : un coup de la partie',                           // data.kind: trouve, rate, sorti, toi, lui, egal, suite, faux
+  'jeu-fin': 'Jeux : la fin de la partie',                             // data.resultat: gagne, perdu, egal, fini; data.score, record, rit
+  'rire-blague': 'Rires : il raconte une blague',                      // data.n, aime, fou
+  'rire-grimace': 'Rires : il fait une grimace',
+  'rire-bruit': 'Rires : il fait un bruit rigolo',
+  'rire-chatouilles': 'Rires : les chatouilles',                       // data.fou: a farceur's giggle fit
+  'peur-orage': 'Peurs : l’orage gronde',                              // data.courage 0..100
+  'peur-noir': 'Peurs : les lumières s’éteignent',                     // data.courage, data.off (no fear of the dark)
+  'peur-araignee': 'Peurs : tu chasses la petite araignée',
+  'peur-rassure': 'Peurs : tu le rassures',                            // data.peur, courage, vaincue
 };
 /* a pack can draw its own props: kit.prop('enveloppe', (D, e, q) => { ... }), then D.enveloppe(e, q) in its scenes' props.
    D gives the canvas and its helpers: g, U (one pixel of the face's 96 x 54 grid, in screen px), P(u, v) (a point of that grid on the
@@ -326,6 +344,10 @@ const EVENTS = {
    pix (true in Rétro and LCD: g is then a small canvas, blown up without smoothing). A prop draws only; it never moves him. */
 const PROPS = {};
 const prop = (name, fn) => { PROPS[name] = fn; };
+/* another feature's hooks (web/habitudes.js, his habits): night(h) -> true/false (his quiet hours by his schedule; undefined:
+   the usual ones), gate(name, data) -> false (an event that must not reach him now: the world's news while he sleeps or
+   plays), lines(sc, lines, o) (his own phrases in a scene's lines). persona.hook(name, fn); null takes it away. */
+const HOOK = { night: null, gate: null, lines: null };
 const KIT = { S, L, pick, sm, out, inn, seg, bump, tri, jumps, clamp, rnd, TAU, W, HT, A, EVENTS, H, xmasLine, prop };
 for (const pack of (typeof window !== 'undefined' && window.PixelScenePacks) || []) {
   const n = SC.length;
@@ -405,7 +427,10 @@ function carSetTraits(c = {}) {                        // the snapshot's "caract
   CAR.calme = de === 23 && a === 6 ? null : [de, a];
   carToday();
 }
-const carNight = h => (!CAR.calme ? h >= 23 || h < 6 : CAR.calme[0] > CAR.calme[1] ? h >= CAR.calme[0] || h < CAR.calme[1] : h >= CAR.calme[0] && h < CAR.calme[1]);
+const carNight = h => {
+  if (HOOK.night) { try { const v = HOOK.night(h); if (typeof v === 'boolean') return v; } catch (e) { /* the usual night */ } }   // his schedule (web/habitudes.js)
+  return !CAR.calme ? h >= 23 || h < 6 : CAR.calme[0] > CAR.calme[1] ? h >= CAR.calme[0] || h < CAR.calme[1] : h >= CAR.calme[0] && h < CAR.calme[1];
+};
 /* what he says: his name where he says "Pixel", your nickname in a few greetings, more or fewer bubbles (bavard) */
 const CAR_CHAT = { content: L('Hé hé !', 'Trop bien !', 'J’adore ce moment.'), excite: L('Waouh !', 'Trop cool !', 'Encore !'), amoureux: L('Je t’aime bien !', 'Trop mignon…'),
   triste: L('Bof…', 'Snif…'), fache: L('Grrr…', 'Pff…'), confus: L('Hein ?', 'Euh…'), surpris: L('Oh !', 'Ça alors !'), baille: L('Mmh…', 'Quelle heure il est ?'),
@@ -438,6 +463,7 @@ function start(id, opts = {}) {
   if (sc.init) sc.init(o);
   const lines = (sc.say || []).map(([a, b, ls]) => [a, b, typeof ls === 'function' ? ls(o) : ls ? pick(ls) : (id === 'heure' ? `Coucou ! Il est ${new Date().getHours()} h.` : '')]);
   carVoice(sc, lines);                                 // his name, yours, and more or fewer bubbles (his character)
+  if (HOOK.lines) try { HOOK.lines(sc, lines, o); } catch (e) { /* his own lines stay */ }   // the phrases you taught him (web/habitudes.js)
   st.cur = { sc, t0: H.now(), o, lines, extra: null, forced: !!opts.forced };   // forced: asked for (lab, command), not cut short by the world
   if (sc.group === 'vie') { st.hist.push(id); if (st.hist.length > 5) st.hist.shift(); }
   if (H.onScene) try { H.onScene(id, sc.group); } catch (e) { /* his voice (son.js) must never stop him */ }
@@ -484,7 +510,7 @@ function tap(p, box, ctx = {}) {
   }
   if (cur && cur.sc.group === 'vie' && cur.sc.secret && el() > 1500) { start('timide'); st.cur.lines = [[100, 2400, pick(cur.sc.secret)]]; return true; }
   st.annoy += (gapT < 700 ? 1.35 : 1) * CAR.k.annoy;  // taps in a row annoy him more (a grumpy one: faster)
-  if ((CAR.calme ? carNight(new Date().getHours()) : ctx.night) && st.annoy < 2.5 && rnd() < 0.6) return start('nuit-tap');
+  if ((CAR.calme || HOOK.night ? carNight(new Date().getHours()) : ctx.night) && st.annoy < 2.5 && rnd() < 0.6) return start('nuit-tap');
   if (st.annoy >= 8) { st.annoy = 8; return start(CAR.boude ? 'boude' : carPick(TAP.angry, 'angry')); }
   if (st.annoy >= 5.5) return start(carPick(TAP.angry, 'angry'));
   if (st.annoy >= 3) return start(carPick(TAP.annoyed, 'annoyed'));
@@ -512,6 +538,7 @@ function pet() {
 function event(name, data = {}, ctx = {}) {
   const now = H.now(), list = (ON[name] || []).filter(sc => (!sc.when || sc.when(data)) && (!sc.caractere || carAffinity(sc) > 0));
   if (!list.length) return '';
+  if (HOOK.gate && !ctx.force) { try { if (HOOK.gate(name, data) === false) return ''; } catch (e) { /* it reaches him */ } }
   const world = CAR_WORLD.has(name);                    // the world's news: a blasé one minds less (his character)
   if (!ctx.force && st.evAt[name] && now - st.evAt[name] < 4000 * (world ? CAR.k.cool : 1)) return '';     // force: the lab's buttons
   if (ctx.visage === false) { st.pending = { name, data, until: now + 30000 }; return ''; }
@@ -560,7 +587,7 @@ function update(dt, ctx = {}) {
   const d = new Date(), hr = d.getHours();
   if (CAR.jour && CAR.day !== d.toDateString()) carToday();                     // a new day, a new mood of the day
   if (st.hour === -1) st.hour = hr;
-  if (hr !== st.hour) { st.hour = hr; if (d.getMinutes() === 0 && hr >= 8 && hr <= 22 && !(CAR.calme && carNight(hr)) && ctx.canLive && !st.cur) start('heure'); }
+  if (hr !== st.hour) { st.hour = hr; if (d.getMinutes() === 0 && hr >= 8 && hr <= 22 && !((CAR.calme || HOOK.night) && carNight(hr)) && ctx.canLive && !st.cur) start('heure'); }
   // the agenda (ctx.events: today's, with start and end in hours): 10 min before, he taps his watch; a few minutes after, he asks how it went
   const free = !st.cur || st.cur.sc.group === 'vie';
   if (ctx.visage && ctx.events && free) {
@@ -836,6 +863,7 @@ return {
   profile: id => ({ ...(BY[id] && CAR_PROF.get(BY[id])) }), get traits() { return { ...CAR.t }; },
   get caractere() { return { nom: CAR.nom, surnom: CAR.surnom, parle: CAR.parle, boude: CAR.boude, calme: CAR.calme ? [...CAR.calme] : [23, 6], jour: CAR.jour, on: CAR.on, k: { ...CAR.k } }; },
   isNight: carNight, poolx: CAR_TAPX,
+  hook(name, fn) { if (name in HOOK) HOOK[name] = typeof fn === 'function' ? fn : null; },   // web/habitudes.js: night, gate, lines
   event, events: Object.entries(EVENTS).map(([id, label]) => ({ id, label, scenes: (ON[id] || []).map(x => x.id) })),
 };
 };

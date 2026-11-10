@@ -338,9 +338,10 @@ const until = async (fn, ms = 6000, step = 100) => { const end = Date.now() + ms
     const dom = await phone.evaluate(() => ({ open: !document.querySelector('.car-sheet').hidden, presets: [...document.querySelectorAll('.car-preset')].map(b => b.querySelector('b').textContent),
       sliders: [...document.querySelectorAll('.car-trait')].map(r => [...r.querySelectorAll('.car-ends span')].map(s => s.textContent).join(' ↔ ')),
       sw: document.querySelectorAll('.car-sw').length, sel: document.querySelectorAll('.car-hour select').length, fields: document.querySelectorAll('.car-field input').length,
+      hab: !!window.PixelHabitudes && !!document.querySelector('.car-calme .car-hab'),   // his habits (habitudes.js): his quiet hours are his night, a button to his schedule
       sw0: document.documentElement.scrollWidth, title: document.querySelector('.car-title').textContent }));
     check(`the panel: ${dom.presets.length} presets, ${dom.sliders.length} sliders with French ends (${dom.sliders[0]}…), names, switches, quiet hours`,
-      dom.open && dom.presets.length >= 15 && dom.presets.includes('Pile électrique') && dom.sliders.length === 8 && dom.sliders.includes('Patient ↔ Grognon') && dom.sw === 3 && dom.sel === 2 && dom.fields === 2 && dom.sw0 <= 390, JSON.stringify(dom));
+      dom.open && dom.presets.length >= 15 && dom.presets.includes('Pile électrique') && dom.sliders.length === 8 && dom.sliders.includes('Patient ↔ Grognon') && dom.sw === 3 && (dom.sel === 2 || (dom.sel === 0 && dom.hab)) && dom.fields === 2 && dom.sw0 <= 390, JSON.stringify(dom));
     const small = await phone.evaluate(() => [...document.querySelectorAll('.car-sheet button, .car-sheet input, .car-sheet select')].map(e => { const r = e.getBoundingClientRect(); return [e.className || e.type, Math.round(r.width), Math.round(r.height)]; })
       .filter(([c, w, h]) => h < (c === 'range' ? 44 : 56) || w < 56));
     check('touch targets: 56 px and more (sliders 48 px tall, full width)', small.length === 0, JSON.stringify(small.slice(0, 6)));
@@ -363,7 +364,9 @@ const until = async (fn, ms = 6000, step = 100) => { const end = Date.now() + ms
     await until(() => st.caractere.surnom === 'Max');
     check('what he calls you', st.caractere.surnom === 'Max');
     await phone.tap('.car-sw[data-k="parle"]'); await until(() => st.caractere.parle === false);
-    await phone.selectOption('.car-hour select >> nth=0', '21'); await until(() => st.caractere.calme.de === 21);
+    if (await phone.$('.car-hour select')) await phone.selectOption('.car-hour select >> nth=0', '21');
+    else act('caractere.set', { calme: { de: 21 } });                // his habits (habitudes.js): the panel leads to his schedule, the setting is still his
+    await until(() => st.caractere.calme.de === 21);
     const kk = await until(() => kiosk.evaluate(() => { const c = Screens.persona.caractere; return !c.parle && c.calme[0] === 21 && c.nom === 'Bip' && c; }));
     check('« Il parle » off and quiet hours from 21 h: the Pi\'s screen knows', st.caractere.parle === false && !!kk, JSON.stringify(kk));
     await phone.tap('.car-sw[data-k="parle"]'); await until(() => st.caractere.parle === true);

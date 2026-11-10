@@ -215,7 +215,7 @@ async function phone(browser) {
   await p.evaluate(() => { const a = document.getElementById('apk'); if (a) a.hidden = false; });   // as when the Android app is there
   const order = await p.evaluate(() => [...document.querySelector('.kfoot > span').children].filter(e => !e.hidden).map(e => e.textContent.trim()));
   const i = n => order.indexOf(n);
-  const want = ['Agendas', 'Caractère', 'Son look', 'Nourrir', 'Exos', 'Souvenirs', 'Album', 'Amis', 'Appli Android'];   // app.js FOOT_ORDER
+  const want = ['Agendas', 'Caractère', 'Son look', 'Habitudes', 'Nourrir', 'Exos', 'Souvenirs', 'Album', 'Amis', 'Appli Android'];   // app.js FOOT_ORDER
   check('under the keys, side by side in this order: ' + want.join(', '), i('Agendas') >= 0 && want.every((n, k) => i(n) === i('Agendas') + k), order.join(' · '));
   await p.evaluate(() => { const a = document.getElementById('apk'); if (a) a.hidden = true; });
   check('…each once', ['Caractère', 'Nourrir', 'Exos'].every(n => order.filter(x => x === n).length === 1), order.join(' · '));
