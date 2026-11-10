@@ -187,7 +187,10 @@ async function inLab(browser) {
   await lab.evaluate(() => PixelHub.dispatch('look.reset'));
   const bday = await at({ date: '2026-11-09T14:00', fete: 'anniversaire' });
   check('his birthday (souvenirs.fete): the party hat', bday.tete === 'fete' && bday.saison === 'anniversaire', JSON.stringify(bday));
-  await at({ fete: null, date: null });            // back to today: the typed commands below compare his look with the Pi's, dates included
+  // back to today, in the afternoon: the night below starts from the day (a scene when he goes to bed), and the typed commands
+  // further down compare his look with the Pi's, dates included (« enlève ton chapeau » keeps the slot empty until tomorrow)
+  const d0 = new Date(), p2 = n => String(n).padStart(2, '0');
+  await at({ fete: null, date: `${d0.getFullYear()}-${p2(d0.getMonth() + 1)}-${p2(d0.getDate())}T14:00` });
   await lab.evaluate(() => { Screens.persona.stop(); PixelHub.S.habitudes = { dort: true }; });
   const night = await until(() => lab.evaluate(() => PixelHub.S.look.porte.nuit && { ...PixelHub.S.look.porte, cur: Screens.persona.state.cur, main: PixelLook.cur().wear }), 5000);
   check(`he sleeps (S.habitudes.dort, a stand-in for his habits): nightcap and pyjama, at once, and a little scene (${night && night.cur})`,

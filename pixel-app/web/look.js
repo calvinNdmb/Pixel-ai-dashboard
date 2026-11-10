@@ -70,6 +70,11 @@ function clean(d) {
   return o;
 }
 const isDefault = l => ['yeux', 'couleur_yeux', 'couleur_joues'].every(k => l[k] === DEFAULT[k]) && SLOT_IDS.every(s => !l.accessoires[s]);
+function asleep(hab) {                       // his night outfit from his habits (look.py asleep): their night and his bedtime routine, not a nap
+  if (!hab || typeof hab !== 'object') return null;
+  if (typeof hab.nuit === 'boolean') return hab.nuit || hab.etat === 'coucher';
+  return typeof hab.dort === 'boolean' ? hab.dort : null;              // a bare {dort}: a stand-in, an older snapshot
+}
 function isNight(d, dort, calme) {            // asleep: his habits say so (habitudes.dort), else his quiet hours (caractère calme)
   if (typeof dort === 'boolean') return dort;
   let [de, a] = NIGHT;
@@ -110,7 +115,7 @@ function resolve(look, ctx = {}) {            // what he wears now: your choices
 function context(S, d) {                      // resolve()'s ctx from a snapshot (the other features read defensively)
   const hab = S && S.habitudes, sou = S && S.souvenirs, car = S && S.caractere;
   return { date: d || new Date(), meteo: S && S.weather, fete: sou && typeof sou === 'object' ? sou.fete : null,
-    dort: hab && typeof hab === 'object' && typeof hab.dort === 'boolean' ? hab.dort : null, calme: car && typeof car === 'object' ? car.calme : null };
+    dort: asleep(hab), calme: car && typeof car === 'object' ? car.calme : null };
 }
 const itemsOf = v => (Array.isArray(v) ? v : [v]).slice(0, 8).filter(x => has(ITEM, x));
 function apply(look, a = {}, today = ymd(new Date())) {   // look.set: [new, change], change null when nothing moved

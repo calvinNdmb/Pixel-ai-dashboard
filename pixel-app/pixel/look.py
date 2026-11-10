@@ -107,6 +107,16 @@ def is_default(look):
 
 
 # ---- what he wears now: your choices, then the season, then the night ----
+def asleep(hab):
+    """His night outfit from his habits: their night and his bedtime routine (« coucher »), not a nap (he naps in his
+    clothes); a bare {dort} (a stand-in, an older snapshot) as it says. None: no habits, his quiet hours decide."""
+    if not isinstance(hab, dict):
+        return None
+    if isinstance(hab.get("nuit"), bool):
+        return hab["nuit"] or hab.get("etat") == "coucher"
+    return hab["dort"] if isinstance(hab.get("dort"), bool) else None
+
+
 def is_night(d, dort=None, calme=None):
     """Asleep: his habits say so (habitudes.dort), else his quiet hours (caractère calme {de, a}, 23 h - 6 h by default)."""
     if isinstance(dort, bool):
@@ -184,7 +194,7 @@ def context(hub, d=None):
     hab, sou, car = s.get("habitudes"), s.get("souvenirs"), s.get("caractere")
     return {"date": d or dt.datetime.now(), "meteo": s.get("weather"),
             "fete": sou.get("fete") if isinstance(sou, dict) else None,
-            "dort": hab.get("dort") if isinstance(hab, dict) and isinstance(hab.get("dort"), bool) else None,
+            "dort": asleep(hab),
             "calme": car.get("calme") if isinstance(car, dict) else None}
 
 

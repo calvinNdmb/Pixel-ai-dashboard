@@ -595,7 +595,7 @@ function screenSide(Sc) {
         event('jeu-fin', { jeu: g.jeu, resultat: g.fin.resultat, score: g.fin.score, record: !!g.fin.record, rit: !!g.fin.rit });
         son(g.fin.resultat === 'gagne' ? 'danse' : g.fin.rit ? 'rire' : 'salut');
         if (g.fin.resultat === 'gagne' && (kioskPage || window.PIXEL_LOCAL) && window.PixelAlbum && typeof window.PixelAlbum.snap === 'function') {
-          setTimeout(() => { try { window.PixelAlbum.snap('jeu-gagne'); } catch (e) { /* a photo is a bonus */ } }, 1200);   // a moment worth a photo (souvenirs)
+          setTimeout(() => { try { window.PixelAlbum.snap('jeu'); } catch (e) { /* a photo is a bonus */ } }, 1200);   // a moment worth a photo (souvenirs: « Une partie gagnée », 🎲)
         }
       }
     }

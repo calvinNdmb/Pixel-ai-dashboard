@@ -240,7 +240,7 @@ async function kiosk(browser) {
   check('…touch his edge: found (jeu-trouve)', c.trouve && c.trouveScene === 'jeu-trouve', J(c));
   check(`…3 rounds: found 3 times, you win, a record (${c.finScene})`, !!c.fin && c.fin.resultat === 'gagne' && c.fin.score === 3 && c.fin.record && c.finScene === 'jeu-gagne', J(c.fin));
   const album = await until(() => k.evaluate(() => window.__album.length && window.__album.slice()), 3000);
-  check('…a win: a photo for his album (souvenirs: PixelAlbum.snap, when it is there)', J(album) === J(['jeu-gagne']), J(album));
+  check('…a win: a photo for his album (souvenirs: PixelAlbum.snap, when it is there)', J(album) === J(['jeu']), J(album));
   check('…the record kept (habitudes.json)', H().jeux.records.cache === 3 && H().jeux.parties >= 1, J(H().jeux));
   await tap(k, 558 + 115, 330 + 32);                                  // « Fini »
   check('« Fini »: back to his face', !!(await until(() => !G(), 3000)) && !!(await until(() => k.evaluate(() => !PixelHabitudes.screen.game))));
