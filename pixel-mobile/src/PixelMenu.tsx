@@ -13,7 +13,7 @@ type Props = {
   where: 'pi' | 'phone' | 'fallback';                    // which Pixel is shown now (fallback: the phone's, while his Pi does not answer)
   host: string | null;                                   // his Pi's address, when one is linked
   panels: readonly PanelId[];                            // his panels the page shown has (plugs.ts usePanels), in plugs.ts PANELS order
-  onClose(): void; onPi(): void; onPhone(): void; onLink(): void; onForget(): void; onNotifs(): void; onPanel(id: PanelId): void;
+  onClose(): void; onPi(): void; onPhone(): void; onLink(): void; onForget(): void; onNotifs(): void; onKey(): void; onPanel(id: PanelId): void;
 };
 const SAYS = { phone: 'Pixel vit sur ce téléphone.', fallback: 'Ton Pixel (Pi) ne répond pas : en attendant, Pixel vit sur ce téléphone.' };
 /* his panels, on whichever Pixel is shown (with or without his Pi): the page opens them under his screen */
@@ -28,7 +28,7 @@ const PANEL: Record<PanelId, { label: string; hint: string }> = {
   amis: { label: 'Ses amis', hint: 'Il rend visite au Pixel d’un copain, de maison en maison.' },
 };
 
-export function PixelMenu({ where, host, panels, onClose, onPi, onPhone, onLink, onForget, onNotifs, onPanel }: Props) {
+export function PixelMenu({ where, host, panels, onClose, onPi, onPhone, onLink, onForget, onNotifs, onKey, onPanel }: Props) {
   const [sure, setSure] = useState(false);
   const [notif, setNotif] = useState('');
   useBack(LAYER.menu, () => BackHandler.exitApp());
@@ -57,6 +57,7 @@ export function PixelMenu({ where, host, panels, onClose, onPi, onPhone, onLink,
           {where === 'fallback' ? <Item label="Rester sur ce téléphone" hint="Pixel ne revient plus tout seul sur ton Pi ; « Mon Pixel (Pi) », ici, pour y retourner." onPress={go(onPhone)} /> : null}
           {host ? <Item label="Scanner un autre QR code" hint="Un autre Pi, ou un nouveau code d’accès." onPress={go(onLink)} />
             : <Item label="Relier à mon Pixel" hint="Scanne le QR code de ton Pi, ou tape son adresse : les lampes, Claude, Codex, l’agenda, le partage." onPress={go(onLink)} />}
+          {where !== 'pi' ? <Item label="Clé Claude" hint="Pour les quiz sur mesure sans Pi : « quiz sur les volcans »." onPress={go(onKey)} /> : null}
           {PixelNative ? <Item label="Notifications du téléphone" hint={notif || '…'} onPress={go(onNotifs)} /> : null}
           {host ? <Item label={sure ? 'Sûr ? Touche encore' : 'Oublier mon Pixel'} hint="Le Pixel du téléphone reste tel qu’il est." warn
             onPress={() => { if (!sure) { setSure(true); return; } onClose(); onForget(); }} /> : null}

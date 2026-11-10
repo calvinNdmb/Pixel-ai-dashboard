@@ -163,14 +163,58 @@ addEventListener('online', () => { if (Date.now() - wAt > 10 * 60000) refresh();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - wAt > 30 * 60000) refresh(); });
 
 /* ---------- typed commands: the city, the help; the rest is demo-hub's parser, and what needs Claude says so ---------- */
-const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · thème … · météo Lyon (ta ville) · caractère câlin · mange une pomme · exo · table de 7 · on joue ? · raconte une blague · couche-toi à 20 h 30 · mets ton chapeau · yeux de chat · prends une photo · montre l'album · je suis content · tu te souviens ? · le reste (lampes, Claude, Codex, agenda, cast, ses amis) : relie Pixel à ton Pi";
+const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · thème … · météo Lyon (ta ville) · caractère câlin · mange une pomme · exo · table de 7 · quiz sur les volcans · on joue ? · raconte une blague · couche-toi à 20 h 30 · mets ton chapeau · yeux de chat · prends une photo · montre l'album · je suis content · tu te souviens ? · le reste (lampes, Claude, Codex, agenda, cast, ses amis) : relie Pixel à ton Pi";
 const cmd0 = A.cmd;                 // any other text goes to Claude (chat.ask): on the Pi, so he says so
 A.cmd = ({ text } = {}) => {
   const raw = String(text ?? '').trim(), t = hub.norm(raw); let m;
   if (['aide', 'help', '?', '/aide'].includes(t)) return H.toast(HELP, 9000);
   if ((m = raw.match(/^(?:m[ée]t[ée]o|ville)\s+(?:(?:à|a|de|pour)\s+)?(.+)$/i)) && !/^(demain|aujourd'?hui|semaine)$/.test(hub.norm(m[1]))) return setCity(m[1]);
+  if (t === 'budget' || t === 'mon budget') return H.toast('Budget Claude : ' + budSays() + '.', 7000);
+  if ((m = t.match(/^budget (\d{1,4})(?: ?(?:€|euros?))?$/))) { bud().limite = Math.min(1000, +m[1]); save(); return H.toast(+m[1] ? `Budget Claude : ${eur(bud().limite)} par mois.` : 'Budget Claude : plus de plafond.', 5000); }
   if (window.PixelAmis && window.PixelAmis.command && window.PixelAmis.command(raw, null)) return H.toast(piSays('amis.'), 4500);   // « mes amis », « mon code d'ami »…
   return cmd0({ text: raw });
+};
+
+/* ---------- quizzes made to measure (pixel/quiz.py): no Pi here, so the app itself asks Claude, with the API key you gave it
+   (pixel-mobile src/claude.ts; the key never comes to this page). {quiz_write: {id, sujet, nombre, niveau, lecon}} goes to
+   the app, which answers PixelLocal.quizDone(id, {titre, questions, model, usage} or {error}). The questions are checked
+   here as on the Pi (demo-hub.js exClean), then played by the exercises. What each quiz cost is counted (pixel/budget.py:
+   the same prices, S.budget, kept with the rest): « budget » says it, « budget 10 » sets the month's ceiling in euros. */
+const QPRICE = [['claude-haiku-5-5', 0.1, 0.5], ['claude-haiku', 1, 5], ['claude-sonnet-5', 2, 10], ['claude-sonnet', 3, 15], ['claude-opus-5-5', 4, 20], ['claude-opus', 5, 25]];
+const USD_EUR = 0.92, QUIZ_MS = 100000, eur = v => v.toFixed(2).replace('.', ',') + ' €', month = () => new Date().toISOString().slice(0, 7);
+S.budget = { mois: month(), usd: 0, limite: 30 };
+const bud = () => { const b = S.budget; if (b.mois !== month()) Object.assign(b, { mois: month(), usd: 0 }); if (!(b.usd >= 0)) b.usd = 0; if (!(b.limite >= 0)) b.limite = 30; return b; };
+const budOk = () => { const b = bud(); return !b.limite || b.usd * USD_EUR < b.limite; };
+const budSays = () => { const b = bud(); return `${eur(b.usd * USD_EUR)} dépensés ce mois-ci` + (b.limite ? ` sur ${eur(b.limite)}` : ' (pas de plafond)') + ' (estimation)'; };
+function budAdd(model, u) {
+  const tok = k => Math.max(0, Math.trunc(Number(u && u[k]) || 0)), p = QPRICE.find(([k]) => String(model || '').startsWith(k)) || [0, 10, 50];
+  bud().usd += (tok('input_tokens') * p[1] + tok('cache_read_input_tokens') * p[1] * 0.1 + tok('cache_creation_input_tokens') * p[1] * 1.25 + tok('output_tokens') * p[2]) / 1e6;
+}
+const QUIZ_SAYS = {
+  no_key: 'Pour un quiz sur mesure, donne ta clé Claude à l’appli : bouton retour du téléphone, puis « Clé Claude ».',
+  auth: 'Ta clé Claude est refusée. Vérifie-la dans le menu de l’appli, « Clé Claude ».', access: 'Cette clé n’a pas accès au modèle qui écrit les quiz.',
+  rate: 'Trop de demandes d’un coup : réessaie dans une minute.', network: 'Pas d’internet : je n’arrive pas à écrire le quiz.', timeout: 'Le quiz met trop de temps à venir. Réessaie.',
+  refusal: 'Je ne peux pas faire de quiz là-dessus. Un autre sujet ?', long: 'Le quiz était trop long. Demande moins de questions.',
+};
+let quizN = 0, quizWait = null;
+function quizDone(id, r) {
+  if (!quizWait || quizWait.id !== id) return;              // not the quiz being waited for (an old answer, a second one)
+  clearTimeout(quizWait.t); const n = quizWait.n; quizWait = null;
+  if (isObj(r) && isObj(r.usage)) budAdd(r.model, r.usage);
+  const c = isObj(r) && !r.error ? H.quiz.clean(r.titre, r.questions) : null;
+  if (!c) { H.mood('confus', 2500); H.toast((isObj(r) && QUIZ_SAYS[r.error]) || 'Je n’ai pas réussi à écrire ce quiz. Essaie un autre sujet ?', 7000); return save(); }
+  H.mood('content', 2500); H.quiz.play(c.titre, c.items.slice(0, n)); save();
+}
+A['quiz.creer'] = ({ sujet = '', nombre = null, niveau = null, lecon = null } = {}) => {
+  sujet = String(sujet ?? '').trim().slice(0, 300);
+  if (!sujet) return H.toast('Dis-moi sur quoi : « quiz sur les volcans ».', 5000);
+  if (!window.ReactNativeWebView) return H.quiz.demo();     // not in the app (a browser): the ready-made one
+  if (quizWait) return H.toast('Un quiz arrive déjà !', 3000);
+  if (!budOk()) return H.toast('J’ai dépensé tout mon budget Claude du mois. Tape « budget 40 » pour le changer.', 7000);
+  const n = Number.isInteger(nombre) && nombre >= 1 && nombre <= 10 ? nombre : 5, id = ++quizN;
+  quizWait = { id, n, t: setTimeout(() => quizDone(id, { error: 'timeout' }), QUIZ_MS) };
+  H.toast('Je prépare ton quiz…', 4000); H.mood('reflechit', QUIZ_MS);
+  post({ quiz_write: { id, sujet, nombre: n, niveau: typeof niveau === 'string' ? niveau.slice(0, 24) : null, lecon: typeof lecon === 'string' ? lecon.slice(0, 6000) : null } });
 };
 
 /* ---------- his face's brightness: the phone has no backlight to set, so his screen dims (Lumi. −/+, the quick menu) ---------- */
@@ -353,6 +397,7 @@ return {
   socket, restore, save, notif,
   get state() { return pick(); },
   get city() { return city ? { ...city } : null; },
+  quizDone,                                           // the app's answer to {quiz_write}: a quiz written by Claude, or why not
   weather: () => weather(true),
   /* the app asks before it goes back to the Pi: how long nobody has touched him, and whether something runs here (the
      timer, an exercise open: it lives on this phone only) */

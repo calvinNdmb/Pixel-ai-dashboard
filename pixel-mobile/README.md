@@ -36,6 +36,21 @@ Au premier lancement, Pixel est là tout de suite : pas de QR code, pas de rése
 - **Son ventre pendant que l'appli est fermée :** il compte le temps comme sur le Pi éteint. La nuit (de 23 h à 6 h) ne compte pas, et 6 heures au plus : il revient au pire avec un petit creux. S'il avait déjà faim, il n'a pas plus faim.
 - **Les thèmes :** les six, au choix dans Réglages ou avec `thème néon`. Une fois l'appli reliée à ton Pi, le Pixel du téléphone a les mêmes thèmes que lui : ceux que ton Pi a activés.
 
+## Les quiz sur mesure, sans Pi
+
+Le Pixel du téléphone écrit des quiz sur ce que tu veux : tape `quiz sur les volcans`, `quiz de 8 questions sur la table de 7`, `interroge-moi sur les capitales`. On y répond comme aux exos de maths : 4 réponses, un indice, la correction, des étoiles.
+
+Il faut une clé API Claude, à donner une fois à l'appli :
+1. Crée une clé sur console.anthropic.com, et règle-y une limite de dépense.
+2. Dans l'appli : bouton retour, **Clé Claude**, colle la clé, **Enregistrer**.
+
+- La clé est gardée dans le coffre du téléphone (`expo-secure-store`). Elle ne part que vers `api.anthropic.com`, et la page de Pixel ne la voit jamais.
+- C'est Claude Sonnet 5.5 qui écrit les questions : quelques centimes par quiz, facturés sur ton compte.
+- Pixel compte la dépense du mois, d'après les prix publics : `budget` l'affiche, `budget 10` change le plafond (30 € au départ), `budget 0` l'enlève. Une fois le plafond atteint, il ne demande plus rien jusqu'au mois suivant. C'est une estimation : la vraie limite est celle de la console.
+- Relié à ton Pi, c'est le Pi qui écrit les quiz, avec sa propre clé.
+
+Le code : `src/claude.ts` (la clé, la demande à Claude), `src/ClaudeKey.tsx` (l'écran du menu), `quizPlug` dans `src/plugs.ts`, et `pixel-app/web/local.js` côté page. La consigne et le schéma des questions sont les mêmes que sur le Pi (`pixel-app/pixel/quiz.py`) : si tu changes l'un, change l'autre.
+
 ## Relier ton Pi
 
 1. Appuie sur le bouton retour du téléphone : le menu de l'appli s'ouvre. Touche **Relier à mon Pixel**.

@@ -492,6 +492,7 @@ function command(raw) {
   if (['stop cast', 'arrete le cast', 'arrete de caster', 'fin du cast'].includes(t) || (['stop', 'arrete', 'arreter'].includes(t) && S.cast)) return A['cast.stop']();   // commands.py: casting
   if (['code tv', 'code tele', 'code youtube', 'code tv youtube'].includes(t)) return A['ytcast.code']?.();
   if (/^(?:cast|caste|caster)\s+\S/.test(t)) { const rest = raw.replace(/^\S+\s+/, '').trim(); return /^https?:\/\//i.test(rest) ? A['cast.link']({ url: rest }) : A['cast.text']({ text: rest }); }
+  if (quizCommand(raw)) return;                          // « quiz sur les volcans » (below, pixel/quiz.py)
   if (exCommand(raw)) return;                            // the exercises (below): their own words, a bare number while one is open
   if (t.startsWith('codex ') && raw.length > 6) { A['screen.show']({ screen: 'codex' }); return A['codex.run']({ task: raw.slice(6).trim() }); }
   if ((m = t.match(/^(minuteur|timer|chrono)(?:\s+(\d+(?:[.,]\d+)?))?\s*(?:min|minutes?)?$/))) { A['screen.show']({ screen: 'minuteur' }); if (m[2]) A['timer.start']({ minutes: parseFloat(m[2].replace(',', '.')) }); return; }
@@ -542,6 +543,7 @@ const LOCAL = !!window.PIXEL_LOCAL;
 function restorable(key, fn) { if (typeof fn === 'function') (restorable.fns ||= {})[key] = fn; }
 const local = {
   A, mark, toast, mood, restorable,
+  quiz: { clean: (titre, questions) => exClean(titre, questions), play(titre, items) { exQuiz(titre, items, 'claude'); exPub(); mark(); }, demo: () => quizDemo() },   // local.js: a quiz written for the app
   restorers: () => restorable.fns || {},
   themes(ids) {                     // in place: row3(), theme.set and the commands read THEMES and TNAME
     const on = ALLT.filter(t => Array.isArray(ids) && ids.includes(t.id)); if (!on.length) return;
@@ -902,7 +904,50 @@ const exWantsAgain = () => !!EX.cur || (!!EX.again && Date.now() - EX.ended < 12
 const exDay = () => { const d = new Date().toDateString(); if (EXS.jour !== d) Object.assign(EXS, { jour: d, aujourdhui: 0, justes_jour: 0 }); };
 const exLevel = k => (EXR.auto ? EXS.niveaux[k] || EXS.niveau || EXR.niveau : EXR.niveau), exG = () => (EXR.auto ? EXS.niveau || EXR.niveau : EXR.niveau);
 const exEvent = (kind, data = {}) => { EX.ev = { id: ((EX.ev && EX.ev.id) || 0) + 1, kind, t0: Date.now(), ...data }; };
+/* a quiz made to measure (pixel/exos.py clean_quiz and Exos.quiz, pixel/quiz.py): written questions, played as a series.
+   Here nobody writes them (Pixel Lab has no Claude): quiz.creer plays a ready-made one and says so; in the phone app,
+   local.js asks the app, which asks Claude with the key you gave it. */
+const QLEN = { q: 140, answer: 30, hint: 140, explication: 220, titre: 28 }, QMAX = 20;
+const exLine = (v, n) => { if (typeof v !== 'string') return ''; v = v.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim(); return n == null || v.length <= n ? v : ''; };
+function exClean(titre, questions) {                     // { titre, items } or null: clean_quiz's rules
+  const items = [];
+  for (const it of (Array.isArray(questions) ? questions : []).slice(0, QMAX * 2)) {
+    if (!it || typeof it !== 'object') continue;
+    const q = exLine(it.question, QLEN.q), ans = exLine(it.bonne_reponse, QLEN.answer);
+    const wrong = (Array.isArray(it.mauvaises_reponses) ? it.mauvaises_reponses : []).map(w => exLine(w, QLEN.answer)).filter(Boolean).slice(0, 3);
+    if (!q || !ans || wrong.length !== 3 || new Set([ans, ...wrong].map(exCanon)).size !== 4) continue;
+    items.push({ q, answer: ans, wrong, hint: exLine(it.indice).slice(0, QLEN.hint) || 'Relis bien la question.', explication: exLine(it.explication).slice(0, QLEN.explication) || `La bonne réponse : ${ans}.` });
+    if (items.length >= QMAX) break;
+  }
+  return items.length ? { titre: exLine(titre).slice(0, QLEN.titre) || 'Quiz', items } : null;
+}
+function exQuiz(titre, items, source) {
+  EX.run = { mode: 'serie', kind: 'quiz', pool: null, table: null, niveau: null, total: items.length, i: 0, bons: 0, ends_at: 0, items, titre };
+  EX.again = { quiz: [titre, items] };
+  exDay(); exNext(); exEvent('propose', { mode: 'serie', source: ['claude', 'envie'].includes(source) ? source : '' });
+  S.anim = null; S.screen = 'visage';
+}
+const QUIZ_DEMO = ['Quiz de démo', [
+  { question: 'Combien font 7 × 8 ?', bonne_reponse: '56', mauvaises_reponses: ['54', '48', '63'], indice: '7 × 4 = 28, et le double ?', explication: '7 × 8 = 56 : 7 × 4 = 28, et 28 × 2 = 56.' },
+  { question: "Quelle est la capitale de l'Italie ?", bonne_reponse: 'Rome', mauvaises_reponses: ['Milan', 'Madrid', 'Athènes'], indice: 'On y trouve le Colisée.', explication: "Rome est la capitale de l'Italie. Madrid est celle de l'Espagne." },
+  { question: 'Quel mot est un verbe ?', bonne_reponse: 'courir', mauvaises_reponses: ['rapide', 'course', 'vite'], indice: 'Un verbe dit ce que l’on fait.', explication: '« Courir » est un verbe : je cours, tu cours. « Course » est un nom.' }]];
+function quizDemo() { const c = exClean(...QUIZ_DEMO); exQuiz(c.titre, c.items, 'claude'); exPub(); toast('Sans clé API, voici un quiz de démo (3 questions). Avec une clé, il sera sur le sujet demandé.', 7000); }
+const QUIZ_SUR = /^(?:(?:fais|fait|cree|prepare|donne)(?:-| )moi )?(?:un |le |mon )?(?:petit )?quiz(?: de (\d{1,2}) questions?)? (?:sur|de|d'|des|du|en) ?(.+)$/, QUIZ_ASK = /^(?:interroge|questionne)(?:-| )moi (?:sur|en) (.+)$/;
+function quizCommand(raw) {                              // pixel/quiz.py command(): « quiz sur … », « interroge-moi sur … »
+  const words = String(raw).replace(/’/g, "'").replace(/\s+/g, ' ').replace(/^[ !?.]+|[ !?.]+$/g, ''), t = norm(words);
+  let m = QUIZ_SUR.exec(t), n = null, sujet;
+  if (m) { n = m[1] ? Math.max(1, Math.min(10, +m[1])) : null; sujet = m[2]; } else if ((m = QUIZ_ASK.exec(t))) sujet = m[1]; else return false;
+  A['quiz.creer']({ sujet: words.length >= sujet.length ? words.slice(words.length - sujet.length) : sujet, nombre: n });
+  return true;
+}
 function exNext() {
+  if (EX.run.items) {                                    // a written quiz: the next question, its answers shuffled
+    const r = EX.run, it = r.items[r.i % r.items.length], choices = [it.answer, ...it.wrong].sort(() => Math.random() - 0.5);
+    const num = choices.every(c => /^−?[\d\u00a0]+(?:,\d+)?(?:\u00a0min)?$/.test(c));
+    EX.cur = { kind: 'quiz', niveau: 0, q: it.q, answer: it.answer, choices, hint: it.hint, explication: it.explication, num, clavier: num ? 'num' : '', id: ++EX.id, mode: r.mode,
+      t0: Date.now(), tries: 0, faux: [], hint_on: false, etat: 'question', i: r.i + 1, n: r.total, force: true, table: null, titre: r.titre };
+    return;
+  }
   const r = EX.run, ok = (r.pool || EXR.types).filter(k => EXL[k] && (EXMIN[k] || 1) <= exG()), last = (EX.cur || EX.last || {}).kind;
   const kind = r.kind || exPk(ok.length > 1 ? ok.filter(k => k !== last) : ok.length ? ok : EXI), lv = r.niveau || exLevel(kind);
   let ex; for (let i = 0; i < 8; i++) { ex = exGen(kind, lv, kind === 'table' ? r.table : null, r.ks ? r.ks[r.i % r.ks.length] : null); if (!EX.recent.includes(ex.q)) break; }
@@ -958,7 +1003,7 @@ function exAdvance() {
 function exBilan() {
   const r = EX.run, chrono = r.mode === 'chrono', total = chrono ? r.i : r.total, rec = EXS.record_chrono, nw = chrono && r.bons > rec;
   if (nw) EXS.record_chrono = r.bons;
-  EX.cur = { id: ++EX.id, mode: r.mode, kind: r.kind || '', type: r.mode === 'table' ? `Table de ${r.table}` : EXL[r.kind] || 'Mélange', etat: 'bilan', bons: r.bons, total, record: chrono ? Math.max(rec, r.bons) : 0, nouveau_record: !!nw, t0: Date.now(), next_at: Date.now() + 14000 };
+  EX.cur = { id: ++EX.id, mode: r.mode, kind: r.kind || '', type: r.titre || (r.mode === 'table' ? `Table de ${r.table}` : EXL[r.kind] || 'Mélange'), etat: 'bilan', bons: r.bons, total, record: chrono ? Math.max(rec, r.bons) : 0, nouveau_record: !!nw, t0: Date.now(), next_at: Date.now() + 14000 };
   EX.run = null; exEvent('serie', { fin: true, bons: r.bons, total, chrono, record: !!nw }); exSay(exTrophies());
 }
 function exTrophies() {                                   // exos.py _trophies(): the ones just won, as one line
@@ -971,7 +1016,7 @@ function exPub() {
   if (c && c.etat === 'bilan') cur = { ...c }, delete cur.next_at;
   else if (c) {
     cur = { id: c.id, kind: c.kind, mode: c.mode, q: c.q, choices: c.choices, num: c.num, clavier: c.clavier, t0: c.t0, tries: c.tries, faux: c.faux, niveau: c.niveau, i: c.i, n: c.n, etat: c.etat, table: c.table,
-      type: c.table ? `Table de ${c.table}` : EXL[c.kind] };
+      type: c.titre || (c.table ? `Table de ${c.table}` : EXL[c.kind]) };
     if (c.hint_on) cur.hint = c.hint;
     if (c.etat === 'resultat') Object.assign(cur, { ok: c.ok, answer: c.answer, explication: c.explication, valeur: c.valeur, passe: c.passe, monte: c.monte });
     if (EX.run && EX.run.mode === 'chrono') Object.assign(cur, { ends_at: EX.run.ends_at, left: Math.max(0, Math.ceil((EX.run.ends_at - Date.now()) / 1000)), bons: EX.run.bons });
@@ -996,7 +1041,8 @@ function exSummary() {
 }
 Object.assign(A, {
   'exos.nouveau': a => { exNouveau(a); exPub(); },
-  'exos.encore': () => { exNouveau(EX.again || {}); exPub(); },
+  'exos.encore': () => { if (EX.again && EX.again.quiz) exQuiz(...EX.again.quiz, 'claude'); else exNouveau(EX.again || {}); exPub(); },
+  'quiz.creer': ({ sujet = '' } = {}) => { if (!String(sujet).trim()) return toast('Dis-moi sur quoi : « quiz sur les volcans ».', 5000); quizDemo(); },
   'exos.repondre': ({ value = '', id = null } = {}) => { exAnswer(value, id); exPub(); },
   'exos.indice': () => { if (EX.cur && EX.cur.etat === 'question') EX.cur.hint_on = true; exPub(); },
   'exos.passer': ({ id = null, etat = null } = {}) => {

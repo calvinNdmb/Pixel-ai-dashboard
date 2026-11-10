@@ -5,11 +5,13 @@
      Pixel react while the app is open; nothing leaves the phone (with a Pi linked, the native listener sends them to him);
    - piSeed: while his Pi's page is shown, its last snapshot, so that the phone's Pixel looks and behaves like him;
    - panels: his panels (Caractère, Son look, Ses habitudes, Nourrir, Exos de maths, Souvenirs, Album, Ses amis), opened from the app's menu on either page;
-   - sheets: the back button closes such a panel when one is open, before it opens the app's menu. */
+   - sheets: the back button closes such a panel when one is open, before it opens the app's menu;
+   - quizPlug: no Pi, a quiz made to measure: the app asks Claude with the key typed in the menu (claude.ts). */
 import { useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import PixelNative, { type PhoneNotif } from '../modules/pixel-native';
+import { readAsk, writeQuiz } from './claude';
 import { saveSeed } from './localStore';
 import { pochePlug } from './poche';
 import type { Page, Plug } from './webBridge';
@@ -98,4 +100,21 @@ export function closeSheet(page: Page): boolean {
   return true;
 }
 
-export const PLUGS: Plug[] = [keepAwake, pochePlug, phoneNotifs, piSeed, panels, sheets];
+/* ---------- a quiz made to measure, for the phone's own Pixel: the app asks Claude (claude.ts) and hands the questions back ----------
+   Only his own page may ask (with a Pi, the Pi writes them), one quiz at a time; a page gone before the answer gets nothing. */
+const quizPages = new WeakSet<Page>();
+const quizPlug: Plug = {
+  start(page) { quizPages.delete(page); },                // a new document: it asked for nothing
+  gone(page) { quizPages.delete(page); },
+  message(m, page) {
+    const ask = page.kind === 'phone' ? readAsk(m.quiz_write) : null;
+    if (!ask || quizPages.has(page)) return;
+    quizPages.add(page);
+    writeQuiz(ask).catch(() => ({ error: 'api' as const })).then(answer => {
+      if (!quizPages.delete(page)) return;                 // another document since: nobody waits for it
+      page.inject(`window.PixelLocal&&PixelLocal.quizDone&&PixelLocal.quizDone(${ask.id},${JSON.stringify(answer)});`);
+    });
+  },
+};
+
+export const PLUGS: Plug[] = [keepAwake, pochePlug, phoneNotifs, piSeed, panels, sheets, quizPlug];

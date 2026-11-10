@@ -513,6 +513,8 @@ Le quiz se joue ensuite comme une série d'exos : la question en gros, 4 répons
 
 Sans clé API (mode démo, ou Claude avec ton abonnement), il joue un petit quiz de démo de 3 questions et le dit.
 
+**Sans Pi, dans l'appli Android :** les mêmes commandes (`quiz sur les volcans`, `interroge-moi sur les capitales`) marchent sur le Pixel du téléphone. C'est l'appli qui demande le quiz à Claude, avec une clé API que tu lui donnes une fois : bouton retour du téléphone, puis **Clé Claude**. La clé reste dans le coffre du téléphone. Pixel compte ce que coûtent les quiz du mois : tape `budget` pour le voir, `budget 10` pour changer le plafond (30 € au départ), `budget 0` pour l'enlever. Sans clé, il te dit où la mettre. Les discussions avec Claude, elles, restent sur le Pi.
+
 ## Répondre avec le Stream Deck
 
 Dès qu'un exo ou un quiz est ouvert sur son visage, les 15 touches changent :
@@ -887,6 +889,7 @@ python3 tests/test_caractere.py      # son propre serveur de démo sur le port 8
 node tests/test_caractere.js         # il faut Playwright ; port 8164 (CARACTERE_PORT) ; --shots DOSSIER pour les captures
 python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8174 (NOURRIR_PY_PORT=… pour un autre)
 node tests/test_nourrir.js           # port 8175 (NOURRIR_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+node tests/test_quiz.js              # les quiz sur mesure du Pixel du téléphone (sans Pi), avec une fausse appli
 python3 tests/test_quiz.py           # les quiz sur mesure, le budget, Haiku, les touches du Stream Deck (une fausse API)
 python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures

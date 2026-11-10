@@ -21,6 +21,7 @@ import { LAYER, useBack } from './src/back';
 import { Linked, type LinkedHandle, type PiLink } from './src/Linked';
 import { LocalPixel } from './src/LocalPixel';
 import { forgetPi, readHome, saveHome, takeLink, type Home } from './src/localStore';
+import { ClaudeKey } from './src/ClaudeKey';
 import { Notifs } from './src/Notifs';
 import { PixelMenu } from './src/PixelMenu';
 import { closeSheet, openPanel, showOnPhone, usePanels } from './src/plugs';
@@ -34,7 +35,7 @@ const LINK_MS = 120000;                                        // a link older t
 const isPixelUrl = (u: string) => /^https?:\/\/[^/\s?]+\/?\?t=[\w-]+$/.test(u.trim());
 const hostOf = (u: string) => u.replace(/^https?:\/\//, '').replace(/\/?\?.*$/, '');
 const mirror = (u: string | null) => { PixelNative?.setPixel(u).catch(() => {}); };   // for the share screen and the notifications
-type Panel = 'none' | 'menu' | 'notifs';
+type Panel = 'none' | 'menu' | 'notifs' | 'cle';
 
 export default function App() {
   const [url, setUrl] = useState<string | null | undefined>(undefined);   // undefined: reading it, null: no Pi linked
@@ -81,9 +82,10 @@ export default function App() {
         {panel === 'menu' && !setup && url !== undefined ? (
           <PixelMenu where={piUrl ? (seen === 'phone' ? 'fallback' : 'pi') : 'phone'} host={url ? hostOf(url) : null} onClose={closePanel}
             onPi={() => (home === 'pi' ? linked.current?.retry() : goHome('pi'))} onPhone={() => goHome('phone')} onLink={() => setSetup(true)} onForget={forget}
-            onNotifs={() => setPanel('notifs')} panels={poche.on ? [] : panels} onPanel={openPanel} />
+            onNotifs={() => setPanel('notifs')} onKey={() => setPanel('cle')} panels={poche.on ? [] : panels} onPanel={openPanel} />
         ) : null}
         {panel === 'notifs' && !setup ? <View style={s.cover}><Notifs linked={!!url} onClose={closePanel} onLocalTest={localTest} /></View> : null}
+        {panel === 'cle' && !setup ? <View style={s.cover}><ClaudeKey onClose={closePanel} /></View> : null}
       </SafeAreaView>
     </SafeAreaProvider>
   );
