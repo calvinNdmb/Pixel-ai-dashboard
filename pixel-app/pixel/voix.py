@@ -18,6 +18,7 @@ silence (1.8), wait_seconds (6: no word at all, he stops).
 import array
 import asyncio
 import contextlib
+import importlib.util
 import json
 import logging
 import math
@@ -68,9 +69,7 @@ class VoskEars:
         self.model_dir, self.device, self.model, self.proc = model_dir, device, None, None
 
     def problem(self):
-        try:
-            import vosk  # noqa: F401
-        except ImportError:
+        if importlib.util.find_spec("vosk") is None:     # only looked for: loading it costs Pixel's start 2 s, the first listening pays it
             return "Vosk n'est pas installé : relance sh deploy/install.sh."
         if not (self.model_dir / "conf").is_dir():
             return "Le modèle français de Vosk manque : relance sh deploy/install.sh."
