@@ -8,7 +8,7 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 
 | Écran | Contenu |
 | --- | --- |
-| **Visage** | Pixel joue les 52 animations de ton pack : il respire, cligne des yeux, regarde autour de lui, change d'humeur, danse ou chante quand tu le demandes. Il s'endort après 10 minutes sans rien. |
+| **Visage** | Pixel joue les 52 animations de ton pack : il respire, cligne des yeux, regarde autour de lui, change d'humeur, danse ou chante quand tu le demandes. Il s'endort après 10 minutes sans rien. Sur l'écran du Pi, à droite : **Réglages**, **Agenda**, le **micro** et l'assiette pour le nourrir. |
 | **Lumières** | Tes pièces Philips Hue : allumer, éteindre, régler la luminosité, lancer une scène. |
 | **Claude** | Tu écris, Claude répond à l'écran. Il peut aussi agir : régler les lampes, lancer le minuteur, lire la météo et l'agenda, changer d'écran ou de thème, lancer Codex. |
 | **Codex** | Lance une tâche de code et affiche son journal en direct. Une notification apparaît sur les autres écrans quand c'est fini. |
@@ -261,6 +261,20 @@ Pixel choisit son Wi-Fi depuis son propre écran, sans clavier branché ni passe
 - Pas pris en charge : les réseaux d'entreprise (identifiant et mot de passe) et le vieux WEP. Les réseaux cachés n'apparaissent pas.
 
 **Ce qu'il faut sur le Pi :** NetworkManager (Raspberry Pi OS Bookworm et après) et la règle `deploy/50-pixel-wifi.rules`, que `deploy/install.sh` copie dans `/etc/polkit-1/rules.d/`. Elle laisse le service de Pixel chercher, rejoindre et enregistrer des réseaux Wi-Fi, comme le menu Wi-Fi du bureau, et rien d'autre de NetworkManager. Sans elle, l'écran Wi-Fi dit de relancer `sh deploy/install.sh`. Le mot de passe va à NetworkManager seulement, qui le garde dans le profil du réseau (lisible par root seul), comme le menu du bureau : jamais dans le journal de Pixel, ni sur les autres écrans, ni dans ses fichiers.
+
+## Les boutons de droite et le micro
+
+Sur l'écran du Pi, à droite de son visage, une colonne de boutons, de haut en bas :
+- **Réglages** (l'engrenage) : le menu rapide (luminosité, son, Wi-Fi, téléphone, redémarrer, éteindre) ;
+- **Agenda** (le calendrier) : l'écran Agenda ;
+- **le micro** : Pixel t'écoute ;
+- **l'assiette** : le plateau des repas (voir « Nourrir Pixel »).
+
+Ils n'apparaissent que sur son visage, quand rien d'autre n'est par-dessus (le menu rapide, un cast, un exo, une partie, une visite, le plateau) et qu'il est réveillé : touche-le d'abord s'il somnole.
+
+**Le micro :** branche un petit micro USB sur le Pi, puis touche le bouton micro. Pixel prend sa tête « À l'écoute » et écrit ce qu'il entend, au fur et à mesure. Il s'arrête tout seul quand tu te tais (1,8 s), au bout de 20 secondes, ou quand tu touches de nouveau le bouton (ou le bandeau). Ce qu'il a entendu part comme une phrase tapée : une commande (« fais le poisson », « météo », « minuteur 10 »), sinon Claude, qui peut répondre, écrire, créer un quiz ou un exo (« crée un quiz sur les volcans »).
+
+Pixel entend sur le Pi lui-même, avec Vosk et son petit modèle français (41 Mo, installé par `deploy/install.sh` dans `~/.local/share/pixel/`) : aucun son ne quitte le Pi ni n'est gardé, seuls les mots partent, comme une phrase tapée. Vosk se trompe parfois sur les mots rares ; Claude comprend en général quand même. Sans micro, sans Vosk ou sans son modèle, le bouton reste grisé et dit ce qui manque. Ses réglages sont dans `[voix]` de `config.toml` (`config.example.toml` les montre).
 
 ## Sur ton téléphone
 
@@ -787,7 +801,7 @@ sh deploy/install.sh
 
 Le script fait 5 choses :
 1. Il installe les paquets nécessaires.
-2. Il crée un environnement Python.
+2. Il crée un environnement Python, avec Vosk et son modèle français pour le micro.
 3. Il autorise l'accès au Stream Deck et à la luminosité de l'écran.
 4. Il lance le serveur au démarrage, et lui permet d'éteindre le Pi et de choisir son Wi-Fi.
 5. Il ouvre l'écran de Pixel en plein écran à l'ouverture de session.
@@ -830,6 +844,7 @@ Avec ton abonnement Claude, rien n'est facturé en plus : les réponses comptent
 ## Vérifications faites
 
 Testé sur ordinateur, avec les tests du dossier `tests/` :
+- **Le micro** (`test_voix.py`, de fausses oreilles et pas de serveur ; `--wav` y ajoute le vrai Vosk sur un enregistrement) : sa tête « À l'écoute », les mots au fur et à mesure, l'arrêt tout seul après le silence, les mots envoyés comme une phrase tapée ; une touche l'arrête (ce qu'il a entendu part quand même) ; rien entendu : il le dit, rien n'est envoyé ; la durée maximale ; sans Vosk, sans modèle, sans micro, coupé dans `config.toml` : il dit pourquoi ; un micro qui lâche en route. Dans Chromium (serveur de démo) : les boutons de droite au-dessus de l'assiette, Réglages ouvre le menu rapide, Agenda son écran, le micro écoute puis joue « fais le poisson ».
 - **La page du tag NFC** (`test_nfc.py`, avec un serveur de démo, comme un téléphone) : la page sans code d'accès (sauf pour un ancien tag qui l'a), le lien de l'appli ; le code sur l'écran de Pixel (6 chiffres, le même tant qu'il est là, jamais par-dessus un cast, refusé d'une touche puis rien pendant un moment, 5 essais, plus de code pour un téléphone après 30 codes faux) ; le bon code (avec ou sans espace) : la session, le code d'accès, la carte retirée, « TÉLÉPHONE RELIÉ » ; les réglages refusés sans session ; un réseau Wi-Fi rejoint depuis la page ; la clé API (une qui n'en est pas une refusée, la bonne gardée dans `claude.env` en 0600, jamais dans une réponse, l'état, la page ni le journal, relue au démarrage) ; une page d'un autre site refusée (son Origin), du JSON seulement. Dans Chromium : la carte du code sur l'écran du Pi, la page en taille téléphone, le code tapé, le Wi-Fi et la clé (fausse puis bonne).
 - **Le Wi-Fi** (`test_wifi.py`, sans serveur, avec un faux NetworkManager) : les lignes de `nmcli` (un `:` dans le nom d'un réseau, les cadenas WPA2, WPA3, WEP, entreprise, un nom vu par plusieurs bornes, les réseaux cachés) ; le réseau où il est, avec ou sans câble, et depuis quand il n'en a plus ; un réseau ouvert, un nouveau avec son mot de passe, un mot de passe refusé (aucun profil gardé), un réseau connu, un réseau connu dont le mot de passe a changé (un mauvais : l'ancien profil reste tel quel ; le bon : il le remplace), entreprise et WEP refusés, un mot de passe trop court refusé avant `nmcli`, un réseau hors de portée, un seul à la fois ; sans la règle polkit, sans `nmcli`, un `nmcli` qui ne répond plus ; le mot de passe jamais dans l'état, le journal ni une notification. Dans Chromium (serveur de démo) : le menu rapide, la ligne de Système et « Pas de Wi-Fi » ouvrent l'écran, un mauvais puis le bon mot de passe tapés au clavier de l'écran (chiffres et signes compris), la fermeture toute seule après la connexion, la barre de commande rendue intacte ; sur le téléphone, le champ masqué et Échap.
 - **Commandes et accès** (`test_pixel.py`) : lampes, scènes, minuteur, écrans, Claude et Codex en démo, refus d'un appareil sans code d'accès. Chaque thème : choix dans Réglages, touches *Thème −* et *Thème +*, commande `thème …`, choix gardé après un redémarrage (avec les 6 thèmes activés). Sans réglage `themes` : Rétro seul, les autres refusés avec un message, pas de touches de thème, pas d'outil de thème pour Claude. Chaque humeur avec `humeur …`.
@@ -958,6 +973,7 @@ Pas encore testé avec le vrai matériel :
 | `pixel/souvenirs.py`, `pixel/album.py`, `web/souvenirs.js`, `web/album.js` | ses souvenirs, le carnet d'humeur et l'album photo : le serveur, son écran, le panneau **Souvenirs** du téléphone (`souvenirs.css`) ; ses scènes dans `scenes/souvenirs.js` |
 | `pixel/amis.py`, `pixel/relais.py`, `web/amis.js` | les amis de Pixel : les codes d'ami, les amitiés et les visites ; le relais ntfy et la boîte chiffrée ; l'ami en visite sur l'écran du Pi et le panneau **Ses amis** du téléphone (`amis.css`) ; les scènes à deux, les autocollants dans `scenes/amis.js` ; le labo dans `lab/amis-lab.js` |
 | `pixel/wifi.py`, `web/wifi.js` | son Wi-Fi : NetworkManager par `nmcli`, l'écran **Wi-Fi** et le rappel « Pas de Wi-Fi » ; la règle polkit `deploy/50-pixel-wifi.rules` |
+| `pixel/voix.py`, `web/dock.js` | le micro (Vosk, sur le Pi : les mots vont comme une phrase tapée) ; les boutons de droite de son écran (Réglages, Agenda, micro) et ce qu'il entend |
 | `pixel/nfc.py`, `web/nfc.html`, `web/nfc.js` | la page du tag NFC (`/nfc`) : le code sur l'écran de Pixel, puis son Wi-Fi et la clé API de Claude (écriture seule, `claude.env`) |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |

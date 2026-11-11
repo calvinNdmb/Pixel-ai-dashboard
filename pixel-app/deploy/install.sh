@@ -24,6 +24,20 @@ python3 -m venv .venv
 .venv/bin/python -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM' 2>/dev/null \
   || .venv/bin/pip install --prefer-binary 'cryptography>=41' \
   || echo "   (cryptography ne s'installe pas : les amis de Pixel resteront éteints, le reste marche)"
+# His ears (pixel/voix.py, the micro button): Vosk hears French on the Pi itself, with its small French model (41 Mo, once).
+# Without them the micro button stays grey, and says why; the rest of Pixel works.
+.venv/bin/pip install -q vosk || echo "   (Vosk ne s'installe pas : le micro de Pixel reste éteint)"
+VOSK_DIR="$HOME/.local/share/pixel" VOSK_MODEL="vosk-model-small-fr-0.22"
+if [ ! -d "$VOSK_DIR/$VOSK_MODEL/conf" ]; then
+  echo "   Le modèle français de Vosk (41 Mo)"
+  mkdir -p "$VOSK_DIR"
+  if curl -fsSL -o /tmp/pixel-vosk.zip "https://alphacephei.com/vosk/models/$VOSK_MODEL.zip"; then
+    python3 -m zipfile -e /tmp/pixel-vosk.zip "$VOSK_DIR/" || echo "   (le modèle ne s'ouvre pas : le micro de Pixel reste éteint)"
+  else
+    echo "   (modèle non téléchargé, pas d'Internet ? Le micro de Pixel reste éteint ; relance ce script plus tard)"
+  fi
+  rm -f /tmp/pixel-vosk.zip
+fi
 [ -f config.toml ] || cp config.example.toml config.toml
 # Facultatif : Pixel dans le bouton Caster de l'appli YouTube (docs/CAST.md, YouTube), seulement si on le demande :
 #   PIXEL_YTCAST=1 sh deploy/install.sh     puis  enabled = true  dans [ytcast] de config.toml

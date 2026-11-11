@@ -938,6 +938,7 @@ function frame(t) {
     else { const ad = addonOn(); if (!ad || !ad.instead()) (DRAW[L.scr] || drawVisage)(dt); if (ad) addonDraw(ad, dt); }
   }
   if (P && L.boot < 0 && !cast && window.PixelNourrir) window.PixelNourrir.over(NOUR);   // Nourrir: his food tray (web/nourrir.js), never over a cast
+  if (P && L.boot < 0 && !cast && window.PixelDock) { X.save(); try { window.PixelDock.over(KIT); } catch (e) { /* never stops him */ } X.restore(); }   // his buttons on the right, what he hears (web/dock.js)
   if (P && L.boot < 0 && !cast && window.PixelAlbum && window.PixelAlbum.over) { X.save(); try { window.PixelAlbum.over(KIT); } catch (e) { /* never stops him */ } X.restore(); }   // the album's flash (web/album.js), never over a cast
   if (P && L.boot < 0 && !cast && window.PixelWifi && window.PixelWifi.over) { X.save(); try { window.PixelWifi.over(KIT); } catch (e) { /* never stops him */ } X.restore(); }   // « Pas de Wi-Fi » over his face (web/wifi.js)
   if (P && L.menu && L.boot < 0) drawMenu();
@@ -968,7 +969,7 @@ return {
       if (P.lights && p.lights && lit(P.lights.rooms) !== lit(p.lights.rooms) && anyOn(P.lights.rooms) && anyOn(p.lights.rooms)) ev('lights-change');
       const wk = w => w && w.now && w.now.kind;
       if (wk(P.weather) && wk(p.weather) && wk(P.weather) !== wk(p.weather)) ev('weather', { kind: wk(p.weather) });
-      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|caractere\.|nourrir\.|exos\.|poche\.|cast\.|yt\.|ytcast\.|ecran\.|airplay\.|amis\.|wifi\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
+      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|caractere\.|nourrir\.|exos\.|poche\.|cast\.|yt\.|ytcast\.|ecran\.|airplay\.|amis\.|wifi\.|voix\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
     }
     if (PER && window.PixelCaractere) window.PixelCaractere.screen(PER, P, p);   // his character (caractere.js): his traits, and how he takes a change
     if (window.PixelLook) window.PixelLook.screen(PER, P, p, { visage: L.scr === 'visage' && L.boot < 0 && !CA.id });   // his look (look.js): what he wears, his reactions

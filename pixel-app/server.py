@@ -48,6 +48,7 @@ from pixel.budget import Budget          # what Claude costs this month, and its
 from pixel import habitudes              # his habits: his day (wake-up, nap, bedtime), games, laughs, fears, his phrases
 from pixel import wifi                   # his Wi-Fi: the networks around him, joining one from his own screen (web/wifi.js)
 from pixel import nfc                    # the NFC tag's page (/nfc): a code on his screen, then the Wi-Fi and Claude's API key
+from pixel import voix                   # his ears: the microphone, words heard on the Pi (Vosk), then a command or Claude
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -230,6 +231,7 @@ async def serve(args, cfg, datadir, token):
     claude = Claude(hub, cfg.get("claude", {}))
     optional(hub, "quiz", quiz.setup, hub, cfg.get("claude", {}))           # create_quiz, quiz.creer: after exos (it plays them) and Claude (its client)
     Codex(hub, cfg.get("codex", {}))
+    optional(hub, "voix", voix.setup, hub, cfg.get("voix", {}))         # voix.toggle: the micro button of his screen (web/dock.js)
     tick = timer.setup(hub)
     deck = Deck(hub, cfg.get("streamdeck", {}))
     hub.s["settings"]["claude"] = claude.C["status"]
