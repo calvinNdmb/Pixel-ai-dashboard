@@ -511,9 +511,9 @@ node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots 
 Pixel te pose de petits exercices, du CP au collège : additions, soustractions, tables de multiplication, divisions, compléments à 10 ou à 100, doubles et moitiés, calcul mental avec les priorités, comparaisons, suites logiques (2, 4, 6, ?), petits problèmes (« Pixel a 12 piles, il en mange 5… »), heures et durées, fractions, pourcentages, carrés, et des énigmes.
 
 **Pour en lancer un :**
-- tape `exo`, `exo de maths`, `un calcul`, `calcul mental`, `table de 7` (ou `révisons la table de 7`), `défi chrono`, `série de 5`, `10 questions`, `une énigme`, `exo de fractions`, `exo difficile` ; les mêmes mots marchent sans Pi et dans Pixel Lab ;
-- sur l'écran du Pi, touche le bouton **Exos** à droite de son visage (le « + × − = ») : l'écran « Exos de maths » propose un exo, une série de 5, le défi chrono, une énigme ou une table (de 2 à 10). **Fermer** le range ; il se range aussi tout seul après 30 secondes sans toucher ;
-- sur ton téléphone, touche **Exos** sous les touches : un exo, une série, le défi chrono, une énigme, une table ou un type d'exo ;
+- tape `exo`, `exo de maths`, `un calcul`, `calcul mental`, `entraînement de calcul mental`, `table de 7` (ou `révisons la table de 7`), `défi chrono`, `série de 5`, `10 questions`, `une énigme`, `exo de fractions`, `exo difficile` ; les mêmes mots marchent sans Pi et dans Pixel Lab, et au micro ;
+- sur l'écran du Pi, touche le bouton **Exos** à droite de son visage (le « + × − = ») : l'écran « Exos de maths » propose le calcul mental, un exo, une série de 5, le défi chrono, une énigme ou une table (de 2 à 10). **Fermer** le range ; il se range aussi tout seul après 30 secondes sans toucher ;
+- sur ton téléphone, touche **Exos** sous les touches : le calcul mental, un exo, une série, le défi chrono, une énigme, une table ou un type d'exo ;
 - demande à Claude « pose-moi une question de maths » (ou au micro : « crée un quiz sur les volcans ») ;
 - si tu le lui permets (réglage **Il te propose des questions**, éteint au départ), Pixel te propose de temps en temps, dans la journée : « Une petite question ? ». Touche **Oui !**.
 
@@ -526,11 +526,13 @@ Pixel te pose de petits exercices, du CP au collège : additions, soustractions,
 - avec un clavier branché sur le Pi : les chiffres, puis Entrée ; pour une énigme, les touches 1 à 4 ; Échap range l'exo ;
 - touche Pixel : il te donne un indice.
 
+**Les indices :** touche **Indice** autant de fois qu'il faut. Le premier est une phrase qui aide (« 7 × 4 = 28, et le double ? ») ; le suivant barre une mauvaise réponse, puis une autre : il en reste deux, la bonne et une fausse. Le bouton s'éteint quand il n'y a plus d'indice à donner. Les réponses barrées ne se touchent plus. Ça marche pour tous les exos et les quiz, sur le Pi, dans l'appli et sur le Stream Deck. Avec un indice, une bonne réponse compte, mais elle ne fait pas monter le niveau.
+
 **Encore ?** Pendant un exo, ou juste après, `encore` ou `une autre` en lance un autre. Plus tard, ou après **Fini**, ces mots repartent à Claude, comme avant.
 
 **Une erreur ?** Pixel t'encourage, te donne un indice et un deuxième essai. Deuxième erreur : il montre la bonne réponse et comment la trouver (« 7 × 8 = 56 : 7 × 4 = 28, et 28 × 2 = 56 »). Il ne se moque jamais. Si tu réfléchis longtemps, il te demande gentiment si tu veux un indice.
 
-**Les modes :** un exo seul ; une série de 5, avec un bilan ; une table, ses 10 multiplications dans le désordre ; le défi chrono, le plus de bonnes réponses en 60 secondes, sans deuxième essai.
+**Les modes :** un exo seul ; une série de 5, avec un bilan ; une table, ses 10 multiplications dans le désordre ; le défi chrono, le plus de bonnes réponses en 60 secondes, sans deuxième essai ; le **calcul mental**, un entraînement de 10 calculs rapides mélangés (additions, soustractions, tables, divisions, compléments, doubles et moitiés, priorités), chacun à ton niveau, avec un bilan ; `encore` le refait.
 
 **Il s'adapte :** trois bonnes réponses de suite, du premier coup, font monter le niveau de ce type d'exo ; une erreur le fait baisser. Niveau 1 : CP, CE1 ; niveau 5 : collège. Dans le panneau **Exos**, partie **Réglages** : le niveau de départ, le niveau fixe (« S'adapte tout seul » sur Non), les types des exos au hasard, l'objectif du jour (5 exos au départ) et ses propositions.
 

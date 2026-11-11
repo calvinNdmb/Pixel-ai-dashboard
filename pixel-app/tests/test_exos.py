@@ -619,7 +619,78 @@ async def commands_direct(tmp):
     for text in ("révisons la table de 7", "révise la table de 6", "les tables de 9"):
         tables.append(not await say(text) and ex.cur and ex.cur["mode"] == "table" and ex.cur["table"])
     check("« révisons la table de 7 », « révise la table de 6 », « les tables de 9 »: those tables", tables == [7, 6, 9], str(tables))
+    trains = []
+    for text in ("entraînement de calcul mental", "entraîne-moi en calcul mental", "série de calcul mental"):
+        trains.append(not await say(text) and ex.cur and (ex.cur["mode"], ex.cur["n"], ex.cur.get("nom")))
+    await say("calcul mental")
+    check("« entraînement de calcul mental », « entraîne-moi en calcul mental »…: the training (10 quick calculations); "
+          "« calcul mental » alone: one exercise of priorities, as before",
+          trains == [("serie", exos.CALCUL_N, "Calcul mental")] * 3 and ex.cur["mode"] == "exo" and ex.cur["kind"] == "mental", str(trains))
     hub.exos_task.cancel()
+
+
+def indices():
+    """« Indice » again and again: its sentence, then a wrong answer struck out, then another one; two answers are left."""
+    from pixel import keys
+    ex = exos.Exos(None, clock=Clock(), rng=random.Random(12))
+    ex.nouveau(kind="table", niveau=2)
+    p0, steps = ex.public()["cur"], []
+    for _ in range(5):
+        given = ex.indice()
+        p = ex.public()["cur"]
+        steps.append((given, "hint" in p, len(p["elimine"]), p["plus"]))
+    left = [x for x in p["choices"] if x not in p["elimine"]]
+    check("« Indice » again and again: its sentence, then a wrong answer struck out, then another one, then no more (two answers left)",
+          p0["plus"] is True and p0["elimine"] == [] and "hint" not in p0
+          and steps == [(True, True, 0, True), (True, True, 1, True), (True, True, 2, False), (False, True, 2, False), (False, True, 2, False)]
+          and ex.cur["answer"] in left and len(left) == 2, str(steps))
+    check("…the answers struck out are wrong ones, and touching one does nothing", all(not exos.same(x, ex.cur["answer"]) for x in p["elimine"])
+          and ex.repondre(p["elimine"][0], ex.cur["id"]) is None and ex.cur["tries"] == 0)
+    check("…the right answer still counts", ex.repondre(ex.cur["answer"], ex.cur["id"]) is True and ex.public()["cur"]["plus"] is False)
+    ex.nouveau(kind="table", niveau=2)
+    ex.repondre(wrong_of(ex), ex.cur["id"])
+    p = ex.public()["cur"]
+    first = ("hint" in p, p["plus"], p["indices"])
+    ex.indice()
+    p = ex.public()["cur"]
+    left = [x for x in p["choices"] if x not in p["elimine"] and x not in p["faux"]]
+    check("…after a wrong answer (its sentence and a second try): one more hint strikes out another wrong answer, two are left",
+          first == (True, True, 1) and len(p["elimine"]) == 1 and len(left) == 2 and p["plus"] is False and ex.cur["answer"] in left, f"{first} {p}")
+    titre, items = exos.clean_quiz("Couleurs", [{"question": "De quelle couleur est le ciel ?", "bonne_reponse": "bleu",
+                                                  "mauvaises_reponses": ["vert", "rouge", "jaune"], "indice": "Regarde en l'air.",
+                                                  "explication": "Le ciel est bleu le jour."}])
+    ex.quiz(titre, items)
+    ex.indice()
+    ex.indice()
+    ks = keys.exo_keys(ex.public()["cur"])
+    ex.indice()
+    ks2 = keys.exo_keys(ex.public()["cur"])
+    check("…a quiz too; on the Stream Deck the answers struck out are empty keys, « Indice » while another one can be given",
+          sum(1 for k in ks[:4] if k) == 3 and ks[4] and ks[4]["action"] == "exos.indice" and sum(1 for k in ks2[:4] if k) == 2 and ks2[4] is None,
+          f"{ks[:5]} {ks2[:5]}")
+
+
+def calcul_mental():
+    """« Calcul mental »: 10 quick calculations, a series with its title; « encore » plays it again."""
+    clk = Clock()
+    ex = exos.Exos(None, clock=clk, rng=random.Random(11))
+    ex.nouveau(mode="serie", n=exos.CALCUL_N, pool="calcul")
+    kinds, noms = [], []
+    while ex.cur and ex.cur["etat"] != "bilan" and len(kinds) < 20:
+        kinds.append(ex.cur["kind"])
+        noms.append(ex.public()["cur"].get("nom"))
+        ex.repondre(answer_of(ex))
+        clk.go(6)
+        ex.tick()
+    p = ex.public()["cur"]
+    check("« Calcul mental »: 10 quick calculations of several kinds (additions, tables, doubles…), its title on the screens, then its summary",
+          len(kinds) == exos.CALCUL_N and set(kinds) <= set(exos.CALCUL) and len(set(kinds)) >= 3 and noms == ["Calcul mental"] * exos.CALCUL_N
+          and p and p["etat"] == "bilan" and p["type"] == "Calcul mental" and p.get("nom") == "Calcul mental" and p["bons"] == exos.CALCUL_N, f"{kinds} {noms} {p}")
+    ex.encore()
+    check("…« encore »: the same training again", ex.cur["i"] == 1 and ex.cur["n"] == exos.CALCUL_N and ex.public()["cur"].get("nom") == "Calcul mental"
+          and ex.cur["kind"] in exos.CALCUL)
+    ex.nouveau(mode="serie", n=3, pool="nimportequoi")
+    check("…an unknown set: a plain series, no title", ex.public()["cur"].get("nom") is None and ex.cur["n"] == 3)
 
 
 async def claude_tool(tmp):
@@ -671,7 +742,7 @@ out.waiting = PE.choosing;
 snap({ id: 1, mode: 'serie', etat: 'question', q: '2 + 3 = ?', choices: ['4', '5', '6', '7'], i: 1, n: 5, t0: NOW });
 out.exercise = { shown: shown(), choosing: PE.choosing };
 snap(null); out.done = shown();
-for (const [name, text] of [['un', 'Un exo'], ['chrono', 'Défi chrono'], ['enigme', 'Une énigme'], ['table', '× 7']]) { PE.choisir(); draw(); step(name, () => press(text)); }
+for (const [name, text] of [['calcul', 'Calcul mental'], ['un', 'Un exo'], ['chrono', 'Défi chrono'], ['enigme', 'Une énigme'], ['table', '× 7']]) { PE.choisir(); draw(); step(name, () => press(text)); }
 PE.choisir(); draw(); press('Fermer'); out.fermer = shown();
 PE.choisir(); draw(); NOW += 31000; out.timeout = shown();
 PE.choisir(); draw(); NOW += 20000; tap(150, 130); NOW += 20000; out.touched = shown();   // a touch on his small face: 30 s more
@@ -695,10 +766,11 @@ def chooser():
     v = g["view"]
     check("« Exos de maths »: nothing without exercises; his face until it is asked for", g["without"] is False
           and g["before"] == {"shown": False, "busy": False}, g)
-    check("…opened (the Exos button): over his face, his small face and today's stars, 4 big choices, the tables, « Fermer »",
+    check("…opened (the Exos button): over his face, his small face and today's stars, 5 big choices, the tables, « Fermer »",
           g["opened"] is True and v["shown"] and v["busy"] and v["choosing"] and "header Exos de maths" in v["texts"] and "Aujourd'hui" in v["texts"]
-          and all(s in v["texts"] for s in ("Un exo", "Série de 5", "Défi chrono", "Une énigme", "Fermer"))
+          and all(s in v["texts"] for s in ("Calcul mental", "Un exo", "Série de 5", "Défi chrono", "Une énigme", "Fermer"))
           and all(f"× {n}" in v["texts"] for n in range(2, 11)), v)
+    check("…« Calcul mental »: the training, 10 quick calculations", g["calcul"] == [["exos.nouveau", {"mode": "serie", "n": 10, "pool": "calcul"}]], g["calcul"])
     check("…« Série de 5 » starts a series of 5; the choice stays until it comes, then the exercise takes its place, then his face",
           g["serie"] == [["exos.nouveau", {"mode": "serie", "n": 5}]] and g["waiting"] is True
           and g["exercise"] == {"shown": True, "choosing": False} and g["done"] is False, g)
@@ -712,6 +784,8 @@ def chooser():
 if __name__ == "__main__":
     generator()
     chooser()
+    calcul_mental()
+    indices()
     with tempfile.TemporaryDirectory() as tmp:
         game(tmp)
     with tempfile.TemporaryDirectory() as tmp:

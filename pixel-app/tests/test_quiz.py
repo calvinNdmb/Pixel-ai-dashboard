@@ -231,7 +231,12 @@ async def test_deck():
     labels = [dk.cache[i][0] for i in range(4)]
     ok("a quiz: its 4 answers on the keys", sorted(labels) == ["bon1", "faux1a", "faux1b", "faux1c"], str(labels))
     await dk.press(labels.index("faux1a"))
-    ok("a wrong key: the hint, a second try", ex.cur["tries"] == 1 and ex.cur["hint_on"] and dk.cache[4][0] == "")
+    ok("a wrong key: the hint, a second try, and « Indice » for another one (3 answers left)",
+       ex.cur["tries"] == 1 and ex.cur["hint_on"] and dk.cache[4][0] == "Indice", str(dk.cache[4]))
+    await dk.press(4)
+    left = [dk.cache[i][0] for i in range(4) if dk.cache[i][0]]
+    ok("…another hint strikes out a wrong answer: its key goes, two are left, no more « Indice »",
+       len(ex.cur["elimine"]) == 1 and len(left) == 3 and dk.cache[4][0] == "" and "bon1" in left, f"{left} {dk.cache[4]}")
     await dk.press(labels.index("bon1"))
     ok("the right key answers it", ex.cur["etat"] == "resultat" and ex.cur["ok"] is True)
     await asyncio.sleep(0.3)

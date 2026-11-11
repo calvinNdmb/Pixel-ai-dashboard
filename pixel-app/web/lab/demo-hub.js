@@ -798,6 +798,7 @@ const EXK = [['addition', 'Additions'], ['soustraction', 'Soustractions'], ['tab
   ['heure', 'Heures et durées'], ['fraction', 'Fractions'], ['pourcentage', 'Pourcentages'], ['carre', 'Carrés'], ['enigme', 'Énigmes']];
 const EXL = Object.fromEntries(EXK), EXI = EXK.map(x => x[0]), EXMIN = { division: 2, carre: 2, pourcentage: 3, fraction: 2 };
 const EXCALC = ['addition', 'soustraction', 'table', 'division', 'complement', 'double', 'mental'];
+const EXPOOLS = { calcul: ['Calcul mental', EXCALC] }, EXCALC_N = 10;   // exos.py POOLS: a named set, its series has its title
 const EXTR = [['premier', 'Premier exo', s => s.total >= 1], ['serie5', '5 d\'affilée', s => s.serie_max >= 5], ['serie10', '10 d\'affilée', s => s.serie_max >= 10],
   ['serie20', '20 d\'affilée', s => s.serie_max >= 20], ['objectif', 'Objectif du jour', s => s.coupes >= 1], ['semaine', '7 objectifs', s => s.coupes >= 7],
   ['chrono10', '10 en 1 minute', s => s.record_chrono >= 10], ['cent', '100 exos', s => s.total >= 100], ['niveau5', 'Niveau 5', s => Object.values(s.niveaux).includes(5)],
@@ -945,23 +946,25 @@ function exNext() {
     const r = EX.run, it = r.items[r.i % r.items.length], choices = [it.answer, ...it.wrong].sort(() => Math.random() - 0.5);
     const num = choices.every(c => /^−?[\d\u00a0]+(?:,\d+)?(?:\u00a0min)?$/.test(c));
     EX.cur = { kind: 'quiz', niveau: 0, q: it.q, answer: it.answer, choices, hint: it.hint, explication: it.explication, num, clavier: num ? 'num' : '', id: ++EX.id, mode: r.mode,
-      t0: Date.now(), tries: 0, faux: [], hint_on: false, etat: 'question', i: r.i + 1, n: r.total, force: true, table: null, titre: r.titre };
+      t0: Date.now(), tries: 0, faux: [], hint_on: false, indices: 0, elimine: [], etat: 'question', i: r.i + 1, n: r.total, force: true, table: null, titre: r.titre };
     return;
   }
   const r = EX.run, ok = (r.pool || EXR.types).filter(k => EXL[k] && (EXMIN[k] || 1) <= exG()), last = (EX.cur || EX.last || {}).kind;
   const kind = r.kind || exPk(ok.length > 1 ? ok.filter(k => k !== last) : ok.length ? ok : EXI), lv = r.niveau || exLevel(kind);
   let ex; for (let i = 0; i < 8; i++) { ex = exGen(kind, lv, kind === 'table' ? r.table : null, r.ks ? r.ks[r.i % r.ks.length] : null); if (!EX.recent.includes(ex.q)) break; }
   EX.recent = [...EX.recent, ex.q].slice(-14);
-  EX.cur = { ...ex, id: ++EX.id, mode: r.mode, t0: Date.now(), tries: 0, faux: [], hint_on: false, etat: 'question', i: r.i + 1, n: r.total, force: !!r.niveau, table: kind === 'table' ? r.table : null };
+  EX.cur = { ...ex, id: ++EX.id, mode: r.mode, t0: Date.now(), tries: 0, faux: [], hint_on: false, indices: 0, elimine: [], etat: 'question', i: r.i + 1, n: r.total, force: !!r.niveau, table: kind === 'table' ? r.table : null, nom: r.nom || null };
 }
 function exNouveau({ kind = null, niveau = null, mode = 'exo', n = null, table = null, source = null, pool = null } = {}) {
   mode = ['exo', 'serie', 'table', 'chrono'].includes(mode) ? mode : 'exo'; kind = EXL[kind] ? kind : null;
   table = table == null ? null : Math.max(2, Math.min(12, Math.trunc(num(table, 7))));
   if (mode === 'table') { kind = 'table'; table = table || exRi(2, 9); } else if (kind !== 'table') table = null;
   const lv = niveau == null ? null : Math.max(1, Math.min(5, Math.trunc(num(niveau, 2)))), total = mode === 'chrono' ? 0 : n != null ? Math.max(1, Math.min(20, Math.trunc(num(n, 5)))) : { exo: 1, serie: 5, table: 10 }[mode];
-  EX.run = { mode, kind, pool: Array.isArray(pool) ? pool : null, table, niveau: lv, total, i: 0, bons: 0, ends_at: mode === 'chrono' ? Date.now() + 60000 : 0 };
+  const named = typeof pool === 'string' && EXPOOLS[pool] ? pool : null;      // « calcul »: Calcul mental
+  pool = (named ? EXPOOLS[named][1] : Array.isArray(pool) ? pool : []).filter(k => EXL[k]);
+  EX.run = { mode, kind, pool: pool.length ? pool : null, table, niveau: lv, total, i: 0, bons: 0, ends_at: mode === 'chrono' ? Date.now() + 60000 : 0, nom: named ? EXPOOLS[named][0] : null };
   if (mode === 'table') EX.run.ks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].sort(() => Math.random() - 0.5);
-  EX.again = { kind, niveau: lv, mode, n, table, pool: EX.run.pool };
+  EX.again = { kind, niveau: lv, mode, n, table, pool: named || EX.run.pool };
   exDay(); exNext(); exEvent('propose', { mode, source: ['claude', 'envie'].includes(source) ? source : '' });   // exos.py SOURCES
   S.anim = null; S.screen = 'visage';
 }
@@ -1003,7 +1006,7 @@ function exAdvance() {
 function exBilan() {
   const r = EX.run, chrono = r.mode === 'chrono', total = chrono ? r.i : r.total, rec = EXS.record_chrono, nw = chrono && r.bons > rec;
   if (nw) EXS.record_chrono = r.bons;
-  EX.cur = { id: ++EX.id, mode: r.mode, kind: r.kind || '', type: r.titre || (r.mode === 'table' ? `Table de ${r.table}` : EXL[r.kind] || 'Mélange'), etat: 'bilan', bons: r.bons, total, record: chrono ? Math.max(rec, r.bons) : 0, nouveau_record: !!nw, t0: Date.now(), next_at: Date.now() + 14000 };
+  EX.cur = { id: ++EX.id, mode: r.mode, kind: r.kind || '', type: r.titre || r.nom || (r.mode === 'table' ? `Table de ${r.table}` : EXL[r.kind] || 'Mélange'), etat: 'bilan', bons: r.bons, total, record: chrono ? Math.max(rec, r.bons) : 0, nouveau_record: !!nw, t0: Date.now(), next_at: Date.now() + 14000, nom: r.nom || null };
   EX.run = null; exEvent('serie', { fin: true, bons: r.bons, total, chrono, record: !!nw }); exSay(exTrophies());
 }
 function exTrophies() {                                   // exos.py _trophies(): the ones just won, as one line
@@ -1013,11 +1016,13 @@ function exTrophies() {                                   // exos.py _trophies()
 const exSay = says => { if (says.length) toast(says.join(' · '), says.length > 1 ? 8000 : 5000); };
 function exPub() {
   const c = EX.cur; let cur = null;
-  if (c && c.etat === 'bilan') cur = { ...c }, delete cur.next_at;
+  if (c && c.etat === 'bilan') { cur = { ...c }; delete cur.next_at; if (!cur.nom) delete cur.nom; }
   else if (c) {
     cur = { id: c.id, kind: c.kind, mode: c.mode, q: c.q, choices: c.choices, num: c.num, clavier: c.clavier, t0: c.t0, tries: c.tries, faux: c.faux, niveau: c.niveau, i: c.i, n: c.n, etat: c.etat, table: c.table,
       type: c.titre || (c.table ? `Table de ${c.table}` : EXL[c.kind]) };
+    if (c.nom) cur.nom = c.nom;                           // a named series (« Calcul mental »): the screens' title
     if (c.hint_on) cur.hint = c.hint;
+    Object.assign(cur, { elimine: (c.elimine || []).slice(), indices: c.indices || 0, plus: exMore(c) });   // struck out: wrong ones only
     if (c.etat === 'resultat') Object.assign(cur, { ok: c.ok, answer: c.answer, explication: c.explication, valeur: c.valeur, passe: c.passe, monte: c.monte });
     if (EX.run && EX.run.mode === 'chrono') Object.assign(cur, { ends_at: EX.run.ends_at, left: Math.max(0, Math.ceil((EX.run.ends_at - Date.now()) / 1000)), bons: EX.run.bons });
   }
@@ -1027,11 +1032,19 @@ function exPub() {
       coupes: EXS.coupes, fait: EXS.coupe_jour === EXS.jour, record_chrono: EXS.record_chrono, trophees: EXS.trophees.slice(), par_type: exPt },
     kinds: EXK.map(([id, label]) => ({ id, label })), trophees: EXTR.map(([id, label]) => ({ id, label })) };
 }
+function exLeft(c) { return c.choices.filter(x => !c.faux.includes(x) && !(c.elimine || []).includes(x)); }   // exos.py _left
+function exMore(c) { return !!c && c.etat === 'question' && (!c.hint_on || exLeft(c).length > 2); }        // exos.py more_hints
+function exIndice() {                                     // exos.py indice(): its sentence, then wrong answers struck out until two are left
+  const c = EX.cur; if (!exMore(c)) return;
+  if (!c.hint_on) { c.hint_on = true; c.indices = 1; if (c.hint) return; }
+  const wrong = exLeft(c).filter(x => !exSame(x, c.answer)); if (exLeft(c).length <= 2 || !wrong.length) return;
+  (c.elimine || (c.elimine = [])).push(wrong[Math.floor(Math.random() * wrong.length)]); c.indices = (c.indices || 0) + 1;
+}
 function exAnswer(value, id = null) {                     // id: the exercise it answers; another one's (a double tap) is ignored
   const c = EX.cur, v = String(value ?? '').trim().slice(0, 40); if (!c || c.etat !== 'question' || !v || (id != null && String(id) !== String(c.id))) return;
   const ok = exSame(v, c.answer), pickd = c.choices.find(x => exSame(v, x)) || v;
-  if (!ok && c.faux.some(f => exSame(v, f))) return;     // a wrong answer already given
-  if (!ok && c.tries === 0 && c.mode !== 'chrono') { c.tries = 1; c.hint_on = true; c.faux.push(pickd); exEvent('faux', { essai: 1 }); return; }
+  if (!ok && [...c.faux, ...(c.elimine || [])].some(f => exSame(v, f))) return;     // a wrong answer already given, or struck out by a hint
+  if (!ok && c.tries === 0 && c.mode !== 'chrono') { c.tries = 1; c.hint_on = true; c.indices = Math.max(1, c.indices || 0); c.faux.push(pickd); exEvent('faux', { essai: 1 }); return; }
   const first = c.tries === 0; if (!ok) c.faux.push(pickd); c.tries++;
   exResolve(ok, v, first);
 }
@@ -1044,7 +1057,7 @@ Object.assign(A, {
   'exos.encore': () => { if (EX.again && EX.again.quiz) exQuiz(...EX.again.quiz, 'claude'); else exNouveau(EX.again || {}); exPub(); },
   'quiz.creer': ({ sujet = '' } = {}) => { if (!String(sujet).trim()) return toast('Dis-moi sur quoi : « quiz sur les volcans ».', 5000); quizDemo(); },
   'exos.repondre': ({ value = '', id = null } = {}) => { exAnswer(value, id); exPub(); },
-  'exos.indice': () => { if (EX.cur && EX.cur.etat === 'question') EX.cur.hint_on = true; exPub(); },
+  'exos.indice': () => { exIndice(); exPub(); },
   'exos.passer': ({ id = null, etat = null } = {}) => {
     const c = EX.cur; if (!c || (id != null && String(id) !== String(c.id)) || (etat && etat !== c.etat)) return;   // a double tap does not skip the correction too
     if (c.etat === 'question') exResolve(false, '', false, true); else if (c.etat === 'resultat') exAdvance(); else exStop(); exPub();
@@ -1095,6 +1108,7 @@ function exCommand(raw) {
   if ((m = /^(?:(?:une |la )?serie(?: de (\d{1,2}))?(?: (?:exos|exercices|questions|calculs))?|(\d{1,2}) (?:exos|exercices|questions|calculs))$/.exec(t))) return go({ mode: 'serie', n: +(m[1] || m[2] || 5) });
   if (/^(?:une |une petite )?question (?:de )?(?:maths?|calcul)$/.test(t)) return go({});   // not a bare « une question »: that one is for Claude
   if (/^(?:une |des )?(?:enigme|enigmes|devinette|devinettes)(?: logique| logiques)?$/.test(t)) return go({ kind: 'enigme' });
+  if (/^(?:(?:un |l')?entrainement|entraine-moi|entraine moi|entrainons-nous|on s'entraine|je veux m'entrainer|(?:une |la )?serie)(?: (?:de|du|au|en|a))? calcul mental$/.test(t)) return go({ mode: 'serie', n: EXCALC_N, pool: 'calcul' });
   if (/^(?:un |des )?(?:petit )?calculs?(?: mental)?$/.test(t)) return t.includes('mental') ? go({ kind: 'mental' }) : go({ pool: EXCALC });
   if ((m = EXHARD.exec(t))) {
     const lv = exG(), hard = m[1];

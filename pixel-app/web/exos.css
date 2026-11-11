@@ -37,6 +37,7 @@ body[data-mode="pixel"] .exos,body.kiosk .exos,body.poche .exos{display:none!imp
 .ex-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ex-choices button{min-height:68px;font-size:calc(28px*var(--k-size));overflow-wrap:anywhere}
 .ex-choices button.wrong{text-decoration:line-through;border-color:var(--k-act);color:var(--k-act)}
+.ex-choices button.gone{text-decoration:line-through;opacity:.35}
 .ex-choices button.right{background:var(--k-cur);color:var(--k-curfg);border-color:var(--k-cur);opacity:1}
 .ex-typed{display:block;min-height:1.4em;margin:12px 0 8px;padding:6px 12px;border-bottom:2px solid var(--c-line);font:calc(34px*var(--k-size)) / 1.2 var(--k-font);text-align:right}
 .ex-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}

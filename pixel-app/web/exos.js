@@ -112,10 +112,10 @@ function star(k, x, y, r, filled) {                          // a star of the da
   X.restore();
 }
 function title(c) {
-  if (c.etat === 'bilan') return c.mode === 'chrono' ? 'Défi chrono' : c.mode === 'table' ? c.type : c.kind === 'quiz' ? 'Fin du quiz' : 'Fin de la série';
+  if (c.etat === 'bilan') return c.mode === 'chrono' ? 'Défi chrono' : c.mode === 'table' ? c.type : c.kind === 'quiz' ? 'Fin du quiz' : c.nom || 'Fin de la série';
   if (c.mode === 'chrono') return 'Défi chrono';
   if (c.mode === 'table') return `${c.type} · ${c.i}/${c.n}`;
-  if (c.mode === 'serie') return `${c.kind === 'quiz' ? 'Quiz' : 'Série'} · ${c.i}/${c.n}`;   // a quiz made to measure (pixel/quiz.py) is a series
+  if (c.mode === 'serie') return `${c.kind === 'quiz' ? 'Quiz' : c.nom || 'Série'} · ${c.i}/${c.n}`;   // a quiz made to measure (pixel/quiz.py) is a series; « Calcul mental »
   return c.kind === 'enigme' ? 'Une énigme' : 'Exo de maths';
 }
 function faceWant(c, e) {                                    // what his small face does when no scene plays
@@ -150,7 +150,8 @@ function today(k) {                                          // today: the stars
 }
 /* « Exos de maths »: what to do, on his own screen, as the phone's panel has it; the exercise chosen takes its place (the
    choice stays until it comes); « Fermer », another screen, a cast or 30 s untouched put it away */
-const CHOIX = [['Un exo', { mode: 'exo' }], ['Série de 5', { mode: 'serie', n: 5 }], ['Défi chrono', { mode: 'chrono' }], ['Une énigme', { kind: 'enigme' }]];
+const CALCUL = { mode: 'serie', n: 10, pool: 'calcul' };       // « Calcul mental »: 10 quick calculations (exos.py POOLS)
+const CHOIX = [['Calcul mental', CALCUL], ['Un exo', { mode: 'exo' }], ['Série de 5', { mode: 'serie', n: 5 }], ['Défi chrono', { mode: 'chrono' }], ['Une énigme', { kind: 'enigme' }]];
 function drawChoix(k) {
   const D = k.c.D, touched = () => { V.choix = Date.now(); };
   k.header('Exos de maths', k.clock());
@@ -160,7 +161,10 @@ function drawChoix(k) {
   today(k);
   const go = args => () => { touched(); send('exos.nouveau', args); };
   k.txt(label(k, 'Choisis !'), RX, 58, 22, D);
-  CHOIX.forEach(([text, args], i) => button(k, RX + (i % 2) * 244, 92 + Math.floor(i / 2) * 96, 232, 84, text, go(args), { fill: i === 0, size: 30 }));
+  CHOIX.forEach(([text, args], i) => {                       // two by two, 3 rows; alone on its row: the whole width
+    const alone = i === CHOIX.length - 1 && i % 2 === 0;
+    button(k, RX + (i % 2) * 244, 92 + Math.floor(i / 2) * 64, alone ? RW : 232, 56, text, go(args), { fill: i === 0, size: 28 });
+  });
   k.txt(label(k, 'Les tables'), RX, 292, 22, D);
   for (let n = 2; n <= 10; n++) button(k, RX + ((n - 2) % 5) * 97, 322 + Math.floor((n - 2) / 5) * 72, 89, 60, `× ${n}`, go({ mode: 'table', table: n }));
   button(k, FX, 410, FW, 60, 'Fermer', () => { V.choix = 0; });
@@ -181,7 +185,7 @@ function drawExo(k) {
   // the buttons, bottom left
   const yb = 410, hb = 60;
   if (c.etat === 'question') {
-    button(k, FX, yb, 116, hb, 'Indice', () => send('exos.indice'), { dim: !!c.hint, size: 26 });
+    button(k, FX, yb, 116, hb, 'Indice', () => send('exos.indice'), { dim: c.plus != null ? !c.plus : !!c.hint, size: 26 });   // again: another one
     button(k, FX + 124, yb, 116, hb, 'Passer', () => send('exos.passer', { id: c.id, etat: c.etat }), { size: 26 });
     button(k, FX + 248, yb, 56, hb, '×', () => send('exos.stop'), { size: 36 });
   } else if (c.etat === 'resultat' && (c.mode === 'serie' || c.mode === 'table') && c.i < c.n) {
@@ -230,13 +234,14 @@ function drawQuestion(k, c, t) {
   const sizes = c.choices.map(s => fitText(k, s, CW - 28, CHH - 12, [40, 34, 30, 26, 22], kind)), fs = Math.min(...sizes.map(r => r.fs));   // one size for the 4
   c.choices.forEach((s, i) => {
     const [x, y] = CH[i], right = res && c.answer === s, wrongPick = (c.faux || []).includes(s), pressed = V.pressed === i && k.now - V.pressAt < 500;
-    const col = right ? G : wrongPick ? AM : res ? D : G, fill = right || pressed ? col : null;
+    const gone = !right && !wrongPick && (c.elimine || []).includes(s);    // struck out by a hint: grey, untouchable
+    const col = right ? G : wrongPick ? AM : res || gone ? D : G, fill = right || pressed ? col : null;
     k.box(x, y, CW, CHH, col, fill);
-    const ink = fill ? (k.T.onFg || B) : wrongPick ? AM : res && !right ? D : WH, ls = k.wrap(s, CW - 28, fs, kind).slice(0, 2), lh = fs + 6;
+    const ink = fill ? (k.T.onFg || B) : wrongPick ? AM : (res && !right) || gone ? D : WH, ls = k.wrap(s, CW - 28, fs, kind).slice(0, 2), lh = fs + 6;
     ls.forEach((l, j) => k.txt(k.fit(l, CW - 20, fs, kind), x + CW / 2, y + (CHH - ls.length * lh) / 2 + j * lh + 3, fs, ink, 'center', kind));
-    if (wrongPick) { X.save(); X.strokeStyle = X.shadowColor = AM; X.lineWidth = 3; X.beginPath(); X.moveTo(x + 18, y + CHH - 18); X.lineTo(x + CW - 18, y + 18); X.stroke(); X.restore(); }
-    if (pad) k.txt(String(i + 1), x + 10, y + 6, 20, D);
-    if (!res && !wrongPick) k.hit(x, y, CW, CHH, () => { if (L.petted) { L.petted = false; return; } V.pressed = i; V.pressAt = k.now; V.buf = ''; L.dirty = true; k.fast(500); send('exos.repondre', { value: s, id: c.id }); });
+    if (wrongPick || gone) { X.save(); X.strokeStyle = X.shadowColor = wrongPick ? AM : D; X.lineWidth = 3; X.beginPath(); X.moveTo(x + 18, y + CHH - 18); X.lineTo(x + CW - 18, y + 18); X.stroke(); X.restore(); }
+    if (pad && !gone) k.txt(String(i + 1), x + 10, y + 6, 20, D);
+    if (!res && !wrongPick && !gone) k.hit(x, y, CW, CHH, () => { if (L.petted) { L.petted = false; return; } V.pressed = i; V.pressAt = k.now; V.buf = ''; L.dirty = true; k.fast(500); send('exos.repondre', { value: s, id: c.id }); });
   });
 }
 function drawBilan(k, c) {
@@ -263,7 +268,7 @@ setInterval(() => { if (V.offering && !offering()) V.offering = false; }, 1000);
 
 /* ---------- a keyboard: the Pi's, or a computer's (not while typing in a field) ---------- */
 function visible() { const cv = document.getElementById('crt'); return !!cv && cv.offsetParent !== null; }
-function choose(i) { const c = cur(); if (!c || c.etat !== 'question' || !c.choices[i] || (c.faux || []).includes(c.choices[i])) return; V.pressed = i; V.pressAt = nowMs(); send('exos.repondre', { value: c.choices[i], id: c.id }); }
+function choose(i) { const c = cur(); if (!c || c.etat !== 'question' || !c.choices[i] || [...(c.faux || []), ...(c.elimine || [])].includes(c.choices[i])) return; V.pressed = i; V.pressAt = nowMs(); send('exos.repondre', { value: c.choices[i], id: c.id }); }
 function submit() {
   const c = cur(); if (!c || c.etat !== 'question' || !V.buf) return;
   const b = V.buf.trim(); V.buf = '';
@@ -327,7 +332,7 @@ function panelState() {
   const st = E.stats, goal = st.objectif || 5, done = st.aujourdhui || 0;
   const day = document.getElementById('exDay'), dtext = `${'★'.repeat(Math.min(done, goal, 10))}${'☆'.repeat(Math.max(0, Math.min(goal, 10) - done))} ${done}/${goal}`;
   if (day.textContent !== dtext) { day.textContent = dtext; day.title = `Aujourd'hui : ${done} exo${done > 1 ? 's' : ''} sur ${goal}`; }
-  const key = JSON.stringify(c ? [c.id, c.etat, c.tries, c.hint, c.faux, c.ok, c.mode === 'chrono' ? 0 : c.i] : null);
+  const key = JSON.stringify(c ? [c.id, c.etat, c.tries, c.hint, c.faux, c.elimine, c.plus, c.ok, c.mode === 'chrono' ? 0 : c.i] : null);
   if (key !== shown) { shown = key; if (!c || c.id !== (renderBody.id || -1)) padBuf = ''; renderBody(c); }
   const skey = JSON.stringify([st, E.reglages, E.niveau]);
   if (skey !== shownStats) { shownStats = skey; renderMore(); }
@@ -338,7 +343,7 @@ function renderBody(c) {
   clearInterval(chronoT);
   if (!c) {
     const big = $el('div', 'ex-big');
-    big.append(btn('Un exo', go({ mode: 'exo' })), btn('Série de 5', go({ mode: 'serie', n: 5 })), btn('Défi chrono', go({ mode: 'chrono' })), btn('Une énigme', go({ kind: 'enigme' })));
+    big.append(btn('Calcul mental', go(CALCUL)), btn('Un exo', go({ mode: 'exo' })), btn('Série de 5', go({ mode: 'serie', n: 5 })), btn('Défi chrono', go({ mode: 'chrono' })), btn('Une énigme', go({ kind: 'enigme' })));
     const tables = $el('div', 'ex-chips'); for (let n = 2; n <= 10; n++) tables.append(btn(`× ${n}`, go({ mode: 'table', table: n }), 'chip'));
     const kinds = $el('div', 'ex-chips'); for (const kd of E.kinds || []) kinds.append(btn(kd.label, go({ kind: kd.id }), 'chip'));
     out.push(big, $el('h3', null, 'Les tables'), tables, $el('h3', null, 'Un type d’exo'), kinds);
@@ -368,6 +373,7 @@ function renderBody(c) {
     c.choices.forEach(s => {
       const b = btn(s, () => { send('exos.repondre', { value: s, id: c.id }); padBuf = ''; }), wrong = (c.faux || []).includes(s);
       if (wrong) { b.disabled = true; b.classList.add('wrong'); }
+      else if ((c.elimine || []).includes(s) && s !== c.answer) { b.disabled = true; b.classList.add('gone'); }   // struck out by a hint
       if (c.etat === 'resultat') { b.disabled = true; if (s === c.answer) b.classList.add('right'); }
       ch.append(b);
     });
@@ -386,7 +392,8 @@ function renderBody(c) {
       out.push(typed, pad);
     }
     const act = $el('div', 'ex-actions');
-    if (c.etat === 'question') act.append(btn('Indice', () => send('exos.indice')), btn('Passer', () => send('exos.passer', { id: c.id, etat: c.etat })), btn('Arrêter', () => send('exos.stop')));
+    const more = btn(c.hint ? 'Un autre indice' : 'Indice', () => send('exos.indice')); more.disabled = c.plus === false;   // again and again, until two answers are left
+    if (c.etat === 'question') act.append(more, btn('Passer', () => send('exos.passer', { id: c.id, etat: c.etat })), btn('Arrêter', () => send('exos.stop')));
     else if ((c.mode === 'serie' || c.mode === 'table') && c.i < c.n) act.append(btn('Suivant', () => send('exos.passer', { id: c.id, etat: c.etat }), 'main'), btn('Arrêter', () => send('exos.stop')));
     else act.append(btn('Encore', () => send('exos.encore'), 'main'), btn('Fini', () => send('exos.stop')));
     if (c.etat === 'question' && c.hint) act.firstChild.disabled = true;
