@@ -56,6 +56,7 @@ function state(p) {
     }
   }
   panelState();
+  if (window.PixelCours) try { PixelCours.state(p); } catch (e) { /* « Mes cours » must never stop the exercises */ }
 }
 /* web/nourrir.js draws its plate in the bottom right corner, over choices 2 and 4, and its touch zone would win: it waits
    under every add-on of screens.js's ORDER (this one too), neither drawn nor opened while an exercise is open */
@@ -160,10 +161,13 @@ function drawChoix(k) {
   bubble(k, line || "Qu'est-ce qu'on fait ?", !!line);
   today(k);
   const go = args => () => { touched(); send('exos.nouveau', args); };
+  const lesson = P && P.cours && Array.isArray(P.cours.liste) && P.cours.liste[0];   // the latest lesson in photos (pixel/cours.py)
+  const items = CHOIX.map(([text, args]) => [text, go(args)]);
+  if (lesson) items.push(['Mon cours', () => { touched(); send('cours.quiz', { id: lesson.id }); }]);   // a quiz on it: it comes in a few seconds
   k.txt(label(k, 'Choisis !'), RX, 58, 22, D);
-  CHOIX.forEach(([text, args], i) => {                       // two by two, 3 rows; alone on its row: the whole width
-    const alone = i === CHOIX.length - 1 && i % 2 === 0;
-    button(k, RX + (i % 2) * 244, 92 + Math.floor(i / 2) * 64, alone ? RW : 232, 56, text, go(args), { fill: i === 0, size: 28 });
+  items.forEach(([text, fn], i) => {                         // two by two, 3 rows; alone on its row: the whole width
+    const alone = i === items.length - 1 && i % 2 === 0;
+    button(k, RX + (i % 2) * 244, 92 + Math.floor(i / 2) * 64, alone ? RW : 232, 56, text, fn, { fill: i === 0, size: 28 });
   });
   k.txt(label(k, 'Les tables'), RX, 292, 22, D);
   for (let n = 2; n <= 10; n++) button(k, RX + ((n - 2) % 5) * 97, 322 + Math.floor((n - 2) / 5) * 72, 89, 60, `× ${n}`, go({ mode: 'table', table: n }));
@@ -309,7 +313,8 @@ function mountPanel() {
   head.append(h2, day, x);
   const body = $el('div', 'ex-body'); body.id = 'exBody';
   const more = $el('div', 'ex-more'); more.id = 'exMore';
-  panel.append(head, body, more);
+  const cours = $el('div', 'ex-body ex-cours'); cours.id = 'exCours'; cours.hidden = true;   // « Mes cours » (web/cours.js), with a Pi
+  panel.append(head, body, cours, more);
   document.querySelector('.kb').after(panel);
   if (store.get('pixel.exos.open') === '1') togglePanel(true);
   panelState();
@@ -442,7 +447,7 @@ if (typeof document !== 'undefined') { if (document.readyState === 'loading') do
 
 return {
   get state() { return E; }, get open() { return open(); }, get offering() { return offering(); }, get buffer() { return V.buf; }, trait,
-  get choosing() { return choosing(); },
+  get choosing() { return choosing(); }, send,                 // send: web/cours.js's actions (cours.quiz, cours.supprime)
   choisir() { if (!E) return false; V.choix = Date.now(); L.dirty = true; return true; },   // « Exos de maths » (web/dock.js's Exos button)
   canPropose(c) {                                           // exo-envie (a moment of life): the setting on, in the day, not too often
     if (!E || open() || choosing() || !E.reglages || !E.reglages.propose || !c || !c.day || castOn() || (window.PixelNourrir && window.PixelNourrir.trayOpen)) return false;   // not over a cast or his food tray

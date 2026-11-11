@@ -563,6 +563,19 @@ Sans clé API (mode démo, ou Claude avec ton abonnement), il joue un petit quiz
 
 **Sans Pi, dans l'appli Android :** les mêmes commandes (`quiz sur les volcans`, `interroge-moi sur les capitales`) marchent sur le Pixel du téléphone. C'est l'appli qui demande le quiz à Claude, avec une clé API que tu lui donnes une fois : bouton retour du téléphone, puis **Clé Claude**. La clé reste dans le coffre du téléphone. Pixel compte ce que coûtent les quiz du mois : tape `budget` pour le voir, `budget 10` pour changer le plafond (30 € au départ), `budget 0` pour l'enlever. Sans clé, il te dit où la mettre. Les discussions avec Claude, elles, restent sur le Pi.
 
+## Mes cours : un cours en photo
+
+Prends ton cours en photo, Pixel le lit et te pose des questions dessus pendant une semaine.
+
+1. Sur ton téléphone, ouvre **Exos** sous les touches, puis la partie **Mes cours**.
+2. Touche **Prendre en photo** : l'appareil photo s'ouvre. Une page, puis **Une autre page** pour la suivante (6 au plus) ; ou **Choisir des photos** déjà prises. Une photo ratée ? Touche son **×**. Tu peux donner un titre.
+3. Touche **Envoyer à Pixel**. Pixel réfléchit pendant qu'il lit (quelques secondes), puis dit « J'ai lu ton cours « Les volcans » ».
+4. Pour réviser : **Quiz** à côté du cours, ou **Mon cours** dans l'écran « Exos de maths » du Pi (le dernier cours), ou tape (ou dis au micro) `quiz sur mon cours`, `interroge-moi sur ma leçon de sciences`, `révise mon cours sur les volcans`. Le quiz n'interroge que sur ce qui est dans le cours. Tu peux aussi demander à Claude de t'expliquer ton cours : il le lit.
+
+**Voir le texte** montre ce que Pixel a lu, pour vérifier. **Oublier** l'efface tout de suite ; sinon, il l'oublie tout seul au bout de 7 jours (`[cours] jours = 7` dans `config.toml`). Les photos ne sont jamais gardées : seul le texte du cours reste sur le Pi (`~/.config/pixel/cours/cours.json`, lisible par toi seul). Pour de bonnes photos : bien à plat, de près, avec de la lumière.
+
+Il faut une clé API : Claude Sonnet 5.5 lit les photos (`[claude] cours_model`), environ 2 à 3 centimes par cours, comptés dans le budget du mois. Sans clé, la partie **Mes cours** dit pourquoi et rien n'est envoyé. Dans l'appli Android, l'appareil photo s'ouvre comme dans le navigateur.
+
 ## Répondre avec le Stream Deck
 
 Dès qu'un exo ou un quiz est ouvert sur son visage, les 15 touches changent :
@@ -943,6 +956,7 @@ node tests/test_nourrir.js           # port 8175 (NOURRIR_PORT=… pour un autre
 node tests/test_quiz.js              # les quiz sur mesure du Pixel du téléphone (sans Pi), avec une fausse appli
 python3 tests/test_quiz.py           # les quiz sur mesure, le budget, Haiku, les touches du Stream Deck (une fausse API)
 python3 tests/test_problemes.py      # les problèmes écrits à l'avance par Haiku : les calculs refaits, la réserve (une fausse API)
+python3 tests/test_cours.py          # « Mes cours » : l'envoi des photos, leur lecture (une fausse API), la semaine, les quiz dessus
 python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_habitudes.py      # ses habitudes, sans serveur (horloges fixées)
@@ -978,6 +992,7 @@ Pas encore testé avec le vrai matériel :
 | `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
 | `pixel/quiz.py`, `pixel/budget.py` | les quiz sur mesure, écrits par un deuxième modèle et joués par les exos ; le budget du mois avec une clé API |
 | `pixel/problemes.py` | les petits problèmes des exos, écrits à l'avance par Claude Haiku et mis en réserve (`problemes.json`), chacun vérifié en refaisant son calcul |
+| `pixel/cours.py`, `web/cours.js` | « Mes cours » : un cours pris en photo sur le téléphone, lu par Claude, gardé une semaine (`cours/cours.json`), et les quiz dessus |
 | `pixel/look.py`, `web/look.js` | son look : ses yeux, ses couleurs, ses accessoires, les tenues de saison et le pyjama ; le dessin dans les 6 thèmes et le panneau **Son look** du téléphone (`look.css`) ; ses réactions dans `scenes/look.js` |
 | `pixel/habitudes.py`, `web/habitudes.js` | ses habitudes : son emploi du temps, ses mini-jeux, ses rires, ses peurs, ses phrases ; les jeux et sa nuit sur l'écran, le panneau **Habitudes** du téléphone (`habitudes.css`) ; ses scènes et ses blagues dans `scenes/habitudes.js` |
 | `pixel/souvenirs.py`, `pixel/album.py`, `web/souvenirs.js`, `web/album.js` | ses souvenirs, le carnet d'humeur et l'album photo : le serveur, son écran, le panneau **Souvenirs** du téléphone (`souvenirs.css`) ; ses scènes dans `scenes/souvenirs.js` |

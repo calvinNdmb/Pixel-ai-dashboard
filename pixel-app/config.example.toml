@@ -19,6 +19,7 @@ effort = "low"              # low = réponses rapides ; medium ou high pour qu'i
 exos_model = "claude-sonnet-5-5"   # les quiz sur mesure (« quiz sur les volcans ») : un modèle plus fort écrit les questions
 # problemes_model = "claude-haiku-5-5"   # les petits problèmes des exos, écrits à l'avance et mis en réserve (problemes.json)
 # problemes = false         # pour garder seulement les problèmes tout faits de Pixel
+# cours_model = "claude-sonnet-5-5"   # « Mes cours » : le modèle qui lit les photos d'un cours (l'écriture à la main aussi)
 budget_eur = 30             # le plafond du mois avec une clé API, en euros (estimation faite sur le Pi) ; 0 : pas de plafond
 # usd_eur = 0.92            # le cours du dollar pour ce compte (les prix de l'API sont en dollars)
 # Avec ton abonnement Claude au lieu d'une clé API (CLAUDE_CODE_OAUTH_TOKEN dans /etc/pixel.env, voir le README) :
@@ -83,6 +84,11 @@ pin = true                  # l'iPhone tape le code à 4 chiffres que Pixel affi
 # device = "plughw:1,0"      # le micro à écouter (arecord -l) ; sans cette ligne : le premier
 # max_seconds = 20           # il écoute 20 s au plus
 # silence = 1.8              # il s'arrête tout seul après ce silence, en secondes
+
+[cours]
+# « Mes cours » (pixel/cours.py) : un cours pris en photo dans l'appli, lu par Claude (une clé API), pour des quiz dessus.
+# Les photos ne sont jamais gardées, seulement le texte du cours.
+# jours = 7                  # il garde chaque cours une semaine, puis l'oublie (de 1 à 60)
 
 # [security]
 # token = "..."             # code d'accès des téléphones ; créé tout seul sinon

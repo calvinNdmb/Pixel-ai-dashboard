@@ -45,6 +45,7 @@ from pixel import amis                   # les amis de Pixel: visits from house 
 from pixel import look                   # his look: eyes, colours, what he wears, the seasons' outfits, his pyjama
 from pixel import quiz                   # quizzes made to measure, written by a second Claude model
 from pixel import problemes              # word problems written ahead of time by Claude (Haiku), kept in reserve
+from pixel import cours                  # « Mes cours »: a lesson in photos, read by Claude, kept a week for quizzes on it
 from pixel.budget import Budget          # what Claude costs this month, and its ceiling
 from pixel import habitudes              # his habits: his day (wake-up, nap, bedtime), games, laughs, fears, his phrases
 from pixel import wifi                   # his Wi-Fi: the networks around him, joining one from his own screen (web/wifi.js)
@@ -310,6 +311,7 @@ async def serve(args, cfg, datadir, token):
     ecran.routes(app.router)                               # /ecran: « Partager mon écran », its signalling, Android's screen
     telephone.setup(hub, app, token)       # POST /api/notif: the phone's notifications, a toast for his scenes
     optional(hub, "album", album.setup, hub, app, datadir, token)   # POST /api/album (his own screen's photos), GET /album/NAME: same access rules
+    optional(hub, "cours", cours.setup, hub, app, datadir, token, cfg.get("cours", {}), cfg.get("claude", {}))   # POST /api/cours, GET /api/cours/ID: same rules
     for path in ("/lab", "/lab/", "/app/lab", "/app/lab/"):    # before the static route, which would answer 403
         app.router.add_get(path, lab)
     app.router.add_static("/app/", HERE / "web")

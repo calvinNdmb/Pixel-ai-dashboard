@@ -748,6 +748,8 @@ PE.choisir(); draw(); NOW += 31000; out.timeout = shown();
 PE.choisir(); draw(); NOW += 20000; tap(150, 130); NOW += 20000; out.touched = shown();   // a touch on his small face: 30 s more
 L.scr = 'meteo'; ad.on('meteo'); L.scr = 'visage'; out.other = shown();
 PE.choisir(); Sc.casting = true; ad.on('visage'); Sc.casting = false; out.cast = shown();
+ad.state({ exos: { cur: null, stats: { objectif: 5, aujourdhui: 2 }, reglages: {}, kinds: [] }, cours: { liste: [{ id: 'abc12345', titre: 'Les volcans' }] }, server_now: NOW });
+PE.choisir(); out.withLesson = draw(); step('cours', () => press('Mon cours'));   // a lesson in photos (pixel/cours.py): « Mon cours »
 console.log(JSON.stringify(out));
 """
 
@@ -779,6 +781,8 @@ def chooser():
           and g["enigme"] == [["exos.nouveau", {"kind": "enigme"}]] and g["table"] == [["exos.nouveau", {"mode": "table", "table": 7}]], g)
     check("…put away by « Fermer », 30 s untouched (a touch gives 30 s more), another screen, a cast",
           g["fermer"] is False and g["timeout"] is False and g["touched"] is True and g["other"] is False and g["cast"] is False, g)
+    check("…« Mon cours » only with a lesson in photos (pixel/cours.py): a quiz on the latest one",
+          "Mon cours" not in v["texts"] and "Mon cours" in g["withLesson"] and g["cours"] == [["cours.quiz", {"id": "abc12345"}]], str(g.get("cours")))
 
 
 if __name__ == "__main__":
