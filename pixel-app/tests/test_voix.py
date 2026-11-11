@@ -11,13 +11,20 @@
 - no Vosk, no model, no microphone, switched off in config.toml: said why, he does not listen; a microphone that fails
   while he listens: said, he stops, nothing sent;
 - the level of a sound, the first microphone of `arecord -l`;
+- his buttons (web/dock.js, run in node with a pretend screen and server): the micro starts him, « Arrêter » stops him
+  even right after the micro button and before the server answered, a double touch is one touch, the Claude screen and
+  the other screens can stop him too, and without news from Pixel nothing pretends he listens;
 - the pieces around: server.py, install.sh, dock.js before app.js, screens.js draws it and leaves voix.* to it.
 """
 import argparse
 import array
 import asyncio
+import json
+import logging
 import math
 import os
+import shutil
+import subprocess
 import sys
 import time
 import wave
@@ -68,7 +75,26 @@ class Broken:
         raise OSError(self.fail or "Device or resource busy")
 
 
+class Logs(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.lines = []
+
+    def emit(self, record):
+        self.lines.append(record.getMessage())
+
+
 async def listening():
+    logs = Logs()
+    logging.getLogger("pixel").addHandler(logs)
+    logging.getLogger("pixel").setLevel(logging.INFO)
+    try:
+        await _listening(logs)
+    finally:
+        logging.getLogger("pixel").removeHandler(logs)
+
+
+async def _listening(logs):
     hub, sent, toasts = make_hub()
     v = voix.Voix(hub, {"silence": 0.4}, voix.DemoEars())
     check("pretend ears: ready", hub.s["voix"]["ok"] and hub.s["voix"]["why"] == "", hub.s["voix"])
@@ -116,6 +142,11 @@ async def listening():
     check("voix.toggle: the micro button starts him, then stops him", on and not hub.s["voix"]["on"] and sent == ["fais"], sent)
     check("…started twice: one listening only", v.start() is not None and v.start() is None)
     await v.task
+    ends = [x for x in logs.lines if x.startswith("voix : fin")]
+    check("the log says each listening and why it stopped: the silence, the button, nothing heard, the time",
+          len(ends) >= 6 and "par le silence" in ends[0] and "par le bouton" in ends[1] and "par rien entendu" in ends[2]
+          and "par 0.35 s" in ends[3] and all("mot" in x for x in ends) and not any("poisson" in x for x in ends), ends)
+    check("…never the words themselves", not any("fais le poisson" in x or "crée un" in x for x in logs.lines), logs.lines)
 
 
 async def troubles():
@@ -157,8 +188,78 @@ def pieces():
     check("screens.js draws the dock after Nourrir's plate, and leaves voix.* out of his reactions",
           sc.find("PixelNourrir.over(NOUR)") < sc.find("PixelDock.over(KIT)") and "|voix\\.)/" in sc)
     dock = (APP / "web" / "dock.js").read_text(encoding="utf-8")
-    check("dock.js: his buttons above the plate (y 352), the micro toggles", "TOP = 136, STEP = 72" in dock and "voix.toggle" in dock
-          and "Sc.menu(true)" in dock and "screen: 'agenda'" in dock and "<script" not in dock.lower())
+    check("dock.js: his buttons above the plate (y 352): Réglages opens the quick menu, Agenda his calendar",
+          "TOP = 136, STEP = 72" in dock and "Sc.menu(true)" in dock and "screen: 'agenda'" in dock and "<script" not in dock.lower())
+
+
+DOCK_JS = r"""
+const fs = require('fs'), vm = require('vm');
+let T = 1000, srvNow = 1e6, texts = [], voix = { ok: true, why: '', on: false, partial: '', level: 0, last: null }, fresh = true;
+const sent = [], hits = [], L = { kiosk: true, scr: 'visage', boot: -1, sleepy: false, dirty: false };
+const X = new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
+const sb = { console, Math, JSON, Object, Array, String, Number, performance: { now: () => T },
+  Screens: { local: L, menuOpen: false, addonTop: false, casting: false, menu: () => sent.push('menu') } };
+sb.window = sb; vm.createContext(sb);
+vm.runInContext(fs.readFileSync(process.argv[1], 'utf8'), sb, { filename: process.argv[1] });
+const D = sb.PixelDock;
+const K = { X, c: { PK: '#f4a', AM: '#fa0', D: '#333', B: '#000', G: '#0f0', WH: '#fff', DK: '#111' }, T: { upper: false },
+  get P() { return { voix, server_now: fresh ? srvNow : srvNow - 5000 }; }, get now() { return T; }, srv: () => srvNow,
+  box() {}, txt: s => texts.push(String(s)), fit: t => t, fast() {}, send: a => sent.push(a), hit: (x, y, w, h, fn) => hits.push([x, y, w, h, fn]) };
+const frame = () => { hits.length = 0; texts = []; D.over(K); return texts.slice(); };          // the screen drawn once
+const server = on => { voix = { ...voix, on }; return frame(); };                                // the server's answer, drawn
+const inside = (x, y) => ([hx, hy, w, h]) => x >= hx && x <= hx + w && y >= hy && y <= hy + h;
+const at = (x, y) => hits.some(inside(x, y));
+const tap = (x, y) => { const h = [...hits].reverse().find(inside(x, y)); if (h) h[4]({ x, y }); };   // as Screens.hit: the top one
+const wait = ms => { T += ms; srvNow += ms; };
+const out = {}, step = (name, fn) => { const n = sent.length; fn(); out[name] = sent.slice(n); };
+frame(); out.buttons = [at(768, 168), at(768, 240), at(768, 312)];       // Réglages, Agenda, the micro: the column at x 736
+step('start', () => tap(768, 312)); out.starting = frame();
+wait(100); step('double', () => tap(768, 312));                          // the same finger again, 0.1 s later
+out.on = server(true); out.box = at(658, 396);
+wait(200); step('stop_soon', () => tap(658, 396)); out.stopping = frame();   // « Arrêter », 0.3 s after the micro button
+wait(50); step('stop_again', () => tap(400, 380));                       // anywhere on the box, again
+server(false); wait(1000); frame(); out.after = { box: at(658, 396), pending: D.pending };
+step('micro_on', () => tap(768, 312));
+server(true); wait(600); step('micro_off', () => tap(768, 312));          // the lit micro button stops him too
+server(false); wait(600); step('again', () => tap(768, 312));
+wait(150); frame(); step('stop_before_server', () => tap(658, 396));     // « Arrêter » before the server answered the micro
+server(false); wait(3500); frame();
+L.scr = 'claude'; server(true); out.claude = [at(700, 392), at(500, 396), at(768, 312)];   // its micro, the box, no column
+wait(500); step('claude_mic', () => tap(700, 392));
+server(false); L.scr = 'meteo'; server(true); wait(800); step('badge', () => tap(400, 455));   // the red « MICRO »
+server(false); L.scr = 'visage'; voix = { ...voix, on: true }; fresh = false; wait(800); out.stale = { texts: frame(), box: at(400, 380) };
+console.log(JSON.stringify(out));
+"""
+
+
+def dock():
+    """web/dock.js in node, with a pretend screen and a pretend server: what each touch sends, what the screen says."""
+    if not shutil.which("node"):
+        print("SKIP dock.js : node n'est pas installé ici")
+        return
+    out = subprocess.run(["node", "-e", DOCK_JS, str(APP / "web" / "dock.js")], capture_output=True, text=True, encoding="utf-8", timeout=60)
+    try:
+        g = json.loads(out.stdout)
+    except ValueError:
+        check("web/dock.js runs in node", False, out.stderr[-600:])
+        return
+    check("dock.js: Réglages, Agenda and the micro in the right column", g["buttons"] == [True, True, True], g["buttons"])
+    check("…the micro button starts him, and says so at once (« J'arrive… », « Arrêter »)", g["start"] == ["voix.start"]
+          and "J'arrive…" in g["starting"] and "Arrêter" in g["starting"], g)
+    check("…a double touch is one touch", g["double"] == [], g["double"])
+    check("…he listens: « Je t'écoute… », a box with « Arrêter »", "Je t'écoute…" in g["on"] and g["box"], g["on"])
+    check("…« Arrêter » stops him, even 0.3 s after the micro button, and says so at once (« J'arrête… »)",
+          g["stop_soon"] == ["voix.stop"] and "J'arrête…" in g["stopping"], g)
+    check("…a second touch on it sends nothing more", g["stop_again"] == [], g["stop_again"])
+    check("…stopped: the box goes, nothing waits", g["after"] == {"box": False, "pending": None}, g["after"])
+    check("…the lit micro button stops him too", g["micro_on"] == ["voix.start"] and g["micro_off"] == ["voix.stop"], g)
+    check("…« Arrêter » before the server even answered the micro: he stops", g["again"] == ["voix.start"]
+          and g["stop_before_server"] == ["voix.stop"], g)
+    check("the Claude screen: its own micro button and the box (no column)", g["claude"] == [True, True, False]
+          and g["claude_mic"] == ["voix.stop"], g)
+    check("another screen: the red « MICRO » stops him", g["badge"] == ["voix.stop"], g["badge"])
+    check("no news from Pixel for 5 s: nothing pretends he listens", not g["stale"]["box"]
+          and not any("écoute" in t for t in g["stale"]["texts"]), g["stale"])
 
 
 def real_vosk(path, expect):
@@ -185,8 +286,8 @@ def real_vosk(path, expect):
             if not chunk:
                 break
             if rec.AcceptWaveform(chunk):
-                parts.append(__import__("json").loads(rec.Result())["text"])
-        parts.append(__import__("json").loads(rec.FinalResult())["text"])
+                parts.append(json.loads(rec.Result())["text"])
+        parts.append(json.loads(rec.FinalResult())["text"])
         dur = w.getnframes() / w.getframerate()
     text = " ".join(p for p in parts if p)
     t2 = time.monotonic()
@@ -205,6 +306,7 @@ def main():
     a = ap.parse_args()
     helpers()
     pieces()
+    dock()
     asyncio.run(listening())
     asyncio.run(troubles())
     if a.wav:

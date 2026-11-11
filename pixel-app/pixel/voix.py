@@ -2,9 +2,10 @@
 words go (pixel/commands.py): a command (« fais le poisson », « météo »…), else Claude, who can answer, write, make a quiz
 or an exercise.
 
-The micro button on his screen (web/dock.js) sends voix.toggle. While he listens, arecord streams 16 kHz mono from the
-microphone, Vosk turns it into words as they come (his screen shows them), and he stops by himself 1.8 s after the last
-word, after 6 s without a word, after 20 s, or at a touch on the button. No sound is kept anywhere: the words only.
+The micro button on his screen (web/dock.js) sends voix.start, then voix.stop (« Arrêter »); voix.toggle does either.
+While he listens, arecord streams 16 kHz mono from the microphone, Vosk turns it into words as they come (his screen shows
+them, and the microphone's level), and he stops by himself 1.8 s after the last word, after 6 s without a word, after
+20 s, or at a touch. No sound is kept anywhere: the words only. The log says each listening and why it stopped.
 
 The snapshot's "voix":
   ok, why     Vosk, its French model, arecord and a microphone are there (why: what is missing, in French)
@@ -64,12 +65,15 @@ def first_mic():
 
 
 class VoskEars:
-    """The real ears: arecord into Vosk. hear() yields ("partial" | "final", words) and the sound's level as it comes."""
+    """The real ears: arecord into Vosk. hear() yields ("partial" | "final", words) and the sound's level as it comes.
+    Every call into Vosk runs in a thread: Pixel's server never waits on it (a stop from his screen comes through at once);
+    its model is loaded once, ahead of time (ready(), a few seconds after Pixel starts), so his first listening hears the
+    first word too."""
     def __init__(self, model_dir, device):
-        self.model_dir, self.device, self.model, self.proc = model_dir, device, None, None
+        self.model_dir, self.device, self.model, self.proc, self.loading = model_dir, device, None, None, None
 
     def problem(self):
-        if importlib.util.find_spec("vosk") is None:     # only looked for: loading it costs Pixel's start 2 s, the first listening pays it
+        if importlib.util.find_spec("vosk") is None:     # only looked for here: loading it waits for ready()
             return "Vosk n'est pas installé : relance sh deploy/install.sh."
         if not (self.model_dir / "conf").is_dir():
             return "Le modèle français de Vosk manque : relance sh deploy/install.sh."
@@ -84,13 +88,32 @@ class VoskEars:
         vosk.SetLogLevel(-1)
         return vosk.Model(str(self.model_dir))
 
+    async def ready(self):
+        """The model, loaded once in a thread (about 1.5 s on a Pi 4)."""
+        if self.model is None:
+            if self.loading is None:
+                self.loading = asyncio.get_running_loop().run_in_executor(None, self._load)
+            try:
+                self.model = await self.loading
+            finally:
+                self.loading = None
+        return self.model
+
+    @staticmethod
+    def _recognizer(model):
+        import vosk
+        return vosk.KaldiRecognizer(model, RATE)
+
+    @staticmethod
+    def _feed(rec, chunk):
+        if rec.AcceptWaveform(chunk):
+            return "final", json.loads(rec.Result()).get("text", "")
+        return "partial", json.loads(rec.PartialResult()).get("partial", "")
+
     async def hear(self, stopping):
         """Words as they come, until stopping() says so or the microphone goes quiet for good."""
-        import vosk
         loop = asyncio.get_running_loop()
-        if self.model is None:
-            self.model = await loop.run_in_executor(None, self._load)      # the first time: a second or two
-        rec = vosk.KaldiRecognizer(self.model, RATE)
+        rec = await loop.run_in_executor(None, self._recognizer, await self.ready())
         dev = self.device or first_mic()
         self.proc = await asyncio.create_subprocess_exec("arecord", "-q", "-D", dev, "-f", "S16_LE", "-r", str(RATE), "-c", "1",
                                                          "-t", "raw", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -103,10 +126,9 @@ class VoskEars:
                 if not chunk:
                     err = (await self.proc.stderr.read()).decode(errors="replace").strip()
                     raise OSError(err or "le micro ne donne plus rien")
-                done = await loop.run_in_executor(None, rec.AcceptWaveform, chunk)
-                words = json.loads(rec.Result() if done else rec.PartialResult()).get("text" if done else "partial", "")
-                yield ("final" if done else "partial"), words, level(chunk)
-            yield "final", json.loads(rec.FinalResult()).get("text", ""), 0.0
+                kind, words = await loop.run_in_executor(None, self._feed, rec, chunk)
+                yield kind, words, level(chunk)
+            yield "final", await loop.run_in_executor(None, lambda: json.loads(rec.FinalResult()).get("text", "")), 0.0
         finally:
             with contextlib.suppress(ProcessLookupError):
                 self.proc.kill()
@@ -152,6 +174,10 @@ class Voix:
         self.s = hub.s["voix"] = {"ok": False, "why": "", "on": False, "partial": "", "level": 0.0, "t0": 0, "last": None}
         self.task, self.stop_asked, self.ids = None, False, 0
         self.check()
+        try:
+            self.preload = asyncio.get_running_loop().create_task(self._preload(float(cfg.get("preload_after", 8))))
+        except RuntimeError:                            # no event loop (a test of its own): the first listening loads it
+            self.preload = None
 
         @hub.action("voix.start")
         async def start():
@@ -169,6 +195,17 @@ class Voix:
                 self.stop_asked = True
             else:
                 self.start()
+
+    async def _preload(self, delay):
+        """His ears' model, a few seconds after Pixel starts (not to slow his start): the first listening hears at once."""
+        await asyncio.sleep(delay)
+        if self.s["ok"] and hasattr(self.ears, "ready"):
+            t = time.monotonic()
+            try:
+                await self.ears.ready()
+                log.info("voix : prêt à écouter (modèle chargé en %.1f s)", time.monotonic() - t)
+            except Exception as e:                      # noqa: BLE001 - he says so at the first listening
+                log.warning("voix : le modèle ne se charge pas (%s)", e)
 
     def check(self):
         why = "" if self.enabled else "Le micro est coupé dans config.toml ([voix] enabled)."
@@ -193,9 +230,17 @@ class Voix:
 
     async def _listen(self, lid):
         parts, partial, t0 = [], "", time.monotonic()
-        last_word, last_mark = None, 0.0
-        stopping = lambda: self.stop_asked or (time.monotonic() - t0 > self.max_s) or (   # noqa: E731
-            (time.monotonic() - last_word > self.silence) if last_word else (time.monotonic() - t0 > self.wait_s))
+        last_word, last_mark, reason = None, 0.0, []
+        log.info("voix : écoute (%d)", lid)
+
+        def stopping():                                 # and why, for the log: the button, the silence, the time, nothing heard
+            t = time.monotonic()
+            r = ("le bouton" if self.stop_asked else f"{self.max_s:g} s" if t - t0 > self.max_s
+                 else ("le silence" if t - last_word > self.silence else "") if last_word
+                 else ("rien entendu" if t - t0 > self.wait_s else ""))
+            if r and not reason:
+                reason.append(r)
+            return bool(r)
         why = ""
         try:
             async for kind, words, lvl in self.ears.hear(stopping):
@@ -219,12 +264,13 @@ class Voix:
         self.s.update(on=False, partial="", level=0.0, last={"id": lid, "text": text, "t": ms()})
         self.hub.mood("neutre")
         self.hub.mark()
+        log.info("voix : fin (%d) par %s après %.1f s, %d mot(s)", lid, "une erreur" if why else reason[0] if reason else "le micro",
+                 time.monotonic() - t0, len(text.split()))
         if why:
             self.hub.toast("MICRO : " + why, 6000)
         elif not text:
             self.hub.toast("JE N'AI RIEN ENTENDU", 3000)
         else:
-            log.info("voix : %d mots entendus", len(text.split()))
             await self.hub.dispatch("cmd", {"text": text})
 
 
