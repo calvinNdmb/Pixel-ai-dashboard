@@ -11,7 +11,8 @@
 - no Vosk, no model, no microphone, switched off in config.toml: said why, he does not listen; a microphone that fails
   while he listens: said, he stops, nothing sent;
 - the level of a sound, the first microphone of `arecord -l`;
-- his buttons (web/dock.js, run in node with a pretend screen and server): the micro starts him, « Arrêter » stops him
+- his buttons (web/dock.js, run in node with a pretend screen and server): Réglages, Agenda, Exos (« Exos de maths »,
+  web/exos.js) and the micro in the right column; the micro starts him, « Arrêter » stops him
   even right after the micro button and before the server answered, a double touch is one touch, the Claude screen and
   the other screens can stop him too, and without news from Pixel nothing pretends he listens;
 - the pieces around: server.py, install.sh, dock.js before app.js, screens.js draws it and leaves voix.* to it.
@@ -189,7 +190,7 @@ def pieces():
           sc.find("PixelNourrir.over(NOUR)") < sc.find("PixelDock.over(KIT)") and "|voix\\.)/" in sc)
     dock = (APP / "web" / "dock.js").read_text(encoding="utf-8")
     check("dock.js: his buttons above the plate (y 352): Réglages opens the quick menu, Agenda his calendar",
-          "TOP = 136, STEP = 72" in dock and "Sc.menu(true)" in dock and "screen: 'agenda'" in dock and "<script" not in dock.lower())
+          "TOP = 64, STEP = 72" in dock and "Sc.menu(true)" in dock and "screen: 'agenda'" in dock and "<script" not in dock.lower())
 
 
 DOCK_JS = r"""
@@ -198,12 +199,13 @@ let T = 1000, srvNow = 1e6, texts = [], voix = { ok: true, why: '', on: false, p
 const sent = [], hits = [], L = { kiosk: true, scr: 'visage', boot: -1, sleepy: false, dirty: false };
 const X = new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
 const sb = { console, Math, JSON, Object, Array, String, Number, performance: { now: () => T },
-  Screens: { local: L, menuOpen: false, addonTop: false, casting: false, menu: () => sent.push('menu') } };
+  Screens: { local: L, menuOpen: false, addonTop: false, casting: false, menu: () => sent.push('menu') },
+  PixelExos: { choisir: () => sent.push('exos.choisir') } };                                   // web/exos.js: « Exos de maths »
 sb.window = sb; vm.createContext(sb);
 vm.runInContext(fs.readFileSync(process.argv[1], 'utf8'), sb, { filename: process.argv[1] });
 const D = sb.PixelDock;
 const K = { X, c: { PK: '#f4a', AM: '#fa0', D: '#333', B: '#000', G: '#0f0', WH: '#fff', DK: '#111' }, T: { upper: false },
-  get P() { return { voix, server_now: fresh ? srvNow : srvNow - 5000 }; }, get now() { return T; }, srv: () => srvNow,
+  get P() { return { voix, exos: {}, server_now: fresh ? srvNow : srvNow - 5000 }; }, get now() { return T; }, srv: () => srvNow,
   box() {}, txt: s => texts.push(String(s)), fit: t => t, fast() {}, send: a => sent.push(a), hit: (x, y, w, h, fn) => hits.push([x, y, w, h, fn]) };
 const frame = () => { hits.length = 0; texts = []; D.over(K); return texts.slice(); };          // the screen drawn once
 const server = on => { voix = { ...voix, on }; return frame(); };                                // the server's answer, drawn
@@ -212,7 +214,8 @@ const at = (x, y) => hits.some(inside(x, y));
 const tap = (x, y) => { const h = [...hits].reverse().find(inside(x, y)); if (h) h[4]({ x, y }); };   // as Screens.hit: the top one
 const wait = ms => { T += ms; srvNow += ms; };
 const out = {}, step = (name, fn) => { const n = sent.length; fn(); out[name] = sent.slice(n); };
-frame(); out.buttons = [at(768, 168), at(768, 240), at(768, 312)];       // Réglages, Agenda, the micro: the column at x 736
+frame(); out.buttons = [at(768, 96), at(768, 168), at(768, 240), at(768, 312)];   // Réglages, Agenda, Exos, the micro: x 736
+step('exos', () => tap(768, 240));
 step('start', () => tap(768, 312)); out.starting = frame();
 wait(100); step('double', () => tap(768, 312));                          // the same finger again, 0.1 s later
 out.on = server(true); out.box = at(658, 396);
@@ -243,7 +246,8 @@ def dock():
     except ValueError:
         check("web/dock.js runs in node", False, out.stderr[-600:])
         return
-    check("dock.js: Réglages, Agenda and the micro in the right column", g["buttons"] == [True, True, True], g["buttons"])
+    check("dock.js: Réglages, Agenda, Exos and the micro in the right column", g["buttons"] == [True, True, True, True], g["buttons"])
+    check("…Exos opens « Exos de maths » (web/exos.js)", g["exos"] == ["exos.choisir"], g["exos"])
     check("…the micro button starts him, and says so at once (« J'arrive… », « Arrêter »)", g["start"] == ["voix.start"]
           and "J'arrive…" in g["starting"] and "Arrêter" in g["starting"], g)
     check("…a double touch is one touch", g["double"] == [], g["double"])

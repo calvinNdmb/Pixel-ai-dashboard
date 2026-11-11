@@ -12,13 +12,16 @@
   answer the next question; a milestone's celebration is not cut; a wrong-shaped exos.json never stops Pixel;
 - through a demo server (started on an exos.json that holds `null`): the typed commands (a bare number only while an exercise
   is open, and then never Claude's, even during the correction; « 4 025 » the French way), « encore » / « une autre » only
-  during or just after an exercise, the actions, Claude's tool.
+  during or just after an exercise, the actions, Claude's tool;
+- « Exos de maths » on the Pi's screen (web/exos.js, run in node with a pretend screen): its buttons start what the phone's
+  panel starts, it waits for the exercise, then « Fermer », 30 s untouched, another screen or a cast put it away.
 The kiosk, the phone panel and Pixel's scenes are tested in a browser by tests/test_exos.js.
 """
 import asyncio
 import json
 import random
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -635,8 +638,80 @@ async def claude_tool(tmp):
           cur and cur["mode"] == "table" and cur["q"] in out and cur["explication"] not in out and "Ne donne pas la réponse" in out and hub.s["screen"] == "visage", out)
 
 
+# ---------- « Exos de maths » on the Pi's screen ----------
+CHOIX_JS = r"""
+const fs = require('fs'), vm = require('vm');
+let NOW = 1.8e12, texts = [];
+const sent = [], hits = [], adds = [], L = { kiosk: true, scr: 'visage', boot: -1, petted: false, dirty: false };
+const X = new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
+const K = { X, c: { G: '#0f0', D: '#333', DK: '#111', B: '#000', AM: '#fa0', WH: '#fff' }, T: { upper: false }, PV: { id: 0 }, now: 1000,
+  srv: () => NOW, clock: () => '12:00', header: s => texts.push(['header ' + s, 0, 0]), face() {}, glow() {}, box() {}, fit: t => t,
+  wrap: t => [t], txt: (s, x, y) => texts.push([String(s), x, y]), hit: (x, y, w, h, fn) => hits.push([x, y, w, h, fn]), fast() {},
+  send: (a, args) => sent.push([a, args || {}]) };
+class FakeDate extends Date { static now() { return NOW; } }
+const Sc = { local: L, persona: null, casting: false, event() {}, input() {}, addon: a => { adds.push(a); return K; } };
+const sb = { console, Math, JSON, Object, Array, String, Number, RegExp, isFinite, Date: FakeDate, performance: { now: () => 1000 },
+  setInterval: () => 0, setTimeout: () => 0, clearInterval() {}, addEventListener() {}, location: { search: '?kiosk=1' }, Screens: Sc };
+sb.window = sb; vm.createContext(sb);
+vm.runInContext(fs.readFileSync(process.argv[1], 'utf8'), sb, { filename: process.argv[1] });
+const PE = sb.PixelExos, ad = adds.find(a => a.name === 'exo');
+const snap = cur => ad.state({ exos: { cur, stats: { objectif: 5, aujourdhui: 2 }, reglages: { propose: true }, kinds: [] }, server_now: NOW });
+const draw = () => { hits.length = 0; texts = []; if (ad.on(L.scr)) ad.draw(K); return texts.map(t => t[0]); };
+const inside = (x, y) => ([hx, hy, w, h]) => x >= hx && x <= hx + w && y >= hy && y <= hy + h;
+const tap = (x, y) => { const h = [...hits].reverse().find(inside(x, y)); if (h) h[4]({ x, y }); return !!h; };
+const press = s => { const t = texts.find(([v]) => v === s); return !!t && tap(t[1], t[2] + 4); };   // a button, by what it says
+const shown = () => ad.on('visage');
+const out = {}, step = (name, fn) => { const n = sent.length; fn(); out[name] = sent.slice(n); };
+out.without = PE.choisir();                                            // no exercises on this Pixel: nothing opens
+snap(null); out.before = { shown: shown(), busy: ad.busy() };
+out.opened = PE.choisir(); const seen = draw();
+out.view = { shown: shown(), busy: ad.busy(), choosing: PE.choosing, texts: seen };
+step('serie', () => press('Série de 5'));
+out.waiting = PE.choosing;
+snap({ id: 1, mode: 'serie', etat: 'question', q: '2 + 3 = ?', choices: ['4', '5', '6', '7'], i: 1, n: 5, t0: NOW });
+out.exercise = { shown: shown(), choosing: PE.choosing };
+snap(null); out.done = shown();
+for (const [name, text] of [['un', 'Un exo'], ['chrono', 'Défi chrono'], ['enigme', 'Une énigme'], ['table', '× 7']]) { PE.choisir(); draw(); step(name, () => press(text)); }
+PE.choisir(); draw(); press('Fermer'); out.fermer = shown();
+PE.choisir(); draw(); NOW += 31000; out.timeout = shown();
+PE.choisir(); draw(); NOW += 20000; tap(150, 130); NOW += 20000; out.touched = shown();   // a touch on his small face: 30 s more
+L.scr = 'meteo'; ad.on('meteo'); L.scr = 'visage'; out.other = shown();
+PE.choisir(); Sc.casting = true; ad.on('visage'); Sc.casting = false; out.cast = shown();
+console.log(JSON.stringify(out));
+"""
+
+
+def chooser():
+    """« Exos de maths » on the Pi's screen (web/exos.js, in node with a pretend screen): what each touch sends."""
+    if not shutil.which("node"):
+        print("SKIP « Exos de maths » : node n'est pas installé ici")
+        return
+    out = subprocess.run(["node", "-e", CHOIX_JS, str(APP / "web" / "exos.js")], capture_output=True, text=True, encoding="utf-8", timeout=60)
+    try:
+        g = json.loads(out.stdout)
+    except ValueError:
+        check("web/exos.js runs in node", False, out.stderr[-600:])
+        return
+    v = g["view"]
+    check("« Exos de maths »: nothing without exercises; his face until it is asked for", g["without"] is False
+          and g["before"] == {"shown": False, "busy": False}, g)
+    check("…opened (the Exos button): over his face, his small face and today's stars, 4 big choices, the tables, « Fermer »",
+          g["opened"] is True and v["shown"] and v["busy"] and v["choosing"] and "header Exos de maths" in v["texts"] and "Aujourd'hui" in v["texts"]
+          and all(s in v["texts"] for s in ("Un exo", "Série de 5", "Défi chrono", "Une énigme", "Fermer"))
+          and all(f"× {n}" in v["texts"] for n in range(2, 11)), v)
+    check("…« Série de 5 » starts a series of 5; the choice stays until it comes, then the exercise takes its place, then his face",
+          g["serie"] == [["exos.nouveau", {"mode": "serie", "n": 5}]] and g["waiting"] is True
+          and g["exercise"] == {"shown": True, "choosing": False} and g["done"] is False, g)
+    check("…« Un exo », « Défi chrono », « Une énigme », « × 7 »: what the phone's panel starts",
+          g["un"] == [["exos.nouveau", {"mode": "exo"}]] and g["chrono"] == [["exos.nouveau", {"mode": "chrono"}]]
+          and g["enigme"] == [["exos.nouveau", {"kind": "enigme"}]] and g["table"] == [["exos.nouveau", {"mode": "table", "table": 7}]], g)
+    check("…put away by « Fermer », 30 s untouched (a touch gives 30 s more), another screen, a cast",
+          g["fermer"] is False and g["timeout"] is False and g["touched"] is True and g["other"] is False and g["cast"] is False, g)
+
+
 if __name__ == "__main__":
     generator()
+    chooser()
     with tempfile.TemporaryDirectory() as tmp:
         game(tmp)
     with tempfile.TemporaryDirectory() as tmp:

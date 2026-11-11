@@ -9,6 +9,8 @@
    - Every answer names its exercise (id): a double tap, or a late screen, never answers the next one.
    - While an exercise is open it owns his face screen: Nourrir's plate and tray (web/nourrir.js, when there) wait.
    - His offer « Une petite question ? » (the moment of life exo-envie, when the setting is on): « Oui ! » and « Plus tard ».
+   - « Exos de maths » on the Pi's screen (its Exos button: web/dock.js): what to do, as the phone's panel has it (one
+     exercise, a series of 5, the 60 s challenge, a riddle, a table); the exercise chosen takes its place.
    - On a phone (app.js's page, not the kiosk): an « Exos » button under the keys opens a panel (exos.css): start buttons,
      the question with its choices and a keypad, the hint, the correction, the scores and the settings.
    Loaded after screens.js and before app.js. Nothing changes until an exercise is opened. */
@@ -19,7 +21,8 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const kioskPage = typeof location !== 'undefined' && /[?&]kiosk\b/.test(location.search);
 let P = null, E = null, K = null;                   // the last snapshot, its "exos", the screens' kit
 const V = { buf: '', pressed: -1, pressAt: 0, ev: -1, cur: -1, nudged: false, flash: null, lastId: -1, offerAt: -1e12, exoAt: -1e12, offering: false, line: '', lineAt: 0,
-  seenId: -1, drawnAt: -1e12, hidden: 0 };            // the question drawn: which, when last, and how long it was not (under a cast…)
+  seenId: -1, drawnAt: -1e12, hidden: 0,              // the question drawn: which, when last, and how long it was not (under a cast…)
+  choix: 0 };                                         // « Exos de maths » open on his screen: its last touch (0: put away)
 const cur = () => (E && E.cur) || null;
 const open = () => !!cur();
 const nowMs = () => (K ? K.now : performance.now());
@@ -62,19 +65,28 @@ const FX = 8, FY = 54, FW = 288, FH = 162, RX = 316, RW = 476;   // his face (le
 const CH = [[RX, 292], [RX + 244, 292], [RX, 380], [RX + 244, 380]], CW = 232, CHH = 80;
 const M0 = { x: 0, y: 0, s: 1, r: 0, f: false, sx: 1, sy: 1 };
 function offering() { return !!PER && PER.state.cur === 'exo-envie'; }
-/* two views over his face screen, in screens.js's ORDER: an open exercise ('exo', first of all the add-ons: only the boot,
-   a cast and the quick menu come before it) and his offer « Une petite question ? » ('exo-offre', after the others: a game,
-   a friend's visit, souvenirs' views, his offer of a game and his night). Under a cast an open exercise waits as it is: not
-   drawn, its answers take no touch nor key, and it comes back when the cast ends. */
+/* two views over his face screen, in screens.js's ORDER: an open exercise, or « Exos de maths » ('exo', first of all the
+   add-ons: only the boot, a cast and the quick menu come before it) and his offer « Une petite question ? » ('exo-offre',
+   after the others: a game, a friend's visit, souvenirs' views, his offer of a game and his night). Under a cast an open
+   exercise waits as it is: not drawn, its answers take no touch nor key, and it comes back when the cast ends; « Exos de
+   maths » is put away. */
 function castOn() { return !!Sc.casting; }
+const CHOIX_MS = 30000;                              // « Exos de maths » puts itself away 30 s after its last touch
+function choosing() {
+  if (V.choix && (open() || Date.now() - V.choix > CHOIX_MS)) V.choix = 0;   // the exercise chosen came, or nobody chose
+  return !!V.choix;
+}
 const ad = {
   name: 'exo',
-  on: scr => scr === 'visage' && L.boot < 0 && !!E && !castOn() && open(),
+  on: scr => {
+    if (V.choix && (scr !== 'visage' || castOn())) V.choix = 0;              // another screen, a cast: put away
+    return scr === 'visage' && L.boot < 0 && !!E && !castOn() && (open() || choosing());
+  },
   instead: () => true,
-  busy: () => open(),
+  busy: () => open() || choosing(),
   fps: calm => (!open() ? 0 : cur().mode === 'chrono' && cur().etat === 'question' ? 20 : V.flash && nowMs() - V.flash.at < 1600 ? 30 : calm),
   state,
-  draw(k) { drawExo(k); },
+  draw(k) { if (open()) drawExo(k); else drawChoix(k); },
 };
 K = Sc.addon(ad);
 Sc.addon({ name: 'exo-offre', on: scr => scr === 'visage' && L.boot < 0 && !!E && !castOn() && !open() && offering(), draw(k) { drawOffer(k); } });
@@ -112,35 +124,58 @@ function faceWant(c, e) {                                    // what his small f
   if (c.mode === 'chrono') return ['code', 'reflechit'];
   return e < 4500 ? ['ecoute', 'ecoute'] : ['reflechit', 'reflechit'];   // he listens, then he thinks along with you
 }
-function drawExo(k) {
-  const c = cur(), { G, D, DK, B, AM, WH } = k.c, X = k.X, t = srv(), e = t - (c.t0 || t), PV = k.PV;
-  k.header(title(c), k.clock());
-  // his face, small, with his scenes scaled down to its box
-  const box = { x: FX, y: FY, w: FW, h: FH }, sc = FW / 672;
-  const m = PV.id ? { ...PV.m, x: PV.m.x * sc, y: PV.m.y * sc } : null, [anim, md] = faceWant(c, e);
+function smallFace(k, anim, md) {                           // his face, small, at the left, with his scenes scaled down to its box
+  const X = k.X, PV = k.PV, box = { x: FX, y: FY, w: FW, h: FH }, sc = FW / 672;
+  const m = PV.id ? { ...PV.m, x: PV.m.x * sc, y: PV.m.y * sc } : null;
   X.save(); k.face('exo', PV.id ? PV.anim : anim, PV.id ? (PV.mood || md) : md, FX, FY, FW, FH, m); X.restore();
-  let line = '';
+  let line = '';                                             // what his scene says, for his bubble
   if (PV.id && PER) { X.save(); X.shadowBlur = 0; line = PER.drawOver(box, m || M0, { noBubble: true }) || ''; X.restore(); k.glow(); }
+  return { box, line };
+}
+const BUB = { x: FX + 6, y: FY + FH + 12, w: FW - 12, h: 56 };
+function bubble(k, say, live) {                              // what he says, in a bubble of its own under his face (never over the question)
+  if (!say) return;
+  const { G, D, B, WH } = k.c, X = k.X, { x: bx, y: by, w: bw, h: bh } = BUB;
+  X.fillStyle = B; X.beginPath(); X.moveTo(bx + bw / 2 - 12, by + 1); X.lineTo(bx + bw / 2, by - 12); X.lineTo(bx + bw / 2 + 12, by + 1); X.fill();
+  k.box(bx, by, bw, bh, live ? G : D, B);
+  const fs = 24, ls = k.wrap(say, bw - 20, fs).slice(0, 2), lh = fs + 2;
+  ls.forEach((l, i) => k.txt(k.fit(l, bw - 20, fs), bx + bw / 2, by + (bh - ls.length * lh) / 2 + i * lh + 1, fs, live ? WH : D, 'center'));
+}
+function today(k) {                                          // today: the stars of the daily goal
+  const { G, D, AM } = k.c, st = E.stats, goal = clamp(st.objectif || 5, 1, 50), done = st.aujourdhui || 0, sy = BUB.y + BUB.h + 18;
+  k.txt(label(k, "Aujourd'hui"), FX + 6, sy, 22, D);
+  if (goal <= 8) for (let i = 0; i < goal; i++) star(k, FX + 14 + i * 34, sy + 44, 13, i < done);
+  else k.txt(`${Math.min(done, goal)} / ${goal}`, FX + 6, sy + 28, 32, done >= goal ? AM : G);
+  if (st.fait) k.txt(label(k, 'Objectif atteint !'), FX + FW - 2, sy, 22, AM, 'right');
+}
+/* « Exos de maths »: what to do, on his own screen, as the phone's panel has it; the exercise chosen takes its place (the
+   choice stays until it comes); « Fermer », another screen, a cast or 30 s untouched put it away */
+const CHOIX = [['Un exo', { mode: 'exo' }], ['Série de 5', { mode: 'serie', n: 5 }], ['Défi chrono', { mode: 'chrono' }], ['Une énigme', { kind: 'enigme' }]];
+function drawChoix(k) {
+  const D = k.c.D, touched = () => { V.choix = Date.now(); };
+  k.header('Exos de maths', k.clock());
+  const { box, line } = smallFace(k, 'content', 'content');
+  k.hit(FX, FY, FW, FH, p => { if (L.petted) { L.petted = false; return; } touched(); if (PER) PER.tap(p, box, {}); });
+  bubble(k, line || "Qu'est-ce qu'on fait ?", !!line);
+  today(k);
+  const go = args => () => { touched(); send('exos.nouveau', args); };
+  k.txt(label(k, 'Choisis !'), RX, 58, 22, D);
+  CHOIX.forEach(([text, args], i) => button(k, RX + (i % 2) * 244, 92 + Math.floor(i / 2) * 96, 232, 84, text, go(args), { fill: i === 0, size: 30 }));
+  k.txt(label(k, 'Les tables'), RX, 292, 22, D);
+  for (let n = 2; n <= 10; n++) button(k, RX + ((n - 2) % 5) * 97, 322 + Math.floor((n - 2) / 5) * 72, 89, 60, `× ${n}`, go({ mode: 'table', table: n }));
+  button(k, FX, 410, FW, 60, 'Fermer', () => { V.choix = 0; });
+}
+function drawExo(k) {
+  const c = cur(), t = srv(), e = t - (c.t0 || t), PV = k.PV;
+  k.header(title(c), k.clock());
+  const [anim, md] = faceWant(c, e), { box, line } = smallFace(k, anim, md);
   k.hit(FX, FY, FW, FH, p => {                               // touch his face: the hint, and he reacts as usual
     if (L.petted) { L.petted = false; return; }
     if (c.etat === 'question' && !c.hint) send('exos.indice');
     if (PER) PER.tap(p, box, {});
   });
-  // what he says, in a bubble of its own under his face (never over the question)
-  const bx = FX + 6, by = FY + FH + 12, bw = FW - 12, bh = 56;
-  const say = line || (c.etat === 'question' && !c.hint && c.mode !== 'chrono' ? 'Touche-moi : un indice !' : '');
-  if (say) {
-    X.fillStyle = B; X.beginPath(); X.moveTo(bx + bw / 2 - 12, by + 1); X.lineTo(bx + bw / 2, by - 12); X.lineTo(bx + bw / 2 + 12, by + 1); X.fill();
-    k.box(bx, by, bw, bh, line ? G : D, B);
-    const fs = 24, ls = k.wrap(say, bw - 20, fs).slice(0, 2), lh = fs + 2;
-    ls.forEach((l, i) => k.txt(k.fit(l, bw - 20, fs), bx + bw / 2, by + (bh - ls.length * lh) / 2 + i * lh + 1, fs, line ? WH : D, 'center'));
-  }
-  // today: the stars of the daily goal
-  const st = E.stats, goal = clamp(st.objectif || 5, 1, 50), done = st.aujourdhui || 0, sy = by + bh + 18;
-  k.txt(label(k, "Aujourd'hui"), FX + 6, sy, 22, D);
-  if (goal <= 8) for (let i = 0; i < goal; i++) star(k, FX + 14 + i * 34, sy + 44, 13, i < done);
-  else k.txt(`${Math.min(done, goal)} / ${goal}`, FX + 6, sy + 28, 32, done >= goal ? AM : G);
-  if (st.fait) k.txt(label(k, 'Objectif atteint !'), FX + FW - 2, sy, 22, AM, 'right');
+  bubble(k, line || (c.etat === 'question' && !c.hint && c.mode !== 'chrono' ? 'Touche-moi : un indice !' : ''), !!line);
+  today(k);
   // the right side
   if (c.etat === 'bilan') drawBilan(k, c); else drawQuestion(k, c, t);
   // the buttons, bottom left
@@ -400,8 +435,10 @@ if (typeof document !== 'undefined') { if (document.readyState === 'loading') do
 
 return {
   get state() { return E; }, get open() { return open(); }, get offering() { return offering(); }, get buffer() { return V.buf; }, trait,
+  get choosing() { return choosing(); },
+  choisir() { if (!E) return false; V.choix = Date.now(); L.dirty = true; return true; },   // « Exos de maths » (web/dock.js's Exos button)
   canPropose(c) {                                           // exo-envie (a moment of life): the setting on, in the day, not too often
-    if (!E || open() || !E.reglages || !E.reglages.propose || !c || !c.day || castOn() || (window.PixelNourrir && window.PixelNourrir.trayOpen)) return false;   // not over a cast or his food tray
+    if (!E || open() || choosing() || !E.reglages || !E.reglages.propose || !c || !c.day || castOn() || (window.PixelNourrir && window.PixelNourrir.trayOpen)) return false;   // not over a cast or his food tray
     const t = Date.now(); if (t - V.offerAt < 25 * 60000 || t - V.exoAt < 20 * 60000) return false;
     return Math.random() * 100 < 25 + 0.75 * trait('studieux');
   },

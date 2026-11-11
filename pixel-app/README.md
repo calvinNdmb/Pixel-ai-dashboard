@@ -267,6 +267,7 @@ Pixel choisit son Wi-Fi depuis son propre écran, sans clavier branché ni passe
 Sur l'écran du Pi, à droite de son visage, une colonne de boutons, de haut en bas :
 - **Réglages** (l'engrenage) : le menu rapide (luminosité, son, Wi-Fi, téléphone, redémarrer, éteindre) ;
 - **Agenda** (le calendrier) : l'écran Agenda ;
+- **Exos** (« + × − = ») : l'écran « Exos de maths », pour choisir un exo, une série, le défi chrono, une énigme ou une table (voir « Les exos de maths ») ;
 - **le micro** : Pixel t'écoute ;
 - **l'assiette** : le plateau des repas (voir « Nourrir Pixel »).
 
@@ -511,8 +512,9 @@ Pixel te pose de petits exercices, du CP au collège : additions, soustractions,
 
 **Pour en lancer un :**
 - tape `exo`, `exo de maths`, `un calcul`, `calcul mental`, `table de 7` (ou `révisons la table de 7`), `défi chrono`, `série de 5`, `10 questions`, `une énigme`, `exo de fractions`, `exo difficile` ; les mêmes mots marchent sans Pi et dans Pixel Lab ;
+- sur l'écran du Pi, touche le bouton **Exos** à droite de son visage (le « + × − = ») : l'écran « Exos de maths » propose un exo, une série de 5, le défi chrono, une énigme ou une table (de 2 à 10). **Fermer** le range ; il se range aussi tout seul après 30 secondes sans toucher ;
 - sur ton téléphone, touche **Exos** sous les touches : un exo, une série, le défi chrono, une énigme, une table ou un type d'exo ;
-- demande à Claude « pose-moi une question de maths » ;
+- demande à Claude « pose-moi une question de maths » (ou au micro : « crée un quiz sur les volcans ») ;
 - si tu le lui permets (réglage **Il te propose des questions**, éteint au départ), Pixel te propose de temps en temps, dans la journée : « Une petite question ? ». Touche **Oui !**.
 
 **L'exo s'affiche sur l'écran du Pi**, à la place de son grand visage : la question en gros, 4 grandes réponses, et Pixel en petit à côté, qui écoute, réfléchit avec toi et réagit. Ça marche dans les 6 thèmes.

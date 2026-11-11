@@ -1,7 +1,8 @@
 /* The right edge of Pixel's face screen, on his own touch screen: his buttons, in the 64 px column outside his face box
    (PBOX), above Nourrir's plate (web/nourrir.js: the food, at y 352) and in its style:
-     Réglages (the quick menu: brightness, sound, Wi-Fi, the phone, restart), Agenda (his calendar screen), the micro
-     (pixel/voix.py: he listens, then what he heard goes as a command or to Claude).
+     Réglages (the quick menu: brightness, sound, Wi-Fi, the phone, restart), Agenda (his calendar screen), Exos (« Exos de
+     maths », web/exos.js: one exercise, a series, the challenge, a riddle, a table), the micro (pixel/voix.py: he listens,
+     then what he heard goes as a command or to Claude).
    While he listens: what he hears, live, and the microphone's level, in a box at the bottom of his face screen or under
    the conversation of the Claude screen, with « Arrêter » (a touch anywhere on it stops him); elsewhere a red « MICRO »;
    then, for a moment, what he heard. The Claude screen, where a question by voice lands, has its own micro button (in its
@@ -11,13 +12,15 @@
    Drawn by screens.js after Nourrir's plate (over(K), K: the screens' kit). Loaded after screens.js and before app.js. */
 window.PixelDock = (() => {
 const Sc = typeof Screens !== 'undefined' ? Screens : null; if (!Sc) return null;
-const L = Sc.local, COL = 736, TOP = 136, STEP = 72;           // the column; its slots at 136, 208, 280 (the plate: 352)
+const L = Sc.local, COL = 736, TOP = 64, STEP = 72;            // the column; its slots at 64, 136, 208, 280 (the plate: 352)
 const RM = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ICONS = {
   reglages: ['...####...', '.#.####.#.', '..######..', '####..####', '###....###', '###....###', '####..####', '..######..', '.#.####.#.', '...####...'],
   agenda: ['.##....##.', '##########', '##########', '#........#', '#.##.##..#', '#........#', '#.##.##..#', '#........#', '##########'],
   micro: ['...####...', '..######..', '..######..', '..######..', '#.######.#', '#.######.#', '.#.####.#.', '..#....#..', '...####...', '....##....', '..######..'],
+  exos: ['.#...#.#', '###...#.', '.#...#.#', '........', '........', '.....###', '###.....', '.....###'],   // + × − =
 };
+const UNIT = { exos: 5 };                       // its signs are 3 pixels: bigger pixels, the same size as the others
 function icon(K, name, cx, cy, u, col) {      // whole pixels: crisp in every theme
   const g = ICONS[name], X = K.X, x0 = Math.round(cx - g[0].length * u / 2), y0 = Math.round(cy - g.length * u / 2);
   X.save(); X.shadowBlur = 0; X.fillStyle = col;
@@ -34,7 +37,7 @@ function buttonAt(K, x0, y0, name, on, fn, off) {   // a 64 px touch zone, a 48 
   X.save(); X.globalAlpha = off ? 0.45 : 0.85;
   K.box(x, y, s, s, on ? c.PK || c.AM : c.D, on ? c.PK || c.AM : c.B);
   if (on && !RM) { X.globalAlpha = 0.25 + 0.25 * Math.sin(K.now / 250); K.box(x - 3, y - 3, s + 6, s + 6, c.PK || c.AM, null); X.globalAlpha = 0.85; }
-  icon(K, name, x + s / 2, y + s / 2, 4, on ? c.B : c.G);
+  icon(K, name, x + s / 2, y + s / 2, UNIT[name] || 4, on ? c.B : c.G);
   X.restore();
   K.hit(x0, y0, 64, 64, () => { L.dirty = true; K.fast(300); fn(); });
 }
@@ -114,7 +117,9 @@ function over(K) {                               // screens.js, after each drawn
   if (!shown(K)) return;
   button(K, 0, 'reglages', !!Sc.menuOpen, () => Sc.menu(true));
   button(K, 1, 'agenda', false, () => K.send('screen.show', { screen: 'agenda' }));
-  if (v) button(K, 2, 'micro', lit, mic, !v.ok || stale);
+  const ex = window.PixelExos;
+  if (ex && P.exos) button(K, 2, 'exos', false, () => ex.choisir());             // « Exos de maths » over his face
+  if (v) button(K, 3, 'micro', lit, mic, !v.ok || stale);
 }
 return { over, ICONS, TOP, STEP, COL, get pending() { return pend && { ...pend }; } };   // pending: the tests'
 })();
