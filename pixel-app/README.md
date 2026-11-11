@@ -15,7 +15,7 @@ L'appli qui tourne sur le Raspberry Pi 4 de Pixel. Elle affiche le visage et les
 | **Météo** | Météo du jour et des 4 jours suivants (Open-Meteo, gratuit, sans compte). |
 | **Minuteur** | Séances de concentration de 25 minutes et pauses café. |
 | **Agenda** | Aujourd'hui et demain, depuis Google Agenda (donc aussi l'agenda Samsung relié à ton compte Google), iCloud, Outlook… ou un fichier .ics importé. Plusieurs agendas à la fois. |
-| **Système** | Température, processeur, mémoire, Wi-Fi et luminosité de l'écran. |
+| **Système** | Température, processeur, mémoire, Wi-Fi (son réseau ; touche la ligne pour en changer, voir « Le Wi-Fi ») et luminosité de l'écran. |
 | **Réglages** | Un QR code pour ouvrir l'appli sur ton téléphone, l'association du pont Hue et l'état de chaque service. |
 | **Veille** | Un champ d'étoiles avec Pixel qui dort. Les touches du Stream Deck baissent leur lumière. |
 
@@ -171,6 +171,7 @@ Les sons sont fabriqués par la page, sans fichier. Branche un petit haut-parleu
 **Le menu rapide :** sur l'écran du Pi, glisse vers le bas. Il contient :
 - le thème (s'il y en a plusieurs), la luminosité et le son ;
 - **Téléphone**, qui affiche le QR code en grand pour ouvrir l'appli ;
+- **Wi-Fi**, pour choisir son réseau (voir « Le Wi-Fi ») ;
 - **Poisson** ;
 - **Redémarrer** et **Éteindre**, qui demandent une deuxième touche pour confirmer.
 
@@ -214,7 +215,7 @@ Il y a trois façons d'écrire :
 
 - **Sur ton ordinateur :** ouvre l'appli et tape directement, ça écrit dans la barre `C:\PIXEL>`. Les flèches ← et → changent d'écran.
 - **Sur ton téléphone :** touche la barre `C:\PIXEL>`, le clavier du téléphone s'ouvre.
-- **Sur Pixel lui-même :** touche la barre, ou la touche **Clavier** du Stream Deck. Un clavier AZERTY s'affiche sur l'écran tactile. Un clavier Bluetooth marche aussi : le Pi 4 a le Bluetooth, donc il n'ajoute pas de câble.
+- **Sur Pixel lui-même :** touche la barre, ou la touche **Clavier** du Stream Deck. Un clavier AZERTY s'affiche sur l'écran tactile : **⇧** une fois pour une majuscule, deux fois de suite pour en taper plusieurs (**⇪**, encore **⇧** pour arrêter) ; **123** pour les chiffres, puis **#+=** pour les autres signes (`[ ] { } < > = * $ ^ _ \ | ~`…). Un clavier Bluetooth marche aussi : le Pi 4 a le Bluetooth, donc il n'ajoute pas de câble.
 
 Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça part à Claude.
 
@@ -247,6 +248,19 @@ Ce que tu tapes est d'abord lu comme une commande. Si ce n'en est pas une, ça p
 - **Rangées 1 et 2 :** les 10 écrans.
 - **Rangée 3 (en couleur) :** des actions qui changent selon l'écran. Par exemple : humeurs, *Anim +* et *Humeur +* sur Visage, scènes sur Lumières, *Pause café* sur Minuteur, *Clavier* sur Claude, *Thème −* et *Thème +* sur Réglages.
 - **Dessin des touches :** aux couleurs et avec la police du thème. L'écran ouvert est mis en valeur.
+
+## Le Wi-Fi
+
+Pixel choisit son Wi-Fi depuis son propre écran, sans clavier branché ni passer par le bureau du Pi.
+
+- **Pour l'ouvrir :** dans le menu rapide (glisse vers le bas), touche **Wi-Fi**. Ou, sur l'écran **Système**, touche la ligne Wi-Fi.
+- **Quand il n'a plus de réseau** depuis 20 secondes, « Pas de Wi-Fi · touche ici » s'affiche en haut de son visage : touche-le.
+- L'écran montre le réseau où il est, puis ceux autour de lui, les plus forts d'abord (5 par page, **<** et **>** pour les autres). Un cadenas : il faut un mot de passe. **Enregistré** : Pixel le connaît déjà.
+- **Touche ton réseau.** S'il le connaît, ou si le réseau est ouvert, il s'y connecte tout de suite. Sinon, tape le mot de passe avec le clavier de l'écran (voir « Taper au clavier » : les majuscules comptent), puis **↵**. Depuis ton téléphone, c'est la barre de commande, en champ masqué.
+- Pixel essaie (jusqu'à 40 secondes), puis dit s'il est connecté. Mot de passe refusé : **Retaper**. Un mot de passe refusé n'est jamais gardé : au démarrage suivant, Pixel reprend le réseau qui marchait.
+- Pas pris en charge : les réseaux d'entreprise (identifiant et mot de passe) et le vieux WEP. Les réseaux cachés n'apparaissent pas.
+
+**Ce qu'il faut sur le Pi :** NetworkManager (Raspberry Pi OS Bookworm et après) et la règle `deploy/50-pixel-wifi.rules`, que `deploy/install.sh` copie dans `/etc/polkit-1/rules.d/`. Elle laisse le service de Pixel chercher, rejoindre et enregistrer des réseaux Wi-Fi, comme le menu Wi-Fi du bureau, et rien d'autre de NetworkManager. Sans elle, l'écran Wi-Fi dit de relancer `sh deploy/install.sh`. Le mot de passe va à NetworkManager seulement, qui le garde dans le profil du réseau (lisible par root seul), comme le menu du bureau : jamais dans le journal de Pixel, ni sur les autres écrans, ni dans ses fichiers.
 
 ## Sur ton téléphone
 
@@ -364,7 +378,7 @@ Trois façons de faire de Pixel *ton* Pixel, avec ou sans Pi. Sur ton téléphon
 
 À 50 partout, rien ne change : c'est le Pixel de tous les jours.
 
-**Sur l'écran du Pi, une chose à la fois.** Du plus fort au moins fort : son démarrage, le menu rapide (il s'ouvre par-dessus tout, même par-dessus un cast), ce que tu envoies sur son écran (**Caster sur Pixel** : une photo, une vidéo, YouTube, un écran partagé), un exo ouvert, une partie (**Ses habitudes**), la visite d'un ami ou la petite maison « Chez Bip » quand il est parti (**Les amis**), l'album qui défile, la date d'anniversaire à choisir et sa question « Comment tu vas ? » (**Souvenirs**), sa proposition de jouer et sa nuit, sa question « Une petite question ? », puis l'assiette et le plateau des repas. Cet ordre est écrit une seule fois, dans `web/screens.js` (`ORDER`). Ce qui passe derrière attend et revient après : l'assiette se range pendant un exo, il ne réclame pas à manger au milieu d'un exo, et il ne te pose pas de question quand le plateau est ouvert. Pendant un cast, rien de tout ça ne s'affiche ni ne répond au doigt : l'exo ouvert attend dessous, tel quel, et revient quand le cast se termine.
+**Sur l'écran du Pi, une chose à la fois.** Du plus fort au moins fort : son démarrage, le menu rapide (il s'ouvre par-dessus tout, même par-dessus un cast), ce que tu envoies sur son écran (**Caster sur Pixel** : une photo, une vidéo, YouTube, un écran partagé), l'écran **Wi-Fi** quand tu l'ouvres, un exo ouvert, une partie (**Ses habitudes**), la visite d'un ami ou la petite maison « Chez Bip » quand il est parti (**Les amis**), l'album qui défile, la date d'anniversaire à choisir et sa question « Comment tu vas ? » (**Souvenirs**), sa proposition de jouer et sa nuit, sa question « Une petite question ? », puis l'assiette et le plateau des repas. Cet ordre est écrit une seule fois, dans `web/screens.js` (`ORDER`). Ce qui passe derrière attend et revient après : l'assiette se range pendant un exo, il ne réclame pas à manger au milieu d'un exo, et il ne te pose pas de question quand le plateau est ouvert. Pendant un cast, rien de tout ça ne s'affiche ni ne répond au doigt : l'exo ouvert attend dessous, tel quel, et revient quand le cast se termine.
 
 **Les commandes ne se marchent pas dessus.** Un nombre seul (`42`) va à l'exo ouvert ; sans exo, il part à Claude, comme avant. Pendant un exo, `mange une pomme`, `tu as faim ?` ou `sois grognon` marchent toujours. Tape `aide` : la liste donne une commande de chacun.
 
@@ -767,7 +781,7 @@ Le script fait 5 choses :
 1. Il installe les paquets nécessaires.
 2. Il crée un environnement Python.
 3. Il autorise l'accès au Stream Deck et à la luminosité de l'écran.
-4. Il lance le serveur au démarrage.
+4. Il lance le serveur au démarrage, et lui permet d'éteindre le Pi et de choisir son Wi-Fi.
 5. Il ouvre l'écran de Pixel en plein écran à l'ouverture de session.
 
 **Ensuite :**
@@ -808,6 +822,7 @@ Avec ton abonnement Claude, rien n'est facturé en plus : les réponses comptent
 ## Vérifications faites
 
 Testé sur ordinateur, avec les tests du dossier `tests/` :
+- **Le Wi-Fi** (`test_wifi.py`, sans serveur, avec un faux NetworkManager) : les lignes de `nmcli` (un `:` dans le nom d'un réseau, les cadenas WPA2, WPA3, WEP, entreprise, un nom vu par plusieurs bornes, les réseaux cachés) ; le réseau où il est, avec ou sans câble, et depuis quand il n'en a plus ; un réseau ouvert, un nouveau avec son mot de passe, un mot de passe refusé (aucun profil gardé), un réseau connu, un réseau connu dont le mot de passe a changé (un mauvais : l'ancien profil reste tel quel ; le bon : il le remplace), entreprise et WEP refusés, un mot de passe trop court refusé avant `nmcli`, un réseau hors de portée, un seul à la fois ; sans la règle polkit, sans `nmcli`, un `nmcli` qui ne répond plus ; le mot de passe jamais dans l'état, le journal ni une notification. Dans Chromium (serveur de démo) : le menu rapide, la ligne de Système et « Pas de Wi-Fi » ouvrent l'écran, un mauvais puis le bon mot de passe tapés au clavier de l'écran (chiffres et signes compris), la fermeture toute seule après la connexion, la barre de commande rendue intacte ; sur le téléphone, le champ masqué et Échap.
 - **Commandes et accès** (`test_pixel.py`) : lampes, scènes, minuteur, écrans, Claude et Codex en démo, refus d'un appareil sans code d'accès. Chaque thème : choix dans Réglages, touches *Thème −* et *Thème +*, commande `thème …`, choix gardé après un redémarrage (avec les 6 thèmes activés). Sans réglage `themes` : Rétro seul, les autres refusés avec un message, pas de touches de thème, pas d'outil de thème pour Claude. Chaque humeur avec `humeur …`.
 - **Données réelles** (`test_real.py`) : la vraie météo d'Open-Meteo, un agenda iCal avec un événement sur la journée et un événement répété, et les 15 touches du Stream Deck dessinées dans chaque thème.
 - **Agendas** (`test_agenda.py`) : un agenda Google (heure de Paris, événement répété, vacances sur plusieurs jours, soirée après minuit, événement annulé), un fichier Samsung .vcs importé puis réimporté, un rendez-vous présent dans deux agendas affiché une seule fois, les erreurs (404, page web, pas d'internet), le fichier privé, et l'adresse secrète qui n'arrive jamais sur les écrans.
@@ -933,6 +948,7 @@ Pas encore testé avec le vrai matériel :
 | `pixel/habitudes.py`, `web/habitudes.js` | ses habitudes : son emploi du temps, ses mini-jeux, ses rires, ses peurs, ses phrases ; les jeux et sa nuit sur l'écran, le panneau **Habitudes** du téléphone (`habitudes.css`) ; ses scènes et ses blagues dans `scenes/habitudes.js` |
 | `pixel/souvenirs.py`, `pixel/album.py`, `web/souvenirs.js`, `web/album.js` | ses souvenirs, le carnet d'humeur et l'album photo : le serveur, son écran, le panneau **Souvenirs** du téléphone (`souvenirs.css`) ; ses scènes dans `scenes/souvenirs.js` |
 | `pixel/amis.py`, `pixel/relais.py`, `web/amis.js` | les amis de Pixel : les codes d'ami, les amitiés et les visites ; le relais ntfy et la boîte chiffrée ; l'ami en visite sur l'écran du Pi et le panneau **Ses amis** du téléphone (`amis.css`) ; les scènes à deux, les autocollants dans `scenes/amis.js` ; le labo dans `lab/amis-lab.js` |
+| `pixel/wifi.py`, `web/wifi.js` | son Wi-Fi : NetworkManager par `nmcli`, l'écran **Wi-Fi** et le rappel « Pas de Wi-Fi » ; la règle polkit `deploy/50-pixel-wifi.rules` |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |

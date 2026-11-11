@@ -51,6 +51,12 @@ sudo systemctl enable --now "pixel@$USER"
 printf '%s ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff, /usr/bin/systemctl reboot\n' "$USER" > /tmp/pixel-power
 sudo visudo -cf /tmp/pixel-power >/dev/null && sudo install -m 440 /tmp/pixel-power /etc/sudoers.d/pixel-power
 rm -f /tmp/pixel-power
+# his Wi-Fi screen (pixel/wifi.py): his service may scan and join Wi-Fi networks, as the desktop's Wi-Fi menu does (polkit)
+if command -v nmcli >/dev/null; then
+  [ -d /etc/polkit-1/rules.d ] || sudo mkdir -p /etc/polkit-1/rules.d
+  sed "s/@USER@/$USER/" deploy/50-pixel-wifi.rules | sudo tee /etc/polkit-1/rules.d/50-pixel-wifi.rules >/dev/null
+  sudo chmod 644 /etc/polkit-1/rules.d/50-pixel-wifi.rules
+fi
 
 echo "5/5 Écran en plein écran à l'ouverture de session"
 # Entrée XDG autostart, lancée par lxsession-xdg-autostart sous labwc. Elle ne remplace pas

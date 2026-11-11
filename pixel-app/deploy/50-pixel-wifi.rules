@@ -1,0 +1,14 @@
+// Pixel's Wi-Fi screen (pixel/wifi.py): the Pixel service of this user may scan, join and save Wi-Fi networks without a
+// password, as the desktop's own Wi-Fi menu lets the person at the screen. Nothing else of NetworkManager.
+// Put in /etc/polkit-1/rules.d/ by deploy/install.sh, @USER@ replaced by the user it runs as.
+polkit.addRule(function (action, subject) {
+    if (subject.user === "@USER@" && [
+            "org.freedesktop.NetworkManager.wifi.scan",
+            "org.freedesktop.NetworkManager.network-control",
+            "org.freedesktop.NetworkManager.enable-disable-wifi",
+            "org.freedesktop.NetworkManager.settings.modify.system",
+            "org.freedesktop.NetworkManager.settings.modify.own"
+        ].indexOf(action.id) >= 0) {
+        return polkit.Result.YES;
+    }
+});

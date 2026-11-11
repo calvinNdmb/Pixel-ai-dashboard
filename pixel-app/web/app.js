@@ -165,17 +165,52 @@ $('follow').addEventListener('click', () => {
 
 /* ---------- typed commands ---------- */
 const input = $('cmd'), hist = []; let hi = 0;
+/* a question in the command bar (web/wifi.js: a Wi-Fi password): its own label and hint, and what is typed goes to who
+   asked, as it is (not trimmed), never to the commands nor to their history; ✕, Échap or another question cancels it. On
+   Pixel's screen the on-screen keyboard comes with it (what you type shows); a phone gets a password field (its keyboard
+   must not learn it), and in Pixel mode the bar comes back first. */
+const cmdLabel = $('cmdForm').querySelector('label'), LABEL0 = cmdLabel.textContent, HINT0 = input.placeholder;
+let asking = null;
+function askEnd(cancelled) {
+  const a = asking; if (!a) return;
+  asking = null; cmdLabel.textContent = LABEL0; input.placeholder = HINT0; input.type = 'text'; input.value = '';
+  $('cmdForm').classList.remove('asking');
+  if (kiosk) { oskLocal = false; input.blur(); }
+  render();
+  if (cancelled && a.cancel) try { a.cancel(); } catch (e) { console.warn('Pixel: a question', e); }
+}
+window.PixelAsk = {
+  open(q) {
+    if (asking) askEnd(true);
+    asking = q || {};
+    cmdLabel.textContent = asking.label || '?'; input.placeholder = asking.placeholder || ''; input.value = '';
+    input.type = asking.secret && !kiosk ? 'password' : 'text';
+    $('cmdForm').classList.add('asking');
+    if (!kiosk && document.body.dataset.mode === 'pixel') setMode('both');
+    if (kiosk) oskLocal = true;
+    render(); input.focus();                      // shown first: a hidden field takes no focus (a keyboard plugged in types there)
+  },
+  close() { askEnd(true); },
+  get active() { return !!asking; },
+};
 $('cmdForm').addEventListener('submit', e => {
   e.preventDefault();
+  if (asking) {
+    const a = asking, answer = input.value; if (!answer.trim()) return;
+    askEnd(false);
+    try { if (a.submit) a.submit(answer); } catch (err) { console.warn('Pixel: a question', err); }
+    return;
+  }
   const text = input.value.trim(); if (!text) return;
   send('cmd', { text }); hist.push(text); hi = hist.length; input.value = '';
   if (kiosk && !['claude', 'codex'].includes(L.scr)) input.blur();
   render();
 });
 input.addEventListener('keydown', e => {
+  if (asking && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;        // no history in a password
   if (e.key === 'ArrowUp' && hi > 0) { input.value = hist[--hi]; e.preventDefault(); }
   else if (e.key === 'ArrowDown') { hi = Math.min(hist.length, hi + 1); input.value = hist[hi] || ''; e.preventDefault(); }
-  else if (e.key === 'Escape') { input.value = ''; input.blur(); oskLocal = false; render(); }
+  else if (e.key === 'Escape') { if (asking) { askEnd(true); return; } input.value = ''; input.blur(); oskLocal = false; render(); }
 });
 input.addEventListener('focus', () => { Screens.input(); render(); });
 input.addEventListener('input', () => Screens.event && Screens.event('typing'));   // he sees you typing
@@ -210,19 +245,23 @@ cv.addEventListener('pointerup', e => {
   Screens.hit(p.x, p.y);
 });
 
-/* ---------- on-screen keyboard (Pixel's touch screen) ---------- */
-const LETTERS = ['azertyuiop', 'qsdfghjklm', 'wxcvbn,.'], DIGITS = ['1234567890', '@#€%&-+()/', "'\":;!?,."];
-let caps = false, digits = false;
+/* ---------- on-screen keyboard (Pixel's touch screen) ----------
+   Letters (AZERTY), digits, and a page of signs (#+=): every character a Wi-Fi password may have. ⇧ once: one capital;
+   twice quickly: capitals until ⇧ again (⇪). */
+const LETTERS = ['azertyuiop', 'qsdfghjklm', 'wxcvbn,.'], DIGITS = ['1234567890', '@#€%&-+()/', "'\":;!?,."],
+  SIGNS = ['[]{}<>=*$^', '_\\|~`£§°²µ', "'\":;!?,."];
+let caps = false, capsLock = false, digits = false, signs = false, shiftAt = 0;
 function buildOsk() {
   const o = $('osk'); o.replaceChildren();
-  const rows = (digits ? DIGITS : LETTERS).map(r => [...r].map(c => [caps ? c.toUpperCase() : c, c]));
-  rows[2].unshift(['⇧', 'shift', 'w2']); rows[2].push(['⌫', 'back', 'w2']);
+  const up = (caps || capsLock) && !digits;
+  const rows = (digits ? (signs ? SIGNS : DIGITS) : LETTERS).map(r => [...r].map(c => [up ? c.toUpperCase() : c, c]));
+  rows[2].unshift(digits ? [signs ? '123' : '#+=', 'signs', 'w2'] : [capsLock ? '⇪' : '⇧', 'shift', up ? 'w2 on' : 'w2']); rows[2].push(['⌫', 'back', 'w2']);
   rows.push([[digits ? 'abc' : '123', 'digits', 'w2'], ['é', 'é'], ['è', 'è'], ['à', 'à'], ['ç', 'ç'], ['espace', ' ', 'w5'], ['↵', 'enter', 'w2'], ['✕', 'close']]);
   for (const r of rows) {
     const row = document.createElement('div'); row.className = 'row';
     for (const [label, val, cls] of r) {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (cls) b.className = cls;
-      b.addEventListener('pointerdown', e => { e.preventDefault(); key(val.length === 1 && caps ? val.toUpperCase() : val); });
+      b.addEventListener('pointerdown', e => { e.preventDefault(); key(val.length === 1 && (caps || capsLock) && !digits ? val.toUpperCase() : val); });
       row.append(b);
     }
     o.append(row);
@@ -230,9 +269,16 @@ function buildOsk() {
 }
 function key(v) {
   Screens.input();
-  if (v === 'shift') { caps = !caps; return buildOsk(); }
-  if (v === 'digits') { digits = !digits; return buildOsk(); }
-  if (v === 'close') { oskLocal = false; if (P?.view.osk) send('view.set', { key: 'osk', value: false }); input.blur(); return render(); }
+  if (v === 'shift') {
+    const t = performance.now();
+    if (capsLock) capsLock = caps = false;
+    else if (caps && t - shiftAt < 450) { capsLock = true; caps = false; }
+    else caps = !caps;
+    shiftAt = t; return buildOsk();
+  }
+  if (v === 'signs') { signs = !signs; return buildOsk(); }
+  if (v === 'digits') { digits = !digits; signs = false; return buildOsk(); }
+  if (v === 'close') { if (asking) { askEnd(true); return; } oskLocal = false; if (P?.view.osk) send('view.set', { key: 'osk', value: false }); input.blur(); return render(); }
   if (v === 'enter') return $('cmdForm').requestSubmit();
   const s = input.selectionStart ?? input.value.length, f = input.selectionEnd ?? s;
   if (v === 'back') { input.setRangeText('', s === f ? Math.max(0, s - 1) : s, f, 'end'); return; }

@@ -406,10 +406,10 @@ def static():
     sc = (APP / "web" / "screens.js").read_text(encoding="utf-8")
     i = sc.find("const ORDER = [")
     order = [x.split("'")[1] for x in sc[i:sc.find("];", i)].splitlines()[1:] if "'" in x]
-    check("web/screens.js: one order over his face, highest first: exercise, game, friends, souvenirs, his offers and his night, the exercise's offer",
-          order == ["exo", "jeu", "amis", "souvenirs", "habitudes", "exo-offre"], str(order))
-    names = {f: [x.split("'")[0] for x in (APP / "web" / f).read_text(encoding="utf-8").split("name: '")[1:]] for f in ("exos.js", "habitudes.js", "amis.js", "souvenirs.js")}
-    check("…each add-on says its name (web/exos.js, habitudes.js, amis.js, souvenirs.js)", sorted(sum(names.values(), [])) == sorted(order), json.dumps(names))
+    check("web/screens.js: one order over his face, highest first: the Wi-Fi view (opened by hand), exercise, game, friends, souvenirs, his offers and his night, the exercise's offer",
+          order == ["wifi", "exo", "jeu", "amis", "souvenirs", "habitudes", "exo-offre"], str(order))
+    names = {f: [x.split("'")[0] for x in (APP / "web" / f).read_text(encoding="utf-8").split("name: '")[1:]] for f in ("wifi.js", "exos.js", "habitudes.js", "amis.js", "souvenirs.js")}
+    check("…each add-on says its name (web/wifi.js, exos.js, habitudes.js, amis.js, souvenirs.js)", sorted(sum(names.values(), [])) == sorted(order), json.dumps(names))
 
 
 def main():

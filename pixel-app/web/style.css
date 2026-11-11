@@ -68,6 +68,8 @@ body[data-theme="lcd"] .key{border-radius:6%;box-shadow:0 3px 0 #000,inset 0 0 0
 .osk button{flex:1;min-width:0;height:44px;border:1px solid var(--c-line);border-radius:8px;background:var(--k-bg);color:var(--k-fg);font:calc(24px*var(--k-size))/1 var(--k-font)}
 .osk button:active{background:var(--k-cur);color:var(--k-curfg)}
 .osk button.w2{flex:2}.osk button.w5{flex:5}
+.osk button.on{background:var(--k-cur);color:var(--k-curfg)}
+.cmd.asking label{color:var(--c-fg)}
 /* phone / computer: three modes. Pixel: his screen alone, as big as it fits. Clavier: the keys and the command bar, to
    drive Pixel's own screen. Les deux: everything. */
 .modes{display:flex;gap:4px;padding:3px;border-radius:999px;background:rgba(0,0,0,.35);border:1px solid var(--ink)}

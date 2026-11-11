@@ -46,6 +46,7 @@ from pixel import look                   # his look: eyes, colours, what he wear
 from pixel import quiz                   # quizzes made to measure, written by a second Claude model
 from pixel.budget import Budget          # what Claude costs this month, and its ceiling
 from pixel import habitudes              # his habits: his day (wake-up, nap, bedtime), games, laughs, fears, his phrases
+from pixel import wifi                   # his Wi-Fi: the networks around him, joining one from his own screen (web/wifi.js)
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -222,6 +223,7 @@ async def serve(args, cfg, datadir, token):
     weather = Weather(hub, cfg.get("weather", {}))
     agenda = Agenda(hub, cfg.get("agenda", {}))
     system = System(hub)
+    wf = optional(hub, "wifi", wifi.setup, hub, cfg.get("wifi", {}))     # wifi.scan, wifi.connect; NetworkManager through nmcli
     hub.budget = Budget(datadir / "budget.json", cfg.get("claude", {}))     # [claude] budget_eur: the month's ceiling with an API key
     hub.budget.on_warn = lambda msg: hub.toast(msg, 8000)
     claude = Claude(hub, cfg.get("claude", {}))
@@ -332,6 +334,8 @@ async def serve(args, cfg, datadir, token):
     jobs = [hub.broadcaster(), hub.every(1, system.sample), hub.every(5, hue.refresh), hub.every(1200, weather.refresh),
             hub.every(600, agenda.refresh), hub.every(0.25, tick), hub.every(10, deck.connect), hub.every(1, cast.tick), ytcast.run(),
             hub.every(1, ecran.tick), airplay.run()]
+    if wf:
+        jobs.append(hub.every(10, wf.poll))             # is a network up, which Wi-Fi, the networks around him
     log.info("Pixel prêt. Écran : http://localhost:%s/?kiosk=1   Téléphone : %s", port, url)
     hub.s["boot_at"] = 0
     hub.mark()

@@ -373,6 +373,11 @@ function drawSys() {
     ['DISQUE', s.disk == null ? '—' : Math.round(s.disk) + ' % utilisé', y => bar(440, y + 10, 10, (s.disk || 0) / 10, 26, 20, 6, (s.disk || 0) > 90 ? AM : G)],
     ['ALLUMÉ DEPUIS', `${Math.floor(up / 1440)} j ${Math.floor(up % 1440 / 60)} h ${pad(up % 60)} min`, () => {}]];
   rows.forEach(([l, v, f, warn], i) => { const y = 56 + i * 56; txt(fit(l, 180, 24), 24, y + 10, 24, D); txt(fit(v, 220, 34), 210, y + 2, 34, warn ? AM : G); f(y); });
+  const wf = P.wifi, wy = 56 + 3 * 56;            // the Wi-Fi line: its network's name, and a touch opens the Wi-Fi view (web/wifi.js)
+  if (wf && wf.ok && window.PixelWifi) {
+    txt(fit(wf.ssid || (wf.eth ? 'câble réseau' : 'aucun réseau'), 230, 24), W - 24, wy + 12, 24, wf.ssid || wf.eth ? D : AM, 'right');
+    hit(0, wy, W, 56, () => window.PixelWifi.open());
+  }
 }
 
 /* ---------- Réglages ---------- */
@@ -775,9 +780,11 @@ function drawMenu() {
     m.confirm = { what, until: now + 4000 };
   };
   const sure = what => m.confirm && m.confirm.what === what;
-  // the phone app (its QR code) and Pixel's fish; the power buttons stay last
-  menuBtn(x + 24, yy + 10, 324, 54, 'Téléphone', () => { m.view = 'phone'; m.confirm = null; });
-  menuBtn(x + 372, yy + 10, 324, 54, 'Poisson', () => { L.menu = null; send('scene.play', { id: 'poisson' }); });
+  // the phone app (its QR code), his Wi-Fi (web/wifi.js, when the Pi has NetworkManager) and Pixel's fish; the power buttons stay last
+  const wifi = !!(P.wifi && P.wifi.ok && window.PixelWifi), bw = wifi ? 208 : 324;     // three across, or two
+  menuBtn(x + 24, yy + 10, bw, 54, 'Téléphone', () => { m.view = 'phone'; m.confirm = null; });
+  if (wifi) menuBtn(x + 48 + bw, yy + 10, bw, 54, 'Wi-Fi', () => { L.menu = null; window.PixelWifi.open(); });
+  menuBtn(x + MENU.w - 24 - bw, yy + 10, bw, 54, 'Poisson', () => { L.menu = null; send('scene.play', { id: 'poisson' }); });
   menuBtn(x + 24, yy + 80, 324, 54, sure('reboot') ? 'Sûr ? Touche encore' : 'Redémarrer', ask('reboot'), sure('reboot'));
   menuBtn(x + 372, yy + 80, 324, 54, sure('poweroff') ? 'Sûr ? Touche encore' : 'Éteindre', ask('poweroff'), true);
   X.globalAlpha = 0.8; txt('Glisse vers le haut pour fermer', x + MENU.w / 2, yy + 162, 22, D, 'center'); X.globalAlpha = 1;
@@ -794,8 +801,10 @@ const NOUR = { X, W, H, RM, L, hit, txt, fit, box, bar, fast: ms => fast(ms), ge
    Une chose à la fois, over his face screen: the boot, a cast (drawn instead of everything) and the quick menu (over
    everything) come first; then the one add-on drawn is the first of ORDER whose on() is true (each still decides when it is
    on); an add-on of another name comes after them, in load order; Nourrir's tray and plate (web/nourrir.js) come last, under
-   every add-on (Screens.addonTop: the one drawn now, '' when none). */
+   every add-on (Screens.addonTop: the one drawn now, '' when none). The Wi-Fi view (web/wifi.js) is opened by hand, over
+   any screen: it comes first of them all. */
 const ORDER = [
+  'wifi',       // the Wi-Fi view, opened from the menu, from Système or from the reminder over his face (web/wifi.js)
   'exo',        // an open exercise (web/exos.js)
   'jeu',        // a game (web/habitudes.js)
   'amis',       // a friend's visit here, his house « Chez Bip » while he is away, a friend knocking, his code, a peek (web/amis.js)
@@ -929,6 +938,7 @@ function frame(t) {
   }
   if (P && L.boot < 0 && !cast && window.PixelNourrir) window.PixelNourrir.over(NOUR);   // Nourrir: his food tray (web/nourrir.js), never over a cast
   if (P && L.boot < 0 && !cast && window.PixelAlbum && window.PixelAlbum.over) { X.save(); try { window.PixelAlbum.over(KIT); } catch (e) { /* never stops him */ } X.restore(); }   // the album's flash (web/album.js), never over a cast
+  if (P && L.boot < 0 && !cast && window.PixelWifi && window.PixelWifi.over) { X.save(); try { window.PixelWifi.over(KIT); } catch (e) { /* never stops him */ } X.restore(); }   // « Pas de Wi-Fi » over his face (web/wifi.js)
   if (P && L.menu && L.boot < 0) drawMenu();
   drawBanner();
   if (T.fg && !cast) { X.shadowBlur = 0; X.globalAlpha = 1; T.fg(dt); }     // the CRT effects (Rétro), the LCD's glass: never over a cast
@@ -957,7 +967,7 @@ return {
       if (P.lights && p.lights && lit(P.lights.rooms) !== lit(p.lights.rooms) && anyOn(P.lights.rooms) && anyOn(p.lights.rooms)) ev('lights-change');
       const wk = w => w && w.now && w.now.kind;
       if (wk(P.weather) && wk(p.weather) && wk(P.weather) !== wk(p.weather)) ev('weather', { kind: wk(p.weather) });
-      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|caractere\.|nourrir\.|exos\.|poche\.|cast\.|yt\.|ytcast\.|ecran\.|airplay\.|amis\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
+      if (p.act && p.act.t0 !== (P.act && P.act.t0) && !/^(screen\.show|view\.|mood\.|anim\.|scene\.|face\.|theme\.|lab\.|cmd$|chat\.|caractere\.|nourrir\.|exos\.|poche\.|cast\.|yt\.|ytcast\.|ecran\.|airplay\.|amis\.|wifi\.)/.test(p.act.name)) ev('action', { name: p.act.name });   // not his own face's business
     }
     if (PER && window.PixelCaractere) window.PixelCaractere.screen(PER, P, p);   // his character (caractere.js): his traits, and how he takes a change
     if (window.PixelLook) window.PixelLook.screen(PER, P, p, { visage: L.scr === 'visage' && L.boot < 0 && !CA.id });   // his look (look.js): what he wears, his reactions
