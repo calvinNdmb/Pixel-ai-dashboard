@@ -115,8 +115,9 @@ if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: windo
 /* the row under the keys: each feature adds its own button when its script runs (some later, with the first state); kept
    here in one order, whatever order they came in: Miroir de Pixel, Agendas, then his own (Caractère, Son look, Habitudes,
    Nourrir, Exos, Souvenirs, Album, Amis), then the Android app's link. A button not listed stays where it is, after them. */
-const FOOT = document.querySelector('.kb .kfoot > span'), FOOT_ORDER = ['#follow', 'a[href$="reglages.html"]', '.car-go', '.look-go',
+const FOOT = document.querySelector('.kb .kfoot > span'), FOOT_ORDER = ['#follow', 'a[href$="reglages.html"]', '#piSettings', '.car-go', '.look-go',
   '.hab-go', '.nour-go', '.exos-go', '.souv-go', '.amis-go', '#apk'];
+if (LOCAL && $('piSettings')) $('piSettings').hidden = true;   // « Réglages du Pi » (/nfc: a code on his screen, his Wi-Fi, Claude's key): a Pi's
 if (FOOT && !kiosk) {
   const rank = e => { const i = FOOT_ORDER.findIndex(q => e.matches(q)); return i < 0 ? FOOT_ORDER.length : i; };
   const sortFoot = () => {

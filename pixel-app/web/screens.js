@@ -716,6 +716,7 @@ function drawCast(c) {
   else if (player) castPlayer(c);
   else if (c.kind === 'link') castCard(c);
   else if (c.kind === 'screen' && !castSrc()) castScreen(c);
+  else if (c.kind === 'code') castScreen(c);                              // a phone's one-time code (pixel/nfc.py): drawn like the screen sharing's
   else castMedia(c);
   if (!player) hit(0, 0, W, H, () => send('cast.stop'));                   // a touch anywhere: back to where he was
   X.shadowBlur = 0; castFace(c, e, player); glow();

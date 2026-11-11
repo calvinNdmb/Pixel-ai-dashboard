@@ -331,7 +331,15 @@ Tout est expliqué dans [docs/CAST.md](docs/CAST.md), avec le partage d'écran d
 
 ## Un tag NFC sur Pixel
 
-Un tag NFC collé sur Pixel, avec l'adresse `http://pixel.local:8080/nfc` écrite dessus : un téléphone Android posé dessus ouvre l'appli Pixel si elle est installée, sinon une page de ton Pi qui propose de l'installer (ou de continuer dans le navigateur). Avec `?t=` et ton code d'accès à la fin de l'adresse, l'appli se relie en plus à ton Pi. Le détail est dans [`pixel-mobile`](../pixel-mobile/README.md#le-tag-nfc-sur-pixel).
+Un tag NFC collé sur Pixel, avec l'adresse `http://pixel.local:8080/nfc` écrite dessus, sans code d'accès. Un téléphone Android posé dessus ouvre l'appli Pixel si elle est installée ; sinon, une page de ton Pi :
+
+- **Installer l'appli Pixel**, quand `pixel.apk` est sur le Pi ;
+- **Relier ce téléphone** : Pixel affiche un code à 6 chiffres sur son écran, à taper sur la page. Il faut donc voir l'écran de Pixel : toucher le tag ne suffit plus. Ce n'est pas toi qui as demandé ? Touche l'écran de Pixel pour refuser. Un code dure 3 minutes et laisse 5 essais ; un téléphone qui tape trop de codes faux n'en reçoit plus pendant une heure ;
+- le bon code tapé, pendant 15 minutes : **Ouvrir Pixel** (le téléphone est relié, comme avec le QR code), **le Wi-Fi de Pixel** (le réseau où il est, ceux autour de lui, en changer) et **la clé API de Claude**.
+
+**La clé API, en écriture seule :** la page dit seulement s'il y en a une ; on peut en donner une nouvelle, jamais lire l'ancienne. Pixel la vérifie auprès d'Anthropic (sans dépenser de jetons), la garde dans `~/.config/pixel/claude.env` (lisible par toi seul), puis redémarre pour l'utiliser. Elle passe avant celle de `/etc/pixel.env`. Avec une clé, Pixel utilise l'API plutôt que ton abonnement, sauf `backend = "abonnement"` dans `[claude]`.
+
+Sur un téléphone ou un ordinateur, le lien **Réglages du Pi**, sous les touches, ouvre la même page : avec l'appli installée, le tag ouvre l'appli, passe par ce lien. Un ancien tag avec `?t=` et ton code d'accès ouvre encore Pixel, mais ses réglages demandent toujours le code de l'écran : réécris-le sans `?t=`. Le mot de passe du Wi-Fi et la clé passent du téléphone au Pi sur le Wi-Fi de la maison, comme tout ce que fait l'appli, sans chiffrement : ne règle pas Pixel depuis un Wi-Fi partagé avec des inconnus. Le détail du tag est dans [`pixel-mobile`](../pixel-mobile/README.md#le-tag-nfc-sur-pixel).
 
 ## Pixel sans Pi
 
@@ -790,7 +798,7 @@ Le script fait 5 choses :
    ```bash
    sudo nano /etc/pixel.env       # ANTHROPIC_API_KEY=sk-ant-...
    ```
-   Sans clé, Claude reste en mode démo.
+   Sans clé, Claude reste en mode démo. Tu peux aussi la donner depuis ton téléphone, sans SSH : **Réglages du Pi**, avec le code que Pixel affiche (voir « Un tag NFC sur Pixel »).
 
    **Ou ton abonnement Claude** (Pro ou Max), sans clé API :
    1. Sur n'importe quel ordinateur où Claude Code est installé (sur le Pi : `curl -fsSL https://claude.ai/install.sh | bash`), lance `claude setup-token`. Connecte-toi dans le navigateur. Il affiche un jeton valable un an.
@@ -822,6 +830,7 @@ Avec ton abonnement Claude, rien n'est facturé en plus : les réponses comptent
 ## Vérifications faites
 
 Testé sur ordinateur, avec les tests du dossier `tests/` :
+- **La page du tag NFC** (`test_nfc.py`, avec un serveur de démo, comme un téléphone) : la page sans code d'accès (sauf pour un ancien tag qui l'a), le lien de l'appli ; le code sur l'écran de Pixel (6 chiffres, le même tant qu'il est là, jamais par-dessus un cast, refusé d'une touche puis rien pendant un moment, 5 essais, plus de code pour un téléphone après 30 codes faux) ; le bon code (avec ou sans espace) : la session, le code d'accès, la carte retirée, « TÉLÉPHONE RELIÉ » ; les réglages refusés sans session ; un réseau Wi-Fi rejoint depuis la page ; la clé API (une qui n'en est pas une refusée, la bonne gardée dans `claude.env` en 0600, jamais dans une réponse, l'état, la page ni le journal, relue au démarrage) ; une page d'un autre site refusée (son Origin), du JSON seulement. Dans Chromium : la carte du code sur l'écran du Pi, la page en taille téléphone, le code tapé, le Wi-Fi et la clé (fausse puis bonne).
 - **Le Wi-Fi** (`test_wifi.py`, sans serveur, avec un faux NetworkManager) : les lignes de `nmcli` (un `:` dans le nom d'un réseau, les cadenas WPA2, WPA3, WEP, entreprise, un nom vu par plusieurs bornes, les réseaux cachés) ; le réseau où il est, avec ou sans câble, et depuis quand il n'en a plus ; un réseau ouvert, un nouveau avec son mot de passe, un mot de passe refusé (aucun profil gardé), un réseau connu, un réseau connu dont le mot de passe a changé (un mauvais : l'ancien profil reste tel quel ; le bon : il le remplace), entreprise et WEP refusés, un mot de passe trop court refusé avant `nmcli`, un réseau hors de portée, un seul à la fois ; sans la règle polkit, sans `nmcli`, un `nmcli` qui ne répond plus ; le mot de passe jamais dans l'état, le journal ni une notification. Dans Chromium (serveur de démo) : le menu rapide, la ligne de Système et « Pas de Wi-Fi » ouvrent l'écran, un mauvais puis le bon mot de passe tapés au clavier de l'écran (chiffres et signes compris), la fermeture toute seule après la connexion, la barre de commande rendue intacte ; sur le téléphone, le champ masqué et Échap.
 - **Commandes et accès** (`test_pixel.py`) : lampes, scènes, minuteur, écrans, Claude et Codex en démo, refus d'un appareil sans code d'accès. Chaque thème : choix dans Réglages, touches *Thème −* et *Thème +*, commande `thème …`, choix gardé après un redémarrage (avec les 6 thèmes activés). Sans réglage `themes` : Rétro seul, les autres refusés avec un message, pas de touches de thème, pas d'outil de thème pour Claude. Chaque humeur avec `humeur …`.
 - **Données réelles** (`test_real.py`) : la vraie météo d'Open-Meteo, un agenda iCal avec un événement sur la journée et un événement répété, et les 15 touches du Stream Deck dessinées dans chaque thème.
@@ -949,6 +958,7 @@ Pas encore testé avec le vrai matériel :
 | `pixel/souvenirs.py`, `pixel/album.py`, `web/souvenirs.js`, `web/album.js` | ses souvenirs, le carnet d'humeur et l'album photo : le serveur, son écran, le panneau **Souvenirs** du téléphone (`souvenirs.css`) ; ses scènes dans `scenes/souvenirs.js` |
 | `pixel/amis.py`, `pixel/relais.py`, `web/amis.js` | les amis de Pixel : les codes d'ami, les amitiés et les visites ; le relais ntfy et la boîte chiffrée ; l'ami en visite sur l'écran du Pi et le panneau **Ses amis** du téléphone (`amis.css`) ; les scènes à deux, les autocollants dans `scenes/amis.js` ; le labo dans `lab/amis-lab.js` |
 | `pixel/wifi.py`, `web/wifi.js` | son Wi-Fi : NetworkManager par `nmcli`, l'écran **Wi-Fi** et le rappel « Pas de Wi-Fi » ; la règle polkit `deploy/50-pixel-wifi.rules` |
+| `pixel/nfc.py`, `web/nfc.html`, `web/nfc.js` | la page du tag NFC (`/nfc`) : le code sur l'écran de Pixel, puis son Wi-Fi et la clé API de Claude (écriture seule, `claude.env`) |
 | `web/reglages.html` | la page **Agendas** du téléphone |
 | `web/ecran.html`, `web/ecran.js` | le partage d'écran : la page **Partager mon écran** de l'ordinateur, et ce que reçoit l'écran de Pixel |
 | `web/lab/` | Pixel Lab, le labo d'essai des thèmes et des animations |

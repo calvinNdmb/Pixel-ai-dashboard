@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#141713">
+<meta name="referrer" content="no-referrer">
+<title>Pixel</title>
+<!-- PIXEL:NFC -->
+<style>
+:root{--bg:#141713;--card:#1b1f1a;--fg:#d9d2bd;--dim:#a79f86;--line:#7c745c;--hi:#46ff82;--warn:#ffb347;--edge:#2d332b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.5 system-ui,sans-serif}
+main{max-width:440px;margin:0 auto;padding:22px 16px 40px}
+h1{font:700 28px monospace;letter-spacing:8px;color:var(--hi);text-align:center;margin:6px 0 0}
+h2{font-size:18px;margin:0 0 6px}
+p{margin:6px 0}
+.s{color:var(--dim);font-size:14px}
+.c{text-align:center}
+section{background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:16px;margin:16px 0}
+.b{display:block;width:100%;min-height:48px;margin:10px 0 0;padding:12px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--fg);font:600 16px system-ui,sans-serif;text-align:center;text-decoration:none;cursor:pointer}
+.main{background:var(--fg);color:var(--bg);border:0}
+input{width:100%;min-height:48px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#0d0f0c;color:var(--fg);font:18px system-ui,sans-serif}
+#code{font:700 30px monospace;letter-spacing:10px;text-align:center}
+.msg{min-height:1.5em;margin:8px 0 0;font-size:15px}
+.err{color:var(--warn)}
+.ok{color:var(--hi)}
+.net{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:10px 12px;margin:6px 0 0;border:1px solid var(--edge);border-radius:12px;background:transparent;color:var(--fg);font:16px system-ui,sans-serif;text-align:left;cursor:pointer}
+.net.on{border-color:var(--hi)}
+.net.off{color:var(--dim)}
+.net .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.net small{color:var(--dim);font-size:13px}
+.net .q{flex:0 0 auto;font-family:monospace;color:var(--hi);letter-spacing:-1px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>PIXEL</h1>
+  <p class="s c">Coucou ! Je suis Pixel.</p>
+
+  <section id="pair">
+    <h2>Relier ce téléphone</h2>
+    <p>Pixel affiche un code sur son écran : tape-le ici.</p>
+    <form id="pairForm" autocomplete="off">
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" aria-label="Le code affiché par Pixel">
+      <button class="b main" type="submit">Valider</button>
+    </form>
+    <button class="b" type="button" id="again">Afficher un code sur Pixel</button>
+    <p class="msg" id="pairMsg" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="app">
+    <a class="b main" id="open" href="/" hidden>Ouvrir Pixel</a>
+    <a class="b" id="apk" href="/pixel.apk" hidden>Installer l’appli Pixel</a>
+    <p class="s" id="apkHint" hidden>Ouvre le fichier téléchargé, autorise l’installation, puis repose ton téléphone sur Pixel : l’appli s’ouvrira toute seule.</p>
+  </section>
+
+  <section id="wifi" hidden>
+    <h2>Le Wi-Fi de Pixel</h2>
+    <p id="wifiNow"></p>
+    <div id="nets"></div>
+    <form id="joinForm" autocomplete="off" hidden>
+      <p id="joinFor"></p>
+      <input id="pw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Mot de passe du Wi-Fi" aria-label="Mot de passe du Wi-Fi">
+      <button class="b main" type="submit">Se connecter</button>
+      <button class="b" type="button" id="joinCancel">Annuler</button>
+    </form>
+    <button class="b" type="button" id="scan">Actualiser</button>
+    <p class="msg" id="wifiMsg" role="status" aria-live="polite"></p>
+    <p class="s">Si Pixel change de réseau, ce téléphone peut le perdre de vue : regarde l’écran de Pixel.</p>
+  </section>
+
+  <section id="cle" hidden>
+    <h2>La clé API de Claude</h2>
+    <p id="cleNow"></p>
+    <form id="keyForm" autocomplete="off">
+      <input id="key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Nouvelle clé : sk-ant-…" aria-label="Nouvelle clé API">
+      <button class="b main" type="submit">Enregistrer la clé</button>
+    </form>
+    <p class="msg" id="keyMsg" role="status" aria-live="polite"></p>
+    <p class="s">La clé enregistrée n’est jamais affichée : on peut seulement en donner une nouvelle. Pixel la vérifie auprès d’Anthropic, puis redémarre pour l’utiliser.</p>
+  </section>
+
+  <p class="s c" id="sessionNote" hidden>Les réglages restent ouverts 15 minutes sur ce téléphone.</p>
+</main>
+<script src="/app/nfc.js"></script>
+</body>
+</html>

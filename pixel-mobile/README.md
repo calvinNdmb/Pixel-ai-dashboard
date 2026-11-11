@@ -40,15 +40,15 @@ Au premier lancement, Pixel est là tout de suite : pas de QR code, pas de rése
 
 Colle un tag NFC sur Pixel et écris dessus **une adresse web** (un enregistrement « URL », avec une appli comme NFC Tools) :
 
-- `http://pixel.local:8080/nfc` : le tag ouvre l'appli, ou propose de l'installer ;
-- `http://pixel.local:8080/nfc?t=TON_CODE` : pareil, et l'appli se relie toute seule à ton Pi si elle ne l'est pas encore. `TON_CODE` est ce qui suit `?t=` dans l'adresse du QR code de Pixel.
+- `http://pixel.local:8080/nfc` (conseillé) : le tag ouvre l'appli, ou une page de ton Pi ;
+- `http://pixel.local:8080/nfc?t=TON_CODE` : l'appli se relie en plus toute seule à ton Pi si elle ne l'est pas encore (`TON_CODE` est ce qui suit `?t=` dans l'adresse du QR code de Pixel). Mais alors toute personne qui pose son téléphone sur le tag peut relier son appli à Pixel, sans voir son écran.
 
 Quand un téléphone Android touche le tag :
 
 - **l'appli est installée** : elle s'ouvre directement, sans passer par le navigateur ;
-- **elle ne l'est pas** : le navigateur ouvre une page de ton Pi, avec **Installer l'appli Pixel** (le fichier `pixel.apk` du Pi) et **Continuer dans le navigateur**. Une fois l'appli installée, repose le téléphone sur le tag.
+- **elle ne l'est pas** : le navigateur ouvre une page de ton Pi, avec **Installer l'appli Pixel** (le fichier `pixel.apk` du Pi), et **Relier ce téléphone** : Pixel affiche un code sur son écran, à taper sur la page. Avec le bon code viennent **Ouvrir Pixel**, son Wi-Fi et la clé API de Claude (voir « Un tag NFC sur Pixel » dans `pixel-app/README.md`). Une fois l'appli installée, repose le téléphone sur le tag.
 
-À savoir : le téléphone doit être sur le Wi-Fi de la maison, NFC allumé et écran déverrouillé. Avec le code sur le tag, toute personne qui pose son téléphone dessus peut relier son appli à Pixel, comme avec le QR code : sans le code, elle devra le scanner. Si `pixel.local` ne répond pas chez toi, mets l'adresse IP du Pi à la place. Un iPhone ouvre la page dans Safari (pas d'appli iOS).
+À savoir : le téléphone doit être sur le Wi-Fi de la maison, NFC allumé et écran déverrouillé. Si `pixel.local` ne répond pas chez toi, mets l'adresse IP du Pi à la place. Un iPhone ouvre la page dans Safari (pas d'appli iOS).
 
 Comment c'est fait : l'appli déclare qu'elle sait ouvrir les tags dont l'adresse finit par `/nfc` (`modules/pixel-native/app.plugin.js`), et `App.tsx` lit l'adresse ; la page est servie par `pixel-app/server.py`.
 
