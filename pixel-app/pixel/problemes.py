@@ -8,7 +8,7 @@ templates going round (pixel/exos.py g_probleme), but a new one each time.
   must give its answer, a whole number; three different wrong answers; lengths that fit his screen. One that fails is
   dropped, and so is one already shown lately.
 - [claude] problemes_model in config.toml (claude-haiku-5-5 by default; problemes = false: the templates only). With an
-  API key only, within the month's budget (pixel/budget.py): a batch costs about a tenth of a cent. Without a key (demo,
+  API key only, within the month's budget (pixel/budget.py): a batch costs 0.1 to 0.2 cent. Without a key (demo,
   a subscription), or while a level's reserve is empty: the templates, as before.
 """
 import ast

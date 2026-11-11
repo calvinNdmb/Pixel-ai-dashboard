@@ -230,6 +230,13 @@ async def _server(s, base, port, hub, C, d, now, toasts, asked, chats):
     C.liste = []
     await commands.run(hub, "quiz sur mon cours")
     check("no lesson at all: « prends-le en photo dans l'appli »", toasts[-1] == cours.NONE, toasts[-1])
+    f = aiohttp.FormData()
+    f.add_field("titre", "Les états de l'eau".encode("cp1252"))   # curl on a Windows PC sends its own charset
+    f.add_field("page", jpeg(), filename="page1.jpg", content_type="image/jpeg")
+    st, j = await post(s, base, f)
+    await C.task
+    check("a title in another charset (curl on Windows): the photos go all the same, the title read right",
+          st == 200 and C.liste and C.liste[0]["titre"] == "Les états de l'eau", f"{st} {j} {[c['titre'] for c in C.liste]}")
 
 
 if __name__ == "__main__":

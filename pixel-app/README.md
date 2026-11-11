@@ -510,7 +510,7 @@ node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots 
 
 Pixel te pose de petits exercices, du CP au collège : additions, soustractions, tables de multiplication, divisions, compléments à 10 ou à 100, doubles et moitiés, calcul mental avec les priorités, comparaisons, suites logiques (2, 4, 6, ?), petits problèmes (« Pixel a 12 piles, il en mange 5… »), heures et durées, fractions, pourcentages, carrés, et des énigmes.
 
-**Les petits problèmes, toujours nouveaux :** avec une clé API, Claude Haiku en écrit d'avance, une douzaine à la fois pour ton niveau, et Pixel les garde en réserve (`~/.config/pixel/problemes.json`) : chaque problème n'est posé qu'une fois. Avant d'entrer dans la réserve, chacun est vérifié sur le Pi : son calcul est refait et doit donner sa réponse, un nombre entier, avec trois mauvaises réponses différentes ; sinon il est jeté. Quand la réserve d'un niveau baisse, Pixel en redemande en arrière-plan : l'exo n'attend jamais. Une douzaine coûte environ un dixième de centime, compté dans le budget du mois. Sans clé API, budget épuisé ou réserve vide, Pixel pose ses problèmes tout faits, comme avant. Dans `[claude]` de `config.toml` : `problemes_model` (Haiku au départ) ; `problemes = false` pour garder seulement les problèmes tout faits.
+**Les petits problèmes, toujours nouveaux :** avec une clé API, Claude Haiku en écrit d'avance, une douzaine à la fois pour ton niveau, et Pixel les garde en réserve (`~/.config/pixel/problemes.json`) : chaque problème n'est posé qu'une fois. Avant d'entrer dans la réserve, chacun est vérifié sur le Pi : son calcul est refait et doit donner sa réponse, un nombre entier, avec trois mauvaises réponses différentes ; sinon il est jeté. Quand la réserve d'un niveau baisse, Pixel en redemande en arrière-plan : l'exo n'attend jamais. Une douzaine coûte entre 0,1 et 0,2 centime, compté dans le budget du mois. Sans clé API, budget épuisé ou réserve vide, Pixel pose ses problèmes tout faits, comme avant. Dans `[claude]` de `config.toml` : `problemes_model` (Haiku au départ) ; `problemes = false` pour garder seulement les problèmes tout faits.
 
 **Pour en lancer un :**
 - tape `exo`, `exo de maths`, `un calcul`, `calcul mental`, `entraînement de calcul mental`, `table de 7` (ou `révisons la table de 7`), `défi chrono`, `série de 5`, `10 questions`, `une énigme`, `exo de fractions`, `exo difficile` ; les mêmes mots marchent sans Pi et dans Pixel Lab, et au micro ;
@@ -574,7 +574,7 @@ Prends ton cours en photo, Pixel le lit et te pose des questions dessus pendant 
 
 **Voir le texte** montre ce que Pixel a lu, pour vérifier. **Oublier** l'efface tout de suite ; sinon, il l'oublie tout seul au bout de 7 jours (`[cours] jours = 7` dans `config.toml`). Les photos ne sont jamais gardées : seul le texte du cours reste sur le Pi (`~/.config/pixel/cours/cours.json`, lisible par toi seul). Pour de bonnes photos : bien à plat, de près, avec de la lumière.
 
-Il faut une clé API : Claude Sonnet 5.5 lit les photos (`[claude] cours_model`), environ 2 à 3 centimes par cours, comptés dans le budget du mois. Sans clé, la partie **Mes cours** dit pourquoi et rien n'est envoyé. Dans l'appli Android, l'appareil photo s'ouvre comme dans le navigateur.
+Il faut une clé API : Claude Sonnet 5.5 lit les photos (`[claude] cours_model`), environ 1 centime par page, compté dans le budget du mois. Sans clé, la partie **Mes cours** dit pourquoi et rien n'est envoyé. Dans l'appli Android, l'appareil photo s'ouvre comme dans le navigateur.
 
 ## Répondre avec le Stream Deck
 

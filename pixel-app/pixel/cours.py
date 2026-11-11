@@ -89,6 +89,16 @@ def clean(d, titre=""):
             "resume": exos._line(d.get("resume"))[:240], "texte": t, "mots": len(t.split())}
 
 
+def decode(b):
+    """A text field as the phone sent it: UTF-8 (every browser), else Windows' own (curl on a PC); never an error."""
+    for enc in ("utf-8", "cp1252"):
+        try:
+            return b.decode(enc)
+        except UnicodeDecodeError:
+            pass
+    return b.decode("latin-1")
+
+
 def _num(v, lo, hi, default):
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) and lo <= v <= hi else default
 
@@ -218,8 +228,11 @@ class Cours:
         try:
             reader = await request.multipart()
             while (part := await reader.next()) is not None:
-                if part.name == "titre":
-                    titre = exos._line((await part.text())[:400])[:TITRE_MAX]
+                if part.name == "titre":                  # its first 2 KB, in whatever charset: a title never stops the photos
+                    raw = bytearray()
+                    while len(raw) < 2048 and (chunk := await part.read_chunk(1024)):
+                        raw += chunk
+                    titre = exos._line(decode(bytes(raw[:2048])))[:TITRE_MAX]
                     continue
                 if part.name != "page":
                     continue
@@ -239,6 +252,7 @@ class Cours:
                     return self.fail(415, "Une photo de la mauvaise taille.")
                 pages.append((MIME[ext], bytes(data)))
         except Exception:                                 # noqa: BLE001 - whatever came, a word and no crash
+            log.warning("cours : envoi illisible", exc_info=True)
             return self.fail(400, "Photos illisibles.")
         if not pages:
             return self.fail(400, "Aucune photo reçue.")
