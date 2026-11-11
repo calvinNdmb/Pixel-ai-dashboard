@@ -520,8 +520,16 @@ def g_suite(lv, R):
     return ", ".join(fmt(t) for t in shown) + ", ?", ans, wrong, hint, ex, str(ans), None
 
 
+RESERVE = None                     # pixel/problemes.py: word problems written ahead of time by Claude, taken first
+
+
 def g_probleme(lv, R):
-    """Word problems with Pixel in them. Each template: levels, then (question, answer, mistakes, hint, correction, calc)."""
+    """Word problems: one written ahead of time by Claude when the reserve has one (pixel/problemes.py), else Pixel's own
+    templates. Each template: levels, then (question, answer, mistakes, hint, correction, calc)."""
+    if RESERVE is not None:
+        p = RESERVE.take(lv)
+        if p:
+            return p
     def t_sub():
         a = R.randint(6, 10 if lv == 1 else 20 if lv == 2 else 60)
         b = R.randint(2, a - 2)

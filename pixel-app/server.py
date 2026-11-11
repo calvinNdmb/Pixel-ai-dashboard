@@ -44,6 +44,7 @@ from pixel import souvenirs, album       # his memories and your mood journal; h
 from pixel import amis                   # les amis de Pixel: visits from house to house, through a relay (docs/AMIS.md)
 from pixel import look                   # his look: eyes, colours, what he wears, the seasons' outfits, his pyjama
 from pixel import quiz                   # quizzes made to measure, written by a second Claude model
+from pixel import problemes              # word problems written ahead of time by Claude (Haiku), kept in reserve
 from pixel.budget import Budget          # what Claude costs this month, and its ceiling
 from pixel import habitudes              # his habits: his day (wake-up, nap, bedtime), games, laughs, fears, his phrases
 from pixel import wifi                   # his Wi-Fi: the networks around him, joining one from his own screen (web/wifi.js)
@@ -230,6 +231,7 @@ async def serve(args, cfg, datadir, token):
     hub.budget.on_warn = lambda msg: hub.toast(msg, 8000)
     claude = Claude(hub, cfg.get("claude", {}))
     optional(hub, "quiz", quiz.setup, hub, cfg.get("claude", {}))           # create_quiz, quiz.creer: after exos (it plays them) and Claude (its client)
+    optional(hub, "problemes", problemes.setup, hub, cfg.get("claude", {}), datadir)   # data_dir/problemes.json: after exos, Claude and the budget
     Codex(hub, cfg.get("codex", {}))
     optional(hub, "voix", voix.setup, hub, cfg.get("voix", {}))         # voix.toggle: the micro button of his screen (web/dock.js)
     tick = timer.setup(hub)

@@ -239,7 +239,10 @@ async def test_deck():
        len(ex.cur["elimine"]) == 1 and len(left) == 3 and dk.cache[4][0] == "" and "bon1" in left, f"{left} {dk.cache[4]}")
     await dk.press(labels.index("bon1"))
     ok("the right key answers it", ex.cur["etat"] == "resultat" and ex.cur["ok"] is True)
-    await asyncio.sleep(0.3)
+    for _ in range(30):                                   # drawn in the background: up to 3 s on a busy machine (a Pi running tests)
+        if len(dk.deck.images) == 15:
+            break
+        await asyncio.sleep(0.1)
     ok("the keys were really drawn", len(dk.deck.images) == 15)
 
 

@@ -510,6 +510,8 @@ node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots 
 
 Pixel te pose de petits exercices, du CP au collège : additions, soustractions, tables de multiplication, divisions, compléments à 10 ou à 100, doubles et moitiés, calcul mental avec les priorités, comparaisons, suites logiques (2, 4, 6, ?), petits problèmes (« Pixel a 12 piles, il en mange 5… »), heures et durées, fractions, pourcentages, carrés, et des énigmes.
 
+**Les petits problèmes, toujours nouveaux :** avec une clé API, Claude Haiku en écrit d'avance, une douzaine à la fois pour ton niveau, et Pixel les garde en réserve (`~/.config/pixel/problemes.json`) : chaque problème n'est posé qu'une fois. Avant d'entrer dans la réserve, chacun est vérifié sur le Pi : son calcul est refait et doit donner sa réponse, un nombre entier, avec trois mauvaises réponses différentes ; sinon il est jeté. Quand la réserve d'un niveau baisse, Pixel en redemande en arrière-plan : l'exo n'attend jamais. Une douzaine coûte environ un dixième de centime, compté dans le budget du mois. Sans clé API, budget épuisé ou réserve vide, Pixel pose ses problèmes tout faits, comme avant. Dans `[claude]` de `config.toml` : `problemes_model` (Haiku au départ) ; `problemes = false` pour garder seulement les problèmes tout faits.
+
 **Pour en lancer un :**
 - tape `exo`, `exo de maths`, `un calcul`, `calcul mental`, `entraînement de calcul mental`, `table de 7` (ou `révisons la table de 7`), `défi chrono`, `série de 5`, `10 questions`, `une énigme`, `exo de fractions`, `exo difficile` ; les mêmes mots marchent sans Pi et dans Pixel Lab, et au micro ;
 - sur l'écran du Pi, touche le bouton **Exos** à droite de son visage (le « + × − = ») : l'écran « Exos de maths » propose le calcul mental, un exo, une série de 5, le défi chrono, une énigme ou une table (de 2 à 10). **Fermer** le range ; il se range aussi tout seul après 30 secondes sans toucher ;
@@ -940,6 +942,7 @@ python3 tests/test_nourrir.py        # son propre serveur de démo sur le port 8
 node tests/test_nourrir.js           # port 8175 (NOURRIR_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 node tests/test_quiz.js              # les quiz sur mesure du Pixel du téléphone (sans Pi), avec une fausse appli
 python3 tests/test_quiz.py           # les quiz sur mesure, le budget, Haiku, les touches du Stream Deck (une fausse API)
+python3 tests/test_problemes.py      # les problèmes écrits à l'avance par Haiku : les calculs refaits, la réserve (une fausse API)
 python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_habitudes.py      # ses habitudes, sans serveur (horloges fixées)
@@ -974,6 +977,7 @@ Pas encore testé avec le vrai matériel :
 | `pixel/nourrir.py`, `web/nourrir.js` | le nourrir : son ventre, ses goûts, ses repas ; l'assiette et le plateau du Pi, le panneau **Nourrir** du téléphone (`nourrir.css`) ; le menu, ses dessins et ses scènes dans `scenes/nourrir.js` |
 | `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
 | `pixel/quiz.py`, `pixel/budget.py` | les quiz sur mesure, écrits par un deuxième modèle et joués par les exos ; le budget du mois avec une clé API |
+| `pixel/problemes.py` | les petits problèmes des exos, écrits à l'avance par Claude Haiku et mis en réserve (`problemes.json`), chacun vérifié en refaisant son calcul |
 | `pixel/look.py`, `web/look.js` | son look : ses yeux, ses couleurs, ses accessoires, les tenues de saison et le pyjama ; le dessin dans les 6 thèmes et le panneau **Son look** du téléphone (`look.css`) ; ses réactions dans `scenes/look.js` |
 | `pixel/habitudes.py`, `web/habitudes.js` | ses habitudes : son emploi du temps, ses mini-jeux, ses rires, ses peurs, ses phrases ; les jeux et sa nuit sur l'écran, le panneau **Habitudes** du téléphone (`habitudes.css`) ; ses scènes et ses blagues dans `scenes/habitudes.js` |
 | `pixel/souvenirs.py`, `pixel/album.py`, `web/souvenirs.js`, `web/album.js` | ses souvenirs, le carnet d'humeur et l'album photo : le serveur, son écran, le panneau **Souvenirs** du téléphone (`souvenirs.css`) ; ses scènes dans `scenes/souvenirs.js` |
