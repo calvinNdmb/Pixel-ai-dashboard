@@ -2,7 +2,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import {
-  ENTRY_TYPES, MAP_H, MAP_W, World, Entry, WorldStore,
+  ENTRY_TYPES, MAP_H, MAP_W, World, Entry, Town, WorldStore,
   fold, mentions, matcher, norm, resolveEntry, snippet, terrainAt, uid,
 } from './world.js';
 
@@ -34,6 +34,22 @@ function nearby(w: World, x: number, y: number, radius: number, exceptId?: strin
     .map(({ p, d }) => ({ ...named(w, p.entryId), distance: Math.round(d), direction: d < 1 ? 'ici' : compass(p.x - x, p.y - y) }));
 }
 
+const townEntry = (w: World, t: Town) => w.entries.find((e) => e.id === t.entryId) ?? null;
+const townName = (w: World, townId: string) => { const t = (w.towns ?? []).find((x) => x.id === townId); return (t && townEntry(w, t)?.name) || 'ville inconnue'; };
+function townCenter(t: Town) { // centre et rayon approchés de la zone peinte
+  let sx = 0, sy = 0, sw = 0;
+  for (const d of t.discs) if (d[3] !== -1) { const k = d[2] * d[2]; sx += d[0] * k; sy += d[1] * k; sw += k; }
+  return sw ? { x: Math.round(sx / sw), y: Math.round(sy / sw), radius: Math.round(Math.sqrt(sw)) } : { x: 0, y: 0, radius: 0 };
+}
+function resolveTown(w: World, ref: string): Town {
+  const towns = w.towns ?? [];
+  const byId = towns.find((t) => t.id === ref);
+  if (byId) return byId;
+  const e = resolveEntry(w, ref), t = towns.find((x) => x.entryId === e.id);
+  if (!t) throw new Error(`« ${e.name} » n'est pas une ville peinte. Villes : ${towns.map((x) => townEntry(w, x)?.name).filter(Boolean).join(', ') || 'aucune'}.`);
+  return t;
+}
+
 function entryView(w: World, e: Entry) {
   const m = matcher(w);
   const pin = w.pins.find((p) => p.entryId === e.id);
@@ -42,6 +58,8 @@ function entryView(w: World, e: Entry) {
   const fromChapters = w.chapters.map((c) => ({ c, n: mentions(w, c.text, m).get(e.id)?.count ?? 0 })).filter(({ n }) => n).map(({ c, n }) => ({ id: c.id, title: c.title, count: n }));
   return {
     ...brief(e), aliases: e.aliases, body: e.body, has_image: Boolean(e.image),
+    ...(e.job ? { job: e.job } : {}),
+    ...(e.home ? { lives_in: townName(w, e.home.town) } : {}),
     map: pin ? { x: Math.round(pin.x), y: Math.round(pin.y), terrain: terrainAt(w, pin.x, pin.y), nearby: nearby(w, pin.x, pin.y, 120, e.id).slice(0, 6) } : null,
     relations: w.relations.filter((r) => r.from === e.id || r.to === e.id).map((r) => ({
       id: r.id, sentence: `${named(w, r.from).name} ${r.label} ${named(w, r.to).name}`, from: r.from, label: r.label, to: r.to,
@@ -166,6 +184,38 @@ export function buildServer(store: WorldStore) {
     inputSchema: { name: z.string().min(1).max(80).optional(), tagline: z.string().max(400).optional() },
     annotations: { openWorldHint: false },
   }, (a) => run(() => store.update((w) => { if (a.name) w.world.name = a.name; if (a.tagline != null) w.world.tagline = a.tagline; return w.world; })));
+
+  // ---------- villes et habitants ----------
+  server.registerTool('list_towns', {
+    title: 'Villes et habitants',
+    description: "Les villes peintes sur la carte : nom, position, taille approchée, terrain, et leurs habitants connus (nom, métier). Les passants anonymes ne sont pas listés.",
+    annotations: ro,
+  }, () => run(async () => {
+    const w = await store.read();
+    return (w.towns ?? []).map((t) => {
+      const e = townEntry(w, t), c = townCenter(t);
+      return { town_id: t.id, ...(e ? { entry_id: e.id, name: e.name, summary: e.summary } : { name: 'Ville sans nom' }), x: c.x, y: c.y, radius: c.radius, terrain: terrainAt(w, c.x, c.y),
+        inhabitants: w.entries.filter((p) => p.home?.town === t.id).map((p) => ({ id: p.id, name: p.name, job: p.job ?? '', summary: p.summary })) };
+    });
+  }));
+
+  server.registerTool('add_inhabitant', {
+    title: 'Ajouter un habitant',
+    description: "Crée un personnage qui habite une ville peinte. Il reçoit une maison à la prochaine ouverture du monde dans l'application et marche dans les rues. Appelle list_towns d'abord pour connaître les villes et ceux qui y vivent déjà.",
+    inputSchema: {
+      town: z.string().min(1).describe('Nom ou id de la ville (voir list_towns).'),
+      name: z.string().min(1).max(120), job: z.string().max(80).optional().describe('Métier, ex. « saunière ».'),
+      summary: z.string().max(400).optional(), body: z.string().max(20000).optional(),
+    },
+    annotations: { openWorldHint: false },
+  }, (a) => run(() => store.update((w) => {
+    const t = resolveTown(w, a.town);
+    const dup = w.entries.find((e) => norm(e.name) === norm(a.name));
+    if (dup) throw new Error(`Une fiche « ${dup.name} » existe déjà (id ${dup.id}).`);
+    const e: Entry = { id: uid('e'), type: 'personnage', name: a.name.trim(), aliases: [], summary: a.summary?.trim() ?? '', body: a.body ?? '', job: a.job?.trim() ?? '', home: { town: t.id } };
+    w.entries.push(e);
+    return { created: entryView(w, e) };
+  })));
 
   registerLinkTools(server, store);
   registerMapTools(server, store);

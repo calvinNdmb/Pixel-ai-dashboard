@@ -1,0 +1,27 @@
+<title>Archipel 2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+
+<div id="app">
+  <div id="stage"><div id="labels"></div></div>
+  <div id="top"></div>
+  <div id="rail" role="toolbar" aria-label="Outils"></div>
+  <div id="panel"></div>
+  <div id="bar"></div>
+  <div id="sheet" hidden></div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <div id="fallback" hidden>
+    <h1>Archipel a besoin de la 3D</h1>
+    <p>Cet appareil ou ce navigateur n'affiche pas le relief en 3D. Essaie avec un navigateur récent.</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="data.js"></script>
+<script src="terrain.js"></script>
+<script src="town.js"></script>
+<script src="scene.js"></script>
+<script src="ui.js"></script>

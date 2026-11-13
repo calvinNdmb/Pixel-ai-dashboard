@@ -10,7 +10,7 @@ Le monde est un fichier JSON au même format que l'export du prototype (`prototy
 cd mcp-server
 npm install
 npm run build
-npm test        # 14 vérifications de bout en bout (stdio + HTTP)
+npm test        # 16 vérifications de bout en bout (stdio + HTTP)
 ```
 
 ## Brancher le serveur à une IA
@@ -52,6 +52,8 @@ claude mcp add archipel -e ARCHIPEL_WORLD=/chemin/vers/mon-monde.json -- node /c
 | `get_entry` | Fiche complète : relations, fiches citées, textes qui la citent, position et terrain |
 | `create_entry`, `update_entry`, `delete_entry` | Écrire les fiches (`append_body` ajoute un paragraphe) |
 | `set_world_info` | Nom et accroche du monde |
+| `list_towns` | Les villes peintes : position, taille approchée, terrain, habitants connus |
+| `add_inhabitant` | Crée un habitant (nom, métier, résumé) dans une ville ; l'application lui donne une maison et le fait marcher dans les rues |
 | `add_relation`, `remove_relation` | Relations orientées : « Maître Oren » *mentor de* « Ysolde Varn » |
 | `find_mentions` | Le moteur de liens automatiques appliqué à n'importe quel texte |
 | `find_link_candidates` | Paires de fiches qui se citent ou se croisent sans relation notée, avec l'extrait qui le prouve |

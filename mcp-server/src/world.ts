@@ -18,7 +18,12 @@ export interface Entry {
   image?: string;
   x?: number; // position sur la Toile (graphe), gérée par le prototype
   y?: number;
+  job?: string; // métier d'un habitant
+  home?: { town: string; x?: number | null; y?: number | null }; // ville (et maison) où il habite
+  kind?: string;
 }
+/** Ville peinte dans l'application : une suite de pastilles [x, y, rayon, signe]. */
+export interface Town { id: string; entryId: string | null; seed?: number; discs: number[][] }
 export interface Relation { id: string; from: string; to: string; label: string; ai?: boolean }
 export interface Pin { id: string; entryId: string; x: number; y: number }
 export interface Chapter { id: string; title: string; text: string }
@@ -31,6 +36,8 @@ export interface World {
   map: { image: string | null; seed: number; h?: number };
   chapters: Chapter[];
   terrain?: { h: string; b: string };
+  towns?: Town[];
+  features?: Record<string, unknown[]>;
 }
 
 export const MAP_W = 1000;

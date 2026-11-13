@@ -1,7 +1,7 @@
 // Test de bout en bout : lance le serveur (stdio puis HTTP), appelle les outils, vérifie les réponses.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -10,6 +10,10 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const dir = mkdtempSync(join(tmpdir(), 'archipel-'));
 const world = join(dir, 'world.json');
+// un monde tel que l'application le sauve : avec une ville peinte
+const seedWorld = JSON.parse(readFileSync(new URL('../data/seed-world.json', import.meta.url), 'utf8'));
+seedWorld.towns = [{ id: 't-portsel', entryId: 'portsel', seed: 3, discs: [[372, 456, 27, 1], [348, 452, 19, 1]] }];
+writeFileSync(world, JSON.stringify(seedWorld));
 const json = (r) => { assert.ok(!r.isError, r.content?.[0]?.text); return JSON.parse(r.content[0].text); };
 let passed = 0;
 const ok = (label) => { passed++; console.log('  ✓', label); };
@@ -19,7 +23,7 @@ await client.connect(new StdioClientTransport({ command: 'node', args: ['dist/in
 const call = (name, args = {}) => client.callTool({ name, arguments: args });
 
 const { tools } = await client.listTools();
-assert.equal(tools.length, 19); ok(`${tools.length} outils exposés`);
+assert.equal(tools.length, 21); ok(`${tools.length} outils exposés`);
 
 const ov = json(await call('get_world_overview'));
 assert.equal(ov.world.name, 'Les Îles Cendrées'); assert.equal(ov.counts.personnage, 4); ok('vue d’ensemble');
@@ -49,6 +53,14 @@ assert.equal(sea.terrain.milieu, 'mer'); ok('terrain : terre / mer');
 
 const ch = json(await call('write_chapter', { title: 'III. La cloche', text: 'Ysolde entendit la cloche de Port-Sel.' }));
 assert.ok(ch.cites.length === 2); ok('chapitre écrit, noms reconnus');
+
+const towns = json(await call('list_towns'));
+assert.equal(towns.length, 1); assert.equal(towns[0].name, 'Port-Sel'); assert.equal(towns[0].terrain.milieu, 'terre');
+const hab = json(await call('add_inhabitant', { town: 'port sel', name: 'Maren Tallec', job: 'saunière', summary: 'Elle récolte le sel des trois collines.' }));
+assert.equal(hab.created.lives_in, 'Port-Sel'); assert.equal(hab.created.job, 'saunière');
+assert.equal(json(await call('list_towns'))[0].inhabitants[0].name, 'Maren Tallec'); ok('villes et habitants');
+const notTown = await call('add_inhabitant', { town: 'Île Morne', name: 'Personne' });
+assert.ok(notTown.isError && /pas une ville peinte/.test(notTown.content[0].text)); ok('habitant refusé hors d’une ville');
 
 const found = json(await call('search_entries', { query: 'faille' }));
 assert.equal(found[0].name, 'La Faille de Verre'); ok('recherche sans accents');
