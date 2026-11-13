@@ -142,10 +142,10 @@
   // ---------- étiquettes sur la carte ----------
   function labels() {
     const specs = [];
-    S.towns.forEach((t) => { const gen = SC.towns[t.id], e = entry(t.entryId); if (gen && gen.houses.length) specs.push({ kind: 'town', text: e ? e.name : 'Nouvelle ville', x: gen.cx, y: gen.cy, up: 20, onTap: () => openTown(t.id) }); });
+    S.towns.forEach((t) => { const gen = SC.towns[t.id], e = entry(t.entryId); if (gen && gen.houses.length) specs.push({ kind: 'town', text: e ? e.name : 'Nouvelle ville', x: gen.cx, y: gen.cy, up: 17, onTap: () => openTown(t.id) }); });
     S.pins.forEach((p) => { const e = entry(p.entryId); if (e && e.type === 'lieu' && !S.towns.some((t) => t.entryId === e.id)) specs.push({ kind: 'place', text: e.name, x: p.x, y: p.y, up: 8, onTap: () => openEntry(e.id) }); });
     SC.monuments.forEach((m) => specs.push({ kind: 'mon', text: m.name, x: m.x, y: m.y, up: m.up + 2, maxDist: 520, onTap: () => openMonument(m.id) }));
-    SC.walkers.forEach((w) => { const e = w.entry && entry(w.entry); if (e) specs.push({ kind: 'res', text: (e.aliases && e.aliases[0]) || e.name.split(' ')[0], maxDist: 250, pos: () => [w.x, w.y, 6], onTap: () => openResident(e.id) }); });
+    SC.walkers.forEach((w) => { const e = w.entry && entry(w.entry); if (e) specs.push({ kind: 'res', text: (e.aliases && e.aliases[0]) || e.name.split(' ')[0], maxDist: 250, pos: () => [w.x, w.y, 3.6], onTap: () => openResident(e.id) }); });
     SC.setLabels(specs);
   }
 
@@ -166,7 +166,7 @@
     openSheet(
       h('div', { class: 'row' }, name, h('button', { class: 'icon-btn', 'aria-label': 'Proposer un autre nom', onclick: () => { e.name = G.townName(G.rng(Date.now() % 1e9), new Set(S.entries.map((x) => x.name.toLowerCase()))); name.value = e.name; save(); labels(); } }, icon('dice', 18))),
       h('div', { class: 'tags' }, tag(gen.tier), tag(gen.houses.length + ' maisons'), tag('≈ ' + pop + ' habitants'), tag(gen.quay ? 'Port' : T.BIOMES[b || 2].name)),
-      h('div', { class: 'actions' }, btn('Entrer dans la ville', () => { closeSheet(); SC.flyTo({ x: gen.cx, y: gen.cy, dist: clamp(gen.meanR * 5.4, 140, 280), phi: 0.82 }, 900); }, 'accent'), btn('Agrandir', () => { closeSheet(); shape(true, 'ville'); SC.flyTo({ x: gen.cx, y: gen.cy, dist: clamp(gen.meanR * 6, 180, 360) }, 700); })),
+      h('div', { class: 'actions' }, btn('Entrer dans la ville', () => { closeSheet(); SC.flyTo({ x: gen.cx, y: gen.cy, dist: clamp(gen.meanR * 2.6, 70, 130), phi: 1.05 }, 1100); }, 'accent'), btn('Agrandir', () => { closeSheet(); shape(true, 'ville'); SC.flyTo({ x: gen.cx, y: gen.cy, dist: clamp(gen.meanR * 6, 180, 360) }, 700); })),
       h('h3', null, 'Habitants connus', h('span', { class: 'count' }, res.length)),
       res.length ? h('div', { class: 'list' }, res.map((p) => h('button', { class: 'person', onclick: () => openResident(p.id) }, avatar(p), h('span', { class: 'grow' }, h('b', null, p.name), h('small', null, p.job || 'sans métier connu'))))) : h('p', { class: 'muted' }, 'Personne n’a encore de nom ici. Touche un passant ou une maison, ou ajoute quelqu’un.'),
       h('div', { class: 'actions' }, btn('Habitant', () => addResident(id, true), '', 'plus'), btn('Peupler (5)', () => { for (let i = 0; i < 5; i++) addResident(id, false, null, true); refresh(); save(); openTown(id); toast('5 habitants ont emménagé.'); }, '', 'people')),
@@ -183,7 +183,7 @@
   function openResident(id) {
     const e = entry(id); if (!e) return;
     const t = e.home && townOf(e.home.town), te = t && entry(t.entryId), w = SC.walkers.find((x) => x.entry === id);
-    const follow = h('button', { class: 'btn' + (SC.follow === w && w ? ' on' : ''), onclick: () => { if (!w) return; if (SC.follow === w) SC.follow = null; else { SC.flyTo({ x: w.x, y: w.y, dist: 120, phi: 0.95 }, 600); setTimeout(() => (SC.follow = w), 620); } follow.classList.toggle('on'); follow.lastChild.textContent = follow.classList.contains('on') ? 'Ne plus suivre' : 'Suivre dans la rue'; } }, icon('eye', 18), 'Suivre dans la rue');
+    const follow = h('button', { class: 'btn' + (SC.follow === w && w ? ' on' : ''), onclick: () => { if (!w) return; if (SC.follow === w) SC.follow = null; else { SC.flyTo({ x: w.x, y: w.y, dist: 44, phi: 1.12 }, 700); setTimeout(() => (SC.follow = w), 720); } follow.classList.toggle('on'); follow.lastChild.textContent = follow.classList.contains('on') ? 'Ne plus suivre' : 'Suivre dans la rue'; } }, icon('eye', 18), 'Suivre dans la rue');
     const notes = h('textarea', { rows: 3, placeholder: 'Qui est-ce ? Que veut cette personne ?', oninput: (ev) => { e.summary = ev.target.value; save(); } }); notes.value = e.summary || '';
     openSheet(
       h('div', { class: 'row' }, avatar(e), h('input', { class: 'title-input', value: e.name, 'aria-label': 'Nom', oninput: (ev) => { e.name = ev.target.value.trim() || 'Sans nom'; save(); labels(); } })),
@@ -254,7 +254,7 @@
   }
   function jump(e) {
     const t = S.towns.find((x) => x.entryId === e.id) || (e.home && townOf(e.home.town)), gen = t && SC.towns[t.id], pin = S.pins.find((p) => p.entryId === e.id);
-    if (gen) SC.flyTo({ x: gen.cx, y: gen.cy, dist: clamp(gen.meanR * 5, 130, 300), phi: 0.85 }, 900); else if (pin) SC.flyTo({ x: pin.x, y: pin.y, dist: 300 }, 900);
+    if (gen) SC.flyTo({ x: gen.cx, y: gen.cy, dist: clamp(gen.meanR * 4, 110, 260), phi: 0.95 }, 900); else if (pin) SC.flyTo({ x: pin.x, y: pin.y, dist: 300 }, 900);
     openEntry(e.id);
   }
 
@@ -282,7 +282,7 @@
   let moved = false; S.entries.forEach((e) => { if (e.home && e.home.x == null && SC.towns[e.home.town]) { const hs = freeHouse(e.home.town); if (hs) { e.home.x = Math.round(hs.x * 10) / 10; e.home.y = Math.round(hs.y * 10) / 10; moved = true; } } });
   if (moved) refresh();
   const first = S.towns[0] && SC.towns[S.towns[0].id];
-  if (first && first.houses.length) Object.assign(SC.cam, { x: first.cx + 10, y: first.cy + 40, dist: 330, theta: 0.3, phi: 0.92 });
+  if (first && first.houses.length) Object.assign(SC.cam, { x: first.cx + 4, y: first.cy + 14, dist: innerWidth < 640 ? 200 : 250, theta: 0.3, phi: 0.98 });
   drawTop(); drawRail(); drawPanel(); drawBar(); save();
   if (fresh) setTimeout(() => toast('Bienvenue à Port-Sel. Touche un passant, ou « Façonner » pour peindre une ville.'), 900);
 })();

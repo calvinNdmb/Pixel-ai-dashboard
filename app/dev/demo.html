@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><title>banc d'essai — démo</title></head><body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../look.js"></script><script src="stage.js"></script>
+<script>
+// Démo : des boîtes teintées par exemplaire, avec une texture dont l'alpha protège les « fenêtres » de la teinte.
+const st = STAGE({ target: [0, 3, 0], dist: 46, theta: 0.7, phi: 1.05 });
+const tex = LOOK.canvasTexture(128, (c, s) => { c.fillStyle = 'rgba(255,255,255,1)'; c.fillRect(0, 0, s, s); c.fillStyle = '#28405e'; for (const [x, y] of [[20, 24], [76, 24], [20, 76], [76, 76]]) { c.fillRect(x, y, 32, 36); LOOK.untint(c, [x, y, 32, 36]); } });
+const m = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 6, 4), LOOK.tintMaterial({ map: tex, roughness: 0.9 }), 6);
+m.setColorAt(0, new THREE.Color(1, 1, 1)); const o = new THREE.Object3D();
+['#f3e7d0', '#f4cba9', '#cfe0ea', '#f1dd9c', '#e9b596', '#dbe7c9'].forEach((c, i) => { o.position.set((i - 2.5) * 5.6, 3, 0); o.updateMatrix(); m.setMatrixAt(i, o.matrix); m.setColorAt(i, LOOK.lin(c)); });
+m.castShadow = m.receiveShadow = true; st.scene.add(m); st.done();
+</script>

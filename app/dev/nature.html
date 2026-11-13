@@ -1,0 +1,68 @@
+<!doctype html><html><head><meta charset="utf-8"><title>banc d'essai — nature</title></head><body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../look.js"></script><script src="stage.js"></script><script src="../kit-nature.js"></script>
+<script>
+// Banc d'essai du kit nature. Vues : ?view=bosquet | champs | detail | foret
+const q = new URLSearchParams(location.search), view = q.get('view') || 'bosquet';
+const CAM = {
+  bosquet: { target: [0, 3, 0], dist: 105, theta: 0.55, phi: 0.92 },
+  champs: { target: [0, 0, 2], dist: 120, theta: 0.35, phi: 0.85 },
+  detail: { target: [0, 4, 0], dist: 46, theta: 0.15, phi: 1.28 },
+  foret: { target: [0, 0, 0], dist: 300, theta: 0.6, phi: 0.95, groundSize: 1400 },
+};
+const st = STAGE(CAM[view] || CAM.bosquet);
+const kit = KIT_NATURE.create({ maxTrees: 12000, maxCrops: 6000, maxRocks: 600, maxTufts: 4000 });
+st.scene.add(kit.group);
+let seed = 5; const R = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+const rot = () => R() * Math.PI * 2;
+const FLOWERS = ['#f4f0e0', '#f2d23c', '#e88aa8', '#9a7fd6', '#ffffff', '#f08a3c'];
+
+function tufts(n, cx, cz, rad) { for (let i = 0; i < n; i++) { const a = rot(), d = Math.sqrt(R()) * rad; const fl = R() < 0.35; kit.addTuft(fl ? 'fleurs' : 'herbe', cx + Math.cos(a) * d, 0, cz + Math.sin(a) * d, rot(), 0.8 + R() * 0.7, FLOWERS[(R() * FLOWERS.length) | 0]); } }
+
+if (view === 'bosquet') {
+  // un bosquet : chênes et châtaigniers, pins au vent, une rangée de peupliers, un petit verger, une mare à roseaux
+  for (let i = 0; i < 30; i++) { const a = rot(), d = Math.sqrt(R()) * 20; kit.addTree('feuillu', -6 + Math.cos(a) * d, 0, -4 + Math.sin(a) * d, rot(), 0.8 + R() * 0.45, R() * 0.75); }
+  for (let i = 0; i < 12; i++) { const a = rot(), d = Math.sqrt(R()) * 10; kit.addTree('pin', 22 + Math.cos(a) * d, 0, -14 + Math.sin(a) * d, rot(), 0.85 + R() * 0.3, 0.2 + R() * 0.4); }
+  for (let i = 0; i < 7; i++) kit.addTree('peuplier', -30 + i * 5, 0, 22 + R(), rot(), 0.9 + R() * 0.2, 0.4 + R() * 0.3);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) kit.addTree('pommier', 12 + i * 6, 0, 10 + j * 6, rot(), 0.9 + R() * 0.2, 0.5);
+  // mare
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(7, 24), new THREE.MeshStandardMaterial({ color: LOOK.lin('#4f8fae'), roughness: 0.25 }));
+  pond.rotation.x = -Math.PI / 2; pond.position.set(-30, 0.05, -24); st.scene.add(pond);
+  for (let i = 0; i < 16; i++) { const a = rot(), d = 6.2 + R() * 2; kit.addTree('roseau', -30 + Math.cos(a) * d, 0, -24 + Math.sin(a) * d, rot(), 0.8 + R() * 0.5, 0.5); }
+  for (let i = 0; i < 26; i++) { const a = rot(), d = 22 + R() * 8; kit.addTree('buisson', -4 + Math.cos(a) * d, 0, -2 + Math.sin(a) * d, rot(), 0.8 + R() * 0.6, R()); }
+  for (let i = 0; i < 12; i++) { const a = rot(), d = 8 + R() * 26; kit.addRock(Math.cos(a) * d, 0, Math.sin(a) * d, rot(), 0.6 + R() * 1.2); }
+  tufts(260, 0, 0, 40);
+} else if (view === 'champs') {
+  // trois champs de 24 × 20 (8 segments × 8 rangs), haie d'arbustes autour
+  const fields = [['lavande', -28, -12], ['ble', 2, -12], ['vigne', -13, 16]];
+  fields.forEach(([k, cx, cz]) => { for (let r = 0; r < 8; r++) for (let s = 0; s < 8; s++) kit.addCrop(k, cx - 10.5 + s * 3, 0, cz - 8.75 + r * 2.5, 0, 1); });
+  for (let x = -42; x <= 42; x += 2.2) { kit.addTree('buisson', x + R(), 0, 2 + R() * 0.8, rot(), 0.9 + R() * 0.5, R()); if (R() < 0.12) kit.addTree('feuillu', x, 0, 3, rot(), 0.8 + R() * 0.3, R() * 0.6); }
+  for (let z = -24; z <= 30; z += 2.4) kit.addTree('buisson', 18 + R(), 0, z, rot(), 0.9 + R() * 0.5, R());
+  for (let i = 0; i < 6; i++) kit.addTree('pommier', 24 + (i % 3) * 6, 0, 12 + Math.floor(i / 3) * 6, rot(), 1, 0.5);
+  for (let i = 0; i < 5; i++) kit.addRock(18 + R() * 4, 0, -20 + i * 7, rot(), 0.6 + R() * 0.6);
+  tufts(160, 0, 0, 50);
+} else if (view === 'detail') {
+  const sp = [['feuillu', 0.2], ['feuillu', 0.85], ['pin', 0.4], ['sapin', 0.4], ['peuplier', 0.5], ['pommier', 0.5], ['pommier', 0.2]];
+  sp.forEach(([s, t], i) => kit.addTree(s, -21 + i * 7, 0, 0, 0.4 + i, 1, t));
+  for (let i = 0; i < 4; i++) kit.addTree('buisson', -18 + i * 3.5, 0, 9, i, 1, 0.5);
+  for (let i = 0; i < 3; i++) kit.addTree('roseau', -2 + i * 2, 0, 10 + (i % 2), i, 1, 0.5);
+  for (let i = 0; i < 3; i++) kit.addRock(7 + i * 4, 0, 9, i * 2, 1.0, i * 0.37 + 0.01);
+  for (let i = 0; i < 3; i++) for (let s = 0; s < 2; s++) kit.addCrop(['lavande', 'ble', 'vigne'][i], 16 + s * 3, 0, 4 + i * 2.5, 0, 1);
+  tufts(60, -6, 13, 8);
+} else if (view === 'foret') {
+  // 600 arbres vus de loin
+  let n = 0;
+  while (n < 600) {
+    const x = (R() - 0.5) * 170, z = (R() - 0.5) * 150, d = Math.hypot(x / 85, z / 75); if (d > 1) continue;
+    const zone = Math.sin(x * 0.05) + Math.cos(z * 0.06), tone = Math.min(1, Math.max(0, 0.45 + 0.35 * Math.sin(x * 0.05 + z * 0.03) + (R() - 0.5) * 0.3));
+    const sp = d > 0.88 ? 'buisson' : zone > 0.9 ? 'pin' : R() < 0.05 ? 'peuplier' : 'feuillu';
+    kit.addTree(sp, x, 0, z, rot(), 0.8 + R() * 0.45, tone); n++;
+  }
+  for (let i = 0; i < 30; i++) kit.addRock((R() - 0.5) * 300, 0, (R() - 0.5) * 260, rot(), 1 + R() * 1.5);
+}
+kit.commit(); kit.update(st.time);
+window.KIT_TRIS = kit.triangles();
+console.log('tris/espèce', JSON.stringify(kit.triangles()));
+st.done();
+</script>
+</body></html>
