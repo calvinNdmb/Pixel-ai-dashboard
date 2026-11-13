@@ -46,6 +46,18 @@ canvas.gl { position: absolute; inset: 0; width: 100%; height: 100%; display: bl
 .btn.danger { color: var(--danger); border-color: rgba(255, 154, 134, 0.45); }
 .btn.chip { background: var(--raise); border-color: var(--line); padding: 0 14px 0 10px; font-size: 14px; }
 
+/* lumière */
+#light { position: absolute; top: 70px; left: var(--gl); z-index: 4; display: flex; align-items: flex-start; gap: 8px; max-width: calc(100% - var(--gl) - var(--gr)); pointer-events: none; }
+#light > * { pointer-events: auto; }
+#light-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+#lightpanel { display: flex; flex-direction: column; gap: 4px; width: 250px; min-width: 0; flex: 0 1 250px; box-sizing: border-box; padding: 10px 14px 9px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
+#lightpanel[hidden] { display: none; }
+.light-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.light-head b { font-family: var(--fd); font-size: 15px; }
+.light-head span { font-size: 13px; color: var(--accent); font-weight: 600; white-space: nowrap; }
+#lightpanel input { width: 100%; height: 32px; margin: 0; accent-color: var(--accent); }
+.ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
 /* outils */
 #rail { position: absolute; right: var(--gr); top: 72px; display: none; flex-direction: column; gap: 4px; padding: 5px; border-radius: 26px; border: 1px solid var(--line); background: var(--panel); }
 .shaping #rail { display: flex; }

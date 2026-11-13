@@ -76,10 +76,11 @@
     return m;
   }
   // Mer : transparente quand on la regarde d'en haut, couleur du ciel quand le regard rase la surface.
+  const skyUniform = { value: lin(LOOK.SKY) };
   function waterMaterial(tex, color, opacity) {
     const m = new THREE.MeshStandardMaterial({ color: lin(color), transparent: true, opacity, roughness: 0.16, metalness: 0, normalMap: tex, normalScale: new THREE.Vector2(0.22, 0.22) });
     m.onBeforeCompile = (sh) => {
-      sh.uniforms.skyCol = { value: lin(LOOK.SKY) };
+      sh.uniforms.skyCol = skyUniform;
       sh.fragmentShader = 'uniform vec3 skyCol;\n' + sh.fragmentShader.replace('vec3 mapN = texture2D( normalMap, vUv ).xyz * 2.0 - 1.0;', 'vec3 mapN = normalize( texture2D( normalMap, vUv ).xyz * 2.0 - 1.0 + ( texture2D( normalMap, vUv.yx * 0.23 + 0.37 ).xyz * 2.0 - 1.0 ) * vec3( 1.4, 1.4, 1.0 ) );').replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );', 'float fres = pow( 1.0 - saturate( dot( normal, normalize( vViewPosition ) ) ), 3.0 );\n  outgoingLight = mix( outgoingLight, skyCol * 0.92, fres * 0.7 );\n  gl_FragColor = vec4( outgoingLight, mix( diffuseColor.a, 0.96, fres ) );');
     };
     return m;
@@ -155,6 +156,9 @@
     terrainGeo.attributes.position.needsUpdate = terrainGeo.attributes.normal.needsUpdate = true; biomeTex.needsUpdate = true;
   }
   SC.terrainOnly = function () { updateTerrain(); shadeAt = null; SC.dirty = true; };
+
+  // ---------- ambiance : chaleur de la lumière, de 0 (midi clair) à 1 (soleil couchant) ----------
+  SC.setMood = function (w) { const m = LOOK.applyMood({ renderer, scene, lights, dome }, w); skyUniform.value.copy(m.horizon); shadeAt = null; SC.dirty = true; return m.name; };
 
   // ---------- revêtements posés sur le relief : rues, places, routes, rivières, champs ----------
   const mats = {};

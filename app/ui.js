@@ -27,6 +27,7 @@
     eraser: '<path d="M3 17l9-9 6 6-5 5H7z"/><path d="M13 20h7"/>', search: '<circle cx="11" cy="11" r="6.500"/><path d="M16 16l4.500 4.500"/>',
     plus: '<path d="M12 5v14M5 12h14"/>', dice: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h.01M15 15h.01M12 12h.01"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>', eye: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.500"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.900 16.900l1.800 1.800M5.3 18.7l1.8-1.8M16.900 7.100l1.800-1.800"/>',
     people: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.300"/><path d="M16 14.500a5 5 0 0 1 5 5"/>',
   };
   function icon(name, size) { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', size || 22); s.setAttribute('height', size || 22); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICONS[name]; return s; }
@@ -61,6 +62,7 @@
   function adopt(state) {
     S = APP.state = state; S.towns = S.towns || []; S.pins = S.pins || []; S.relations = S.relations || [];
     S.features = Object.assign({ rivers: [], roads: [], monuments: [], fields: [] }, S.features || {});
+    S.look = Object.assign({ warmth: 0.8 }, S.look || {}); // chaleur de la lumière, de 0 à 1
     T.init(S); S.towns.forEach((t) => G.bbox(t));
   }
   adopt(S);
@@ -262,11 +264,23 @@
   let downloads = null;
   if (window.claude && typeof window.claude.use === 'function') window.claude.use('downloads').then((d) => (downloads = d)).catch(() => {});
   function worldMenu() {
-    const file = h('input', { type: 'file', accept: 'application/json,.json', hidden: true, onchange: (ev) => { const f = ev.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { const w = JSON.parse(r.result); if (!w || w.version !== 2 || !Array.isArray(w.entries)) throw 0; adopt(w); undoStack.length = 0; closeSheet(); refresh(); save(); drawTop(); toast('Monde importé'); } catch (e) { toast('Ce fichier n’est pas un monde Archipel.'); } }; r.readAsText(f); } });
+    const file = h('input', { type: 'file', accept: 'application/json,.json', hidden: true, onchange: (ev) => { const f = ev.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { const w = JSON.parse(r.result); if (!w || w.version !== 2 || !Array.isArray(w.entries)) throw 0; adopt(w); undoStack.length = 0; closeSheet(); refresh(); drawLight(); save(); drawTop(); toast('Monde importé'); } catch (e) { toast('Ce fichier n’est pas un monde Archipel.'); } }; r.readAsText(f); } });
     openSheet(field('Nom du monde', h('input', { value: S.world.name, oninput: (ev) => { S.world.name = ev.target.value.trim() || 'Monde sans nom'; save(); drawTop(); } })),
       h('div', { class: 'tags' }, tag(S.towns.length + (S.towns.length > 1 ? ' villes' : ' ville')), tag(S.entries.filter((e) => e.home).length + ' habitants connus')),
       h('div', { class: 'actions' }, downloads ? btn('Exporter (.json)', async () => { T.save(S); try { await downloads.save({ filename: 'archipel-monde.json', data: JSON.stringify(S, null, 1) }); } catch (e) { toast('Export annulé'); } }) : null, btn('Importer', () => file.click()), file),
-      h('div', { class: 'actions end' }, confirmBtn('Repartir du monde d’exemple', () => { try { localStorage.removeItem(KEY); } catch (e) {} adopt(seed()); S.towns.forEach((t) => t.discs.forEach((d) => flatten(d[0], d[1], d[2]))); undoStack.length = 0; closeSheet(); refresh(); save(); drawTop(); })));
+      h('div', { class: 'actions end' }, confirmBtn('Repartir du monde d’exemple', () => { try { localStorage.removeItem(KEY); } catch (e) {} adopt(seed()); S.towns.forEach((t) => t.discs.forEach((d) => flatten(d[0], d[1], d[2]))); undoStack.length = 0; closeSheet(); refresh(); drawLight(); save(); drawTop(); })));
+  }
+
+  // ---------- lumière : de fraîche à dorée ----------
+  let lightOpen = null; // referme le panneau ouvert ; posé une seule fois sur la carte
+  $('stage').addEventListener('pointerdown', () => lightOpen && lightOpen(false));
+  function drawLight() {
+    const name = h('span', { id: 'light-name' }, SC.setMood(S.look.warmth));
+    const range = h('input', { type: 'range', id: 'warmth', min: '0', max: '100', value: String(Math.round(S.look.warmth * 100)), 'aria-label': 'Chaleur de la lumière', oninput: (e) => { S.look.warmth = +e.target.value / 100; name.textContent = SC.setMood(S.look.warmth); save(); } });
+    const panel = h('div', { id: 'lightpanel', hidden: true }, h('div', { class: 'light-head' }, h('b', null, 'Lumière'), name), range, h('div', { class: 'ends' }, h('span', null, 'Fraîche'), h('span', null, 'Dorée')));
+    const b = h('button', { class: 'icon-btn big', id: 'light-btn', 'aria-label': 'Régler la lumière', 'aria-expanded': 'false', onclick: () => lightOpen(panel.hidden) }, icon('sun'));
+    lightOpen = (on) => { panel.hidden = !on; b.setAttribute('aria-expanded', String(on)); };
+    $('light').replaceChildren(b, panel);
   }
 
   let toastT = null;
@@ -283,6 +297,6 @@
   if (moved) refresh();
   const first = S.towns[0] && SC.towns[S.towns[0].id];
   if (first && first.houses.length) Object.assign(SC.cam, { x: first.cx + 4, y: first.cy + 14, dist: innerWidth < 640 ? 150 : 170, theta: 0.3, phi: 1.0 });
-  drawTop(); drawRail(); drawPanel(); drawBar(); save();
+  drawTop(); drawRail(); drawPanel(); drawBar(); drawLight(); save();
   if (fresh) setTimeout(() => toast('Bienvenue à Port-Sel. Touche un passant, ou « Façonner » pour peindre une ville.'), 900);
 })();
