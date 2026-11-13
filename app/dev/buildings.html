@@ -18,7 +18,7 @@ function road(scene, pts, width, color) {
   const pos = [];
   for (let i = 0; i < pts.length - 1; i++) {
     const [ax, az] = pts[i], [bx, bz] = pts[i + 1], tx = bx - ax, tz = bz - az, l = Math.hypot(tx, tz), nx = -tz / l * width / 2, nz = tx / l * width / 2;
-    pos.push(ax + nx, 0.03, az + nz, bx + nx, 0.03, bz + nz, bx - nx, 0.03, bz - nz, ax + nx, 0.03, az + nz, bx - nx, 0.03, bz - nz, ax - nx, 0.03, az - nz);
+    pos.push(ax + nx, 0.03, az + nz, bx - nx, 0.03, bz - nz, bx + nx, 0.03, bz + nz, ax + nx, 0.03, az + nz, ax - nx, 0.03, az - nz, bx - nx, 0.03, bz - nz);
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
   const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: LOOK.lin(color), roughness: 1, side: THREE.DoubleSide })); m.receiveShadow = true; scene.add(m);
@@ -50,10 +50,10 @@ function street(kit, cx, cz, radius, a0, a1, opts) {
 
 let st;
 if (view === 'landmarks') {
-  st = STAGE({ target: [0, 10, 0], dist: 135, theta: 0.35, phi: 1.12 });
+  st = STAGE({ target: [4, 8, 0], dist: 140, theta: 0.3, phi: 1.12 });
   const kit = KB.create({ maxHouses: 10 }); st.scene.add(kit.group);
   ['phare', 'eglise', 'halle', 'moulin', 'tour', 'statue'].forEach((k, i) => {
-    const lm = kit.landmark(k, { seed: 3 + i }); lm.group.position.set((i - 2.5) * 30, 0, 0); st.scene.add(lm.group); if (lm.animate) lm.animate(st.time);
+    const lm = kit.landmark(k, { seed: 3 + i }); lm.group.position.set((i - 2.5) * 27, 0, 0); st.scene.add(lm.group); if (lm.animate) lm.animate(st.time);
   });
 } else if (view === 'close') {
   st = STAGE({ target: [0, 4.5, 0], dist: 30, theta: 0.42, phi: 1.32 });
@@ -77,7 +77,7 @@ if (view === 'landmarks') {
   const kit = KB.create({ maxHouses: 1 });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(80, 40), new THREE.MeshBasicMaterial({ map: kit.material.map, transparent: true })); m.rotation.x = -Math.PI / 2; st.scene.add(m);
 } else {
-  st = STAGE({ target: [-6, 3, 89], dist: 58, theta: 1.85, phi: 1.02 });
+  st = STAGE({ target: [-4, 4, 89], dist: 52, theta: 1.95, phi: 1.12 });
   const kit = KB.create({ maxHouses: 200 }); st.scene.add(kit.group);
   const s = street(kit, 0, 0, 90, -0.45, 0.45);
   kit.commit(); window.HOUSES = s.count;
@@ -85,5 +85,6 @@ if (view === 'landmarks') {
 }
 function PI_() { return Math.PI; }
 st.done();
+if (window.HOUSES != null) window.STATS.houses = window.HOUSES;
 </script>
 </body></html>

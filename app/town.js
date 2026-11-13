@@ -52,7 +52,8 @@
   const ROOFS = ['#566578', '#5d6b7c', '#4f5d70', '#66727f', '#5a6a80', '#b5553a', '#a94e36', '#c06242', '#b85c3c']; // ardoise surtout, un peu de tuile
   const AWNINGS = ['#c9563c', '#3f6f9e', '#d9a441', '#5f8f6a', '#b0527a', '#e8e0cc'], FLOWERS = ['#e0607a', '#f2c14e', '#b784d6', '#f08a4b', '#f4f1e8', '#d94f4f'];
   G.STREET = 3.2; // largeur d'une rue pavée
-  G.FOOT = { eglise: 8.5, halle: 7 }; // place à garder libre autour des grands bâtiments
+  G.SCALE = { eglise: 0.68, halle: 0.6 }; // les plus grands modèles sont réduits pour tenir dans une petite ville
+  G.FOOT = { eglise: 9.6, halle: 8.4, phare: 7, moulin: 5, tour: 4.6, statue: 3.2 }; // place à garder libre autour de chaque monument
 
   G.generate = function (town, ctx) {
     G.bbox(town);

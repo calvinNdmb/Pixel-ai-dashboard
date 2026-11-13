@@ -214,7 +214,7 @@
 
   SC.monumentKinds = { phare: 'Phare', eglise: 'Église', halle: 'Halle', moulin: 'Moulin', tour: 'Tour', statue: 'Statue' };
   const CROPS = (SC.crops = { lavande: ['Lavande', '#9274c9'], ble: ['Blé', '#dcb64f'], vigne: ['Vigne', '#8fbf5a'] });
-  const landmark = (key, kind, x, y, rot, seed) => model(key, () => KB.landmark(kind, { seed: seed || 1 }), x, y, meshY(x, y) - 0.15, rot);
+  const landmark = (key, kind, x, y, rot, seed) => { const e = model(key, () => KB.landmark(kind, { seed: seed || 1 }), x, y, meshY(x, y) - 0.15, rot), k = G.SCALE[kind] || 1; e.group.scale.setScalar(k); e.up = (e.height || 12) * k; return e; };
 
   // ---------- tout reconstruire à partir du monde ----------
   SC.rebuild = function () {
@@ -229,7 +229,7 @@
     rivers.forEach((p) => G.resample(p, 2).forEach(([x, y]) => lput(x, y, [x, y, 1])));
     roads.forEach((p) => G.resample(p, 2).forEach(([x, y]) => lput(x, y, [x, y, 0])));
     const lnear = (x, y, d, riverOnly) => { const gx = Math.floor(x / CELL), gy = Math.floor(y / CELL); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const L = lh.get(gx + i + ',' + (gy + j)); if (L) for (const q of L) if ((!riverOnly || q[2]) && Math.hypot(x - q[0], y - q[1]) < d) return true; } return false; };
-    const ctx = { nearLine: (x, y) => lnear(x, y, 6), nearRiver: (x, y, d) => lnear(x, y, d, true), monuments: F.monuments.map((m) => ({ x: m.x, y: m.y, r: 8 })) };
+    const ctx = { nearLine: (x, y) => lnear(x, y, 6), nearRiver: (x, y, d) => lnear(x, y, d, true), monuments: F.monuments.map((m) => ({ x: m.x, y: m.y, r: G.FOOT[m.kind] || 7 })) };
     const prop = (p) => { if (p.kind === 'fleurs') KN.addTuft('fleurs', X(p.x), meshY(p.x, p.y) + 0.1, Z(p.y), p.rot || 0, 1.2, p.tint); else KS.addProp(p.kind, X(p.x), meshY(p.x, p.y) + 0.12, Z(p.y), p.rot || 0, { scale: p.scale || 1, tint: p.tint, seed: Math.floor(p.x * 13 + p.y * 7) }); };
 
     // villes
@@ -263,7 +263,7 @@
       const flush = () => { if (!run.length) return; const m = run[Math.floor(run.length / 2)], a = dense[Math.max(0, m - 2)], b = dense[Math.min(dense.length - 1, m + 2)], ang = Math.atan2(b[1] - a[1], b[0] - a[0]), [bx, by] = dense[m], L = Math.max(14, run.length * 2 + 8), e0 = dense[Math.max(0, run[0] - 2)], e1 = dense[Math.min(dense.length - 1, run[run.length - 1] + 2)]; model('pont' + nb++ + ':' + L, () => KIT_STREET.pont(L, 5), bx, by, Math.max(meshY(e0[0], e0[1]), meshY(e1[0], e1[1])) + 0.3, -ang); run = []; };
       dense.forEach(([x, y], i) => { if (lnear(x, y, 3.6, true)) run.push(i); else flush(); }); flush();
     });
-    SC.monuments = F.monuments.map((m) => Object.assign({}, m, { up: landmark('m:' + m.id + m.kind, m.kind, m.x, m.y, m.rot, Math.floor(m.x * 7 + m.y)).height || 12 }));
+    SC.monuments = F.monuments.map((m) => Object.assign({}, m, { up: landmark('m:' + m.id + m.kind, m.kind, m.x, m.y, m.rot, Math.floor(m.x * 7 + m.y)).up }));
 
     // champs : terre labourée, rangs de culture, clôture
     F.fields.forEach((f) => {
@@ -276,7 +276,7 @@
     decals.build(groups.decals);
 
     // végétation : là où le biome en veut, sauf là où l'on a construit
-    const blocked = (x, y, pad) => lnear(x, y, 6) || F.fields.some((f) => Math.hypot(x - f.x, y - f.y) < 17) || F.monuments.some((m) => Math.hypot(x - m.x, y - m.y) < 9) || S.towns.some((t) => G.inMask(t, x, y) || (pad && G.near(t, x, y, pad)));
+    const blocked = (x, y, pad) => lnear(x, y, 6) || F.fields.some((f) => Math.hypot(x - f.x, y - f.y) < 17) || F.monuments.some((m) => Math.hypot(x - m.x, y - m.y) < (G.FOOT[m.kind] || 7) + 2) || S.towns.some((t) => G.inMask(t, x, y) || (pad && G.near(t, x, y, pad)));
     const { B } = T.raw(), cw = 1000 / (GW - 1), ch = 700 / (GH - 1);
     const tree = (sp, x, y, r, sc) => KN.addTree(sp, X(x), meshY(x, y) - 0.1, Z(y), r * 6.283, sc, (r * 7.3) % 1);
     for (let gy = 1; gy < GH - 1; gy++) for (let gx = 1; gx < GW - 1; gx++) {
@@ -414,9 +414,13 @@
     SC.dirty = true;
   };
   function drawLabels() {
+    const placed = []; // les étiquettes d'habitants qui en recouvriraient une autre se cachent
     for (const L of labels) {
       const p = L.pos ? L.pos() : [L.x, L.y, L.up || 0]; let show = !!p && cam.dist <= (L.maxDist || 1e9) && cam.dist >= (L.minDist || 0);
-      if (show) { const s = project(p[0], p[1], p[2]); show = s.vis && s.sx > -40 && s.sx < host.clientWidth + 40 && s.sy > 40 && s.sy < host.clientHeight; if (show) L.el.style.transform = `translate(${s.sx.toFixed(1)}px, ${s.sy.toFixed(1)}px) translate(-50%, -100%)`; }
+      if (show) {
+        const s = project(p[0], p[1], p[2]); show = s.vis && s.sx > -40 && s.sx < host.clientWidth + 40 && s.sy > 40 && s.sy < host.clientHeight;
+        if (show) { const w = 30 + String(L.text).length * 7.2; if (L.kind === 'res' && placed.some((q) => Math.abs(q[0] - s.sx) < (q[2] + w) / 2 && Math.abs(q[1] - s.sy) < 26)) show = false; else { placed.push([s.sx, s.sy, w]); L.el.style.transform = `translate(${s.sx.toFixed(1)}px, ${s.sy.toFixed(1)}px) translate(-50%, -100%)`; } }
+      }
       if (L.el.hidden === show) L.el.hidden = !show;
     }
   }

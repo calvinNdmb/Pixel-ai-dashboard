@@ -282,7 +282,7 @@
   let moved = false; S.entries.forEach((e) => { if (e.home && e.home.x == null && SC.towns[e.home.town]) { const hs = freeHouse(e.home.town); if (hs) { e.home.x = Math.round(hs.x * 10) / 10; e.home.y = Math.round(hs.y * 10) / 10; moved = true; } } });
   if (moved) refresh();
   const first = S.towns[0] && SC.towns[S.towns[0].id];
-  if (first && first.houses.length) Object.assign(SC.cam, { x: first.cx + 4, y: first.cy + 14, dist: innerWidth < 640 ? 200 : 250, theta: 0.3, phi: 0.98 });
+  if (first && first.houses.length) Object.assign(SC.cam, { x: first.cx + 4, y: first.cy + 14, dist: innerWidth < 640 ? 150 : 170, theta: 0.3, phi: 1.0 });
   drawTop(); drawRail(); drawPanel(); drawBar(); save();
   if (fresh) setTimeout(() => toast('Bienvenue à Port-Sel. Touche un passant, ou « Façonner » pour peindre une ville.'), 900);
 })();

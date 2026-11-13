@@ -919,7 +919,7 @@
     stone: { mode: 0, reg: REG.STONE, rep: [REP.STONE, REP.STONE] },
     plaster: (hex) => ({ mode: 0, reg: REG.PLASTER, rep: [REP.PLASTER, REP.PLASTER], col: lin(hex) }),
     white: (hex) => ({ mode: 0, reg: REG.WHITE, rep: [1, 1], col: lin(hex) }),
-    slate: (hex) => ({ mode: 0, reg: REG.SLATE, rep: [REP.SLATE, REP.SLATE], col: lin(hex || '#5d6b78') }),
+    slate: (hex) => ({ mode: 0, reg: REG.SLATE, rep: [REP.SLATE, REP.SLATE], col: lin(hex || '#6c7884') }),
     tile: (hex) => ({ mode: 0, reg: REG.TILE, rep: [REP.TILE, REP.TILE], col: lin(hex || '#c0603e') }),
     wood: (hex) => ({ mode: 0, reg: REG.WOOD, rep: [2, 1], col: lin(hex || '#8a6a4a') }),
     fascia: (hex) => ({ mode: 0, reg: REG.FASCIA, rep: [1, 1], col: lin(hex || '#4a4f55') }),
@@ -968,7 +968,7 @@
 
     // ---------- église : nef, transept à roses, clocher-porche à flèche de granit, contreforts, porche latéral
     eglise(seed, mat) {
-      const g = new Geo(), st = O.stone, sl = O.slate('#56636f');
+      const g = new Geo(), st = O.stone, sl = O.slate('#67737f');
       gabledBlock(g, 0, -3, 20, 10, 8.5, 7, PI / 2, st, sl);
       gabledBlock(g, 0, -6, 21, 5.5, 7.5, 5.5, 0, st, sl);
       gabledBlock(g, 6.75, 2.0, 3.5, 3.6, 3.8, 2.3, 0, st, sl, { ox: 0.2 });
@@ -1011,7 +1011,7 @@
       }
       for (const x of [-7.6, 7.6]) g.box(x - 0.3, 3.0, -13, x + 0.3, 3.45, 13, wd);
       for (const x of [-3.0, 3.0]) g.box(x - 0.24, 7.0, -13, x + 0.24, 7.42, 13, wd);
-      g.with(M(0, 3.45, 0, PI / 2), () => roofGable(g, 26.6, 15.2, 8.6, { ox: 0.9, oz: 1.1, t: 0.3, rc: 0.22, rw: 0.28, os: O.slate('#5a6773'), of: O.fascia('#5a4b3c'), og: O.wood('#7b6c5c'), or: O.ridge, under: true, ou: O.wood('#5e4d3d') }));
+      g.with(M(0, 3.45, 0, PI / 2), () => roofGable(g, 26.6, 15.2, 8.6, { ox: 0.9, oz: 1.1, t: 0.3, rc: 0.22, rw: 0.28, os: O.slate('#6a7682'), of: O.fascia('#5a4b3c'), og: O.wood('#7b6c5c'), or: O.ridge, under: true, ou: O.wood('#5e4d3d') }));
       for (const z of [-13.35, 13.35]) g.cell(0, 6.2, z, z > 0 ? 0 : PI, 1.6, 3.2, REG.LOUVRE, 0.06);
       // étals
       const cloth = ['#b8322c', '#2f5d8a', '#e2b33c', '#2f6a52', '#f0ece2'];
@@ -1083,7 +1083,7 @@
       g.box(-po, 19.6, -po, po, 20.6, -pi, st); g.box(-po, 19.6, pi, po, 20.6, po, st);
       g.box(-po, 19.6, -pi, -pi, 20.6, pi, st); g.box(pi, 19.6, -pi, po, 20.6, pi, st);
       for (let k = 0; k < 4; k++) { const a = (k * PI) / 2; for (let i = 0; i < 4; i++) { const u = -po + 0.55 + i * 1.95; g.with(M(Math.sin(a) * (po - 0.22) + Math.cos(a) * u, 20.6, Math.cos(a) * (po - 0.22) - Math.sin(a) * u, a), () => g.box(-0.42, 0, -0.22, 0.42, 0.85, 0.22, st, 'y')); } }
-      g.cyl(0, 0, 19.6, 25.6, 2.9 * Math.SQRT2, 0.03, 4, O.slate('#56636f'), { phase: PI / 4 });
+      g.cyl(0, 0, 19.6, 25.6, 2.9 * Math.SQRT2, 0.03, 4, O.slate('#67737f'), { phase: PI / 4 });
       g.box(-0.06, 25.4, -0.06, 0.06, 27.0, 0.06, O.dark); g.cyl(0, 0, 26.2, 26.5, 0.22, 0.22, 6, O.gold, { top: true, bottom: true });
       g.box(-0.04, 26.65, -0.7, 0.04, 26.9, 0.6, O.gold);
       const group = new THREE.Group(); group.add(mesh(g, mat));
@@ -1100,25 +1100,25 @@
       g.box(-1.4, 3.4, -1.4, 1.4, 3.7, 1.4, st);
       g.box(-1.25, 3.7, -1.25, 1.25, 3.85, 1.25, st, 'y');
       g.box(-0.6, 1.8, 1.15, 0.6, 2.55, 1.2, brD, 'z');
-      g.with(M(0, 3.85, 0, 0, 1.45), () => {
-        g.cyl(0, 0, 0, 0.12, 0.85, 0.85, 10, brD, { top: true });
-        g.cyl(0, 0, 0.12, 1.6, 0.8, 0.43, 10, br);
-        g.with(M(0, 0.4, 0.36, 0), () => g.box(-0.32, 0, 0, 0.32, 1.15, 0.12, brD, 'z'));
-        g.cyl(0, 0, 1.6, 2.3, 0.43, 0.36, 10, br);
-        g.cyl(0, 0, 2.05, 2.38, 0.52, 0.3, 10, br);
-        g.cyl(0, 0, 2.38, 2.5, 0.13, 0.13, 6, br);
-        g.cyl(0, 0, 2.48, 2.66, 0.16, 0.22, 8, br, { bottom: true });
-        g.cyl(0, 0, 2.66, 2.84, 0.22, 0.2, 8, br);
-        g.cyl(0, 0, 2.84, 2.92, 0.2, 0.12, 8, br, { top: true });
-        g.box(-0.09, 2.78, -0.2, 0.09, 3.6, 0.14, brD);
-        g.tube([0.4, 2.27, 0], [0.56, 2.55, 0.24], 0.11, 0.1, 6, br);
-        g.tube([0.56, 2.55, 0.24], [0.2, 2.82, 0.3], 0.1, 0.08, 6, br);
-        g.tube([-0.4, 2.27, 0], [-0.47, 1.78, 0.1], 0.11, 0.1, 6, br);
-        g.tube([-0.47, 1.78, 0.1], [-0.42, 1.42, 0.3], 0.1, 0.08, 6, br);
-        g.cyl(-0.45, 0.4, 1.05, 1.4, 0.24, 0.3, 8, brD, { bottom: true });
+      g.with(M(0, 3.85, 0, 0, 1.5), () => {
+        g.cyl(0, 0, 0, 0.12, 0.72, 0.72, 10, brD, { top: true });
+        g.cyl(0, 0, 0.12, 0.32, 0.64, 0.6, 10, brD);
+        g.cyl(0, 0, 0.32, 1.45, 0.6, 0.36, 10, br);
+        g.cyl(0, 0, 1.45, 2.15, 0.36, 0.29, 10, br);
+        g.cyl(0, 0, 1.95, 2.22, 0.43, 0.24, 10, brD);
+        g.cyl(0, 0, 2.2, 2.32, 0.11, 0.11, 6, br);
+        g.cyl(0, 0, 2.3, 2.46, 0.15, 0.2, 8, br, { bottom: true });
+        g.cyl(0, 0, 2.46, 2.62, 0.2, 0.18, 8, br);
+        g.cyl(0, 0, 2.62, 2.7, 0.18, 0.09, 8, br, { top: true });
+        g.box(-0.08, 2.52, -0.13, 0.08, 3.02, 0.12, brD);
+        g.tube([0.3, 2.1, 0], [0.48, 2.38, 0.18], 0.1, 0.09, 6, br);
+        g.tube([0.48, 2.38, 0.18], [0.16, 2.58, 0.24], 0.09, 0.07, 6, br);
+        g.tube([-0.3, 2.1, 0], [-0.4, 1.7, 0.08], 0.1, 0.09, 6, br);
+        g.tube([-0.4, 1.7, 0.08], [-0.36, 1.38, 0.24], 0.09, 0.07, 6, br);
+        g.cyl(-0.38, 0.32, 1.02, 1.3, 0.2, 0.25, 8, brD, { bottom: true, top: true });
       });
       const group = new THREE.Group(); group.add(mesh(g, mat));
-      return { group, height: 3.85 + 3.6 * 1.45 };
+      return { group, height: 3.85 + 3.02 * 1.5 };
     },
   };
 
