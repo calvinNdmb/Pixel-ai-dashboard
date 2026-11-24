@@ -323,9 +323,13 @@ pin = true
 
 ### Pas encore essayé sur le vrai Pi
 
-Tout a été testé sur un ordinateur : `test_ecran.py` (le serveur), `test_ecran.js` (l'écran de Pixel), `test_ecran_web.js` (deux pages Chromium, une fausse mire, un faux ScreenStream), `test_airplay.py` (un faux UxPlay). Reste à essayer sur le Pi :
+Tout a été testé sur un ordinateur : `test_ecran.py` (le serveur), `test_ecran.js` (l'écran de Pixel), `test_ecran_web.js` (deux pages Chromium, une fausse mire, un faux ScreenStream), `test_airplay.py` (un faux UxPlay).
 
-- **WebRTC :** le décodage sur le Pi 4 (avec sa puce ? `chrome://webrtc-internals`, `decoderImplementation`) et le processeur du Pi 5 en 720p ; le vrai retard ; le lanceur ouvert sous Windows 11, avec Chrome et Edge (l'avertissement de téléchargement, `pixel.local` sous Windows) ; Firefox et Safari ; la règle `pixel-ecran.json` avec le Chromium de Pi OS.
+**Essayé sur le vrai Pi (Pi 4, Raspberry Pi OS Trixie, Chromium 156), le 24 novembre 2026 :** une mire animée en 960 × 540, envoyée en WebRTC par un petit programme (aiortc, en H.264) qui joue l'ordinateur, avec un code demandé comme le fait le bouton « Afficher un code » de l'appli. Depuis le Pi lui-même, puis depuis un PC Windows sur le Wi-Fi de la maison (profil réseau « Public », VPN allumé) : l'écran de Pixel répond, choisit le H.264, la connexion s'établit en un quart de seconde et la première image arrive aussitôt. L'image s'affiche en plein écran, dans ses vraies couleurs ; le partage s'arrête proprement. `test_ecran.py` passe aussi sur le Pi.
+
+Reste à essayer sur le Pi :
+
+- **WebRTC :** un vrai navigateur qui partage son écran (Chrome, Edge, Firefox, Safari), et le lanceur ouvert sous Windows 11 (l'avertissement de téléchargement, `pixel.local` sous Windows) ; le décodage avec la puce du Pi 4 ou par le processeur (`chrome://webrtc-internals`, `decoderImplementation`), en 720p, et le Pi 5 ; le vrai retard ; le son ; la règle `pixel-ecran.json` (la connexion a marché, sans vérifier par quelle adresse).
 - **AirPlay :** UxPlay 1.73.7 compilé sur Bookworm ; sa fenêtre plein écran **au-dessus** de Chromium sous labwc (si elle reste derrière, une règle de fenêtre de labwc peut la mettre devant) ; le nom du socket Wayland (`wayland-0`) ; les lignes qu'écrit UxPlay avec un vrai iPhone (celles des tests viennent de son code source) ; `-hls` avec l'appli YouTube.
 - **ScreenStream :** le nombre d'images par seconde sur le Wi-Fi de la maison, et ce que coûte au Pi le décodage de ses images JPEG (sinon : poser l'image au-dessus du canevas, redimensionnée par le navigateur) ; un téléphone vu en IPv6.
 - **iOS 27 :** Safari et `getDisplayMedia`.
