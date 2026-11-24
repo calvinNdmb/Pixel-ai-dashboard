@@ -33,16 +33,16 @@ const ANIMS = ['idle-respire', 'content', 'rire', 'amoureux', 'etoiles', 'triste
     for (const scr of SCREENS) { await ws('screen.show', { screen: scr }); await k.waitForTimeout(700); await k.screenshot({ path: `${OUT}/${th}-${scr}.png` }); }
     await ws('screen.show', { screen: 'visage' });
     for (const a of ANIMS) { await ws('anim.play', { id: a, loops: 0 }); await k.waitForTimeout(1400); await k.screenshot({ path: `${OUT}/${th}-anim-${a}.png` }); }
-    await ws('anim.stop', {}); await ws('face.set', { name: 'vivant' }); await k.waitForTimeout(3100);
+    await ws('anim.stop', {}); await k.waitForTimeout(3100);
     for (const m of moods) { await ws('mood.set', { name: m, ms: 0 }); await k.waitForTimeout(900); await k.screenshot({ path: `${OUT}/${th}-mood-${m}.png` }); }
-    await ws('mood.set', { name: 'neutre', ms: 0 }); await ws('face.set', { name: 'pack' });
+    await ws('mood.set', { name: 'neutre', ms: 0 });
     await ws('sys.boot', {});
     await k.waitForTimeout(1500); await k.screenshot({ path: `${OUT}/${th}-boot-1500.png` });
     await k.waitForTimeout(1300); await k.screenshot({ path: `${OUT}/${th}-boot-2800.png` });
     await k.waitForTimeout(1200);
     console.log(th, 'ok');
   }
-  await ws('theme.set', { name: 'retro' }); await ws('face.set', { name: 'pack' });
+  await ws('theme.set', { name: 'retro' });
   console.log('themes:', themes.length, 'moods:', moods.length, 'errors:', JSON.stringify(errs));
   await b.close();
   process.exit(errs.length ? 1 : 0);

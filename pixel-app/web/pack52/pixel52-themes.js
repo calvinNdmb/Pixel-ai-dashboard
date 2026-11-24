@@ -4,7 +4,9 @@
    way (true) or leave it to the pack, look.cheek a cheek, look.under and look.over what he wears, in the face's frame. Without
    it, nothing changes. Loaded by index.html and the lab before themes.js.
    The 23 animations added in Pixel OS (see pixel52.js) have their pose and their props here too, after "added in Pixel OS", and
-   draw() also says where the head is (draw.pose). Loaded by index.html and the lab before themes.js. */
+   draw() also says where the head is (draw.pose). Loaded by index.html and the lab before themes.js.
+   pose(id, seconds, life) and draw()'s options.life: the living face's life, as in pixel52.js's frame() (his own blinks,
+   where he looks, your finger); the little bounce of his eyes after a blink follows his blink (life.sinceBlink, ms). */
 /* Pixel OS — smooth Modern and Manga renderers. Original artwork in Canvas 2D. */
 (function(scope){
   'use strict';
@@ -12,12 +14,12 @@
   const ease=x=>{x=clamp(x);return x*x*(3-2*x)};
   const env=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
   const sin=(p,n=1)=>Math.sin(TAU*p*n);
-  function pose(id,seconds){
+  function pose(id,seconds,life=null){
     const a=scope.Pixel52.animations.find(a=>a.id===id);
     if(!a)throw new RangeError('Unknown Pixel animation: '+id);
     if(!Number.isFinite(seconds))throw new TypeError('Time must be finite');
     const p=((seconds/a.duration)%1+1)%1,A=env(p,.10,.24,.68,.92);
-    const blink=env(p,.74,.755,.767,.79);
+    const blink=life?clamp(+life.blink||0):env(p,.74,.755,.767,.79);   // life: his own blinks, not one per loop
     const s={id,p,A,x:0,y:2*sin(p),rot:0,gx:0,gy:0,sx:1,sy:1,lidL:1-blink*.97,lidR:1-blink*.97,eyeL:'open',eyeR:'open',mouth:'smile',mw:1,mh:1,blush:1,brow:0,energy:1};
     const eyes=k=>{s.eyeL=s.eyeR=k};
     switch(id){
@@ -97,19 +99,29 @@
       case 'idle-heure':{const q=env(p,.2,.32,.6,.72);s.gx=13*q;s.gy=-11*q;s.mouth=q>.8?'flat':'smile';s.mw=q>.8?.8:1;break;}
       case 'idle-bulle':{const q=env(p,.1,.2,.68,.8),t=clamp((p-.1)/.6);s.gx=(-14+5*sin(t))*q;s.gy=(11-22*t)*q;s.sy=1+.1*env(p,.7,.72,.74,.8);break;}
     }
+    if(life){   // added in Pixel OS: where he looks, in this renderer's units (pixel52.js's, about 5.4 times bigger)
+      const sees=k=>!['closed','happy','heart','star'].includes(k);
+      if(sees(s.eyeL)||sees(s.eyeR)){
+        const gx=11*(+life.lx||0),gy=10*(+life.ly||0);
+        if(life.follow){s.gx=.25*s.gx+gx;s.gy=.25*s.gy+gy;}
+        else{const free=1-clamp(Math.max(Math.abs(s.gx)/16,Math.abs(s.gy)/13));s.gx+=gx*free;s.gy+=gy*free;}
+      }
+    }
     return s;
   }
   function draw(canvas,id,time,options={}){
     const manga=options.theme==='manga',ctx=canvas.getContext('2d');
     if(!ctx)throw new Error('Canvas 2D is required');
-    let s=pose(id,time);
+    const life=options.life||null;
+    let s=pose(id,time,life);
     if(options.transition&&time<.42){
-      const from=pose(options.transition.id,options.transition.time),mix=ease(time/.42);
+      const from=pose(options.transition.id,options.transition.time,life),mix=ease(time/.42);
       for(const key of ['x','y','rot','gx','gy','sx','sy','lidL','lidR','mw','mh','blush','brow','energy'])s[key]=from[key]+(s[key]-from[key])*mix;
       if(mix<.5){s.eyeL=from.eyeL;s.eyeR=from.eyeR;s.mouth=from.mouth;}
     }
     draw.pose={dx:s.x/6.25,dy:s.y/6.25,rot:s.rot};   // added in Pixel OS: where the head is, in the 96 x 54 grid, for what he wears
     const {p,A}=s,ink=manga?'#34213e':'#81fff3',pink=manga?'#ed8aab':'#ff97ad',accent=manga?'#b794e4':'#75f4e9',gold=manga?'#dfb05d':'#f4d395';
+    const bq=life?(life.sinceBlink-170)/4000:p-.79;   // after a blink, in a 4 s loop's time: his eyes bounce back (life: after his own blink)
     ctx.save();ctx.setTransform(canvas.width/600,0,0,canvas.height/337.5,0,0);ctx.clearRect(0,0,600,337.5);ctx.lineCap='round';ctx.lineJoin='round';
     const oval=(x,y,rx,ry,fill,stroke=null,width=2)=>{ctx.beginPath();ctx.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),0,0,TAU);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}};
     const line=(x1,y1,x2,y2,color=ink,width=3)=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke()};
@@ -136,12 +148,13 @@
     }
     function eye(cx,kind,lid,side){
       ctx.save();ctx.translate(cx+s.gx*(manga?.18:.7),(manga?143:147)+s.gy*(manga?.2:.6));
-      const rebound=p>.79?.10*Math.sin((p-.79)*TAU*7)*Math.exp(-(p-.79)*16):0;
+      const rebound=bq>0?.10*Math.sin(bq*TAU*7)*Math.exp(-bq*16):0;
       const buoy=.024*sin(p+(side<0?0:.05),2)+rebound;
       if(manga){ctx.scale(s.sx*(1+buoy),s.sy*(1-buoy));}
       else{
-        const ends=id==='idle-cligne'?[.31,.67,.74]:[.79];
+        const ends=id==='idle-cligne'?[.31,.67,.74]:life?[]:[.79];
         let spring=0;for(const end of ends){const dt=p-end;if(dt>0&&dt<.2)spring+=.075*Math.sin(dt*TAU*8)*Math.exp(-dt*25);}
+        if(life&&bq>0&&bq<.2)spring+=.075*Math.sin(bq*TAU*8)*Math.exp(-bq*25);
         const inquisitive=['curieux','confus','idle-incline','ecoute'].includes(id)?s.gx/22:0;
         ctx.translate(0,side*inquisitive*3);ctx.rotate(-side*inquisitive*.045);
         ctx.scale(s.sx*(1-spring*.65),s.sy*(1+spring+side*inquisitive*.05));

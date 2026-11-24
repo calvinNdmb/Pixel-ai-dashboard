@@ -62,7 +62,7 @@ const events = []; const ev0 = PER.event; PER.event = (n, d, c) => { events.push
 
 const snap = (o = {}) => ({
   screen: 'meteo', mood: { name: 'neutre', until: 0 }, anim: null, scene: null, toast: null, boot_at: 0, server_now: Date.now(), cast: null, cast_recent: [],
-  view: { theme: 'retro', face: 'pack', meteo_day: 0, units_f: false, agenda_day: 0, crt_off: false, osk: false },
+  view: { theme: 'retro', meteo_day: 0, units_f: false, agenda_day: 0, crt_off: false, osk: false },
   lights: { status: 'démo', rooms: [{ id: '0', name: 'Salon', on: true, bri: 80 }], scenes: ['Film'] },
   chat: { phase: 'idle', status: 'prêt', messages: [] }, codex: { task: '', running: false, status: '', lines: [] },
   weather: { city: 'Paris', now: { t: 11, kind: 'soleil', label: 'Soleil', wind: 9, hum: 50 }, days: [0, 1, 2, 3, 4].map(i => ({ name: 'J' + i, full: 'Jour', tmax: 12, tmin: 4, kind: 'nuage', label: 'Nuages', wind: 9, hum: 60 })) },
@@ -92,19 +92,19 @@ const KINDS = {
 
 (async () => {
   Screens.start(); set({}); tick(); L.boot = -1; L.kiosk = true; L.scr = 'meteo';
-  // ---- every kind, every theme, both faces, both colour modes ----
-  for (const face of ['pack', 'vivant']) for (const th of themes) {
+  // ---- every kind, every theme, both colour modes (one face: the pack, made alive) ----
+  for (const th of themes) {
     errs = [];
-    set({ view: { ...S.view, theme: th, face } });
+    set({ view: { ...S.view, theme: th } });
     for (const [k, make] of Object.entries(KINDS)) for (const raw of th === 'retro' || th === 'lcd' ? [false, true] : [false]) {
       set({ cast: { ...make(), raw } }); await flush();
       for (const ms of [16, 120, 600, 1500, 3000, 5000, 8000, 30000]) { tick(ms); await flush(); }
       L.inputAt = clock; Screens.menu(true); tick(16); tick(300); Screens.menu(false); tick(16);   // the menu closes itself 20 s after a touch
     }
     set({ cast: null }); tick(); tick();
-    check(`${th}, face ${face}: photo, GIF, video, texts, links and YouTube draw without an error, under the menu too`, errs.length === 0, errs.slice(0, 2).join(' | '));
+    check(`${th}: photo, GIF, video, texts, links and YouTube draw without an error, under the menu too`, errs.length === 0, errs.slice(0, 2).join(' | '));
   }
-  set({ view: { ...S.view, theme: 'retro', face: 'pack' }, cast: null }); tick();
+  set({ view: { ...S.view, theme: 'retro' }, cast: null }); tick();
 
   // ---- its own colours, always: no tube's green any more (cast v2), whatever the theme or the old "couleurs d'origine" flag ----
   const tinted = async (o, view = {}) => { set({ view: { ...S.view, theme: 'retro', crt_off: false, ...view }, cast: { ...KINDS.photo(), ...o } }); await flush(); tick(); await flush(); ops.length = 0; tick(600); return ops.includes('color'); };

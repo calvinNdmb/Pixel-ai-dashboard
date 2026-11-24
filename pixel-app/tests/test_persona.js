@@ -68,16 +68,16 @@ check('at least 20 moments of life and 30 reactions', PER.scenes.filter(s => s.g
 // ---- every scene, every theme, both faces: draws, and he is back in place at the end ----
 const themes = Object.keys(sb.PixelThemes({ X: stub(), RM: false, now: 0, blinkP: () => -1, txt() {}, wrap: () => [], fit: s => s }));
 let offEnd = [];
-for (const face of ['pack', 'vivant']) for (const th of themes) {
-  errs = []; set({ view: { ...S.view, theme: th, face } }); L.scr = 'visage';
+for (const th of themes) {                         // one face: the pack, made alive (there used to be « vivant » too)
+  errs = []; set({ view: { ...S.view, theme: th } }); L.scr = 'visage';
   for (const s of PER.scenes) {
     fresh(); PER.play(s.id);
     for (let e = 0; e < s.dur - 60; e += Math.max(90, Math.round(s.dur / 23))) tick(Math.max(90, Math.round(s.dur / 23)));
     const m = PER.current().m, r = ((m.r % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
-    if (face === 'pack' && th === 'retro' && (Math.abs(m.x) > 20 || Math.abs(m.y) > 20 || Math.abs(m.s - 1) > 0.08 || Math.abs(r) > 0.12)) offEnd.push(`${s.id} ${JSON.stringify(m)}`);
+    if (th === 'retro' && (Math.abs(m.x) > 20 || Math.abs(m.y) > 20 || Math.abs(m.s - 1) > 0.08 || Math.abs(r) > 0.12)) offEnd.push(`${s.id} ${JSON.stringify(m)}`);
     run(400, 100);
   }
-  check(`${th}, face ${face}: the ${PER.scenes.length} scenes draw without an error`, errs.length === 0, errs.slice(0, 2).join(' | '));
+  check(`${th}: the ${PER.scenes.length} scenes draw without an error`, errs.length === 0, errs.slice(0, 2).join(' | '));
 }
 check('every scene ends with Pixel back in his place', offEnd.length === 0, offEnd.slice(0, 3).join(' | '));
 set({ view: { ...S.view, theme: 'retro', face: 'pack' } });
@@ -211,8 +211,8 @@ check('"Plus que 17 dodos avant Noël !" on 8 December', PER.state.say === 'Plus
 PER.stop(); at('2026-12-10T15:00:00'); fresh();
 check('his Santa hat all December', PER.state.hat === true);
 errs = [];
-for (const th of themes) for (const face of ['pack', 'vivant']) { set({ view: { ...S.view, theme: th, face } }); run(300, 100); PER.play('neige'); run(600, 100); PER.stop(); }
-check('the hat and the snow draw in every theme, with both faces', errs.length === 0, errs.slice(0, 2).join(' | '));
+for (const th of themes) { set({ view: { ...S.view, theme: th } }); run(300, 100); PER.play('neige'); run(600, 100); PER.stop(); }
+check('the hat and the snow draw in every theme', errs.length === 0, errs.slice(0, 2).join(' | '));
 set({ view: { ...S.view, theme: 'retro', face: 'pack' } }); at('2026-11-08T14:20:00'); tick(16);
 check('…and no hat in November', PER.state.hat === false);
 fresh(); at('2026-12-25T09:00:00'); PER.away(9 * 3600e3); Screens.input(); tick(16); const x1 = cur(); run(6000);

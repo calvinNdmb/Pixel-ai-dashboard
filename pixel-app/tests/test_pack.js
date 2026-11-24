@@ -1,7 +1,8 @@
 // The user's animation pack inside Pixel OS, without a browser:  node tests/test_pack.js
 // Runs the real web/pack52/*.js, themes.js and screens.js in a VM with a stub canvas and a fake clock, then:
-// - every theme draws every animation at several moments, in both face modes (pack and vivant), with transitions;
-// - the 15 moods map to the pack's animations, the idle is a weighted draw that never repeats, touch still works.
+// - every theme draws every animation at several moments, with transitions;
+// - the 15 moods map to the pack's animations, the idle is a weighted draw that never repeats, touch still works;
+// - one face: the pack made alive by the living face (his own blinks, where he looks, your finger), in both renderers.
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const WEB = path.join(__dirname, '..', 'web');
 let fails = 0;
@@ -38,7 +39,7 @@ check('the pack does not replace our PixelThemes', themes.length >= 6 && themes.
 
 const snap = (o = {}) => ({
   screen: 'visage', mood: { name: 'neutre', until: 0 }, anim: null, toast: null, boot_at: 0, server_now: Date.now(),
-  view: { theme: 'retro', face: 'pack', meteo_day: 0, units_f: false, agenda_day: 0, crt_off: false, osk: false },
+  view: { theme: 'retro', meteo_day: 0, units_f: false, agenda_day: 0, crt_off: false, osk: false },
   lights: { status: 'démo', rooms: [{ id: '0', name: 'Salon', on: true, bri: 80 }], scenes: ['Film'] },
   chat: { phase: 'idle', status: 'prêt', messages: [{ role: 'user', text: 'salut' }, { role: 'assistant', text: 'Salut !' }] },
   codex: { task: '', running: false, status: '', lines: [] }, weather: null, agenda: { status: 'ok', events: [] },
@@ -51,21 +52,21 @@ const tick = (ms = 16) => { clock += ms; const cb = pending; pending = null; try
 let S = snap(); const set = o => { S = { ...S, ...o, server_now: Date.now() }; Screens.setState(S); };
 Screens.start(); set({}); tick();
 
-// ---- every theme x every animation x several moments x both face modes, with the transitions ----
-for (const face of ['pack', 'vivant']) for (const th of themes) {
+// ---- every theme x every animation x several moments, with the transitions ----
+for (const th of themes) {
   errs = [];
-  set({ view: { ...S.view, theme: th, face } }); L.scr = 'visage';
+  set({ view: { ...S.view, theme: th } }); L.scr = 'visage';
   for (const id of ids) { set({ anim: { id, t0: Date.now(), loops: 1, until: Date.now() + 60000 } }); for (const ms of [16, 120, 300, 900, 2600]) tick(ms); }
   set({ anim: null }); tick(); tick(300);
   for (const m of moods) { set({ mood: { name: m, until: 0 } }); tick(16); tick(200); tick(700); }
   set({ mood: { name: 'neutre', until: 0 } });
   for (const scr of ['claude', 'veille', 'reglages']) { L.scr = scr; for (const ph of ['think', 'answer', 'idle']) { set({ chat: { ...S.chat, phase: ph } }); tick(16); tick(400); } }
   L.scr = 'visage'; L.boot = clock; for (let e = 0; e < 3800; e += 250) tick(250);
-  check(`${th}, face ${face}: 75 animations, 15 moods, Claude panel, veille, boot draw without an error`, errs.length === 0, errs.slice(0, 2).join(' | '));
+  check(`${th}: 75 animations, 15 moods, Claude panel, veille, Réglages, boot draw without an error`, errs.length === 0, errs.slice(0, 2).join(' | '));
 }
 
 // ---- pack mode: what the face plays ----
-set({ view: { ...S.view, theme: 'moderne', face: 'pack' }, anim: null }); L.scr = 'visage'; L.local = null; L.pack = null; tick();
+set({ view: { ...S.view, theme: 'moderne' }, anim: null }); L.scr = 'visage'; L.local = null; L.pack = null; tick();
 const MAP = { content: 'content', surpris: 'surpris', amoureux: 'amoureux', clin: 'clin-oeil', endormi: ['sommeil', 'reve'], reflechit: 'reflechit', ecoute: 'ecoute', triste: 'triste',
   fache: 'colere', confus: 'confus', excite: 'etoiles', fier: 'fier', malade: 'batterie-faible', baille: 'baille' };
 const wrong = [];
@@ -108,9 +109,29 @@ clock += 1000; set({ toast: { id: 92, msg: 'Ton colis est arrivé !', ms: 4000 }
 check('events: Codex code / succes / erreur, Claude parle, notification', [c1, c2, c3, c4, c5].join() === 'code,succes,erreur,parle,notification', [c1, c2, c3, c4, c5].join());
 clock += 5000; set({ toast: { id: 93, msg: 'THÈME NÉON', ms: 3000 } }); tick();
 check('our own settings do not play the notification', L.packNow !== 'notification', L.packNow);
-// vivant: the living face, but anim.play still shows the pack
-set({ view: { ...S.view, face: 'vivant' }, anim: null }); L.packNow = null; tick();
-const v1 = L.packNow; set({ anim: { id: 'bisou', t0: Date.now(), loops: 2, until: Date.now() + 8000 } }); tick(); const v2 = L.packNow;
-check('face vivant: the living face, and anim.play still plays the pack', v1 === null && v2 === 'bisou', `${v1} ${v2}`);
+
+// ---- one face: the pack, made alive (screens.js packDraw -> pixel52.js frame(id, t, look, life), pixel52-themes.js pose(id, t, life)) ----
+const eyes = buf => { let n = 0, sx = 0; for (let y = 12; y < 32; y++) for (let x = 20; x < 76; x++) if (buf[y * 96 + x]) { n++; sx += x; } return { n, cx: n ? sx / n : 0 }; };
+const still = { lx: 0, ly: 0, blink: 0 }, same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+const e0 = eyes(P52.frame('idle-respire', 0.3, null, still)), eR = eyes(P52.frame('idle-respire', 0.3, null, { ...still, lx: 1.5 })), eShut = eyes(P52.frame('idle-respire', 0.3, null, { ...still, blink: 1 }));
+check('life: his eyes go where he looks, and close when he blinks', eR.cx - e0.cx > 2 && eShut.n < e0.n * 0.4, `${e0.cx.toFixed(1)} -> ${eR.cx.toFixed(1)}, ${e0.n} -> ${eShut.n} lit`);
+const tB = 0.79 * 8, old = eyes(P52.frame('idle-respire', tB)), now0 = eyes(P52.frame('idle-respire', tB, null, still));
+check('life: no more blink at the same moment of every loop (his own instead)', old.n < e0.n * 0.4 && now0.n > e0.n * 0.8, `${old.n} without life, ${now0.n} with`);
+check('life: a laughing eye does not wander', same(P52.frame('rire', 0.5, null, still), P52.frame('rire', 0.5, null, { ...still, lx: 1.5, ly: 1 })));
+const tL = 0.3 * 10, gl = eyes(P52.frame('idle-regard', tL, null, still)), gn = eyes(P52.frame('idle-regard', tL, null, { ...still, lx: 1.5 })), gf = eyes(P52.frame('idle-regard', tL, null, { ...still, lx: 1.5, follow: true }));
+check("life: the animation's own glance first, your finger before it", Math.abs(gn.cx - gl.cx) < 1 && gf.cx - gl.cx > 3, `${gl.cx.toFixed(1)} ${gn.cx.toFixed(1)} ${gf.cx.toFixed(1)}`);
+const V = sb.Pixel52Themes, v0 = V.pose('idle-respire', 0.3, still), vR = V.pose('idle-respire', 0.3, { ...still, lx: 1.5 }), vS = V.pose('idle-respire', 0.3, { ...still, blink: 1 });
+check('life in the vector renderer too (Moderne, Manga, Néon, Croquis): gaze, blink, a laughing eye stays put',
+  vR.gx - v0.gx > 10 && vS.lidL < 0.1 && v0.lidL > 0.9 && V.pose('rire', 0.5, { ...still, lx: 1.5 }).gx === V.pose('rire', 0.5, still).gx, `${v0.gx} ${vR.gx} ${vS.lidL}`);
+check('without life, the pack draws as before', same(P52.frame('content', 1.2), P52.frame('content', 1.2, null, null)) && V.pose('content', 1.2).lidL === V.pose('content', 1.2, null).lidL);
+// on the screen: an old « vivant » choice changes nothing, his eyes follow your finger, he blinks by himself
+set({ view: { ...S.view, theme: 'retro', face: 'vivant' }, anim: null, mood: { name: 'neutre', until: 0 }, chat: { ...S.chat, phase: 'idle' } });
+L.scr = 'visage'; L.local = null; L.pack = null; L.sleepy = false; clock += 3000; L.lastInput = clock; tick(); tick(60);
+check('an old « vivant » choice (view.face) changes nothing: the pack plays', idles.includes(L.packNow), String(L.packNow));
+L.ptr = { x: 780, y: 230 }; for (let i = 0; i < 40; i++) { tick(16); L.lastInput = clock; }
+const lf = L.packLife; L.ptr = null; for (let i = 0; i < 6; i++) tick(16);
+check('his eyes follow your finger (on his right), then look around again', !!lf && lf.follow === true && lf.lx > 1.2 && !!L.packLife && L.packLife.follow === false, JSON.stringify(lf));
+let shut = 0; for (let i = 0; i < 700; i++) { tick(16); L.lastInput = clock; if (L.packLife && L.packLife.blink > 0.6) shut++; }
+check('he blinks by himself (every 2 to 6 s)', shut >= 2, String(shut));
 console.log(`\n${fails} failure(s)`);
 process.exit(fails ? 1 : 0);

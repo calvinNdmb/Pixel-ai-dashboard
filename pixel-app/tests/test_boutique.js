@@ -174,15 +174,15 @@ const WORDS = ['boutique', 'achète la cravate', 'cadeau', 'cadeau', "achète l'
   for (const id of ['aureole', 'lunettes-rondes', 'cravate', 'etoile']) { act('boutique.acheter', { objet: id }); await wait(120); }
   await until(() => Object.keys(shop().porte).length === 4, 3000);
   await k.evaluate(() => { window.__worn = []; const d0 = PixelWardrobe.draw; PixelWardrobe.draw = (D, ids) => { window.__worn.push({ ids: ids.join(), pix: !!D.pix, p: D.P(48, 12) }); return d0(D, ids); }; });
-  for (const face of ['pack', 'vivant']) for (const th of THEMES) {
-    act('face.set', { name: face }); act('theme.set', { name: th }); await wait(350);
+  for (const face of ['pack']) for (const th of THEMES) {       // one face (the pack, made alive): there used to be « vivant » too
+    act('theme.set', { name: th }); await wait(350);
     await free(k); await k.evaluate(() => { window.__worn.length = 0; }); await k.waitForTimeout(500);
     const w = await k.evaluate(() => ({ n: window.__worn.length, ids: (window.__worn[0] || {}).ids, pix: (window.__worn[0] || {}).pix, p: (window.__worn[0] || {}).p, theme: Screens.local.theme }));
     check(`${th}, face ${face}: his halo, glasses, tie and star are drawn on his face, each frame, above his eyes`,
       w.theme === th && w.n >= 3 && w.ids.split(',').sort().join() === 'aureole,cravate,etoile,lunettes-rondes' && w.pix === ['retro', 'lcd'].includes(th) && w.p && Math.abs(w.p.x - 400) < 60 && w.p.y > 60 && w.p.y < 190, JSON.stringify(w));
     if (th === 'retro' || th === 'manga') await shot(k, `kiosk-${face}-${th}`);
   }
-  act('face.set', { name: 'pack' }); act('theme.set', { name: 'retro' }); await wait(300);
+  act('theme.set', { name: 'retro' }); await wait(300);
   // he dances: what he wears follows his head
   act('anim.play', { id: 'danse', loops: 3 }); await wait(400);
   const xs = await k.evaluate(async () => { const xs = []; for (let i = 0; i < 24; i++) { window.__worn.length = 0; await new Promise(r => setTimeout(r, 90)); if (window.__worn[0]) xs.push(Math.round(window.__worn[0].p.x)); } return xs; });

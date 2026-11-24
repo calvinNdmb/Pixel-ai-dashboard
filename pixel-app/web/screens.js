@@ -58,7 +58,9 @@ useTheme('retro');
 const LIFE = { face: PixelLife(), mini: PixelLife(), nap: PixelLife(), boot: PixelLife() };
 function live(life, cx, cy, u, md, o = {}) { const a = life.update(now, md, o); face(cx, cy, u, a.mood, a.lx, a.ly, a); return a; }
 
-/* ---------- the user's animation pack (web/pack52): Pixel's face by default, view.face = "pack"; "vivant" = the living face ---------- */
+/* ---------- the user's animation pack (web/pack52): Pixel's one face, made alive by the living face (PixelLife): his own
+   blinks, where he looks, your finger, the squash and the bounce. The living face's drawing (T.face) is only there if the pack
+   is missing. There used to be two faces to choose from (view.face "pack" / "vivant"): there is one now. ---------- */
 const PACK = (window.Pixel52 && window.Pixel52.animations) || [], PBY = Object.fromEntries(PACK.map(a => [a.id, a]));
 const IDLES = PACK.filter(a => a.group === 'Idle');
 const MOOD_ANIM = { content: 'content', surpris: 'surpris', amoureux: 'amoureux', clin: 'clin-oeil', endormi: 'sommeil', reflechit: 'reflechit', ecoute: 'ecoute',
@@ -83,7 +85,7 @@ function PackPlayer() {             // what one pack face plays: an animation wh
   };
 }
 const PLAY = { face: PackPlayer(), mini: PackPlayer(), nap: PackPlayer() };
-const packMode = () => PACK.length > 0 && !!T.packFace && !(P && P.view && P.view.face === 'vivant');
+const packMode = () => PACK.length > 0 && !!T.packFace;
 const serverAnim = () => { const a = P && P.anim; return a && PBY[a.id] && (!a.until || srv() < a.until) ? a.id : null; };
 const sleepCycle = () => (now / 1000) % 15 < 10 ? 'sommeil' : 'reve';
 function packWant() {               // touch first, then what was asked, then the events, then the mood, then the idle
@@ -109,9 +111,10 @@ function moveFace(m, x, y, w, h) {   // the scene's motion around the centre of 
 /* pixel themes (Rétro, LCD): a smaller or bigger face is drawn again with whole pixels (2 to 14 screen pixels per
    pack pixel), not squeezed by the canvas, so it stays crisp; the scale is snapped to those sizes */
 const snapPix = m => ({ ...m, s: clamp(Math.round(PBOX.w / 96 * m.s), 2, 14) / (PBOX.w / 96), x: Math.round(m.x), y: Math.round(m.y) });
-function packDraw(player, want, x, y, w, h, a, m) {   // a: life state for the touch physics (squash under the finger, bounce); m: motion
-  const st = player.update(fdt, want, L.packIdle !== false);
-  if (player === PLAY.face) L.packNow = st.id;            // for the lab: what the big face plays
+function packDraw(player, want, x, y, w, h, a, m, life) {   // a: life state for the touch physics (squash under the finger, bounce); m: motion
+  const st = player.update(fdt, want, L.packIdle !== false);   // life: { lx, ly, blink, sinceBlink, follow }, his gaze and blinks (pixel52.js frame)
+  st.life = life || null;
+  if (player === PLAY.face) { L.packNow = st.id; L.packLife = st.life; }   // for the lab and the tests: what the big face plays, where it looks
   X.save();
   if (m && T.faceFps) {
     const k = clamp(Math.round(w / 96 * m.s), 2, 14), cx = Math.round(x + w / 2 + m.x), cy = Math.round(y + h / 2 + m.y);
@@ -138,7 +141,8 @@ function drawVisage() {
   const a = LIFE.face.update(now, lmd, { look: PV.id ? null : ptr, idle: now - L.lastInput, sleepIn, calm: RM || pack || !!anim || !!PV.id });
   let head = null;                                    // where his head is in the face's grid, for what he wears (persona.js decor)
   if (pack || (anim && T.packFace)) {
-    TH.packPose = null; packDraw(PLAY.face, pack ? packWant() : anim, PBOX.x, PBOX.y, PBOX.w, PBOX.h, a, pm);
+    const life = { lx: a.lx, ly: a.ly, blink: a.blink, sinceBlink: a.sinceBlink, follow: !PV.id && !!ptr };   // the living face's life in the pack
+    TH.packPose = null; packDraw(PLAY.face, pack ? packWant() : anim, PBOX.x, PBOX.y, PBOX.w, PBOX.h, a, pm, life);
     const q = TH.packPose; head = { dx: q ? q.dx : 0, dy: (q ? q.dy : 0) - a.hop * 16 / 7, rot: q ? q.rot : 0 };
   } else {
     head = { dx: 0, dy: -a.hop * 16 / 7, rot: a.tilt, pu: 48, pv: 47, fit: VFIT[T.id] || VFIT.moderne };
@@ -406,12 +410,6 @@ function drawSettings() {
   const short = u => (u || '').replace(/\?.*$/, '');
   txt(fit('SUR TON TÉLÉPHONE OU TON PC', 500, 24), 274, 62, 24, D); txt(fit(short(st.url), 500, 32), 274, 88, 32, WH); txt(fit('ou ' + short(st.ip_url), 500, 26), 274, 124, 26, G);
   para("Scanne le code : il ouvre l'appli avec ton code d'accès. Ensuite : « Ajouter à l'écran d'accueil ».", 274, 158, 500, 24, D, 26);
-  txt('VISAGE', 274, 230, 24, D);
-  [['pack', 'Pack 52'], ['vivant', 'Vivant']].forEach(([id, name], i) => {
-    const x = 380 + i * 142, on = (P.view.face || 'pack') === id;
-    box(x, 222, 134, 34, on ? G : D, on ? G : null); txt(name, x + 67, 227, 24, on ? (T.onFg || B) : G, 'center');
-    hit(x, 222, 134, 34, () => send('face.set', { name: id }));
-  });
   [['HUE', P.lights.status], ['CLAUDE', st.claude], ['STREAM DECK', st.deck], ['MODE', st.demo ? 'DÉMO (fausses données)' : 'normal']].forEach(([k, v], i) => {
     txt(fit(k, 176, 22), 24, 292 + i * 26, 22, D); txt(fit(String(v || '—'), 566, 24), 210, 291 + i * 26, 24, G); });
   // theme picker: the themes switched on ([ui] themes in config.toml), chips in rows of 4; none when there is only one
@@ -862,7 +860,8 @@ function drawSolo(id, f, dt) {
   if (!note) { f(dt); return; }
   X.save(); X.beginPath(); X.rect(0, 0, W, H); X.rect(16, 56, 238, 220); X.rect(262, 52, 522, 166); X.clip('evenodd');   // no QR code: room for the note
   f(dt); X.restore();
-  box(60, 72, 146, 188, D); live(LIFE.mini, 133, 166, 5, 'content', { calm: true });   // a phone with him in it (no Claude screen here: its face is free)
+  box(60, 72, 146, 188, D);                         // a phone with him in it (no Claude screen here: its face is free)
+  if (packMode()) packDraw(PLAY.mini, 'content', 85, 139, 96, 54); else live(LIFE.mini, 133, 166, 5, 'content', { calm: true });
   txt(fit(note.title, 500, 24), 274, 62, 24, D); txt(fit(note.head, 500, 32), 274, 88, 32, WH);
   para(note.text, 274, 128, 500, 24, G, 26);
 }

@@ -163,7 +163,7 @@ addEventListener('online', () => { if (Date.now() - wAt > 10 * 60000) refresh();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - wAt > 30 * 60000) refresh(); });
 
 /* ---------- typed commands: the city, the help; the rest is demo-hub's parser, and what needs Claude says so ---------- */
-const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · visage vivant · thème … · météo Lyon (ta ville) · caractère câlin · mange une pomme · exo · table de 7 · quiz sur les volcans · on joue ? · raconte une blague · couche-toi à 20 h 30 · mets ton chapeau · yeux de chat · prends une photo · montre l'album · je suis content · tu te souviens ? · le reste (lampes, Claude, Codex, agenda, cast, ses amis) : relie Pixel à ton Pi";
+const HELP = "minuteur 10 · pause · humeur content · anim danse · animations · fais le poisson · scènes · thème … · météo Lyon (ta ville) · caractère câlin · mange une pomme · exo · table de 7 · quiz sur les volcans · on joue ? · raconte une blague · couche-toi à 20 h 30 · mets ton chapeau · yeux de chat · prends une photo · montre l'album · je suis content · tu te souviens ? · le reste (lampes, Claude, Codex, agenda, cast, ses amis) : relie Pixel à ton Pi";
 const cmd0 = A.cmd;                 // any other text goes to Claude (chat.ask): on the Pi, so he says so
 A.cmd = ({ text } = {}) => {
   const raw = String(text ?? '').trim(), t = hub.norm(raw); let m;
@@ -225,7 +225,7 @@ function brightness() { const b = S.sys.bright || 1, f = b < 1 ? `brightness(${b
 const KEY = 'pixel_local', MAX = 200 * 1024, ITEM = 64 * 1024;
 const SKIP = new Set(['screen', 'mood', 'view', 'settings', 'timer', 'weather', 'anim', 'scene', 'toast', 'act', 'boot_at', 'keys', 'server_now', 'kept_at',
   'lights', 'chat', 'codex', 'agenda', 'sys', 'poche', 'cast', 'cast_recent', 'airplay', 'solo', 'yt', 'ytcast', 'telephone']);   // live, or the Pi's
-const VIEW = ['theme', 'face', 'units_f', 'crt_off'], TIMER = ['mode', 'total', 'left', 'running', 'ends_at', 'done'];
+const VIEW = ['theme', 'units_f', 'crt_off'], TIMER = ['mode', 'total', 'left', 'running', 'ends_at', 'done'];
 function pick() {
   const st = { v: 1, at: 0, view: {}, settings: { themes: [...(S.settings.themes || [])], sleep_min: S.settings.sleep_min }, sys: { bright: S.sys.bright }, timer: {}, extra: {} };
   for (const k of VIEW) if (k in S.view) st.view[k] = S.view[k];
@@ -259,7 +259,6 @@ function apply(st) {
   if (Array.isArray(st.settings && st.settings.themes)) H.themes(st.settings.themes.filter(id => typeof id === 'string'));
   const v = isObj(st.view) ? st.view : {};
   if (hub.THEMES.some(t => t.id === v.theme)) S.view.theme = v.theme;
-  if (hub.FACES[v.face] && (v.face !== 'pack' || hub.ANIMS.length)) S.view.face = v.face;
   for (const k of ['units_f', 'crt_off']) if (typeof v[k] === 'boolean') S.view[k] = v[k];
   const sl = num(st.settings && st.settings.sleep_min, 1, 240); if (sl) S.settings.sleep_min = sl;
   const br = num(st.sys && st.sys.bright, 0.3, 1); if (br) S.sys.bright = Math.round(br * 10) / 10;   // his face's brightness here (not the Pi's screen)

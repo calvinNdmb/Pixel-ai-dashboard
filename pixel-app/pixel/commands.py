@@ -21,12 +21,14 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
-        "visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · achète le bonnet · exo · table de 7 · quiz sur les volcans · "
+        "caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · achète le bonnet · exo · table de 7 · quiz sur les volcans · "
         "prends une photo · je suis content · mets ton chapeau · yeux de chat · on joue ? · raconte une blague · "
         "sinon : Claude")
 # a few words that play an animation on their own
 BARE = {"danse": "danse", "chante": "chante", "coucou": "salut", "bisou": "bisou"}
-FACE_WORDS = {"pack": "pack", "pack 52": "pack", "52": "pack", "animations": "pack", "vivant": "vivant", "anime": "vivant"}
+# « visage vivant », « visage pack »: there were two faces; one now, and these words still say so (not a question for Claude)
+FACE_WORDS = {"pack", "pack 52", "52", "animations", "vivant", "anime"}
+ONE_FACE = "Pixel n'a plus qu'un visage : les animations du pack, et vivant (il cligne des yeux et suit ton doigt)."
 
 
 def norm(s):
@@ -140,8 +142,8 @@ async def run(hub, text):
 
     m = re.match(r"^visage\s+(.+)$", t)
     if m and m.group(1) in FACE_WORDS:
-        await hub.dispatch("face.set", {"name": FACE_WORDS[m.group(1)]})
-        return await hub.dispatch("screen.show", {"screen": "visage"})
+        await hub.dispatch("screen.show", {"screen": "visage"})
+        return hub.toast(ONE_FACE, 6000)
 
     if t in ("scenes", "les scenes", "liste des scenes"):
         life = ", ".join(label for i, label, g in scenes.SCENES if g == "vie")

@@ -165,7 +165,7 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
     for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] > 230 && d[i + 2] > 200) n++;
     return n;
   });
-  check('Réglages: no QR code, how to link his Pi; the face choice is there', /Pas de Pi relié/.test(t) && /«\sRelier\sà\smon\sPixel\s»/.test(t) && /Vivant/.test(t) && qr < 50, `${qr} light pixels · ${t.slice(0, 200)}`);
+  check('Réglages: no QR code, how to link his Pi; no face to choose (one face)', /Pas de Pi relié/.test(t) && /«\sRelier\sà\smon\sPixel\s»/.test(t) && !/Vivant/.test(t) && qr < 50, `${qr} light pixels · ${t.slice(0, 200)}`);
   check('…and every theme to choose from (no Pi to switch them on)', /THÈME/i.test(t) && ['Rétro', 'Néon', 'Croquis', 'LCD'].every(n => t.toLowerCase().includes(n.toLowerCase())) && await S(page, () => PixelHub.THEMES.length === PixelHub.ALLT.length && PixelHub.ALLT.length > 1), t.slice(0, 300));
   check('…its keys: no "Associer Hue"', await S(page, () => ![...document.querySelectorAll('#keys .key.act')].some(b => /Hue/.test(b.textContent))));
   await shot(page, 'phone-reglages');
@@ -207,23 +207,22 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   await shot(page, 'phone-minuteur');
 
   /* what survives a reload: the settings, a lasting mood, the timer */
-  await go(page, 'reglages'); const vp = await point(page, 589, 239); await page.mouse.click(vp.x, vp.y); await page.waitForTimeout(200);
   await go(page, 'meteo'); await page.locator('#keys .key').nth(13).click();                   // °C / °F
   await go(page, 'systeme'); await page.locator('#keys .key').nth(12).click(); await page.locator('#keys .key').nth(10).click();   // Effet CRT, Lumi. −
   await type(page, 'minuteur 25'); await type(page, 'humeur endormi');
-  const before = await S(page, () => ({ face: PixelHub.S.view.face, units: PixelHub.S.view.units_f, crt: PixelHub.S.view.crt_off, bright: PixelHub.S.sys.bright, ends: PixelHub.S.timer.ends_at, mood: PixelHub.S.mood.name }));
-  check('the settings changed (face Vivant, °F, no CRT, dimmer), a 25 min timer, asleep', before.face === 'vivant' && before.units && before.crt && before.bright < 1 && before.mood === 'endormi' && before.ends > Date.now(), JSON.stringify(before));
+  const before = await S(page, () => ({ units: PixelHub.S.view.units_f, crt: PixelHub.S.view.crt_off, bright: PixelHub.S.sys.bright, ends: PixelHub.S.timer.ends_at, mood: PixelHub.S.mood.name }));
+  check('the settings changed (°F, no CRT, dimmer), a 25 min timer, asleep', before.units && before.crt && before.bright < 1 && before.mood === 'endormi' && before.ends > Date.now(), JSON.stringify(before));
   await page.waitForTimeout(1200);
-  check('…kept in localStorage', ((k) => k && k.v === 1 && k.view.face === 'vivant' && k.timer.running)(await kept(page)));
+  check('…kept in localStorage', ((k) => k && k.v === 1 && k.view.units_f === true && k.timer.running)(await kept(page)));
   await page.reload(); await until(() => page.evaluate(() => !!window.PixelLocal), 6000); await page.waitForTimeout(300);
-  const after = await S(page, () => ({ bright: PixelHub.S.sys.bright, face: PixelHub.S.view.face, units: PixelHub.S.view.units_f, crt: PixelHub.S.view.crt_off, ends: PixelHub.S.timer.ends_at, run: PixelHub.S.timer.running, mood: PixelHub.S.mood.name, done: PixelHub.S.timer.done }));
-  check('a reload: the settings, the mood, the running timer and its count are back', after.face === 'vivant' && after.units && after.crt && after.bright === before.bright && after.run && after.ends === before.ends && after.mood === 'endormi' && after.done === 1, JSON.stringify(after));
+  const after = await S(page, () => ({ bright: PixelHub.S.sys.bright, units: PixelHub.S.view.units_f, crt: PixelHub.S.view.crt_off, ends: PixelHub.S.timer.ends_at, run: PixelHub.S.timer.running, mood: PixelHub.S.mood.name, done: PixelHub.S.timer.done }));
+  check('a reload: the settings, the mood, the running timer and its count are back', after.units && after.crt && after.bright === before.bright && after.run && after.ends === before.ends && after.mood === 'endormi' && after.done === 1, JSON.stringify(after));
   check('the phone (no app): no page or console errors', errs.length === 0, errs.slice(0, 4).join(' | '));
   await ctx.close();
 
   /* ================= in the app: the bridge, the app's copy, his Pi's snapshot ================= */
   const now = Date.now(), ALL = ['retro', 'moderne', 'manga', 'neon', 'croquis', 'lcd'];
-  const pi = { view: { theme: 'lcd', face: 'pack', units_f: false, crt_off: false }, settings: { themes: ALL, sleep_min: 7, demo: false, qr: ['1'] }, kept_at: now - 60000,
+  const pi = { view: { theme: 'lcd', units_f: false, crt_off: false }, settings: { themes: ALL, sleep_min: 7, demo: false, qr: ['1'] }, kept_at: now - 60000,
     keys: {}, lights: { status: 'ok', rooms: [{ id: '1', name: 'Salon', on: true, bri: 80 }], scenes: ['Film'] }, chat: { phase: 'idle', messages: [{ role: 'assistant', text: 'Coucou' }] },
     weather: null, mood: { name: 'amoureux', until: 0 }, jouet: { trait: 'joueur', faim: 1 } };
   ({ ctx, page, errs } = await phone(browser, { app: true, feature: true, given: { state: null, seed: pi } }));
@@ -273,7 +272,7 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
 
   /* the app's own copy, alone (a new phone storage: no localStorage) */
   ({ ctx, page, errs } = await phone(browser, { app: true, given: { state: { v: 1, at: now, view: { theme: 'croquis', face: 'vivant' }, settings: { themes: ['retro', 'croquis'], sleep_min: 12 }, timer: {}, extra: {} }, seed: null } }));
-  check('PIXEL_LOCAL_STATE (the app\'s copy) restores him before the page starts', await S(page, () => PixelHub.S.view.theme === 'croquis' && PixelHub.S.view.face === 'vivant' && PixelHub.S.settings.sleep_min === 12 && localStorage.getItem('pixel_local') !== 'x'));
+  check('PIXEL_LOCAL_STATE (the app\'s copy) restores him before the page starts (an old copy\'s « vivant » face is left: one face)', await S(page, () => PixelHub.S.view.theme === 'croquis' && !('face' in PixelHub.S.view) && PixelHub.S.settings.sleep_min === 12 && localStorage.getItem('pixel_local') !== 'x'));
   check('…no errors', errs.length === 0, errs.slice(0, 4).join(' | '));
   await ctx.close();
 
@@ -289,7 +288,7 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   await page.waitForTimeout(300);
   await page.evaluate(() => PixelLocal.restore({ state: null, seed: { view: { theme: 'lcd', face: 'vivant' }, settings: { themes: ['retro', 'lcd'] }, keys: {}, kept_at: Date.now() - 30e3 } }));
   await page.waitForTimeout(200);
-  check('his Pi\'s snapshot given late, after the weather came in: newer than what he had here, it wins', await S(page, () => PixelHub.S.view.theme === 'lcd' && PixelHub.S.view.face === 'vivant'), await S(page, () => PixelHub.S.view.theme));
+  check('his Pi\'s snapshot given late, after the weather came in: newer than what he had here, it wins', await S(page, () => PixelHub.S.view.theme === 'lcd' && !('face' in PixelHub.S.view)), await S(page, () => PixelHub.S.view.theme));
   check('…no errors', errs.length === 0, errs.slice(0, 4).join(' | '));
   await ctx.close();
 

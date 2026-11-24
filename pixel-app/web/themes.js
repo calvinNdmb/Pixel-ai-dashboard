@@ -28,7 +28,7 @@ window.PixelMoods = [
    that theme.face(cx, cy, u, a.mood, a.lx, a.ly, a) draws from:
      a.mood, a.from, a.k  mood shown, previous mood, transition progress (0 -> 1, eased, about 220 ms)
      a.since              ms since a.mood started (yawns, tears and other loops start from there)
-     a.blink              0 open .. 1 closed (single blinks, sometimes double)
+     a.blink              0 open .. 1 closed (single blinks, sometimes double); a.sinceBlink: ms since the last one began
      a.lx, a.ly           gaze, about -1.6..1.6 and -1..1: saccades, slow drift, follows the finger
      a.sq                 squash: + wider and flatter, - taller and thinner (touch, landings, stretch)
      a.hop                lift in face units u (bounces, little hops)
@@ -49,7 +49,7 @@ window.PixelLife = (cfg = {}) => {
   const KICK = { surpris: [1.5, -0.4], excite: [1.3, -0.3], content: [0.8, -0.15], amoureux: [0.6, -0.1], clin: [0.5, -0.05], fier: [0.6, -0.15],
     confus: [0.4, 0.1], fache: [0.2, 0.35], triste: [0, 0.3], malade: [0, 0.25], baille: [0.2, -0.3], ecoute: [0.35, -0.05], reflechit: [0.25, 0.05],
     neutre: [0.25, 0.1], endormi: [0, 0.2] };
-  const a = { t: 0, mood: null, from: null, k: 1, since: 0, blink: 0, lx: 0, ly: 0, sq: 0, hop: 0, tilt: 0, squint: 0, breath: 0, press: false, act: '' };
+  const a = { t: 0, mood: null, from: null, k: 1, since: 0, blink: 0, sinceBlink: 1e9, lx: 0, ly: 0, sq: 0, hop: 0, tilt: 0, squint: 0, breath: 0, press: false, act: '' };
   const sq = { x: 0, v: 0 }, hop = { x: 0, v: 0 }, tilt = { x: 0, v: 0 }, gaze = { tx: 0, ty: 0, next: 0 };
   const blink = { t: -1e9, next: 1200 + rnd() * 1500, again: 0 };
   let born = null, t0 = 0, last = -1, act = null, next = null, yawned = false, taps = [], pet = { d: 0, turns: 0, dir: 0, t: 0 }, shake = 0;
@@ -88,6 +88,7 @@ window.PixelLife = (cfg = {}) => {
       if (blink.again && now > blink.again) { blink.t = now; blink.again = 0; }
       const bp = (now - blink.t) / 170;
       a.blink = bp < 0 || bp >= 1 ? 0 : bp < 0.38 ? smooth(bp / 0.38) : 1 - smooth((bp - 0.38) / 0.62);
+      a.sinceBlink = now - blink.t;
       // gaze: the finger, a mood, or looking around (quick saccades, then a slow drift)
       let tx, ty, lag;
       if (o.look) { tx = o.look.x; ty = o.look.y; lag = 60; }
@@ -1397,10 +1398,10 @@ function pkLayer(name) {                             // a 96x54 canvas and its p
   return l;
 }
 function pkFrame(st, look) {                         // the pack's frame, mixed with the previous one during a change (look: « Son look »'s hooks)
-  const P52 = window.Pixel52, a = P52.frame(st.id, st.time, look);
+  const P52 = window.Pixel52, a = P52.frame(st.id, st.time, look, st.life);   // st.life: the living face's gaze and blinks (screens.js packDraw)
   H.packPose = a.pose || null;                       // where the head is, for what he wears (screens.js, persona.js decor)
   if (!st.from || st.k >= 1) return a;
-  const b = P52.frame(st.from.id, st.from.time, look), out = new Uint8Array(a.length);
+  const b = P52.frame(st.from.id, st.from.time, look, st.life), out = new Uint8Array(a.length);
   for (let j = 0; j < 54; j++) for (let i = 0; i < 96; i++) { const n = j * 96 + i; out[n] = bayer(i, j) < st.k ? a[n] : b[n]; }
   return out;
 }
@@ -1428,7 +1429,7 @@ function pkVector(x, y, w, h, st, theme, post) {
   const V = window.Pixel52Themes; if (!V) return;
   const c = pkCanvas('v' + Math.round(w) + 'x' + Math.round(h), w, h), lk = look();
   const rec = lk && post === 'graphite' ? [] : null;  // « Son look » in Croquis: its coloured drawings, laid over the graphite afterwards
-  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from, look: lk ? lk.L.hookVec(lk.C, lk.ph, H.now, rec) : undefined }); H.packPose = V.draw.pose || null;
+  V.draw(c, st.id, st.time, { theme, transparent: true, transition: st.from, look: lk ? lk.L.hookVec(lk.C, lk.ph, H.now, rec) : undefined, life: st.life }); H.packPose = V.draw.pose || null;
   const ga = X.globalAlpha, op = X.globalCompositeOperation, b = X.shadowBlur; X.shadowBlur = 0;
   if (post === 'glow') {                             // cheap bloom: a small copy, blown up and added
     const sc = pkCanvas('vb' + Math.round(w) + 'x' + Math.round(h), w / 6, h / 6), g = sc.getContext('2d');

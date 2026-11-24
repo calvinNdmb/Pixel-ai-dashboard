@@ -6,7 +6,11 @@
    Loaded by index.html and the lab before themes.js.
    23 animations were added at the user's request, after the pack's 52 (the list's last 23 lines, and the cases after
    "added in Pixel OS" below): meals, exercises, the timer, music and video, the weather, four emotions, three idles.
-   frame() also says where the head is (buf.pose), for what he wears. */
+   frame() also says where the head is (buf.pose), for what he wears.
+   frame(id, seconds, look, life) takes an optional fourth argument: the living face's life (window.PixelLife, through
+   web/screens.js), so that the pack is Pixel's one face and a living one. life.blink (0 open .. 1 closed) replaces the
+   blink each loop had at the same moment; life.lx, life.ly (about -1.6..1.6, -1..1) move his eyes where he looks: around
+   him, or at your finger (life.follow), on top of what the animation does with them. Without it, nothing changes. */
 /* Pixel — 52 animations, including 18 idles (75 and 21 with Pixel OS's). Canvas 2D, no dependency. */
 (function (scope) {
   'use strict';
@@ -107,7 +111,7 @@
   const bell=['0001000','0011100','0111110','0111110','0111110','1111111','0001000'];
   const flake=['10101','01110','11111','01110','10101'];
   const bolt=['00011','00110','01100','11111','00110','01100','11000','10000'];
-  function frame(id, seconds=0, look=null) {
+  function frame(id, seconds=0, look=null, life=null) {
     const animation=index[id];
     if (!animation) throw new RangeError('Unknown Pixel animation: '+id);
     if (!Number.isFinite(seconds)) throw new TypeError('Time must be finite');
@@ -136,7 +140,7 @@
     function eyebrow(x,left,angry=false){line(x-5,14+(angry?(left?-2:2):0),x+5,14+(angry?(left?2:-2):0),1,1)}
     let eyeL='open',eyeR='open',mouth='smile',ex=0,ey=0,rx=4.4,ry=5.7,blush=true,blushColor=3,color=1;
     let eyesY=23, mouthY=38, mouthW=4, mouthH=3;
-    const blink=envelope(p,.74,.775,.795,.83);
+    const blink=life?clamp(+life.blink||0):envelope(p,.74,.775,.795,.83);   // life: his own blinks, not one per loop
     let lid=1-blink*.94;
     const action=envelope(p,.10,.23,.67,.92);
     oy=.55*wave(p);
@@ -216,6 +220,14 @@
       case 'idle-fredonne':{const a=envelope(p,.2,.35,.7,.85);if(a>.5){mouth='o';mouthW=2;mouthH=1+Math.round(Math.abs(wave(p,6)));}tilt=.04*wave(p,3)*a;oy=.3*wave(p);break;}
       case 'idle-heure':{const a=envelope(p,.2,.32,.6,.72);ex=3*a;ey=-2.2*a;mouth=a>.8?'flat':'smile';mouthW=a>.8?3:4;oy=.3*wave(p);break;}
       case 'idle-bulle':{const a=envelope(p,.1,.2,.68,.8),q=clamp((p-.1)/.6);ex=(-3+1.2*wave(q))*a;ey=(2.5-5*q)*a;if(p>.7&&p<.77)ry=6.3;oy=.3*wave(p);break;}
+    }
+    if(life){   // added in Pixel OS: where he looks (life.lx, life.ly), for eyes that see; a happy, closed, heart or star eye stays put
+      const sees=k=>k==='open'||k==='half'||k==='sad'||k==='angry';
+      if(sees(eyeL)||sees(eyeR)){
+        const gx=2*(+life.lx||0),gy=1.8*(+life.ly||0);
+        if(life.follow){ex=.25*ex+gx;ey=.25*ey+gy;}                                   // your finger first
+        else{const free=1-clamp(Math.max(Math.abs(ex)/3,Math.abs(ey)/2.5));ex+=gx*free;ey+=gy*free;}   // the animation's own glance first
+      }
     }
     const K=look&&{dot,rect,line,ellipse,sprite,pose:()=>({ox,oy,tilt})};   // « Son look »: what its hooks draw with, and how the head moves
     function drawEye(x,kind){

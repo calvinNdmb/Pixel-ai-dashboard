@@ -29,7 +29,7 @@ from pixel.codex import Codex
 from pixel.deck import Deck
 from pixel.ecran import Ecran
 from pixel.hue import Hue
-from pixel.keys import FACES, NAV, THEMES
+from pixel.keys import NAV, THEMES
 from pixel.state import Hub
 from pixel.system import System, local_ip
 from pixel.weather import Weather
@@ -115,14 +115,12 @@ def core_actions(hub, datadir):
     v["theme"] = saved.get("theme") or ui.get("theme", on[0])
     if v["theme"] not in on:
         v["theme"] = on[0]
-    v["face"] = saved.get("face") or hub.cfg.get("ui", {}).get("face", "pack")      # the animation pack, or the living face
-    if v["face"] not in FACES:
-        v["face"] = "pack"
+    # one face: the animation pack, made alive by the living face (web/screens.js); an old ui.json's "face" is left unread
     hub.s.setdefault("anim", None)
     hub.s.setdefault("scene", None)
 
     def save():
-        ui_file.write_text(json.dumps({"theme": v["theme"], "face": v["face"]}))
+        ui_file.write_text(json.dumps({"theme": v["theme"]}))
 
     @hub.action("theme.set")
     async def theme(name):
@@ -133,14 +131,6 @@ def core_actions(hub, datadir):
         elif name in THEMES:
             hub.toast(f"Pour le moment, seul le thème {THEMES[on[0]]} est activé." if len(on) == 1
                       else "Ce thème n'est pas activé. Les thèmes : " + ", ".join(THEMES[t] for t in on) + ".", 5000)
-
-    @hub.action("face.set")
-    async def face(name):
-        """The face: "pack" (the 52 animations of the user's pack) or "vivant" (the living face). Saved like the theme."""
-        if name in FACES:
-            v["face"] = name
-            save()
-            hub.toast("VISAGE : " + FACES[name].upper())
 
     @hub.action("anim.play")
     async def anim_play(id, loops=None):

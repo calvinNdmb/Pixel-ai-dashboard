@@ -192,8 +192,8 @@ const sends = a => sent.filter(([x]) => x === a);
   set({ cast: null }); tick();
 
   // ---- every theme: the player's frame, the error card, the TV code, a phone's card ----
-  for (const face of ['pack', 'vivant']) for (const th of themes) {
-    errs = []; set({ view: { ...S.view, theme: th, face } });
+  for (const th of themes) {                        // one face: the pack, made alive
+    errs = []; set({ view: { ...S.view, theme: th } });
     for (const [k, make] of Object.entries({
       player: () => ytCast(), code: () => ({ id: 'k' + ++n, kind: 'ytcode', title: 'Code TV YouTube', t0: Date.now(), until: Date.now() + 300000, raw: false }),
     })) {
@@ -205,7 +205,7 @@ const sends = a => sent.filter(([x]) => x === a);
     set({ ytcast: { ...S.ytcast, code: null }, cast: { id: 'k' + ++n, kind: 'ytcode', title: 'Code TV YouTube', t0: Date.now(), until: Date.now() + 300000, raw: false } }); tick(); tick(600);
     set({ ytcast: { ...S.ytcast, code: '349 433 568 226' }, cast: null }); tick();
     L.kiosk = false; set({ cast: ytCast({ ytp: { src: 'lien', v: 1, n: 0, cmds: [], st: { state: -1, err: 150 } } }) }); tick(); tick(600); set({ cast: ytCast() }); tick(); tick(600); set({ cast: null }); tick(); L.kiosk = true;
-    check(`${th}, face ${face}: the player's frame, the error card, the TV code (and while it comes), a phone's card`, errs.length === 0, errs.slice(0, 2).join(' | '));
+    check(`${th}: the player's frame, the error card, the TV code (and while it comes), a phone's card`, errs.length === 0, errs.slice(0, 2).join(' | '));
   }
   L.kiosk = false; const before = players.length; set({ cast: ytCast() }); tick(); await flush();
   check('on a phone: a card, never a player', players.length === before && !box() && Screens.cast.player === false);

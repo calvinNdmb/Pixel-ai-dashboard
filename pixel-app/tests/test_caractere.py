@@ -302,7 +302,7 @@ def commands_and_saving(J):
                  "plus de lumière", "tu t'appelles comment ?", "sois sympa"):
         ok(f"« {text} » goes to Claude", R.cmd(text) == [("chat.ask", {"text": text})], str(R.calls))
     for text, action in (("fais le poisson", "scene.play"), ("salon 40", "lights.set"), ("thème néon", "theme.set"), ("minuteur 10", "timer.start"),
-                         ("humeur triste", "mood.set"), ("anim danse", "anim.play"), ("visage vivant", "face.set"), ("météo", "screen.show")):
+                         ("humeur triste", "mood.set"), ("anim danse", "anim.play"), ("visage vivant", "screen.show"), ("météo", "screen.show")):
         ok(f"« {text} » still does what it did ({action})", action in [c[0] for c in R.cmd(text)], str(R.calls))
     ok("the commands in web/caractere.js (the lab) answer the same", [x and (x.get("action"), x.get("args")) for x in J["cmd"]] == [
         ("caractere.set", {"preset": "grognon"}), ("caractere.set", {"preset": "calin"}), ("caractere.ajuste", {"trait": "calin", "d": 20}),

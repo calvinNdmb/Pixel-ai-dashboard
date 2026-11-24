@@ -3,8 +3,6 @@ from .anims import SHOW
 
 # id -> French name, in the order of the "Thème −" / "Thème +" keys (same ids as web/themes.js)
 THEMES = {"retro": "Rétro", "moderne": "Moderne", "manga": "Manga", "neon": "Néon", "croquis": "Croquis", "lcd": "LCD"}
-# the face: the user's animation pack (52 animations), or the living face
-FACES = {"pack": "Pack 52", "vivant": "Vivant"}
 # every face mood, in the order of the "Humeur +" key (same ids as window.PixelMoods in web/themes.js)
 MOODS = ["neutre", "content", "surpris", "amoureux", "clin", "endormi", "reflechit", "ecoute",
          "triste", "fache", "confus", "excite", "fier", "malade", "baille"]
@@ -49,9 +47,8 @@ def row3(screen, s):
         return [K("Lumi. −", "sys.bright", d=-0.1), K("Lumi. +", "sys.bright", d=0.1), K("Effet\nCRT", "view.toggle", key="crt_off"),
                 K("Démar-\nrage", "sys.boot"), K("Veille", "screen.show", screen="veille")]
     if screen == "reglages":
-        if len(s.get("settings", {}).get("themes") or THEMES) < 2:       # one theme only: the face and the CRT effect instead
-            return [K("Associer\nHue", "lights.pair"), K("Clavier", "view.toggle", key="osk"), K("Effet\nCRT", "view.toggle", key="crt_off"),
-                    K("Visage\nPack 52", "face.set", name="pack"), K("Visage\nVivant", "face.set", name="vivant")]
+        if len(s.get("settings", {}).get("themes") or THEMES) < 2:       # one theme only: the CRT effect instead (and one face: nothing to pick)
+            return [K("Associer\nHue", "lights.pair"), K("Clavier", "view.toggle", key="osk"), K("Effet\nCRT", "view.toggle", key="crt_off"), None, None]
         name = THEMES.get(s["view"].get("theme"), "Rétro")
         return [K("Associer\nHue", "lights.pair"), K("Clavier", "view.toggle", key="osk"), K("Thème −", "theme.step", d=-1),
                 K("Thème\n" + name, "theme.step", d=1), K("Thème +", "theme.step", d=1)]

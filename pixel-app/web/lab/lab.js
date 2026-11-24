@@ -54,7 +54,7 @@ function skin(id) {
 let P = null, kiosk = qs.has('kiosk') || location.hash === '#kiosk';
 document.body.classList.toggle('kiosk', kiosk);
 L.kiosk = kiosk;                              // kiosk: the boot splash plays on the first state, like on the Pi
-hub.configure({ theme: saved.theme, screen: saved.screen, sleep_min: saved.sleepAfter, face: saved.face });
+hub.configure({ theme: saved.theme, screen: saved.screen, sleep_min: saved.sleepAfter });
 if (Number(saved.speed) > 0) C.setSpeed(Number(saved.speed));
 Screens.setSend((action, args) => hub.dispatch(action, args));
 const curMood = () => {                          // same rule as screens.js mood()
@@ -108,7 +108,6 @@ for (const g of hub.AGROUPS) {
   $('animGroups').append(box);
 }
 if (!hub.ANIMS.length) setT($('animNote'), "Le pack d'animations n'est pas chargé.");
-document.querySelectorAll('#faceSeg button').forEach(b => b.addEventListener('click', () => { touch(); hub.dispatch('face.set', { name: b.dataset.face }); }));
 $('idleBtn').addEventListener('click', () => { L.packIdle = L.packIdle === false; if (L.packIdle) hub.dispatch('anim.stop'); syncStatic(); });
 function stopAll() { if (!showAll) return; showAll = null; syncStatic(); }
 $('allBtn').addEventListener('click', () => {
@@ -424,8 +423,8 @@ function refresh() {                                  // things that change with
   const md = curMood();
   moodChips.forEach(b => press(b, b.dataset.id === md)); kmM.forEach(b => press(b, b.dataset.id === md));
   const m = hub.MOODS.find(x => x.id === md);
-  setT($('moodNote'), !m ? '' : md === 'neutre' && P.view.face !== 'vivant' ? "Neutre. Avec le pack 52 : les animations d'attente, tirées au sort." : m.desc ? `${m.name}. ${m.desc}` : m.name);
-  const pa = P.view.face !== 'vivant' || (P.anim && (!P.anim.until || Date.now() < P.anim.until)) ? L.packNow : null;
+  setT($('moodNote'), !m ? '' : md === 'neutre' ? "Neutre : les animations d'attente du pack, tirées au sort ; il cligne des yeux, regarde autour de lui et suit ton doigt." : m.desc ? `${m.name}. ${m.desc}` : m.name);
+  const pa = L.packNow || null;
   animChips.forEach(b => press(b, b.dataset.id === pa));
   if (showAll) { const a = hub.ANIMS[showAll.i]; setT($('animNote'), `Tout voir : ${showAll.i + 1} sur ${hub.ANIMS.length}, ${a.label}.`); }
   else { const a = hub.ANIMS.find(x => x.id === pa); setT($('animNote'), a ? `${a.label} (${a.group}). Touche une animation pour la jouer.` : 'Les 52 animations de ton pack. Touche-en une pour la jouer.'); }
@@ -449,7 +448,6 @@ function render(s) {
   s.keys.nav.forEach((k, i) => { setT(KB[i], k.label); KB[i].classList.toggle('cur', k.id === s.screen); KB[i].setAttribute('aria-label', 'Écran ' + k.label); });
   (s.keys.row3[s.screen] || []).forEach((k, j) => { const b = KB[10 + j]; setT(b, k ? k.label : ''); b.disabled = !k; if (k) b.setAttribute('aria-label', k.label.replace('\n', ' ')); else b.removeAttribute('aria-label'); });
   themeChips.forEach(b => press(b, b.dataset.id === v.theme)); kmT.forEach(b => press(b, b.dataset.id === v.theme));
-  document.querySelectorAll('#faceSeg button').forEach(b => press(b, b.dataset.face === (v.face || 'pack')));
   screenChips.forEach(b => press(b, b.dataset.id === s.screen)); kmS.forEach(b => press(b, b.dataset.id === s.screen));
   weatherChips.forEach(b => press(b, b.dataset.id === wx));
   press($('castRawBtn'), s.cast ? !!s.cast.raw : castRaw);
@@ -459,7 +457,7 @@ function render(s) {
   const b = Math.round(s.sys.bright * 100); if (document.activeElement !== $('bright')) { $('bright').value = String(b); setT($('brightOut'), b + ' %'); }
   $('ledWork').classList.toggle('on', s.chat.phase !== 'idle' || s.codex.running || s.timer.running);
   $('ledLights').classList.toggle('on', s.lights.rooms.some(r => r.on));
-  remember('theme', v.theme); remember('screen', s.screen); remember('face', v.face);
+  remember('theme', v.theme); remember('screen', s.screen);
 }
 hub.listen(snap => {
   const first = !P; P = snap;

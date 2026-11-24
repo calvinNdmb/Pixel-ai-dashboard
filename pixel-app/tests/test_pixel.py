@@ -25,7 +25,7 @@ from pixel.claude import TOOLS  # noqa: E402
 from pixel.commands import norm  # noqa: E402
 from pixel.deck import STYLES  # noqa: E402
 from pixel import anims  # noqa: E402
-from pixel.keys import FACES, MOODS, THEMES  # noqa: E402
+from pixel.keys import MOODS, THEMES  # noqa: E402
 from pixel.system import local_ip  # noqa: E402
 
 fails = []
@@ -147,8 +147,8 @@ async def retro_only():
             await commands.run(hub, text)
             check(f"'{text}': Rétro stays, with a message", v["theme"] == "retro" and "Rétro" in (hub.s["toast"] or {}).get("msg", ""), str(hub.s["toast"]))
         row = [k["label"] if k else None for k in keys.row3("reglages", hub.s)]
-        check("Stream Deck, Réglages: no theme keys, the face and the CRT effect instead",
-              row == ["Associer\nHue", "Clavier", "Effet\nCRT", "Visage\nPack 52", "Visage\nVivant"], str(row))
+        check("Stream Deck, Réglages: no theme keys, the CRT effect instead (and no face to pick: there is one)",
+              row == ["Associer\nHue", "Clavier", "Effet\nCRT", None, None], str(row))
     names = [t["name"] for t in tools_for(["retro"])]
     check("Claude: no theme tool with Rétro only, every other tool still there", "set_theme" not in names and len(names) == len(TOOLS) - 1, str(names))
     two = {t["name"]: t for t in tools_for(["retro", "neon"])}["set_theme"]
@@ -295,7 +295,7 @@ async def main(args):
             await cmd(f"thème {norm(THEMES['croquis'])}")
 
             # ---- the animation pack ----
-            check("the face is the pack by default", state["view"]["face"] == "pack", state["view"].get("face"))
+            check("one face: nothing to choose (no face in the state)", "face" not in state["view"], str(state["view"]))
             await act("anim.play", id="danse")
             a = state["anim"] or {}
             check("anim.play danse", a.get("id") == "danse" and a.get("loops") == 2 and abs(a["until"] - a["t0"] - 8000) < 1, str(a))
@@ -354,15 +354,13 @@ async def main(args):
                 k = state["keys"]["row3"]["visage"][3]
                 await act(k["action"], 0.15, **k["args"])
             check("Anim + walks through the 54 that are not idles", state["anim"]["id"] == key[3]["args"]["id"])
-            for name in FACES:
-                await act("face.set", name=name)
-                check(f"face.set {name} is saved", state["view"]["face"] == name and json.loads((datadir / "ui.json").read_text()) == {"theme": "croquis", "face": name})
-            await cmd("visage pack")
-            check("'visage pack'", state["view"]["face"] == "pack" and state["screen"] == "visage")
+            await act("screen.show", screen="meteo")
             await cmd("visage vivant")
-            check("'visage vivant'", state["view"]["face"] == "vivant")
-            await act("face.set", name="autre")
-            check("an unknown face is refused", state["view"]["face"] == "vivant")
+            check("'visage vivant' (there were two faces): his face, and one face now, he says so",
+                  state["screen"] == "visage" and "un visage" in (state["toast"] or {}).get("msg", "") and "face" not in state["view"], str(state["toast"]))
+            await cmd("visage pack")
+            check("'visage pack': the same", state["screen"] == "visage" and "un visage" in (state["toast"] or {}).get("msg", ""))
+            check("ui.json keeps the theme only", json.loads((datadir / "ui.json").read_text()) == {"theme": "croquis"}, (datadir / "ui.json").read_text())
             await act("screen.show", screen="meteo")
             await cmd("visage")
             check("'visage' alone still opens the screen", state["screen"] == "visage")
@@ -449,7 +447,7 @@ async def after_restart(args, memories=None):
             s = json.loads(m.data)["data"]
             v = s["view"]
             check("the theme choice survives a restart", v["theme"] == "croquis")
-            check("the face choice survives a restart", v["face"] == "vivant", v.get("face"))
+            check("an old ui.json with a face (« vivant »): read without a hitch, still one face", "face" not in v, str(v))
             if memories is not None:
                 d = Path(args.data_dir).expanduser()
                 check("amis.json with values of the wrong type: Pixel starts, with his friends' feature (the bad values dropped)",
@@ -478,6 +476,8 @@ if __name__ == "__main__":
             finally:
                 srv.terminate()
                 srv.wait()
+            # a ui.json from the days of the two faces: its "face" is left unread, its theme kept
+            (Path(tmp) / "ui.json").write_text(json.dumps({"theme": "croquis", "face": "vivant"}))
             memories = break_files(tmp)
             srv = start_server(args.port, tmp)
             try:

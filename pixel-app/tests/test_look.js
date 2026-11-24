@@ -398,13 +398,13 @@ const saved = l => JSON.stringify(Object.fromEntries(SAVED.map(k => [k, l[k]])))
       act('look.set', { normal: true }); await wait(300);
       const OUT = { retro: { yeux: 'chat', porte: ['chapeau', 'noeud'] }, moderne: { yeux: 'etoile', couleur_yeux: 'arc', porte: ['fete'] }, manga: { yeux: 'coeur', couleur_yeux: 'rose', porte: ['couronne'] },
         neon: { yeux: 'amande', couleur_yeux: 'turquoise', porte: ['casque', 'casquette'] }, croquis: { yeux: 'lunettes', porte: ['chapeau', 'moustache', 'noeud'] }, lcd: { yeux: 'carre', porte: ['bonnet', 'echarpe'] } };
-      for (const th of THEMES) for (const face of ['pack', 'vivant']) {
-        act('theme.set', { name: th }); act('face.set', { name: face }); act('look.set', { normal: true }); act('look.set', OUT[th]); await wait(900);
+      for (const th of THEMES) for (const face of ['pack']) {       // one face (the pack, made alive)
+        act('theme.set', { name: th }); act('look.set', { normal: true }); act('look.set', OUT[th]); await wait(900);
         await kiosk.evaluate(() => { Screens.persona.stop(); const L = Screens.local; L.banner = null; L.local = null; L.pack = null; }); await wait(700);
         await kiosk.screenshot({ path: path.join(SHOTS, `pi-${th}-${face}.png`) });
       }
       for (const th of ['lcd', 'manga', 'neon']) { act('theme.set', { name: th }); await wait(500); await phone.tap('.look-go'); await wait(500); await phone.screenshot({ path: path.join(SHOTS, `panneau-${th}.png`) }); await phone.tap('.look-x'); }
-      act('theme.set', { name: 'retro' }); act('face.set', { name: 'pack' });
+      act('theme.set', { name: 'retro' });
     }
     act('look.reset');
     check('the phone and the Pi: no error', perr.length === 0 && kerr.length === 0, perr.concat(kerr).slice(0, 3).join(' | '));
