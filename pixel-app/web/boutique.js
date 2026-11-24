@@ -109,9 +109,16 @@ function gridImage(K) {             // the 24 cells and their drawings, again on
   });
   grid = cv; return cv;
 }
-function bagImage(K) {              // the little hat of the handle
+/* the little hat of the handle, in whole pixels and the theme's colours. Its own drawing: the top hat left the shop's
+   catalogue for « Son look »'s free things (web/look.js), and WR.icon draws only what the shop sells */
+const HAT = ['...######...', '...#h####...', '...#h####...', '...#h####...', '...#h####...', '...bbbbbb...', '...######...', '############', '.##########.'];
+function bagImage(K) {
   const T = K.T, S = K.S, key = T.id + '|' + S; if (bag && bag.key === key) return bag;
-  const cv = document.createElement('canvas'); cv.width = cv.height = Math.round(36 * S); cv.key = key; WR.icon(cv, 'haut-de-forme', T.c); bag = cv; return cv;
+  const cv = document.createElement('canvas'); cv.width = cv.height = Math.round(36 * S); cv.key = key;
+  const g = cv.getContext('2d'), c = T.c, u = 3 * S, y0 = Math.round((36 - HAT.length * 3) / 2) * S;
+  const ink = { '#': c.fg, h: c.hi || c.fg, b: c.accent || c.pink || c.fg };
+  HAT.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (ink[r[i]]) { g.fillStyle = ink[r[i]]; g.fillRect(i * u, y0 + j * u, u, u); } });
+  bag = cv; return cv;
 }
 function over(K) {                  // screens.js, after each drawn screen
   const r = realNow();

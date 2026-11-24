@@ -101,6 +101,13 @@ const WORDS = ['boutique', 'achète la cravate', 'cadeau', 'cadeau', "achète l'
   await k.goto(BASE + '/?kiosk=1'); await until(() => k.evaluate(() => Screens.local.boot < 0 && !!window.PixelBoutique), 9000);
   await free(k); await k.waitForTimeout(300);
   check('the Pi\'s screen: the little hat is there, the tray closed', await k.evaluate(() => PixelBoutique.shown && !PixelBoutique.trayOpen));
+  check('the little hat has its picture, not an empty box', await k.evaluate(() => {   // its drawing is its own (no more hat in the catalogue)
+    const cv = document.getElementById('crt'), g = cv.getContext('2d'), s = cv.width / 800, h = PixelBoutique.HANDLE;
+    const bg = g.getImageData(Math.round((h.x + 52) * s), Math.round((h.y + 52) * s), 1, 1).data;      // inside the box, off the hat
+    const d = g.getImageData(Math.round((h.x + 14) * s), Math.round((h.y + 14) * s), Math.round(36 * s), Math.round(36 * s)).data;
+    let ink = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) > 90) ink++;
+    return ink > 60 * s * s;
+  }));
   check('the hat is outside his face box (x ≤ 64), above the info line (y 440), off the corners, ≥ 56 px, the twin of Nourrir\'s plate',
     await k.evaluate(() => { const h = PixelBoutique.HANDLE, n = PixelNourrir.HANDLE; return h.x === 0 && h.x + h.w <= 64 && h.y >= 64 && h.y + h.h <= 416 && h.w >= 56 && h.h >= 56 && h.y === n.y && h.x + h.w <= n.x; }));
   await shot(k, 'kiosk-hat');
