@@ -7,6 +7,7 @@ import unicodedata
 
 from . import anims, boutique, caractere, nourrir, scenes
 from . import quiz                    # « quiz sur les volcans », « interroge-moi sur les capitales » (pixel/quiz.py)
+from . import cours                   # « quiz sur mon cours », « révise ma leçon de sciences » (pixel/cours.py: a lesson in photos)
 from . import exos                    # math exercises: « exo », « table de 7 », a number while one is open
 from . import souvenirs               # « prends une photo », « montre l'album », « mon anniversaire c'est le 12 mars », « je suis triste »
 from . import amis                    # his friends: « va voir Bip », « dis coucou à Bip », « mes amis », « ajoute l'ami … »
@@ -79,6 +80,8 @@ async def run(hub, text):
     if await exos.command(hub, raw, t):                     # pixel/exos.py: its own words only; a bare number only while an exercise is open
         return
 
+    if await cours.command(hub, raw, t):                    # pixel/cours.py: a quiz on a lesson in photos (before the quizzes on a subject)
+        return
     if await quiz.command(hub, raw, t):                     # pixel/quiz.py: a quiz made to measure, straight to its writer
         return
 

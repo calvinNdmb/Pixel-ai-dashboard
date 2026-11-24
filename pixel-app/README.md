@@ -534,10 +534,12 @@ node tests/test_nourrir.js           # port 8175 ; il faut Playwright ; --shots 
 
 Pixel te pose de petits exercices, du CP au collège : additions, soustractions, tables de multiplication, divisions, compléments à 10 ou à 100, doubles et moitiés, calcul mental avec les priorités, comparaisons, suites logiques (2, 4, 6, ?), petits problèmes (« Pixel a 12 piles, il en mange 5… »), heures et durées, fractions, pourcentages, carrés, et des énigmes.
 
+**Les petits problèmes, toujours nouveaux :** avec une clé API, Claude Haiku en écrit d'avance, une douzaine à la fois pour ton niveau, et Pixel les garde en réserve (`~/.config/pixel/problemes.json`) : chaque problème n'est posé qu'une fois. Avant d'entrer dans la réserve, chacun est vérifié sur le Pi : son calcul est refait et doit donner sa réponse, un nombre entier, avec trois mauvaises réponses différentes ; sinon il est jeté. Quand la réserve d'un niveau baisse, Pixel en redemande en arrière-plan : l'exo n'attend jamais. Une douzaine coûte entre 0,1 et 0,2 centime, compté dans le budget du mois. Sans clé API, budget épuisé ou réserve vide, Pixel pose ses problèmes tout faits, comme avant. Dans `[claude]` de `config.toml` : `problemes_model` (Haiku au départ) ; `problemes = false` pour garder seulement les problèmes tout faits.
+
 **Pour en lancer un :**
-- tape `exo`, `exo de maths`, `un calcul`, `calcul mental`, `table de 7` (ou `révisons la table de 7`), `défi chrono`, `série de 5`, `10 questions`, `une énigme`, `exo de fractions`, `exo difficile` ; les mêmes mots marchent sans Pi et dans Pixel Lab ;
-- sur l'écran du Pi, touche le bouton **Exos** à droite de son visage (le « + × − = ») : l'écran « Exos de maths » propose un exo, une série de 5, le défi chrono, une énigme ou une table (de 2 à 10). **Fermer** le range ; il se range aussi tout seul après 30 secondes sans toucher ;
-- sur ton téléphone, touche **Exos** sous les touches : un exo, une série, le défi chrono, une énigme, une table ou un type d'exo ;
+- tape `exo`, `exo de maths`, `un calcul`, `calcul mental`, `entraînement de calcul mental`, `table de 7` (ou `révisons la table de 7`), `défi chrono`, `série de 5`, `10 questions`, `une énigme`, `exo de fractions`, `exo difficile` ; les mêmes mots marchent sans Pi et dans Pixel Lab, et au micro ;
+- sur l'écran du Pi, touche le bouton **Exos** à droite de son visage (le « + × − = ») : l'écran « Exos de maths » propose le calcul mental, un exo, une série de 5, le défi chrono, une énigme ou une table (de 2 à 10). **Fermer** le range ; il se range aussi tout seul après 30 secondes sans toucher ;
+- sur ton téléphone, touche **Exos** sous les touches : le calcul mental, un exo, une série, le défi chrono, une énigme, une table ou un type d'exo ;
 - demande à Claude « pose-moi une question de maths » (ou au micro : « crée un quiz sur les volcans ») ;
 - si tu le lui permets (réglage **Il te propose des questions**, éteint au départ), Pixel te propose de temps en temps, dans la journée : « Une petite question ? ». Touche **Oui !**.
 
@@ -550,11 +552,13 @@ Pixel te pose de petits exercices, du CP au collège : additions, soustractions,
 - avec un clavier branché sur le Pi : les chiffres, puis Entrée ; pour une énigme, les touches 1 à 4 ; Échap range l'exo ;
 - touche Pixel : il te donne un indice.
 
+**Les indices :** touche **Indice** autant de fois qu'il faut. Le premier est une phrase qui aide (« 7 × 4 = 28, et le double ? ») ; le suivant barre une mauvaise réponse, puis une autre : il en reste deux, la bonne et une fausse. Le bouton s'éteint quand il n'y a plus d'indice à donner. Les réponses barrées ne se touchent plus. Ça marche pour tous les exos et les quiz, sur le Pi, dans l'appli et sur le Stream Deck. Avec un indice, une bonne réponse compte, mais elle ne fait pas monter le niveau.
+
 **Encore ?** Pendant un exo, ou juste après, `encore` ou `une autre` en lance un autre. Plus tard, ou après **Fini**, ces mots repartent à Claude, comme avant.
 
 **Une erreur ?** Pixel t'encourage, te donne un indice et un deuxième essai. Deuxième erreur : il montre la bonne réponse et comment la trouver (« 7 × 8 = 56 : 7 × 4 = 28, et 28 × 2 = 56 »). Il ne se moque jamais. Si tu réfléchis longtemps, il te demande gentiment si tu veux un indice.
 
-**Les modes :** un exo seul ; une série de 5, avec un bilan ; une table, ses 10 multiplications dans le désordre ; le défi chrono, le plus de bonnes réponses en 60 secondes, sans deuxième essai.
+**Les modes :** un exo seul ; une série de 5, avec un bilan ; une table, ses 10 multiplications dans le désordre ; le défi chrono, le plus de bonnes réponses en 60 secondes, sans deuxième essai ; le **calcul mental**, un entraînement de 10 calculs rapides mélangés (additions, soustractions, tables, divisions, compléments, doubles et moitiés, priorités), chacun à ton niveau, avec un bilan ; `encore` le refait.
 
 **Il s'adapte :** trois bonnes réponses de suite, du premier coup, font monter le niveau de ce type d'exo ; une erreur le fait baisser. Niveau 1 : CP, CE1 ; niveau 5 : collège. Dans le panneau **Exos**, partie **Réglages** : le niveau de départ, le niveau fixe (« S'adapte tout seul » sur Non), les types des exos au hasard, l'objectif du jour (5 exos au départ) et ses propositions.
 
@@ -582,6 +586,19 @@ Le quiz se joue ensuite comme une série d'exos : la question en gros, 4 répons
 Sans clé API (mode démo, ou Claude avec ton abonnement), il joue un petit quiz de démo de 3 questions et le dit.
 
 **Sans Pi, dans l'appli Android :** les mêmes commandes (`quiz sur les volcans`, `interroge-moi sur les capitales`) marchent sur le Pixel du téléphone. C'est l'appli qui demande le quiz à Claude, avec une clé API que tu lui donnes une fois : bouton retour du téléphone, puis **Clé Claude**. La clé reste dans le coffre du téléphone. Pixel compte ce que coûtent les quiz du mois : tape `budget` pour le voir, `budget 10` pour changer le plafond (30 € au départ), `budget 0` pour l'enlever. Sans clé, il te dit où la mettre. Les discussions avec Claude, elles, restent sur le Pi.
+
+## Mes cours : un cours en photo
+
+Prends ton cours en photo, Pixel le lit et te pose des questions dessus pendant une semaine.
+
+1. Sur ton téléphone, ouvre **Exos** sous les touches, puis la partie **Mes cours**.
+2. Touche **Prendre en photo** : l'appareil photo s'ouvre. Une page, puis **Une autre page** pour la suivante (6 au plus) ; ou **Choisir des photos** déjà prises. Une photo ratée ? Touche son **×**. Tu peux donner un titre.
+3. Touche **Envoyer à Pixel**. Pixel réfléchit pendant qu'il lit (quelques secondes), puis dit « J'ai lu ton cours « Les volcans » ».
+4. Pour réviser : **Quiz** à côté du cours, ou **Mon cours** dans l'écran « Exos de maths » du Pi (le dernier cours), ou tape (ou dis au micro) `quiz sur mon cours`, `interroge-moi sur ma leçon de sciences`, `révise mon cours sur les volcans`. Le quiz n'interroge que sur ce qui est dans le cours. Tu peux aussi demander à Claude de t'expliquer ton cours : il le lit.
+
+**Voir le texte** montre ce que Pixel a lu, pour vérifier. **Oublier** l'efface tout de suite ; sinon, il l'oublie tout seul au bout de 7 jours (`[cours] jours = 7` dans `config.toml`). Les photos ne sont jamais gardées : seul le texte du cours reste sur le Pi (`~/.config/pixel/cours/cours.json`, lisible par toi seul). Pour de bonnes photos : bien à plat, de près, avec de la lumière.
+
+Il faut une clé API : Claude Sonnet 5.5 lit les photos (`[claude] cours_model`), environ 1 centime par page, compté dans le budget du mois. Sans clé, la partie **Mes cours** dit pourquoi et rien n'est envoyé. Dans l'appli Android, l'appareil photo s'ouvre comme dans le navigateur.
 
 ## Répondre avec le Stream Deck
 
@@ -1023,6 +1040,8 @@ node tests/test_quiz.js              # les quiz sur mesure du Pixel du télépho
 python3 tests/test_quiz.py           # les quiz sur mesure, le budget, Haiku, les touches du Stream Deck (une fausse API)
 python3 tests/test_boutique.py       # son propre serveur de démo sur le port 8176 (BOUTIQUE_PY_PORT=… pour un autre)
 node tests/test_boutique.js          # port 8177 (BOUTIQUE_PORT=… pour un autre) ; --shots DOSSIER pour les captures
+python3 tests/test_problemes.py      # les problèmes écrits à l'avance par Haiku : les calculs refaits, la réserve (une fausse API)
+python3 tests/test_cours.py          # « Mes cours » : l'envoi des photos, leur lecture (une fausse API), la semaine, les quiz dessus
 python3 tests/test_exos.py           # son serveur de démo sur le port 8181 (EXOS_PY_PORT=… pour un autre)
 node tests/test_exos.js              # port 8185 (EXOS_PORT=… pour un autre) ; --shots DOSSIER pour les captures
 python3 tests/test_habitudes.py      # ses habitudes, sans serveur (horloges fixées)
@@ -1059,6 +1078,8 @@ Pas encore testé avec le vrai matériel :
 | `web/scenes/moments.js` | onze moments pour les animations ajoutées au pack |
 | `pixel/exos.py`, `web/exos.js` | les exos de maths : le générateur, le jeu et ses scores ; l'écran du Pi et le panneau **Exos** du téléphone (`exos.css`) ; ses réactions dans `scenes/exos.js` |
 | `pixel/quiz.py`, `pixel/budget.py` | les quiz sur mesure, écrits par un deuxième modèle et joués par les exos ; le budget du mois avec une clé API |
+| `pixel/problemes.py` | les petits problèmes des exos, écrits à l'avance par Claude Haiku et mis en réserve (`problemes.json`), chacun vérifié en refaisant son calcul |
+| `pixel/cours.py`, `web/cours.js` | « Mes cours » : un cours pris en photo sur le téléphone, lu par Claude, gardé une semaine (`cours/cours.json`), et les quiz dessus |
 | `pixel/look.py`, `web/look.js` | son look : ses yeux, ses couleurs, ses accessoires, les tenues de saison et le pyjama ; le dessin dans les 6 thèmes et le panneau **Son look** du téléphone (`look.css`) ; ses réactions dans `scenes/look.js` |
 | `pixel/habitudes.py`, `web/habitudes.js` | ses habitudes : son emploi du temps, ses mini-jeux, ses rires, ses peurs, ses phrases ; les jeux et sa nuit sur l'écran, le panneau **Habitudes** du téléphone (`habitudes.css`) ; ses scènes et ses blagues dans `scenes/habitudes.js` |
 | `pixel/souvenirs.py`, `pixel/album.py`, `web/souvenirs.js`, `web/album.js` | ses souvenirs, le carnet d'humeur et l'album photo : le serveur, son écran, le panneau **Souvenirs** du téléphone (`souvenirs.css`) ; ses scènes dans `scenes/souvenirs.js` |

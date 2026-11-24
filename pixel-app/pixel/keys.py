@@ -96,14 +96,16 @@ def exo_keys(cur, typed=""):
     key = lambda label, action, style="act", **args: {"label": label, "action": action, "args": args, "style": style}  # noqa: E731
     fini = key("Fini", "exos.stop")
     if etat == "question":
-        hint = key("Indice", "exos.indice") if not cur.get("hint") and cur.get("mode") != "chrono" else None
+        more = cur.get("plus", not cur.get("hint"))            # another hint: its sentence, then a wrong answer struck out…
+        hint = key("Indice", "exos.indice") if more and cur.get("mode") != "chrono" else None
         if exo_pad(cur):
             for i, d in enumerate(DIGITS):
                 k[i] = key(d, "deck.chiffre", "num", d=d)
             k[10:15] = [key(typed or "?", None, "vu"), key("Effacer", "deck.efface"), key("OK", "deck.ok", "ok"), hint, fini]
         else:
+            gone = cur.get("elimine") or []                      # struck out by a hint: an empty key
             for i, c in enumerate((cur.get("choices") or [])[:4]):
-                k[i] = key(wrap(c), "exos.repondre", "choix", value=c, id=cid)
+                k[i] = None if c in gone else key(wrap(c), "exos.repondre", "choix", value=c, id=cid)
             k[4] = hint
             k[13:15] = [key("Passer", "exos.passer", id=cid, etat=etat), fini]
     elif etat == "resultat":

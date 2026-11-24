@@ -34,6 +34,8 @@ LABEL = dict(KINDS)
 IDS = [k for k, _ in KINDS]
 MIN_MIX = {"division": 2, "carre": 2, "pourcentage": 3, "fraction": 2}   # a mixed exercise picks these from that level up
 CALCUL = ["addition", "soustraction", "table", "division", "complement", "double", "mental"]   # « un calcul »
+POOLS = {"calcul": ("Calcul mental", CALCUL)}     # a named set of kinds (exos.nouveau pool "calcul"): its series has its title
+CALCUL_N = 10                                     # « Calcul mental »: 10 quick calculations to train
 MODES = {"exo": 1, "serie": 5, "table": 10, "chrono": 0}
 CHRONO_MS = 60000
 IDLE_CLOSE_MS = 8 * 60000          # an exercise left alone that long is put away (the face comes back)
@@ -518,8 +520,16 @@ def g_suite(lv, R):
     return ", ".join(fmt(t) for t in shown) + ", ?", ans, wrong, hint, ex, str(ans), None
 
 
+RESERVE = None                     # pixel/problemes.py: word problems written ahead of time by Claude, taken first
+
+
 def g_probleme(lv, R):
-    """Word problems with Pixel in them. Each template: levels, then (question, answer, mistakes, hint, correction, calc)."""
+    """Word problems: one written ahead of time by Claude when the reserve has one (pixel/problemes.py), else Pixel's own
+    templates. Each template: levels, then (question, answer, mistakes, hint, correction, calc)."""
+    if RESERVE is not None:
+        p = RESERVE.take(lv)
+        if p:
+            return p
     def t_sub():
         a = R.randint(6, 10 if lv == 1 else 20 if lv == 2 else 60)
         b = R.randint(2, a - 2)
@@ -999,7 +1009,8 @@ class Exos:
         self.ev = {"id": ((self.ev or {}).get("id") or 0) + 1, "kind": kind, "t0": self.ms(), **data}
 
     def nouveau(self, kind=None, niveau=None, mode="exo", n=None, table=None, source=None, pool=None):
-        """A new exercise, or the first of a series. Replaces the one in play."""
+        """A new exercise, or the first of a series. Replaces the one in play. pool: the kinds to draw from (a list), or the
+        name of a set of POOLS (« calcul »: the series is « Calcul mental »)."""
         mode = mode if mode in MODES else "exo"
         source = source if source in SOURCES else ""       # it goes out in every snapshot: only a known word
         kind = kind if kind in LABEL else None
@@ -1010,14 +1021,15 @@ class Exos:
             table = None
         lv = _int(niveau, 1, 5)
         total = 0 if mode == "chrono" else (_int(n, 1, 20) or MODES[mode])
-        pool = [k for k in (pool or []) if k in LABEL] or None
+        named = pool if isinstance(pool, str) and pool in POOLS else None
+        pool = [k for k in ((POOLS[named][1] if named else pool) or []) if k in LABEL] or None
         self.run = {"mode": mode, "kind": kind, "pool": pool, "table": table, "niveau": lv, "total": total, "i": 0, "bons": 0,
-                    "ends_at": self.ms() + CHRONO_MS if mode == "chrono" else 0, "source": source}
+                    "ends_at": self.ms() + CHRONO_MS if mode == "chrono" else 0, "source": source, "nom": POOLS[named][0] if named else None}
         if mode == "table" and table:
             ks = list(range(1, 11))
             self.R.shuffle(ks)
             self.run["ks"] = (ks * 2)[:total]
-        self.again = {"kind": kind, "niveau": lv, "mode": mode, "n": n, "table": table, "pool": pool}
+        self.again = {"kind": kind, "niveau": lv, "mode": mode, "n": n, "table": table, "pool": named or pool}
         self._day()
         self._next()
         self._event("propose", mode=mode, source=source)
@@ -1046,8 +1058,8 @@ class Exos:
             self._id += 1
             self.cur = {"kind": QUIZ, "niveau": 0, "q": it["q"], "answer": it["answer"], "choices": ch, "hint": it["hint"],
                         "explication": it["explication"], "calc": None, **_clavier(ch), "id": self._id, "mode": r["mode"], "t0": self.ms(),
-                        "tries": 0, "faux": [], "hint_on": False, "etat": "question", "i": r["i"] + 1, "n": r["total"], "force": True,
-                        "table": None, "titre": r["titre"]}
+                        "tries": 0, "faux": [], "hint_on": False, "indices": 0, "elimine": [], "etat": "question", "i": r["i"] + 1,
+                        "n": r["total"], "force": True, "table": None, "titre": r["titre"]}
             return
         kind = r["kind"] or self.pick_kind(r["pool"])
         lv = r["niveau"] or self.level(kind)
@@ -1058,15 +1070,36 @@ class Exos:
                 break
         self.recent = (self.recent + [ex["q"]])[-14:]
         self._id += 1
-        self.cur = {**ex, "id": self._id, "mode": r["mode"], "t0": self.ms(), "tries": 0, "faux": [], "hint_on": False, "etat": "question",
-                    "i": r["i"] + 1, "n": r["total"], "force": bool(r["niveau"]), "table": r["table"] if kind == "table" else None}
+        self.cur = {**ex, "id": self._id, "mode": r["mode"], "t0": self.ms(), "tries": 0, "faux": [], "hint_on": False, "indices": 0,
+                    "elimine": [], "etat": "question", "i": r["i"] + 1, "n": r["total"], "force": bool(r["niveau"]),
+                    "table": r["table"] if kind == "table" else None, "nom": r.get("nom")}
+
+    @staticmethod
+    def _left(c):
+        """The answers still in play: neither a wrong one already given nor one a hint struck out."""
+        gone = c["faux"] + c.get("elimine", [])
+        return [x for x in c["choices"] if x not in gone]
+
+    def more_hints(self, c):
+        """Another hint can be given: its sentence first, then wrong answers struck out until two answers are left."""
+        return bool(c) and c["etat"] == "question" and (not c["hint_on"] or len(self._left(c)) > 2)
 
     def indice(self):
+        """The next hint (« Indice » again and again): its sentence, then a wrong answer struck out, then another one, until
+        two answers are left (the right one and a wrong one). True when one was given."""
         c = self.cur
-        if c and c["etat"] == "question" and not c["hint_on"]:
-            c["hint_on"] = True
-            return True
-        return False
+        if not self.more_hints(c):
+            return False
+        if not c["hint_on"]:
+            c["hint_on"], c["indices"] = True, 1
+            if c.get("hint"):
+                return True
+        wrong = [x for x in self._left(c) if not same(x, c["answer"])]
+        if len(self._left(c)) <= 2 or not wrong:
+            return c["indices"] > 0
+        c.setdefault("elimine", []).append(self.R.choice(wrong))
+        c["indices"] = c.get("indices", 0) + 1
+        return True
 
     def repondre(self, value, id=None):
         """An answer: True (right), False (wrong, resolved), "indice" (wrong: the hint and a second try), None (nothing to answer).
@@ -1077,10 +1110,10 @@ class Exos:
         if not c or c["etat"] != "question" or not v or (id is not None and str(id) != str(c["id"])):
             return None
         ok = same(v, c["answer"])
-        if not ok and any(same(v, f) for f in c["faux"]):
+        if not ok and any(same(v, f) for f in c["faux"] + c.get("elimine", [])):      # given already, or struck out by a hint
             return None
         if not ok and c["tries"] == 0 and c["mode"] != "chrono":
-            c["tries"], c["hint_on"] = 1, True
+            c["tries"], c["hint_on"], c["indices"] = 1, True, max(1, c.get("indices", 0))
             c["faux"].append(next((x for x in c["choices"] if same(v, x)), v))
             self._event("faux", essai=1, kind_=c["kind"])
             return "indice"
@@ -1212,9 +1245,10 @@ class Exos:
         if new:
             st["record_chrono"] = r["bons"]
         self._id += 1
-        label = r.get("titre") or (f"Table de {r['table']}" if r["mode"] == "table" else LABEL.get(r["kind"]) or "Mélange")
+        label = r.get("titre") or r.get("nom") or (f"Table de {r['table']}" if r["mode"] == "table" else LABEL.get(r["kind"]) or "Mélange")
         self.cur = {"id": self._id, "mode": r["mode"], "kind": r["kind"] or "", "type": label, "etat": "bilan", "bons": r["bons"], "total": total,
-                    "record": max(record, r["bons"]) if chrono else 0, "nouveau_record": bool(new), "t0": self.ms(), "next_at": self.ms() + 14000}
+                    "record": max(record, r["bons"]) if chrono else 0, "nouveau_record": bool(new), "t0": self.ms(), "next_at": self.ms() + 14000,
+                    "nom": r.get("nom")}
         self.run = None
         self._event("serie", fin=True, bons=r["bons"], total=total, chrono=chrono, record=bool(new))
         self._toast(" · ".join(self._trophies()))
@@ -1284,10 +1318,13 @@ class Exos:
             cur["type"] = c.get("titre") or (f"Table de {c['table']}" if c.get("table") else LABEL.get(c["kind"], ""))
             if c["hint_on"]:
                 cur["hint"] = c["hint"]
+            cur.update(elimine=list(c.get("elimine", [])), indices=c.get("indices", 0), plus=self.more_hints(c))   # struck out: wrong ones only
             if c["etat"] == "resultat":                        # answered: now it may be shown
                 cur.update(ok=c["ok"], answer=c["answer"], explication=c["explication"], valeur=c["valeur"], passe=c["passe"], monte=c["monte"])
             if self.run and self.run["mode"] == "chrono":
                 cur.update(ends_at=self.run["ends_at"], left=max(0, math.ceil((self.run["ends_at"] - t) / 1000)), bons=self.run["bons"])
+        if cur is not None and c.get("nom"):                   # a named series (« Calcul mental »): the screens' title
+            cur["nom"] = c["nom"]
         pt = {k: [v.get("n", 0), v.get("ok", 0), self.level(k)] for k, v in st["par_type"].items()}
         return {"cur": cur, "last": self.last, "ev": self.ev, "niveau": self.global_level(), "reglages": dict(self.reglages),
                 "stats": {"total": st["total"], "justes": st["justes"], "serie": st["serie"], "serie_max": st["serie_max"], "aujourdhui": st["aujourdhui"],
@@ -1368,6 +1405,9 @@ async def command(hub, raw, t):
         return await go(mode="table", table=int(m.group(1)))
     if re.fullmatch(r"(?:un |le |mon )?(?:defi chrono|defi|defi maths?|chrono maths?|defi de maths?)", t):
         return await go(mode="chrono")
+    if re.fullmatch(r"(?:(?:un |l')?entrainement|entraine-moi|entraine moi|entrainons-nous|on s'entraine|je veux m'entrainer|(?:une |la )?serie)"
+                    r"(?: (?:de|du|au|en|a))? calcul mental", t):     # « Calcul mental », 10 quick calculations (« calcul mental »: one, of priorities)
+        return await go(mode="serie", n=CALCUL_N, pool="calcul")
     m = re.fullmatch(r"(?:une |la )?serie(?: de (\d{1,2}))?(?: (?:exos|exercices|questions|calculs))?|(\d{1,2}) (?:exos|exercices|questions|calculs)", t)
     if m:
         return await go(mode="serie", n=int(m.group(1) or m.group(2) or 5))
@@ -1438,8 +1478,10 @@ def setup(hub, datadir=None):
 
     @hub.action("exos.nouveau")
     async def nouveau(kind=None, niveau=None, mode="exo", n=None, table=None, source=None, pool=None):
-        """A new exercise (kind: one of KINDS, or mixed), or a series: mode serie (n), table (table), chrono (60 s)."""
-        ex.nouveau(kind=kind, niveau=niveau, mode=str(mode or "exo"), n=n, table=table, source=source, pool=pool if isinstance(pool, list) else None)
+        """A new exercise (kind: one of KINDS, or mixed), or a series: mode serie (n), table (table), chrono (60 s). pool: the
+        kinds to draw from, or « calcul » (Calcul mental)."""
+        ex.nouveau(kind=kind, niveau=niveau, mode=str(mode or "exo"), n=n, table=table, source=source,
+                   pool=pool if isinstance(pool, (list, str)) else None)
         hub.s["anim"] = None
         hub.s["screen"] = "visage"                    # the exercise shows on his face screen
         pub()

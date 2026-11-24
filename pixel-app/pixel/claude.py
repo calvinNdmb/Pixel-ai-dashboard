@@ -15,6 +15,7 @@ from . import amis                    # pixel_friends: his friends' Pixels (the 
 from . import look                    # set_look: his eyes, colours and what he wears (pixel/look.py)
 from . import habitudes               # habits: his schedule, a game, a joke (pixel/habitudes.py; never a phrase to teach him)
 from . import quiz                    # create_quiz: a quiz made to measure, written by a second model (pixel/quiz.py)
+from . import cours                   # my_lessons: the lessons photographed in the app (read one, or a quiz on it)
 from .budget import Budget            # what Claude costs this month, and its ceiling (pixel/budget.py)
 
 log = logging.getLogger("pixel.claude")
@@ -63,6 +64,7 @@ TOOLS.append(nourrir.TOOL)               # Nourrir: he eats a food of his menu (
 TOOLS.append(boutique.TOOL)              # his wardrobe: he puts on or takes off an accessory he owns (pixel/boutique.py)
 TOOLS.append(exos.TOOL)                     # pixel/exos.py: start_exercise
 TOOLS.append(quiz.TOOL)                     # pixel/quiz.py: create_quiz
+TOOLS.append(cours.TOOL)                    # pixel/cours.py: my_lessons (list, read, quiz)
 TOOLS.append(souvenirs.TOOL)                # pixel/souvenirs.py: souvenirs (birthday, photo, mood: the mood only if allowed)
 TOOLS.append(amis.TOOL)                     # pixel/amis.py: pixel_friends (no free text, no new friend: the list, a visit, a coucou)
 TOOLS.append(look.TOOL)                     # pixel/look.py: set_look
@@ -138,6 +140,7 @@ def check(name, a):
         "set_character": caractere.tool_ok(a),
         "start_exercise": exos.check_tool(a),
         "create_quiz": quiz.check_tool(a),
+        "my_lessons": cours.check_tool(a),
         "habits": habitudes.check_tool(a),
     }.get(name)
     return None if ok else f"entrée invalide pour {name} : {json.dumps(a, ensure_ascii=False)}"
@@ -209,6 +212,8 @@ class Claude:
             out["look"] = h.look.status()
         if getattr(h, "habitudes", None) is not None:           # his day and his games (pixel/habitudes.py); never his taught phrases
             out["habitudes"] = h.habitudes.summary()
+        if getattr(h, "cours", None) is not None:              # the lessons photographed in the app (pixel/cours.py): their titles
+            out["cours"] = h.cours.summary()
         if self.client and getattr(h, "budget", None) is not None:   # with an API key: what Claude cost this month (pixel/budget.py)
             out["budget_claude"] = h.budget.status()
         return out
@@ -266,6 +271,8 @@ class Claude:
             return await exos.run_tool(h, a)
         if name == "create_quiz":
             return await quiz.run_tool(h, a)
+        if name == cours.TOOL["name"]:
+            return await cours.run_tool(h, a)
         if name == souvenirs.TOOL["name"]:
             return await souvenirs.run_tool(h, a)
         if name == amis.TOOL["name"]:
