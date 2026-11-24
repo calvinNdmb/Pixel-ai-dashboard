@@ -17,6 +17,7 @@ Pixel devient *ton* Pixel. Sur ton téléphone, sous les touches : **Caractère*
 
 - **Son caractère** : 15 caractères tout prêts (câlin, grognon, farceur, petit prof…) ou huit curseurs, son nom et le tien, ses heures calmes. Ça change vraiment ce qu'il fait. Tape `sois grognon`, `appelle-toi Bip`.
 - **Le nourrir** : son ventre se vide doucement dans la journée, jamais la nuit. Donne-lui un des 24 plats dessinés en gros pixels : il a ses goûts. Tape `mange une pomme`, `tu as faim ?`. Sur l'écran du Pi, l'assiette en bas à droite ouvre son plateau.
+- **Sa boutique** : les exos, les repas, le minuteur et le cadeau du jour rapportent des pièces, qui achètent 14 accessoires (oreilles de chat, auréole, lunettes cœur…). C'est **Son look** qui les lui met, avec ses accessoires gratuits, un par endroit. Tape `boutique`, `achète le monocle`.
 - **Les exos de maths** : 15 sortes d'exercices, du CP au collège, en série, en table ou en défi chrono, avec des étoiles et des trophées. Tape `exo`, `table de 7`, puis ta réponse.
 - **Les quiz sur mesure** : avec une clé API, Pixel écrit un quiz sur ce que tu veux. Tape `quiz sur les volcans`. On répond sur l'écran ou avec les touches du Stream Deck, et un budget du mois plafonne la dépense.
 

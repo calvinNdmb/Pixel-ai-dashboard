@@ -52,6 +52,22 @@ ITEMS = {"chapeau": ("Chapeau haut-de-forme", "tete"), "casquette": ("Casquette"
          "sorciere": ("Chapeau de sorcière", "tete"), "citrouille": ("Citrouille", "tete"), "pere-noel": ("Bonnet de Père Noël", "tete"),
          "bonnet-nuit": ("Bonnet de nuit", "tete"), "lunettes-soleil": ("Lunettes de soleil", "yeux"), "moustache": ("Moustache", "visage"),
          "noeud": ("Nœud papillon", "cou"), "echarpe": ("Écharpe", "cou"), "pyjama": ("Pyjama", "cou"), "casque": ("Casque audio", "oreilles")}
+# what his shop sells (pixel/boutique.py fills it: {id: (name, slot, « une cravate »)}): he wears them like the items above, one per slot, but
+# only once bought: OWNS(id) says so (None: no shop, nothing of it can be put on). The seasons and the outfits never use them.
+EXTRA = {}
+OWNS = None
+
+
+def known(item):
+    """An item he can wear (his own catalogue, or his shop's): its (name, slot), or None."""
+    return ITEMS.get(item) or EXTRA.get(item) if isinstance(item, str) else None
+
+
+def owned(item):
+    """An item of his own catalogue, or one of his shop's he has bought."""
+    return item in ITEMS or (item in EXTRA and OWNS is not None and bool(OWNS(item)))
+
+
 # whole outfits (« habille-toi pour l'hiver »): what they put on, slot by slot (None: that slot is emptied)
 TENUES = {"hiver": ("Pour l’hiver", {"tete": "bonnet", "cou": "echarpe"}), "ete": ("Pour l’été", {"tete": "casquette", "yeux": "lunettes-soleil"}),
           "halloween": ("Pour Halloween", {"tete": "sorciere"}), "noel": ("Pour Noël", {"tete": "pere-noel", "cou": "echarpe"}),
@@ -94,7 +110,7 @@ def clean(d):
     ac = d.get("accessoires") if isinstance(d.get("accessoires"), dict) else {}
     for s in SLOTS:
         it = ac.get(s)
-        if isinstance(it, str) and it in ITEMS and ITEMS[it][1] == s:
+        if known(it) and known(it)[1] == s:
             out["accessoires"][s] = it
     sans = d.get("sans") if isinstance(d.get("sans"), dict) else {}
     for s in SLOTS:
@@ -202,7 +218,7 @@ def context(hub, d=None):
 def _items(v):
     """One item id or a list of them, as a list of valid ids (anything else dropped)."""
     v = v if isinstance(v, list) else [v]
-    return [x for x in v[:8] if isinstance(x, str) and x in ITEMS]
+    return [x for x in v[:8] if isinstance(x, str) and owned(x)]
 
 
 def apply(look, args, today=None):
@@ -247,14 +263,14 @@ def apply(look, args, today=None):
                     quoi.append("enleve")
                     extra["item"] = "lunettes"
                     continue
-                s = ITEMS[x][1] if x in ITEMS else x if x in SLOTS else None
+                s = known(x)[1] if known(x) else x if x in SLOTS else None
                 if s:
                     ac[s] = None
                     sans[s] = today
                     quoi.append("enleve")
-                    extra["item"], extra["slot"] = (x if x in ITEMS else None), s
+                    extra["item"], extra["slot"] = (x if known(x) else None), s
     for it in _items(args.get("porte")):
-        s = ITEMS[it][1]
+        s = known(it)[1]
         ac[s] = it
         sans.pop(s, None)
         if it == "lunettes-soleil" and new["yeux"] == "lunettes":
@@ -288,10 +304,12 @@ def apply(look, args, today=None):
 
 # ---- words (for Claude, the toasts, the commands) ----
 def item_name(item):
-    return ITEMS[item][0] if item in ITEMS else ""
+    return known(item)[0] if known(item) else ""
 
 
 def _article(item):
+    if item in EXTRA and len(EXTRA[item]) > 2:     # a shop's item says it itself (« une cravate », « des oreilles de chat »)
+        return EXTRA[item][2]
     n = item_name(item).lower()
     fem = item in ("casquette", "couronne", "citrouille", "moustache", "echarpe")
     plural = item in ("antenne", "lunettes-soleil")
@@ -315,8 +333,8 @@ def describe(look, porte=None, il=False):
     eyes = "des yeux " + SHAPE_WORDS_OUT[shape] + ("" if ce == "theme" else " " + EYES_ADJ[ce]) + (", avec des lunettes" if shape == "lunettes" else "")
     parts = [eyes] + ([f"les joues {CHEEKS_ADJ[look['couleur_joues']]}"] if look["couleur_joues"] != "theme" else [])
     porte = porte if isinstance(porte, dict) else resolve(look, {"date": dt.datetime.now()})
-    worn = [it for s in SLOTS if isinstance(it := porte.get(s), str) and it in ITEMS]
-    mine = [it for it in worn if look["accessoires"].get(ITEMS[it][1]) == it]
+    worn = [it for s in SLOTS if isinstance(it := porte.get(s), str) and known(it)]
+    mine = [it for it in worn if look["accessoires"].get(known(it)[1]) == it]
     out = f"{a} " + " et ".join(parts) + "."
     if worn:
         sa = porte.get("saison") if isinstance(porte.get("saison"), str) else None
@@ -544,8 +562,12 @@ class Look:
         self.save()
         return True
 
-    def set(self, args):
-        return self.commit(*apply(self.L, args, _ymd(self.now())))
+    def set(self, args, par=None):
+        """par: who asked, when it is not you (« boutique »: the shop puts on what you bought; its own scene says it)."""
+        new, change = apply(self.L, args, _ymd(self.now()))
+        if change is not None and par:
+            change["par"] = par
+        return self.commit(new, change)
 
     def undo(self):
         if not self.history:

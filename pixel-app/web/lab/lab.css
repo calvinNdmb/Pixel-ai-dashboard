@@ -285,3 +285,8 @@ body.kiosk .screen canvas#crt{touch-action:none}
 .look-lab .look-actions button{min-height:44px;min-width:120px;padding:0 16px;border:1px solid var(--accent);border-radius:9px;background:var(--card-hi);cursor:pointer;font-weight:500}
 .look-lab .look-actions .look-undo{background:var(--accent);color:var(--accent-ink)}
 .look-lab .look-actions button:disabled{opacity:.45;cursor:default}
+/* the Boutique panel (boutique-lab.js): the 24 accessories, drawn in the theme's colours on its background */
+.bout-lab-menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.bout-lab-menu button{min-width:48px;min-height:52px;display:grid;place-items:center;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--bl-bg,#061009);cursor:pointer}
+.bout-lab-menu button:hover{border-color:var(--accent)}
+.bout-lab-menu button.fav{box-shadow:inset 0 0 0 2px var(--amber)}

@@ -47,8 +47,8 @@ async function kiosk(browser) {
   await until(() => k.evaluate(() => !!window.PixelExos && !!window.PixelHabitudes && !!window.PixelNourrir && !!window.PixelAmis && Screens.local.lastBootAt > 0 && Screens.local.boot < 0), 15000);
   await k.evaluate(() => Screens.persona.setLife(false));     // no moment of life of his own meanwhile
   await free(k);
-  check('web/screens.js: one order over his face, highest first (exercise, game, friends, souvenirs, his offers and night, the exercise\'s offer)',
-    JSON.stringify(await k.evaluate(() => Screens.order)) === JSON.stringify(['exo', 'jeu', 'amis', 'souvenirs', 'habitudes', 'exo-offre']));
+  check('web/screens.js: one order over his face, highest first (the Wi-Fi view opened by hand, exercise, game, friends, souvenirs, his offers and night, the exercise\'s offer)',
+    JSON.stringify(await k.evaluate(() => Screens.order)) === JSON.stringify(['wifi', 'exo', 'jeu', 'amis', 'souvenirs', 'habitudes', 'exo-offre']));
   await until(() => k.evaluate(() => PixelNourrir.shown), 4000);
   check('nothing on: no add-on over his face, the plate is there', (await top(k)) === '' && await k.evaluate(() => PixelNourrir.shown));
 

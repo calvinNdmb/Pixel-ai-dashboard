@@ -25,6 +25,7 @@ const PANEL: Record<PanelId, { label: string; hint: string }> = {
   habitudes: { label: 'Ses habitudes', hint: 'Son réveil, sa sieste, son coucher ; ses jeux, ses blagues, ses peurs.' },
   souvenirs: { label: 'Ses souvenirs', hint: 'Ton anniversaire, vos records, ton carnet d’humeur.' },
   album: { label: 'L’album photo', hint: 'Ses plus belles photos, à voir en grand ou à garder.' },
+  boutique: { label: 'La boutique', hint: 'Ses pièces, le cadeau du jour, des accessoires à lui acheter.' },
   amis: { label: 'Ses amis', hint: 'Il rend visite au Pixel d’un copain, de maison en maison.' },
 };
 

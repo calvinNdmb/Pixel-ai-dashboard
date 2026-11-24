@@ -62,7 +62,7 @@ const piSeed: Plug = {
    The page says which ones it has ({panels}); the app's menu (PixelMenu.tsx) offers them, and opens one on the page shown,
    the Pi's or the phone's own Pixel, in this order. An older Pi's page says nothing: no such items; a page without a panel
    (« Ses amis » without a Pi) does not offer it. */
-export const PANELS = ['caractere', 'look', 'habitudes', 'nourrir', 'exos', 'souvenirs', 'album', 'amis'] as const;
+export const PANELS = ['caractere', 'look', 'boutique', 'habitudes', 'nourrir', 'exos', 'souvenirs', 'album', 'amis'] as const;
 export type PanelId = (typeof PANELS)[number];
 const panelPages = new Map<Page, PanelId[]>();
 let offered: PanelId[] = [];

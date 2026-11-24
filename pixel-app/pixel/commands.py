@@ -5,7 +5,7 @@ Anything that is not a command goes to Claude.
 import re
 import unicodedata
 
-from . import anims, caractere, nourrir, scenes
+from . import anims, boutique, caractere, nourrir, scenes
 from . import quiz                    # « quiz sur les volcans », « interroge-moi sur les capitales » (pixel/quiz.py)
 from . import exos                    # math exercises: « exo », « table de 7 », a number while one is open
 from . import souvenirs               # « prends une photo », « montre l'album », « mon anniversaire c'est le 12 mars », « je suis triste »
@@ -20,7 +20,7 @@ THEME_WORDS = {"retro": "retro", "moderne": "moderne", "actuel": "moderne", "man
                "dessin": "croquis", "cahier": "croquis", "lcd": "lcd", "console": "lcd", "poche": "lcd"}
 HELP = ("salon 40 · allume bureau · éteins tout · scène film · minuteur 10 · pause · thème néon · thème suivant · "
         "codex <tâche> · météo, agenda… (nom d'un écran) · humeur triste · anim danse · animations · fais le poisson · scènes · "
-        "visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · exo · table de 7 · quiz sur les volcans · "
+        "visage vivant · caste <lien ou texte> · stop cast · code tv · caractère câlin · mange une pomme · achète le bonnet · exo · table de 7 · quiz sur les volcans · "
         "prends une photo · je suis content · mets ton chapeau · yeux de chat · on joue ? · raconte une blague · "
         "sinon : Claude")
 # a few words that play an animation on their own
@@ -149,7 +149,7 @@ async def run(hub, text):
 
     if t in ("animations", "les animations", "liste des animations"):
         groups = [g + " : " + ", ".join(a["label"] for a in anims.ANIMS if a["group"] == g) for g in anims.GROUPS]
-        return hub.toast("Les 52 animations. " + " · ".join(groups) + ". Tape « anim » et son nom.", 15000)
+        return hub.toast(f"Les {len(anims.IDS)} animations. " + " · ".join(groups) + ". Tape « anim » et son nom.", 15000)
     m = re.match(r"^(?:anim|animation)\s+(.+)$", t)
     if m or t in BARE:
         a = BARE.get(t) or anims.WORDS.get(anims.key(m.group(1)))
@@ -165,6 +165,8 @@ async def run(hub, text):
     if await caractere.command(hub, t, raw):              # « sois grognon », « plus câlin », « appelle-toi Bip »… (pixel/caractere.py)
         return
     if await nourrir.command(hub, t):                       # « mange une pomme », « tu as faim ? », « à table ! » (pixel/nourrir.py)
+        return
+    if await boutique.command(hub, t):                      # « achète le monocle », « mets les lunettes cœur », « cadeau » (pixel/boutique.py)
         return
     if await habitudes.command(hub, t, raw):               # « on joue ? », « raconte une blague », « dis bonjour comme ça : … » (pixel/habitudes.py)
         return

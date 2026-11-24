@@ -29,7 +29,11 @@ const { Screens, P52 } = vm.runInContext('({ Screens, P52: window.Pixel52 })', s
 const L = Screens.local, A = P52.animations, ids = A.map(a => a.id), idles = A.filter(a => a.group === 'Idle').map(a => a.id);
 const themes = Object.keys(sb.PixelThemes({ X: stub(), RM: false, now: 0, blinkP: () => -1, txt() {}, wrap: () => [], fit: s => s }));
 const moods = sb.PixelMoods.map(m => m.id);
-check('the pack: 52 animations, 18 idles, the vector renderer is loaded', ids.length === 52 && idles.length === 18 && typeof sb.Pixel52Themes.draw === 'function');
+check('the pack: 75 animations (its 52 and the 23 added in Pixel OS), 21 idles, the vector renderer is loaded', ids.length === 75 && idles.length === 21 && typeof sb.Pixel52Themes.draw === 'function');
+check('the first 52 are the pack\'s own, in its order; the 23 added come after', ids[0] === 'content' && ids[51] === 'idle-impatient' && ids[52] === 'mange' && ids[74] === 'idle-bulle');
+check('every frame says where the head is (what he wears follows it): the pixel engine and the vector one',
+  ids.every(id => { const q = P52.frame(id, 0.7).pose; return q && [q.dx, q.dy, q.rot].every(Number.isFinite); })
+  && ids.every(id => { sb.Pixel52Themes.draw(canvas(), id, 0.7, { theme: 'modern', transparent: true }); const q = sb.Pixel52Themes.draw.pose; return q && [q.dx, q.dy, q.rot].every(Number.isFinite); }));
 check('the pack does not replace our PixelThemes', themes.length >= 6 && themes.includes('retro') && typeof sb.PixelThemes === 'function');
 
 const snap = (o = {}) => ({
@@ -57,7 +61,7 @@ for (const face of ['pack', 'vivant']) for (const th of themes) {
   set({ mood: { name: 'neutre', until: 0 } });
   for (const scr of ['claude', 'veille', 'reglages']) { L.scr = scr; for (const ph of ['think', 'answer', 'idle']) { set({ chat: { ...S.chat, phase: ph } }); tick(16); tick(400); } }
   L.scr = 'visage'; L.boot = clock; for (let e = 0; e < 3800; e += 250) tick(250);
-  check(`${th}, face ${face}: 52 animations, 15 moods, Claude panel, veille, boot draw without an error`, errs.length === 0, errs.slice(0, 2).join(' | '));
+  check(`${th}, face ${face}: 75 animations, 15 moods, Claude panel, veille, boot draw without an error`, errs.length === 0, errs.slice(0, 2).join(' | '));
 }
 
 // ---- pack mode: what the face plays ----
@@ -75,14 +79,14 @@ check('anim.play wins over the mood, then the mood comes back', a1 === 'danse' &
 set({ mood: { name: 'neutre', until: 0 }, anim: { id: 'chante', t0: Date.now() - 9000, loops: 2, until: Date.now() - 1000 } }); tick(); tick();
 check('an animation that is over goes back to the idle', idles.includes(L.packNow), L.packNow);
 
-// the idle: a weighted draw over the 18 idles, one loop each, never the same twice in a row (two hours of idle)
+// the idle: a weighted draw over the 21 idles, one loop each, never the same twice in a row (two hours of idle)
 const seen = []; let prev = L.packNow;
 for (let t = 0; t < 7200000; t += 60) { tick(60); if (L.packNow !== prev) { seen.push(L.packNow); prev = L.packNow; } L.lastInput = clock; }
 const counts = {}; for (const id of seen) counts[id] = (counts[id] || 0) + 1;
 const repeats = seen.filter((id, i) => i && id === seen[i - 1]).length, onlyIdles = seen.every(id => idles.includes(id));
 const heavy = ['content', 'idle-respire', 'idle-cligne', 'idle-regard'].reduce((s, id) => s + (counts[id] || 0), 0) / 4, light = ['baille', 'fatigue', 'zen', 'idle-luciole'].reduce((s, id) => s + (counts[id] || 0), 0) / 4;
 check('the idle plays only idles, never the same one twice in a row', seen.length > 500 && onlyIdles && repeats === 0, `${seen.length} changes, ${repeats} repeats`);
-check('the idle draw follows the weights (3 for the quiet ones, 1 for the others)', Object.keys(counts).length === 18 && heavy > 1.8 * light, `${heavy.toFixed(1)} vs ${light.toFixed(1)}`);
+check('the idle draw follows the weights (3 for the quiet ones, 1 for the others)', Object.keys(counts).length === 21 && heavy > 1.8 * light, `${heavy.toFixed(1)} vs ${light.toFixed(1)}`);
 
 // touch: a tap makes him happy (or laugh), five taps make him angry, waking up plays the reveil
 L.scr = 'visage'; tick(); let laughs = 0, happy = 0;

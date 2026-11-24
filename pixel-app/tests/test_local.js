@@ -354,7 +354,7 @@ const kept = page => page.evaluate(() => { try { return JSON.parse(localStorage.
   check('…closed a moment ago: nothing changes', (await back(61, 1000)) === 61);
   /* the app's menu opens his panels here (PixelMenu.tsx, plugs.ts openPanel): the page says which it has */
   const offered = (await S(page, () => window.__rn)).filter(m => Array.isArray(m.panels)).pop();
-  check('the page tells the app its panels: Caractère, Nourrir, Exos, Souvenirs, Album, Son look, Ses habitudes (not « Ses amis »: through his Pi only)', !!offered && offered.panels.join() === 'caractere,nourrir,exos,souvenirs,album,look,habitudes', JSON.stringify(offered));
+  check('the page tells the app its panels: Caractère, Nourrir, Exos, Boutique, Souvenirs, Album, Son look, Ses habitudes (not « Ses amis »: through his Pi only)', !!offered && offered.panels.join() === 'caractere,nourrir,exos,boutique,souvenirs,album,look,habitudes', JSON.stringify(offered));
   await page.click('#modes button[data-mode="pixel"]'); await page.waitForTimeout(200);
   const opened = {};
   for (const [id, sel] of [['nourrir', '#nour'], ['exos', '#exos'], ['caractere', '.car-sheet'], ['souvenirs', '#souv'], ['album', '#souv'], ['habitudes', '.hab-sheet']]) {

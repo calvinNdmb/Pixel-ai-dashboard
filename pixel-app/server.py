@@ -49,6 +49,7 @@ from pixel import habitudes              # his habits: his day (wake-up, nap, be
 from pixel import wifi                   # his Wi-Fi: the networks around him, joining one from his own screen (web/wifi.js)
 from pixel import nfc                    # the NFC tag's page (/nfc): a code on his screen, then the Wi-Fi and Claude's API key
 from pixel import voix                   # his ears: the microphone, words heard on the Pi (Vosk), then a command or Claude
+from pixel import boutique               # his shop: coins, accessories, what he wears
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("pixel")
@@ -215,6 +216,7 @@ async def serve(args, cfg, datadir, token):
     optional(hub, "souvenirs", souvenirs.setup, hub, datadir)   # souvenirs.* and humeur.*: souvenirs.json, humeur.json (after exos and nourrir: he reads them)
     optional(hub, "amis", amis.setup, hub, datadir)             # his friends: the amis.* actions, data_dir/amis.json, the relay once there is a friend
     optional(hub, "look", look.setup, hub, datadir)             # « Son look »: the look.* actions, data_dir/look.json
+    boutique.setup(hub, datadir)         # his shop (data_dir/boutique.json): after « Son look », which wears what it sells
     port = args.port
     host = socket.gethostname()
     url = f"http://{host}.local:{port}/?t={token}"

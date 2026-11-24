@@ -45,6 +45,14 @@ const ITEMS = [['chapeau', 'Chapeau haut-de-forme', 'tete'], ['casquette', 'Casq
   ['pere-noel', 'Bonnet de Père Noël', 'tete'], ['bonnet-nuit', 'Bonnet de nuit', 'tete'], ['lunettes-soleil', 'Lunettes de soleil', 'yeux'],
   ['moustache', 'Moustache', 'visage'], ['noeud', 'Nœud papillon', 'cou'], ['echarpe', 'Écharpe', 'cou'], ['pyjama', 'Pyjama', 'cou'], ['casque', 'Casque audio', 'oreilles']];
 const ITEM = Object.fromEntries(ITEMS.map(([id, name, slot]) => [id, { id, name, slot }]));
+/* what his shop sells (web/scenes/boutique.js PixelWardrobe, look.py EXTRA): worn like the items above, one per slot, once
+   bought (OWNS: set by whoever keeps his purse, lab/demo-hub.js; without it, none can be put on here). Drawn by persona.js
+   (PixelWardrobe), not here: compile() keeps to ITEM. */
+const EXTRA = () => (typeof window !== 'undefined' && window.PixelWardrobe && window.PixelWardrobe.BY) || {};
+let OWNS = null;
+const known = x => (has(ITEM, x) ? ITEM[x] : has(EXTRA(), x) ? { id: x, name: EXTRA()[x].label, slot: EXTRA()[x].slot, un: un(EXTRA()[x].nom) } : null);
+const owned = x => has(ITEM, x) || (has(EXTRA(), x) && !!OWNS && !!OWNS(x));
+function un(nom) { for (const [a, b] of [['son ', 'un '], ['sa ', 'une '], ['ses ', 'des ']]) if (String(nom).startsWith(a)) return b + nom.slice(a.length); return String(nom); }
 const TENUES = [['hiver', 'Pour l’hiver', { tete: 'bonnet', cou: 'echarpe' }], ['ete', 'Pour l’été', { tete: 'casquette', yeux: 'lunettes-soleil' }],
   ['halloween', 'Pour Halloween', { tete: 'sorciere' }], ['noel', 'Pour Noël', { tete: 'pere-noel', cou: 'echarpe' }], ['fete', 'Pour la fête', { tete: 'fete', cou: 'noeud' }],
   ['chic', 'Très chic', { tete: 'chapeau', cou: 'noeud', visage: 'moustache' }], ['roi', 'Le roi', { tete: 'couronne' }], ['musique', 'Musique !', { oreilles: 'casque' }],
@@ -65,7 +73,7 @@ function clean(d) {
   for (const k of ['mono', 'saisons', 'nuit']) if (typeof d[k] === 'boolean') o[k] = d[k];
   const ac = d.accessoires && typeof d.accessoires === 'object' ? d.accessoires : {}, sans = d.sans && typeof d.sans === 'object' ? d.sans : {};
   for (const s of SLOT_IDS) {
-    if (has(ITEM, ac[s]) && ITEM[ac[s]].slot === s) o.accessoires[s] = ac[s];
+    if (known(ac[s]) && known(ac[s]).slot === s) o.accessoires[s] = ac[s];
     if (typeof sans[s] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sans[s])) o.sans[s] = sans[s];
   }
   return o;
@@ -122,7 +130,7 @@ function context(S, d) {                      // resolve()'s ctx from a snapshot
   return { date: d || new Date(), meteo: S && S.weather, fete: sou && typeof sou === 'object' ? sou.fete : null,
     dort: asleep(hab), calme: car && typeof car === 'object' ? car.calme : null };
 }
-const itemsOf = v => (Array.isArray(v) ? v : [v]).slice(0, 8).filter(x => has(ITEM, x));
+const itemsOf = v => (Array.isArray(v) ? v : [v]).slice(0, 8).filter(x => typeof x === 'string' && owned(x));
 function apply(look, a = {}, today = ymd(new Date())) {   // look.set: [new, change], change null when nothing moved
   const n = copy(look), quoi = [], ex = {};
   n.sans = Object.fromEntries(Object.entries(n.sans || {}).filter(([, v]) => v === today));   // yesterday's bare slots: the season may come back
@@ -141,12 +149,12 @@ function apply(look, a = {}, today = ymd(new Date())) {   // look.set: [new, cha
     } else for (const x of offs) {
       if (typeof x !== 'string') continue;
       if (x === 'lunettes' && n.yeux === 'lunettes') { n.yeux = 'rond'; quoi.push('enleve'); ex.item = 'lunettes'; continue; }   // his own glasses
-      const s = has(ITEM, x) ? ITEM[x].slot : SLOT_IDS.includes(x) ? x : null;
-      if (s) { ac[s] = null; sans[s] = today; quoi.push('enleve'); ex.item = has(ITEM, x) ? x : null; ex.slot = s; }
+      const s = known(x) ? known(x).slot : SLOT_IDS.includes(x) ? x : null;
+      if (s) { ac[s] = null; sans[s] = today; quoi.push('enleve'); ex.item = known(x) ? x : null; ex.slot = s; }
     }
   }
   for (const it of itemsOf(a.porte)) {
-    const s = ITEM[it].slot; ac[s] = it; delete sans[s];
+    const s = known(it).slot; ac[s] = it; delete sans[s];
     if (it === 'lunettes-soleil' && n.yeux === 'lunettes') n.yeux = 'rond';    // sunglasses instead of his own glasses
     quoi.push('porte'); ex.item = it; ex.slot = s;
   }
@@ -170,6 +178,7 @@ const EYES_ADJ = { bleu: 'bleus', turquoise: 'turquoise', vert: 'verts', jaune: 
 const CHEEKS_ADJ = { bleu: 'bleues', turquoise: 'turquoise', vert: 'vertes', jaune: 'jaunes', orange: 'orange', rouge: 'rouges', rose: 'roses', violet: 'violettes', marron: 'marron' };
 const SHAPE_OUT = { rond: 'ronds', carre: 'carrés', amande: 'en amande', etoile: 'en étoile', coeur: 'en cœur', chat: 'de chat', lunettes: 'ronds' };
 function article(it) {
+  if (!has(ITEM, it)) return known(it).un;                 // a shop's item says it itself (« une cravate »)
   const n = ITEM[it].name.toLowerCase();
   return (['antenne', 'lunettes-soleil'].includes(it) ? 'des ' : ['casquette', 'couronne', 'citrouille', 'moustache', 'echarpe'].includes(it) ? 'une ' : 'un ') + n;
 }
@@ -180,7 +189,7 @@ function describe(look, porte, il = false) {   // look.py describe()
   const eyes = 'des yeux ' + SHAPE_OUT[sh] + (ce === 'theme' ? '' : ' ' + EYES_ADJ[ce]) + (sh === 'lunettes' ? ', avec des lunettes' : '');
   const parts = [eyes, ...(look.couleur_joues !== 'theme' ? [`les joues ${CHEEKS_ADJ[look.couleur_joues]}`] : [])];
   porte = porte && typeof porte === 'object' ? porte : resolve(look, { date: new Date() });
-  const worn = SLOT_IDS.map(s => porte[s]).filter(it => has(ITEM, it)), mine = worn.filter(it => look.accessoires[ITEM[it].slot] === it);
+  const worn = SLOT_IDS.map(s => porte[s]).filter(it => known(it)), mine = worn.filter(it => look.accessoires[known(it).slot] === it);
   let o = `${a} ${parts.join(' et ')}.`;
   if (worn.length) {
     const sa = typeof porte.saison === 'string' ? porte.saison : '';
@@ -262,7 +271,16 @@ function compile(look, porte, id) {
 /* his Christmas scenes (persona.js: the snow, « Joyeux Noël ») bring out the Santa hat, unless you chose what is on his head */
 let PERref = null;
 const XMAS = new Set(['neige', 'joyeux-noel']);
+let HIDE = [];                                // slots whose item steps aside for a moment (web/boutique.js: an accessory tried on)
+function hide(slots) { HIDE = Array.isArray(slots) ? slots.filter(x => SLOT_IDS.includes(x)) : []; }
 function cur() {
+  const c = cur0();
+  if (!c || !HIDE.length || STACK.length || !HIDE.some(s => c.wear[s])) return c;
+  const k = c.key + '|hide:' + HIDE.join();
+  if (!c.hid || c.hid.key !== k) { const wear = { ...c.wear }; for (const s of HIDE) wear[s] = null; c.hid = { ...c, wear, key: k, hid: null }; }
+  return c.hid;
+}
+function cur0() {
   if (STACK.length) return STACK[STACK.length - 1];
   if (MAIN && PERref && SNAP && SNAP.saisons !== false && !MAIN.nuit && !(SNAP.accessoires && SNAP.accessoires.tete) && XMAS.has(PERref.state.cur)) {
     if (!MAIN.xmas) { MAIN.xmas = { ...MAIN, wear: { ...MAIN.wear, tete: 'pere-noel' }, plain: false }; MAIN.xmas.key = MAIN.key + '|xmas'; }
@@ -782,7 +800,7 @@ function screen(PER, before, p, ctx = {}) {
   if (ch && ch.t0 !== seen.change) {                    // car: his traits (persona.js), for the scenes only a character brings
     seen.change = ch.t0; changed = true;
     let car = null; try { car = PER.traits || null; } catch { car = null; }
-    if (fresh(ch.t0)) ev('look', { ...ch, nuit, car });
+    if (fresh(ch.t0) && ch.par !== 'boutique') ev('look', { ...ch, nuit, car });   // the shop's own scene says it (web/scenes/boutique.js)
   }
   if (nuit !== seen.nuit) { seen.nuit = nuit; if (!changed && !routine(p)) ev(nuit ? 'look-nuit' : 'look-jour', {}); }   // his schedule on: his bedtime and his wake-up say it (web/habitudes.js)
   else if (!changed && !nuit && L.porte && L.porte.saison) {
@@ -964,8 +982,9 @@ function app(o = {}) {
 
 const api = {
   SHAPES, COLORS, HEX, EYE_COLORS, CHEEK_COLORS, SLOTS, ITEMS, ITEM, TENUES, SAISONS, DEFAULT, SAVED, HISTORY,
-  clean, resolve, season, isNight, hotSun, context, apply, describe, command, isDefault, norm,
-  get: get, with: withLook, cur, compile, tracker, screen,
+  clean, resolve, season, isNight, hotSun, context, apply, describe, command, isDefault, norm, known,
+  set owns(f) { OWNS = typeof f === 'function' ? f : null; },   // whoever keeps his purse (lab/demo-hub.js): a shop's item once bought
+  get: get, with: withLook, cur, hide, compile, tracker, screen,
   shapePts, inside, pixEye, eyeHex, cheekHex, rainbow, rainbowIndex, roleHex, forTheme, mix, paint, wear, bitmaps, raster, geo, pixRole, layerItems,
   hookPix, hookVec, palette, IDX, PACK_A,
   build, app, open, close, get isOpen() { return !!sheet && !sheet.hidden; },

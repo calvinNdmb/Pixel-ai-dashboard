@@ -1,7 +1,7 @@
 {
  "name": "Pixel",
  "version": "2.1.0",
- "source": "Pixel_Animations_52 (pack de l'utilisateur)",
+ "source": "Pixel_Animations_52 (pack de l'utilisateur), plus 23 animations ajoutées dans Pixel OS",
  "grid": {
   "width": 96,
   "height": 54
@@ -469,6 +469,193 @@
    "group": "Idle",
    "duration": 10,
    "description": "En attendant, il tapote doucement du bout des doigts.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "mange",
+   "label": "Miam",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Il mâche de bon cœur, des miettes plein l’écran.",
+   "loop": true
+  },
+  {
+   "id": "beurk",
+   "label": "Beurk",
+   "group": "Émotions",
+   "duration": 3,
+   "description": "Il tire la langue et secoue la tête : pas bon !",
+   "loop": true
+  },
+  {
+   "id": "repu",
+   "label": "Repu",
+   "group": "Activités",
+   "duration": 5,
+   "description": "Le ventre plein, il souffle et se tapote le ventre.",
+   "loop": true
+  },
+  {
+   "id": "petit-creux",
+   "label": "Petit creux",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Son ventre gargouille ; il regarde vers le bas.",
+   "loop": true
+  },
+  {
+   "id": "compte",
+   "label": "Compte sur ses doigts",
+   "group": "Activités",
+   "duration": 5,
+   "description": "Un, deux, trois… il lève les doigts un à un.",
+   "loop": true
+  },
+  {
+   "id": "concentre",
+   "label": "Concentré",
+   "group": "Activités",
+   "duration": 5,
+   "description": "Les yeux plissés, la langue tirée, le crayon qui gratte.",
+   "loop": true
+  },
+  {
+   "id": "en-feu",
+   "label": "En feu !",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Une série gagnante : des flammes et des étoiles dans les yeux.",
+   "loop": true
+  },
+  {
+   "id": "casque",
+   "label": "Casque sur les oreilles",
+   "group": "Activités",
+   "duration": 4,
+   "description": "Il hoche la tête en rythme sous son casque.",
+   "loop": true
+  },
+  {
+   "id": "popcorn",
+   "label": "Pop-corn",
+   "group": "Activités",
+   "duration": 5,
+   "description": "Les yeux grands ouverts devant le film, le pop-corn saute.",
+   "loop": true
+  },
+  {
+   "id": "compte-a-rebours",
+   "label": "Compte à rebours",
+   "group": "Système",
+   "duration": 5,
+   "description": "Il fixe l’aiguille qui tourne, de plus en plus tendu.",
+   "loop": true
+  },
+  {
+   "id": "ding",
+   "label": "Ding !",
+   "group": "Système",
+   "duration": 3,
+   "description": "La cloche sonne : il sursaute, c’est fini !",
+   "loop": true
+  },
+  {
+   "id": "pause-cafe",
+   "label": "Pause café",
+   "group": "Repos",
+   "duration": 5,
+   "description": "Une tasse fumante et un long moment de détente.",
+   "loop": true
+  },
+  {
+   "id": "jaloux",
+   "label": "Jaloux",
+   "group": "Émotions",
+   "duration": 4,
+   "description": "Un regard en coin et une petite moue.",
+   "loop": true
+  },
+  {
+   "id": "gene",
+   "label": "Gêné",
+   "group": "Émotions",
+   "duration": 4,
+   "description": "Un sourire crispé, une goutte de sueur, il regarde ailleurs.",
+   "loop": true
+  },
+  {
+   "id": "soulage",
+   "label": "Soulagé",
+   "group": "Émotions",
+   "duration": 4,
+   "description": "Ouf ! Il ferme les yeux et souffle un grand coup.",
+   "loop": true
+  },
+  {
+   "id": "trepigne",
+   "label": "Impatient",
+   "group": "Émotions",
+   "duration": 3,
+   "description": "Il trépigne sur place, un œil sur sa montre.",
+   "loop": true
+  },
+  {
+   "id": "froid",
+   "label": "Frissonne",
+   "group": "Météo",
+   "duration": 4,
+   "description": "Il grelotte, les dents qui claquent, sous les flocons.",
+   "loop": true
+  },
+  {
+   "id": "chaud",
+   "label": "Trop chaud",
+   "group": "Météo",
+   "duration": 5,
+   "description": "Il fond un peu et tire la langue sous le soleil.",
+   "loop": true
+  },
+  {
+   "id": "vent",
+   "label": "Coup de vent",
+   "group": "Météo",
+   "duration": 4,
+   "description": "Une bourrasque le pousse de côté, une feuille s’envole.",
+   "loop": true
+  },
+  {
+   "id": "orage",
+   "label": "Orage",
+   "group": "Météo",
+   "duration": 4,
+   "description": "Un éclair : il sursaute, puis guette le suivant.",
+   "loop": true
+  },
+  {
+   "id": "idle-fredonne",
+   "label": "Il fredonne",
+   "group": "Idle",
+   "duration": 9,
+   "description": "Un petit air lui trotte dans la tête.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "idle-heure",
+   "label": "Un œil sur l’heure",
+   "group": "Idle",
+   "duration": 9,
+   "description": "Il jette un coup d’œil à la pendule.",
+   "idleWeight": 1,
+   "loop": true
+  },
+  {
+   "id": "idle-bulle",
+   "label": "La bulle",
+   "group": "Idle",
+   "duration": 11,
+   "description": "Une bulle de savon monte ; il la regarde éclater.",
    "idleWeight": 1,
    "loop": true
   }

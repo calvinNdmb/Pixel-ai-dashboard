@@ -603,7 +603,7 @@ S('taf-flaque', 'La flaque', 'evt', { on: ['weather'], when: d => d.kind === 'pl
     const k = fade(e, 0, 400, 3000, 3400);
     return { y: 24 * k - 34 * bump(seg(e, 700, 1150)) + (hop ? jumps(t, 600, 16) : 0), s: 1 - 0.12 * k, sy: 1 - (hop ? 0.16 * Math.exp(-ph / 90) : 0) - 0.1 * bump(seg(e, 450, 700)), sx: 1 + (hop ? 0.1 * Math.exp(-ph / 90) : 0) }; },
   props: (D, e) => { const t = e - 1150; D.tafPuddle(fade(e, 0, 400, 3000, 3400), t > 0 && t < 1800 ? (t % 600) / 600 : 0, { x: 400, y: 420 }); D.tafRain(e, fade(e, 0, 300, 3000, 3400) * 0.8); } });
-S('taf-echarpe', 'L’écharpe', 'evt', { on: ['weather'], when: d => d.kind === 'neige', w: 2, dur: 4200, anim: [[0, 'surpris'], [700, 'triste'], [2300, 'content']], mood: 'surpris', init: claim,
+S('taf-echarpe', 'L’écharpe', 'evt', { on: ['weather'], when: d => d.kind === 'neige', w: 2, dur: 4200, anim: [[0, 'surpris'], [700, 'froid'], [2300, 'content']], mood: 'surpris', init: claim,
   say: [[100, 1700, L('Il neige !', 'Brrr !', 'Oh, de la neige !', 'Il fait froid…')], [1800, 4000, L('Vite, mon écharpe !', 'Bien au chaud !', 'Ça va mieux.', 'Tout douillet !')]],
   move: e => { const sh = fade(e, 400, 600, 1800, 2200); return { x: 3 * Math.sin(e / 20) * sh, sy: 1 - 0.04 * sh, y: 6 * sh, r: 0.04 * Math.sin(e / 400) * fade(e, 2300, 2700, 3600, 4200) }; },
   props: (D, e) => { D.snow(e, fade(e, 0, 600, 3600, 4200)); D.tafScarf(e, fade(e, 1800, 2400, 3800, 4200)); } });

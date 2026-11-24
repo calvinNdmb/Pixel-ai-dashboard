@@ -1,4 +1,4 @@
-"""Focus timer (25 min work, 5 min break)."""
+"""Focus timer (25 min work, 5 min break). A finished work timer wins coins for his shop (pixel/boutique.py)."""
 import time
 
 
@@ -43,6 +43,9 @@ def setup(hub):
             t.update(left=0, running=False)
             if t["mode"] == "TRAVAIL":
                 t["done"] += 1
+                shop = getattr(hub, "boutique", None)        # 1 coin for every 5 minutes of the timer, 10 at most
+                if shop:
+                    shop.gagner(min(10, int(t["total"] // 300)), "minuteur")
             hub.toast("MINUTEUR : TERMINÉ !", 5000)
             hub.mood("surpris", 2500)
             hub.mark()

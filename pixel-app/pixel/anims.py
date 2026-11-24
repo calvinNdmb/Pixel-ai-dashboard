@@ -1,4 +1,5 @@
-"""The 52 animations of the user's pack (web/pack52/animations.json), loaded once."""
+"""The animations of the user's pack (web/pack52/animations.json), loaded once: the pack's 52, and the 23 added in Pixel OS
+(meals, exercises, the timer, music and video, the weather, four emotions, three idles)."""
 import json
 import unicodedata
 from pathlib import Path
@@ -7,8 +8,8 @@ MANIFEST = Path(__file__).resolve().parent.parent / "web" / "pack52" / "animatio
 ANIMS = json.loads(MANIFEST.read_text(encoding="utf-8"))["animations"]
 BY_ID = {a["id"]: a for a in ANIMS}
 IDS = [a["id"] for a in ANIMS]
-SHOW = [a["id"] for a in ANIMS if a["group"] != "Idle"]       # the 34 expressions, activities and states ("Anim +")
-GROUPS = ["Humeurs", "Émotions", "Activités", "Système", "Repos", "Idle"]
+SHOW = [a["id"] for a in ANIMS if a["group"] != "Idle"]       # the expressions, activities and states, not the idles ("Anim +")
+GROUPS = ["Humeurs", "Émotions", "Activités", "Météo", "Système", "Repos", "Idle"]
 
 
 def key(s):

@@ -97,11 +97,11 @@ if (!kiosk) {
   if (!LOCAL && /Android/i.test(navigator.userAgent) && !window.ReactNativeWebView)                       // in Chrome on Android: the link to the real app, if Pixel has it
     fetch('/pixel.apk', { method: 'HEAD' }).then(r => { if (r.ok) $('apk').hidden = false; }, () => {});
 }
-/* the phone app's menu (pixel-mobile PixelMenu.tsx): « Son caractère », « Le nourrir », « Exos de maths » open their panel
+/* the phone app's menu (pixel-mobile PixelMenu.tsx): « Son caractère », « Le nourrir », « Exos de maths », « La boutique » open their panel
    here (PixelPanel(id)), the Pi's page or the phone's own Pixel alike; in Pixel mode the keys come back first, their sheets
    live with them. The page says once which ones it has ({panels}): an older Pi's page says nothing, the menu then has none. */
 const PANELS = { caractere: () => window.PixelCaractere && PixelCaractere.open(), nourrir: () => window.PixelNourrir && PixelNourrir.panel(true),
-  exos: () => window.PixelExos && PixelExos.panel(true),
+  exos: () => window.PixelExos && PixelExos.panel(true), boutique: () => window.PixelBoutique && PixelBoutique.panel(true),
   amis: () => window.PixelAmis && PixelAmis.panel && PixelAmis.panel(true) };   // amis.js: « Ses amis » (Pi only for now: without one it says so)
 Object.assign(PANELS, { souvenirs: () => window.PixelSouvenirs && PixelSouvenirs.panel(true, 'souvenirs'), album: () => window.PixelSouvenirs && PixelSouvenirs.panel(true, 'album') });   // souvenirs.js: one sheet, two doors
 PANELS.look = () => window.PixelLook && PixelLook.open();                       // « Son look » (look.js)
@@ -111,12 +111,12 @@ window.PixelPanel = id => {
   if (document.body.dataset.mode === 'pixel') setMode('both');
   PANELS[id](); return true;
 };
-if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, souvenirs: window.PixelSouvenirs, album: window.PixelSouvenirs, amis: !LOCAL && window.PixelAmis && window.PixelAmis.panel, look: window.PixelLook, habitudes: window.PixelHabitudes })[id]) });   // amis: through his Pi only
+if (!kiosk) toApp({ panels: Object.keys(PANELS).filter(id => ({ caractere: window.PixelCaractere, nourrir: window.PixelNourrir, exos: window.PixelExos, boutique: window.PixelBoutique, souvenirs: window.PixelSouvenirs, album: window.PixelSouvenirs, amis: !LOCAL && window.PixelAmis && window.PixelAmis.panel, look: window.PixelLook, habitudes: window.PixelHabitudes })[id]) });   // amis: through his Pi only
 /* the row under the keys: each feature adds its own button when its script runs (some later, with the first state); kept
-   here in one order, whatever order they came in: Miroir de Pixel, Agendas, then his own (Caractère, Son look, Habitudes,
+   here in one order, whatever order they came in: Miroir de Pixel, Agendas, then his own (Caractère, Son look, Boutique, Habitudes,
    Nourrir, Exos, Souvenirs, Album, Amis), then the Android app's link. A button not listed stays where it is, after them. */
 const FOOT = document.querySelector('.kb .kfoot > span'), FOOT_ORDER = ['#follow', 'a[href$="reglages.html"]', '#piSettings', '.car-go', '.look-go',
-  '.hab-go', '.nour-go', '.exos-go', '.souv-go', '.amis-go', '#apk'];
+  '.bout-go', '.hab-go', '.nour-go', '.exos-go', '.souv-go', '.amis-go', '#apk'];
 if (LOCAL && $('piSettings')) $('piSettings').hidden = true;   // « Réglages du Pi » (/nfc: a code on his screen, his Wi-Fi, Claude's key): a Pi's
 if (FOOT && !kiosk) {
   const rank = e => { const i = FOOT_ORDER.findIndex(q => e.matches(q)); return i < 0 ? FOOT_ORDER.length : i; };
@@ -128,7 +128,7 @@ if (FOOT && !kiosk) {
 }
 /* the phone app's back button closes an open panel first (PixelSheet.close(): true when one was), the topmost first; the page
    tells the app whether one is shown ({sheet}), so that the button knows (pixel-mobile src/plugs.ts) */
-const SHEETS = [['#exos', () => PixelExos.panel(false)], ['#nour', () => PixelNourrir.panel(false)], ['.car-sheet', () => PixelCaractere.close()],
+const SHEETS = [['#exos', () => PixelExos.panel(false)], ['#nour', () => PixelNourrir.panel(false)], ['#bout', () => PixelBoutique.panel(false)], ['.car-sheet', () => PixelCaractere.close()],
   ['#amis', () => PixelAmis.panel(false)]];
 SHEETS.push(['#souv', () => PixelSouvenirs.back()]);   // souvenirs.js: its full screen photo first, then the sheet
 SHEETS.push(['.look-sheet', () => PixelLook.close()]);                           // « Son look » (look.js)
